@@ -1,0 +1,189 @@
+# 심사 FSM (회원 전/일반/준/정) - 현 코드 기준
+
+본 문서는 **모바일 제출 → 서버 상태 변경 → 어드민 검수/표시**를 한 흐름으로 정리한 FSM이다.
+
+## 상태 필드
+
+- `user.status`: 회원 상태(PENDING/NORMAL/HOLD/BLOCK/LEAVE)
+- `pending_status`: 심사 상태(BASIC_INFO_REVIEW/REQUIRED_AUTH_REVIEW/INTRO_REVIEW/EDIT_NEED/REAPPLY/COMPLETE/REJECT)
+- `pending_stage`: 심사 단계(BASIC_INFO/REQUIRED_AUTH/INTRO/PROFILE_CHANGE/COMPLETE)
+
+## 회원 등급(표기 기준)
+
+- 회원 전: `user.status=PENDING` + `pending_stage=BASIC_INFO`
+- 일반회원(매칭 불가): `user.status=PENDING` + `pending_stage=REQUIRED_AUTH`
+- 준회원(매칭 불가): `user.status=NORMAL` + `pending_stage=INTRO`
+- 정회원(매칭 가능): `user.status=NORMAL` + `pending_stage=COMPLETE`
+- 정회원(프로필 변경 심사중): `user.status=NORMAL` + `pending_stage=PROFILE_CHANGE`
+
+## FSM (Mermaid)
+
+```mermaid
+stateDiagram-v2
+    [*] --> BASIC_INFO : 기본정보 제출
+
+    state "회원 전 (기본정보 심사)\nuser.status=PENDING\npending_stage=BASIC_INFO" as BASIC_INFO
+    state "일반회원 (서류 심사)\nuser.status=PENDING\npending_stage=REQUIRED_AUTH" as REQUIRED_AUTH {
+        state fork_review <<fork>>
+        [*] --> fork_review
+        fork_review --> AUTH_ITEMS : 인증서류 심사
+        fork_review --> INTRO_ITEMS : 소개글 항목 심사(병렬 가능)\n※ pending_stage 전환은 서류 승인 후
+        AUTH_ITEMS --> [*]
+        INTRO_ITEMS --> [*]
+    }
+    state "준회원 (소개글 심사)\nuser.status=NORMAL\npending_stage=INTRO" as INTRO
+    state "정회원 (완료)\nuser.status=NORMAL\npending_stage=COMPLETE" as COMPLETE
+    state "프로필 변경 심사\nuser.status=NORMAL\npending_stage=PROFILE_CHANGE" as PROFILE_CHANGE
+    state "심사 거절\nuser.status=PENDING\npending_status=REJECT" as REJECT
+
+    BASIC_INFO --> BASIC_INFO : 반려/재심사 요청/재제출
+    BASIC_INFO --> REQUIRED_AUTH : 기본정보 승인
+    BASIC_INFO --> REJECT : 심사 거절(최초)
+
+    INTRO --> INTRO : 소개글 반려/재심사 요청/재제출
+    REQUIRED_AUTH --> REQUIRED_AUTH : 서류 반려/재심사 요청/재제출
+
+    REQUIRED_AUTH --> INTRO : 서류 승인
+    REQUIRED_AUTH --> COMPLETE : 서류 승인 + 소개글 완료
+    INTRO --> COMPLETE : 소개글 승인
+
+    COMPLETE --> PROFILE_CHANGE : 프로필 변경 제출
+    PROFILE_CHANGE --> PROFILE_CHANGE : 반려/재심사 요청/재제출
+    PROFILE_CHANGE --> COMPLETE : 변경 승인
+```
+
+## 세부 플로우 (앱/서버/어드민 스윔레인)
+
+### 1) 제출/재제출 경로
+
+```mermaid
+flowchart LR
+  subgraph APP[앱 사용자]
+    A1["회원가입 완료\nSignupGeneralMemberScreen"] -->|Net.auth.signup| S1
+    A2["프로필 최종 검토에서 심사 요청\nProfilePreviewScreen"] -->|Net.member.editInfo| S2
+    A3["인증서류 제출\nMatchingAuthRequestScreen"] -->|Net.member.addAuth| S3
+  end
+  subgraph SERVER[서버]
+    S1["/app/v1/auth.signup\n회원가입 저장 + pending_profile 생성\npending_status_date 갱신"]
+    S2["/app/v1/member.editInfo\nresolvePendingStatus(action: submit)"]
+    S3["/app/v1/member.addAuth\nresolvePendingStatus(action: submit)"]
+    S1 --> L1
+    S2 --> L1
+    S3 --> L1
+  end
+  subgraph ADMIN[어드민/매니저]
+    L1["심사 목록(pendingType)\nmember/pending/list"] --> D1["회원 상세\nmember/detail"]
+  end
+```
+
+### 2) 어드민 심사 액션
+
+```mermaid
+flowchart LR
+  subgraph ADMIN[어드민/매니저]
+    D1["회원 상세(detail.js)\n승인/반려 버튼"] -->|member/pending/save| S4
+    D1 -->|member/pending/reject| S5
+  end
+  subgraph SERVER[서버]
+    S4["pending_save\nresolvePendingStatus(action: review)\n필요 시 user.status 변경"]
+    S5["pending_reject\npending_status=REJECT"]
+  end
+```
+
+## 제출/반려/재심사 정의
+
+- 제출: 단계별 `pending_status`를 **심사 대기 상태로 전환**한다.
+  - 기본정보 제출 → `BASIC_INFO_REVIEW`
+  - 인증서류 제출 → `REQUIRED_AUTH_REVIEW`
+  - 소개글 제출 → `INTRO_REVIEW`
+- 단, 기존 `pending_status=EDIT_NEED`인 경우 제출 시 `REAPPLY`로 전환된다.
+- 반려: `pending_status=EDIT_NEED`
+- 재심사 요청: `pending_status=REAPPLY`
+- 완료: `pending_status=COMPLETE`
+- 심사 거절(최초): `pending_status=REJECT`
+
+## 화면 분기(앱)
+
+- `MatchingScreen`은 `pending_stage`/인증 상태에 따라 `MatchingAuthRequestScreen`/`FullMemberMatchingLockPanel`/정상 매칭 화면/필수 인증 미설정 안내로 분기한다.
+- `ProfilePreviewScreen`에서 심사 요청 시 `Net.member.editInfo`를 호출하며, 필요 시 `submit_target=intro`를 함께 전송한다.
+- `MatchingAuthRequestScreen`의 제출 버튼은 `Net.member.addAuth`를 호출한다.
+- 로그인/자동로그인 경로에서 심사 상태일 경우 `SignupReviewScreen`으로 이동한다.
+
+## Repo별 역할(상태 관점)
+
+### coupler-mobile-app
+
+- 사용자가 기본정보/서류/소개글을 제출한다.
+- 서버가 내려주는 `pending_status`/`pending_stage`를 그대로 표시한다.
+- 클라이언트에서 상태 계산을 중복 구현하지 않는다.
+
+### coupler-api
+
+- 제출/검수 액션 후 `pending_status`/`pending_stage`를 계산한다.
+- 어드민 목록용 `pending_status_display_targets`/`pending_status_display_state`를 산출한다.
+
+### coupler-admin-web
+
+- 목록: `pending_status_display_targets`/`pending_status_display_state`로 상태 라벨/분류를 표시한다.
+- 상세: `pendingType`으로 스코프를 잡되 탭은 숨기지 않는다.
+- 승인/반려 액션은 서버 상태 계산을 트리거하고 결과를 표시한다.
+- 배지 정책: 배지는 **PENDING/REAPPLY(첫 제출/재제출)**만 카운트한다. RETURN(반려)은 배지에 포함하지 않는다.
+- 기본정보 배지 대상: `nickname, job, location, school, family, single, drink, religion, smoke, marriage_plan, height, body_type, appeal_point`
+- 스코프 배지: `full-*`는 인증서류 탭 배지만, `intro-*`는 소개글 탭 배지만 표시한다. `review-reject`는 auth/intro 범위에서만 배지를 표시한다.
+- 소개글 배지: `intro-*`/`review-reject` 스코프에서는 `about_me`/`intro`만 카운트한다. `content=''`인 항목은 카운트에서 제외한다.
+- 소개글 배지(기본): 그 외 스코프에서는 `about_me/appeal_extra/intro/instagram_id/youtube_id/sns_id`만 카운트하며 `content=''`는 제외한다.
+- 프로필 배지 대상: `video`, `profile`만 카운트하며 `content=''`는 제외한다.
+- 저장 검사: `full-*`는 인증서류, `intro-*`는 소개글, `review-reject`는 인증서류+소개글 탭만 검사한다(기본정보/프로필 제외).
+- 저장 차단: 미처리 **PENDING/REAPPLY**가 남아 있으면 `심사적용`을 막는다. RETURN은 저장 가능하며 최종 상태는 서버 계산 기준을 따른다.
+- 저장 차단(필수 인증): `pending_status=REQUIRED_AUTH_REVIEW`이고 필수 인증 설정이 0이면 `심사적용`을 막는다.
+- 저장 차단(관리자 프로필): `admin_profile`이 비어 있으면 `심사적용`을 막는다.
+- 인증서류 배지: 인증서류 탭 배지는 `image_cancel`에서 **반려된 이미지(`reject_images`)를 제외한 개수**로 계산한다.
+- 인증서류 배지(review-reject): `review-reject` 스코프에서는 `status=RETURN/REAPPLY`인 인증서류만 배지 계산 대상으로 본다.
+- 인증서류 목록: 인증정보 탭은 스코프와 무관하게 **전체 인증서류 리스트를 항상 표시**한다(배지/저장검사만 스코프 영향).
+- 소개글 탭 표시: `review-reject` 상세에서 `about_me`/`intro`에 RETURN/REAPPLY가 있으면 필터를 켠다. 이때 `about_me/appeal_extra/intro/instagram_id/youtube_id/sns_id` 중 RETURN/REAPPLY 상태만 표시한다. `about_me`/`intro`에 RETURN/REAPPLY가 없으면 전체 표시한다.
+- 스코프 버튼 비활성: `auth`/`intro` 스코프에서는 기본정보/프로필 탭만 비활성화한다. `review-reject` 스코프는 기본정보/프로필 비활성화를 하지 않는다.
+
+## 상태열 표기 정책(도메인 기준)
+
+- 도메인 정의: 인증서류(`required_auth`), 소개글(`intro`) 두 도메인만 상태열 표기 대상으로 본다.
+- 도메인 내부 항목은 분리 표기하지 않는다.
+  - 인증서류 내부: 학력/직업/연봉/신분증 등 개별 항목 상태는 합산하지 않고 도메인 단일 상태로 본다.
+  - 소개글 내부: `about_me`, `intro` 중 하나라도 RETURN이면 소개글 도메인은 RETURN으로 본다.
+- `appeal_extra`는 비심사 항목이므로 상태열 도메인 계산에서 제외한다.
+- 도메인 상태 우선순위:
+  - RETURN 존재 → `재요청`
+  - RETURN 없음 + REAPPLY 존재 → `재심사요청`
+  - 그 외 → `심사대기` 또는 없음
+- 두 도메인 모두 상태가 있으면 다음 규칙으로 표시한다.
+  - 같은 상태: `인증필수서류/소개글 재요청`, `인증필수서류/소개글 재심사요청`
+  - 다른 상태: `인증필수서류 재요청/소개글 재심사요청`처럼 **도메인별 상태를 분리 표기**한다.
+
+## 어드민 분류 키(pendingType) 요약
+
+- 기본정보 심사: `semi-apply`, `semi-reject`, `semi-reapply`
+- 서류 심사: `full-apply`, `full-reject`, `full-reapply`, `full-accepted`
+- 소개글 심사: `intro-apply`, `intro-reject`, `intro-reapply`, `semi-accepted`
+- 반려 합집합: `review-reject`
+- 프로필 변경 심사: `profile-edit`
+- `review-reject` 목록 포함 조건(쿼리 기준)
+  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류/소개글 pending 없음
+  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 pending 존재
+  - `status=NORMAL` + 소개글 RETURN/REAPPLY 존재
+  - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW/EDIT_NEED/REAPPLY` + 소개글 RETURN/REAPPLY 존재
+  - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 REAPPLY 존재
+  - 인증서류/소개글 pending 기준
+  - 인증서류: 필수 인증 타입 중 status=PENDING/REAPPLY/RETURN
+  - 소개글: `about_me/intro` status=PENDING/REAPPLY/RETURN
+- `full-apply` 목록 포함 조건(쿼리 기준)
+  - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 소개글 RETURN/REAPPLY 없음
+  - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 소개글 RETURN/REAPPLY 존재
+
+## 근거(코드 기준)
+
+- 회원가입 제출: `coupler-mobile-app/src/screens/signup/SignupGeneralMemberScreen.js`
+- 프로필 심사 요청: `coupler-mobile-app/src/screens/shared/ProfilePreviewScreen.tsx`
+- 인증서류 제출: `coupler-mobile-app/src/screens/matching/MatchingAuthRequestScreen.tsx`
+- 매칭 탭 분기: `coupler-mobile-app/src/screens/matching/MatchingScreen.js`
+- 심사 상세/승인/거절: `coupler-admin-web/src/pages/member/detail.js`
+- 어드민 심사 처리: `coupler-api/controller/admin/member.js`
+- 상태 계산: `coupler-api/lib/pending-status.js`, `coupler-api/lib/pending-stage.js`
