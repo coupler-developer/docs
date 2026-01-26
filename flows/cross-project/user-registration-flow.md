@@ -159,5 +159,5 @@ Content-Type: application/json
 ## 관련 문서
 
 - [사용자 인증 플로우 (Mobile)](/flows/coupler-mobile-app/user-authentication-flow.md)
-- [인증/인가 API](/flows/coupler-api/auth-api-flow.md)
-- [사용자 관리 (Admin)](/flows/coupler-admin-web/user-management-flow.md)
+- 인증/인가 API (문서 작성 예정)
+- 사용자 관리 (Admin) (문서 작성 예정)
