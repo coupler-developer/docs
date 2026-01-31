@@ -70,7 +70,7 @@ ALTER TABLE `t_member`
 ```
 
 ```shell
-node scripts/migrate-review-images.js --dry-run  # 먼 저 시뮬레이션
+node scripts/migrate-review-images.js --dry-run  # 먼저 시뮬레이션
 node scripts/migrate-review-images.js            # 실제 실행
 ```
 
@@ -96,9 +96,10 @@ node scripts/migrate-review-images.js            # 실제 실행
 - **심사중 세트**: `t_member_pending (category='profile')` 기준으로 생성
 - 이미지 상태 매핑:
   - 기본: 세트 상태(`PENDING/REAPPLY/RETURN`)를 일괄 적용
-  - `image_cancel` 존재 시 (세트 상태가 `RETURN`일 때):
-    - `image_cancel` 포함 인덱스: `RETURN` (2) + `reason` 매핑
-    - 나머지 인덱스: `PENDING` (0) + `reason` NULL
+- `image_cancel` 존재 시 (세트 상태가 `RETURN`일 때):
+  - `image_cancel` 포함 인덱스: `RETURN` (2) + `reason` 매핑
+  - 나머지 인덱스: `PENDING` (0) + `reason` NULL
+  - `reason` 문자열은 `#` 구분자로 이미지별로 나누어져 있어서, `image_cancel`/`image_index` 순서에 맞춰 각 이미지 행에 해당 분절만 저장하도록 처리해야 함
 
 **프로필 비디오 마이그레이션:**
 
@@ -126,6 +127,7 @@ node scripts/migrate-review-images.js            # 실제 실행
 - `image_cancel` 존재 시 (상태가 `RETURN`일 때):
   - `image_cancel` 포함 인덱스: `RETURN` (2) + `reason` 매핑
   - 나머지 인덱스: `PENDING` (0) + `reason` NULL
+  - `reason` 칼럼도 `#` 구분자로 이미지별 사유를 담고 있으므로, `image_index` 순서로 분해한 후 `image_cancel` 대상만 당일 reason을 채우고 나머지는 `NULL`로 남기는 방식이라고 명시해주면 구체적임
 
 ## FSM 연계 (회원 심사 상태 머신)
 
@@ -432,9 +434,6 @@ UPDATE t_member SET profile_version_id = NULL;
 
 4. **검증 쿼리 추가**
    - Video 마이그레이션 확인 (Query 11)
-   - Video pending 정리 확인 (Query 12)
-   - image_cancel 삭제 확인 (Query 13)
-   - Orphan profile pending 확인 (Query 14)
 
 5. **레거시 컬럼 정리 방침**
    - `t_member_auth.image_cancel` 삭제
@@ -455,4 +454,4 @@ UPDATE t_member SET profile_version_id = NULL;
 | -------------- | --------------------- | ------------------------------------------------- |
 | Profile Images | t_member.profile      | t_member_profile_version + t_member_profile_image |
 | Auth Images    | t_member_auth.image   | t_member_auth_image                               |
-| Video          | t_member.video (유지) | profile*version.video*\*                          |
+| Video          | t_member.video (유지) | t_member_profile_version.video_*                  |

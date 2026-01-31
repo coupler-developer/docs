@@ -2,94 +2,27 @@
 
 ## 문서 인덱스
 
-- [개발환경 구성](README.md#개발환경-구성)
-- [회원 심사 FSM](member-review-fsm.md)
-- [TypeScript 전환 계획](typescript_migration_plan.md)
-- [로그 정책](log-policy.md)
+### Architecture
 
-## 🚀 Git Flow (태그 기반 버전)
+- [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
+- [프로필 이미지 마이그레이션](architecture/member-review-image-migration-plan.md)
 
-### 🌿 기본 브랜치 구조
+### Policy
 
-- **`main`** → 모든 기능/문서/버그 브랜치가 PR로 합쳐지는 단일 기준 브랜치 (배포 및 태깅)
-- **`develop`** → 빈 껍데기처럼 유지하는 임시 실험 브랜치 (필요 시만 사용, main 병합 금지)
-- **`feature/*` · `docs/*` · `fix/*`** → 작업 단위별 말단 브랜치
+- [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
+- [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
+- [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
+- [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
+- [TypeScript 전환 계획](policy/typescript-migration-plan.md)
 
-📌 별도의 `release/*`, `hotfix/*` 브랜치는 없습니다.
+### Flows
 
-→ 모든 배포/패치는 **main에 병합한 뒤 태그(`v1.2.0`, `v1.2.1`)** 로 기록합니다.
+- [사용자 등록 플로우](flows/cross-project/user-registration-flow.md) - 회원가입 → 심사
+- [사용자 인증 플로우](flows/coupler-mobile-app/user-authentication-flow.md) - 로그인
 
----
+### Setup
 
-### 🧩 간단한 흐름 요약
-
-```text
- feature/*   docs/*    fix/*
-     \          |        /
-      \         |       /
-       '------> main ------------------> (배포 + 태그)
-                   ^
-                 tag: v1.2.0 / v1.2.1
-
- develop (optional sandbox, not merged)
-```
-
----
-
-### 🔁 동작 원리 요약
-
-| 단계        | 작업                              | 브랜치 흐름               | 결과              |
-| ----------- | --------------------------------- | ------------------------- | ----------------- |
-| ① 작업 생성 | 기능/문서/버그 단위로 브랜치 생성 | `main`에서 `feature/*` 등 | 개발 진행         |
-| ② PR 생성   | 코드 리뷰 및 QA                   | `feature/* → main`        | 변경 승인         |
-| ③ 병합/태그 | main 병합 후 버전 태그            | `main` + `tag v1.2.0`     | Release 표시      |
-| ④ 긴급 수정 | 직접 수정 브랜치 생성 → main 병합 | `fix/* → main`            | `v1.2.x (Hotfix)` |
-
----
-
-### 💡 이렇게 생각하면 쉬워요
-
-- **브랜치는 작업 단위(기능/문서/버그)**,
-- **태그는 main 배포 시점의 버전 기록.**
-
-즉,
-
-> “main에서 브랜치 파생 → 작업/PR → main으로 병합 → 태그로 버전 표시”
-
----
-
-### 🧱 브랜치 이름 규칙
-
-- 말단 브랜치는 **타입/담당자/주제** 형식으로 작성합니다.
-  - `feature/박성빈/간편가입`
-  - `docs/김민식/브랜치전략`
-  - `fix/박성빈/핫픽스-로그인`
-
----
-
-### 🧾 커밋 메시지 가이드
-
-- [규칙](https://www.conventionalcommits.org/ko/v1.0.0/)
-- 한글로 작성
-
-#### fix 브렌치의 경우
-
-- 제목은 한 줄 요약(예: `fix: 회원가입 선호정보 예외 처리`)으로 작성합니다.
-- 본문에는 반드시 **원인**과 **해결**을 명시합니다.
-
-  ```markdown
-  - 원인: GlobalState.setting.best_favor 로드 전 find() 결과가 undefined라 .name 접근 시 오류 발생
-  - 해결: find() 결과가 없을 때 선택 안내 문구로 대체하고 널 가드 추가
-  ```
-
-- 여러 변경이 포함되면 항목별로 `원인:`/`해결:` 쌍을 나눠 적어 리뷰어가 흐름을 바로 파악할 수 있게 합니다.
-
-#### fix 브렌치가 아닌 경우
-
-- 위 **원인/해결 본문 강제 규칙은 적용하지 않습니다**.
-- 일반적인 [Conventional Commits] 규칙에 맞춰 제목만 작성하거나, 필요 시 간단한 본문을 추가합니다.
-
----
+- [개발환경 구성](README.md)
 
 ## 📦 레포지토리 요약
 
@@ -151,7 +84,7 @@ src/
 
 ## 회원 심사/승급 문서
 
-- 상세 FSM, 상태 정의, 어드민 분류 기준은 [member-review-fsm.md](member-review-fsm.md)를 따른다.
+- 상세 FSM, 상태 정의, 어드민 분류 기준은 [회원 심사 FSM](architecture/member-review-fsm.md)을 따른다.
 
 ## 주의할점
 

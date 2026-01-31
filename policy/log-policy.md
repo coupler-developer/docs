@@ -252,14 +252,13 @@ NODE_ENV=development node app.js | grep '\[uploadImages\]'
 
 ### Backend
 
-- **에러 로그**: CloudWatch / Sentry 등 모니터링 시스템으로 전송
-- **접근 로그**: Morgan 등 미들웨어 사용
+- **에러 로그**: `console.error`로 기록, 필요 시 모니터링 시스템 연동
+- **접근 로그**: Express 미들웨어 사용
 - **비즈니스 로그**: 최소화, 필요 시 DB에 별도 저장
 
 ### Frontend
 
-- **에러 로그**: Sentry / Firebase Crashlytics로 전송
-- **분석 로그**: Firebase Analytics / Amplitude 사용
+- **에러 로그**: `console.error`로 기록, 필요 시 모니터링 시스템 연동
 - **console.log**: 번들에서 자동 제거 (Babel plugin 또는 Terser 설정)
 
 ---
