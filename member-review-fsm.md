@@ -94,28 +94,42 @@ flowchart LR
 
 - 제출: 단계별 `pending_status`를 **심사 대기 상태로 전환**한다.
   - 기본정보 제출 → `BASIC_INFO_REVIEW`
-  - 인증서류 제출 → `REQUIRED_AUTH_REVIEW`
-  - 소개글 제출 → `INTRO_REVIEW`
-- 단, 기존 `pending_status=EDIT_NEED`인 경우 제출 시 `REAPPLY`로 전환된다.
+  - 인증서류 제출 → `REQUIRED_AUTH_REVIEW` 유지 + auth pending 생성/갱신
+  - 소개글 제출 → `INTRO_REVIEW` (intro 카테고리 pending 생성)
+  - 기존 `pending_status=REAPPLY`면 `REAPPLY` 유지
+  - 기존 `pending_status=EDIT_NEED`면 `REAPPLY`로 전환
+  - 기존 `pending_status=REQUIRED_AUTH_REVIEW/INTRO_REVIEW`면 제출 종류와 무관하게 상태 유지
 - 반려: `pending_status=EDIT_NEED`
 - 재심사 요청: `pending_status=REAPPLY`
+  - 심사 아이템 상태는 `STATUS.REAPPLY`로 표시하며, 모바일 인증서류는 `ITEM_PENDING_STATUS.RE_WAIT`로 표시한다.
 - 완료: `pending_status=COMPLETE`
-- 심사 거절(최초): `pending_status=REJECT`
+- 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
+
+> `REQUIRED_AUTH_REVIEW`는 기본정보 승인 완료 후 진입하며, 인증서류 제출 여부는 auth pending 유무로 구분한다.
+>
+> 인증서류/소개글 단계는 `pending_status`만으로 신청/반려/재심사 구분이 어려우므로 해당 단계 아이템 상태로 판단한다(인증서류는 auth pending, 소개글은 intro pending).
+> 이 규칙은 서버 계산 기준이며, 어드민은 서버 값을 그대로 사용한다. 모바일은 서버 값을 우선하되 심사 요청 직후에는 임시 반영을 허용한다.
+>
+> 인증서류 단계 화면 분기:
+>
+> - 필수 인증 미설정이면 안내 화면/문구를 노출한다
+> - 아이템 상태가 RETURN이면 재제출 화면(`MatchingAuthRequestScreen`)
+> - 아이템 상태가 WAIT/RE_WAIT이고 제출된 인증서류가 있으며 `ADD/RETURN`이 없으면 심사중 화면(`LockPanel` 유지)
+> - 제출된 인증서류가 없거나 `ADD/RETURN`이 있으면 재제출 화면(`MatchingAuthRequestScreen`)
 
 ## 화면 분기(앱)
 
 - `MatchingScreen`은 `pending_stage`/인증 상태에 따라 `MatchingAuthRequestScreen`/`FullMemberMatchingLockPanel`/정상 매칭 화면/필수 인증 미설정 안내로 분기한다.
 - `ProfilePreviewScreen`에서 심사 요청 시 `Net.member.editInfo`를 호출하며, 필요 시 `submit_target=intro`를 함께 전송한다.
 - `MatchingAuthRequestScreen`의 제출 버튼은 `Net.member.addAuth`를 호출한다.
-- 로그인/자동로그인 경로에서 심사 상태일 경우 `SignupReviewScreen`으로 이동한다.
+- 로그인/자동로그인 경로에서 `pending_stage=BASIC_INFO`면 `SignupReviewScreen`으로 이동한다. `pending_stage=REQUIRED_AUTH/INTRO`면 매칭 탭(ON_GOING)으로 이동한다.
 
 ## Repo별 역할(상태 관점)
 
 ### coupler-mobile-app
 
 - 사용자가 기본정보/서류/소개글을 제출한다.
-- 서버가 내려주는 `pending_status`/`pending_stage`를 그대로 표시한다.
-- 클라이언트에서 상태 계산을 중복 구현하지 않는다.
+- 서버가 내려주는 `pending_status`/`pending_stage`를 기준으로 표시하되, 심사 요청 직후에는 낙관적으로 임시 반영한다.
 
 ### coupler-api
 
@@ -175,8 +189,12 @@ flowchart LR
   - 인증서류: 필수 인증 타입 중 status=PENDING/REAPPLY/RETURN
   - 소개글: `about_me/intro` status=PENDING/REAPPLY/RETURN
 - `full-apply` 목록 포함 조건(쿼리 기준)
-  - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 소개글 RETURN/REAPPLY 없음
-  - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 소개글 RETURN/REAPPLY 존재
+  - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 인증서류 REAPPLY 없음 + 소개글 RETURN/REAPPLY 없음
+  - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 인증서류 RETURN/REAPPLY 없음 + 소개글 RETURN/REAPPLY 존재
+- `full-reject` 목록 포함 조건(쿼리 기준)
+  - `status=PENDING` + `pending_status=EDIT_NEED` + 인증서류 RETURN 존재
+- `full-reapply` 목록 포함 조건(쿼리 기준)
+  - `status=PENDING` + `pending_status=REAPPLY` + 인증서류 REAPPLY 존재
 
 ## 근거(코드 기준)
 
