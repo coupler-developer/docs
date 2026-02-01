@@ -104,13 +104,13 @@ flowchart LR
   - 심사 아이템 상태는 `STATUS.REAPPLY`로 표시하며, 모바일 인증서류는 `ITEM_PENDING_STATUS.RE_WAIT`로 표시한다.
 - 아이템 상태 정의
 
-  | 상태          | 의미      | 다음 액션     | 상태열 표기 |
-  | ------------- | --------- | ------------- | ----------- |
-  | `UNSUBMITTED` | 미제출    | 사용자 제출   | -           |
-  | `PENDING`     | 첫 제출됨 | 매니저 심사   | 심사대기    |
-  | `RETURN`      | 반려됨    | 사용자 재제출 | 재요청      |
-  | `REAPPLY`     | 재제출됨  | 매니저 재심사 | 재심사요청  |
-  | `NORMAL`      | 승인됨    | - (완료)      | -           |
+  | 상태          | 의미     | 다음 액션     | 상태열 표기 | 라벨     | 배지 | 심사적용 |
+  | ------------- | -------- | ------------- | ----------- | -------- | ---- | -------- |
+  | `UNSUBMITTED` | 미제출   | 사용자 제출   | -           | X        | X    | X        |
+  | `PENDING`     | 제출됨   | 매니저 심사   | 심사대기    | O        | O    | O        |
+  | `RETURN`      | 반려됨   | 사용자 재제출 | 재요청      | O (사유) | X    | X        |
+  | `REAPPLY`     | 재제출됨 | 매니저 재심사 | 재심사요청  | O        | O    | O        |
+  | `NORMAL`      | 승인됨   | - (완료)      | -           | X        | X    | X        |
 
   ```mermaid
   stateDiagram-v2
@@ -126,7 +126,10 @@ flowchart LR
   ```
 
 - 서버는 미제출 항목을 `UNSUBMITTED`로 내려준다. 미제출 판정은 값이 비어있거나( `''/null/undefined` ), 선택형 기본값(예: `-1`)인 경우를 포함한다. `UNSUBMITTED`는 승인/반려/배지/상태 라벨 대상이 아니다.
-- 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 “반려됨” 표시만 한다.
+- 미제출 표현 원칙(도메인별):
+  - 기본정보/소개글: `pending_profile`에 `UNSUBMITTED` 항목을 포함한다.
+  - 인증서류: 제출 전에는 `t_member_auth`/`t_member_auth_image` 행이 없으므로 **행 없음 = 미제출**로 간주한다(UNSUBMITTED 미사용).
+- 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 "반려됨" 라벨과 사유만 표시하며 배지·심사적용 대상이 아니다.
 - 완료: `pending_status=COMPLETE`
 - 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
   - 사용자에게는 "심사중"으로 표시한다. 거절 사실을 명시할 경우 보복성 발언 등의 문제가 발생하여, 재신청 경로 없이 가입 취소만 가능하도록 조치했다.
@@ -140,6 +143,7 @@ flowchart LR
 > 인증서류 단계 화면 분기:
 >
 > - 필수 인증 미설정이면 안내 화면/문구를 노출한다
+> - 인증 아이템 상태는 `ITEM_PENDING_STATUS`로 판단한다(WAIT/RE_WAIT/ADD/RETURN/COMPLETE)
 > - 아이템 상태가 RETURN이면 재제출 화면(`MatchingAuthRequestScreen`)
 > - 아이템 상태가 WAIT/RE_WAIT이고 제출된 인증서류가 있으며 `ADD/RETURN`이 없으면 심사중 화면(`LockPanel` 유지)
 > - 제출된 인증서류가 없거나 `ADD/RETURN`이 있으면 재제출 화면(`MatchingAuthRequestScreen`)
@@ -169,20 +173,19 @@ flowchart LR
 - 상세: `pendingType`으로 스코프를 잡되 탭은 숨기지 않는다.
 - 스코프 없음(일반 상세): 배지/승인·반려/상태 라벨을 표시하지 않는다.
 - 승인/반려 액션은 서버 상태 계산을 트리거하고 결과를 표시한다.
-- 배지 정책: 배지는 **PENDING/REAPPLY(첫 제출/재제출)**만 카운트한다. RETURN(반려)은 배지에 포함하지 않는다.
+- 배지 정책: 배지는 **PENDING/REAPPLY(제출/재제출)**만 카운트한다. RETURN(반려)은 배지에 포함하지 않는다.
 - 기본정보 배지 대상: `nickname, job, location, school, family, single, drink, religion, smoke, marriage_plan, height, body_type, appeal_point`
 - 스코프 배지: `full-*`는 인증서류 탭 배지만, `intro-*`는 소개글 탭 배지만 표시한다. `review-reject`는 기본정보/인증/소개글/프로필 배지를 표시한다.
 - 소개글 배지: `intro-*`/`review-reject` 스코프에서만 표시한다. `about_me`/`intro`만 카운트하며 `content=''`인 항목은 카운트에서 제외한다.
-- `appeal_extra`는 소개글 탭에 표시만 하고 승인/반려/상태 라벨/배지 계산에서 제외한다.
 - 프로필 배지 대상: `video`, `profile`만 카운트하며 `content=''`는 제외한다.
-- 저장 검사: `full-*`는 인증서류, `intro-*`는 소개글, `review-reject`는 인증서류+소개글 탭만 검사한다(기본정보/프로필 제외).
-- 저장 차단: 미처리 **PENDING/REAPPLY**가 남아 있으면 `심사적용`을 막는다. RETURN은 저장 가능하며 최종 상태는 서버 계산 기준을 따른다.
+- 저장 검사: `full-*`는 인증서류, `intro-*`는 소개글, `review-reject`는 기본정보+인증서류+소개글+프로필을 검사한다.
+- 저장 차단: 미처리 **PENDING/REAPPLY**가 남아 있으면 `심사적용`을 막는다. RETURN은 심사적용 대상이 아니므로 저장 가능하며 최종 상태는 서버 계산 기준을 따른다.
 - 저장 차단(필수 인증): `pending_status=REQUIRED_AUTH_REVIEW`이고 필수 인증 설정이 0이면 `심사적용`을 막는다.
 - 저장 차단(관리자 프로필): `admin_profile`이 비어 있으면 `심사적용`을 막는다.
-- 인증서류 배지: 인증서류 탭 배지는 `image_cancel`에서 **반려된 이미지(`reject_images`)를 제외한 개수**로 계산한다.
-- 인증서류 배지(review-reject): `review-reject` 스코프에서는 **REAPPLY만** 카운트한다(RETURN/PENDING 제외).
-- 인증서류 목록: `review-reject` 스코프에서는 `status=RETURN/REAPPLY`만 표시하고, 그 외 스코프에서는 전체 인증서류 리스트를 표시한다.
-- 소개글 탭 표시: `review-reject` 상세에서 `about_me`/`intro`에 RETURN/REAPPLY가 있으면 필터를 켠다. 이때 `about_me/appeal_extra/intro/instagram_id/youtube_id/sns_id` 중 RETURN/REAPPLY 상태만 표시한다. `about_me`/`intro`에 RETURN/REAPPLY가 없으면 전체 표시한다.
+- 인증서류 배지: 인증서류 탭 배지는 **이미지 status가 PENDING/REAPPLY인 개수**로 계산한다(RETURN 제외).
+- 인증서류 탭(배지): `review-reject` 스코프에서는 **PENDING/REAPPLY만** 카운트한다(RETURN 제외).
+- 인증서류 탭(목록): `review-reject` 스코프에서는 `status=PENDING/RETURN/REAPPLY`만 표시한다. 그 외 스코프에서는 전체 인증서류 리스트를 표시한다.
+- 소개글 탭(필터): `review-reject` 상세에서 `about_me`/`intro`에 PENDING/RETURN/REAPPLY가 있으면 **심사 상태만 보기(showOnlyPending)**를 켠다. 이때 `about_me/intro/instagram_id/youtube_id/sns_id` 중 PENDING/RETURN/REAPPLY 상태만 표시한다. `about_me`/`intro`에 PENDING/RETURN/REAPPLY가 없으면 전체 표시한다. `appeal_extra`는 상태와 무관하게 항상 표시한다.
 - 프로필 탭 표시: review-reject 포함 모든 스코프에서 프로필 이미지는 전체 표시하되, 승인/반려 버튼은 `PENDING/REAPPLY`에만 노출한다.
 - 스코프 버튼 비활성: `auth`/`intro` 스코프에서는 기본정보/프로필 탭만 비활성화한다. `review-reject` 스코프는 기본정보/프로필 비활성화를 하지 않는다.
 
@@ -192,7 +195,6 @@ flowchart LR
 - 도메인 내부 항목은 분리 표기하지 않는다.
   - 인증서류 내부: 학력/직업/연봉/신분증 등 개별 항목 상태는 합산하지 않고 도메인 단일 상태로 본다.
   - 소개글 내부: `about_me`, `intro` 중 하나라도 RETURN이면 소개글 도메인은 RETURN으로 본다.
-- `appeal_extra`는 비심사 항목이므로 상태열 도메인 계산에서 제외한다.
 - 도메인 상태 우선순위:
   - RETURN 존재 → `재요청`
   - RETURN 없음 + REAPPLY 존재 → `재심사요청`
