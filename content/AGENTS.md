@@ -116,13 +116,13 @@ src/
 - **불필요한 분기나 fallback 로직 금지**
   - API 파라미터는 하나로 명확하게 정의
   - `param1 ?? param2` 같은 fallback은 API 불일치를 숨김
-  - 예시: `profile_images ?? profile` (잘못됨) → `profile_images` (올바름)
+  - 예시: `profile_image_paths ?? profile` (잘못됨) → `profile_image_paths` (올바름)
   - 이유: fallback은 클라이언트-서버 간 스펙 불일치를 감추어 디버깅을 어렵게 하고 향후 유지보수 시 혼란을 야기함
 
 ### 명시적인 이름 사용
 
 - **모호한 이름 금지, 의미가 명확한 이름 사용**
-  - `profile` (모호함) → `profile_images` (명시적)
+  - `profile` (모호함) → `profile_image_paths` (명시적)
   - `data` (모호함) → `memberData` 또는 `authData` (명시적)
 
 - **단수/복수 구분 엄격히 준수**

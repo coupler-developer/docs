@@ -67,7 +67,7 @@ console.error("[ComponentName] error:", error);
 // ✅ 명확하고 읽기 쉬운 형식
 console.log("[uploadImages] directory:", directory);
 console.log("[uploadImages] files count:", req.files.length);
-console.log("[SignupScreen] payload.profile_images:", images);
+console.log("[SignupScreen] payload.profile_image_paths:", images);
 console.error("[auth.js] signup failed:", error.message);
 
 // ✅ 여러 값은 별도 로그로 분리
@@ -204,7 +204,7 @@ console.log("Entire state:", GlobalState);
 
 // ✅ 허용 (필요한 부분만)
 if (__DEV__) {
-  console.log("User profile images:", GlobalState.me.profile.profile_images);
+  console.log("User profile images:", GlobalState.me.profile.profile_image_paths);
 }
 ```
 
