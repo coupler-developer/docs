@@ -125,7 +125,7 @@ flowchart LR
       NORMAL --> REAPPLY : 사용자 수정 제출
   ```
 
-- 서버는 미제출 항목을 `UNSUBMITTED`로 내려준다. 미제출 판정은 값이 비어있거나( `''/null/undefined` ), 선택형 기본값(예: `-1/0`)인 경우를 포함한다. `UNSUBMITTED`는 승인/반려/배지/상태 라벨 대상이 아니다.
+- 서버는 미제출 항목을 `UNSUBMITTED`로 내려준다. 미제출 판정은 값이 비어있거나( `''/null/undefined` ), 선택형 기본값(예: `-1`)인 경우를 포함한다. `UNSUBMITTED`는 승인/반려/배지/상태 라벨 대상이 아니다.
 - 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 “반려됨” 표시만 한다.
 - 완료: `pending_status=COMPLETE`
 - 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
