@@ -129,7 +129,11 @@ flowchart LR
 - 미제출 표현 원칙(도메인별):
   - 기본정보/소개글: `pending_profile`에 `UNSUBMITTED` 항목을 포함한다.
   - 인증서류: 제출 전에는 `t_member_auth`/`t_member_auth_image` 행이 없으므로 **행 없음 = 미제출**로 간주한다(UNSUBMITTED 미사용).
-- 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 "반려됨" 라벨과 사유만 표시하며 배지·심사적용 대상이 아니다.
+- 어드민 표시/액션/배지 기준(내용 vs 액션 분리):
+  - **내용(이미지/텍스트)**: 상태와 무관하게 항상 표시한다. 상태가 바뀌어도 내용은 사라지지 않는다.
+  - **라벨/사유**: `RETURN`은 "반려됨" 라벨과 사유만 표시한다.
+  - **승인/반려 버튼**: `PENDING/REAPPLY`일 때만 노출한다.
+  - **배지**: `PENDING/REAPPLY(제출/재제출)`만 카운트한다. `RETURN`은 배지·심사적용 대상이 아니다.
 - 완료: `pending_status=COMPLETE`
 - 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
   - 사용자에게는 "심사중"으로 표시한다. 거절 사실을 명시할 경우 보복성 발언 등의 문제가 발생하여, 재신청 경로 없이 가입 취소만 가능하도록 조치했다.
@@ -171,7 +175,7 @@ flowchart LR
 
 - 목록: `pending_status_display_targets`/`pending_status_display_state`로 상태 라벨/분류를 표시한다.
 - 상세: `pendingType`으로 스코프를 잡되 탭은 숨기지 않는다.
-- 스코프 없음(일반 상세): 배지/승인·반려/상태 라벨을 표시하지 않는다.
+- 스코프 없음(일반 상세): 내용은 표시하되 배지/승인·반려/상태 라벨을 표시하지 않는다.
 - 승인/반려 액션은 서버 상태 계산을 트리거하고 결과를 표시한다.
 - 배지 정책: 배지는 **PENDING/REAPPLY(제출/재제출)**만 카운트한다. RETURN(반려)은 배지에 포함하지 않는다.
 - 기본정보 배지 대상: `nickname, job, location, school, family, single, drink, religion, smoke, marriage_plan, height, body_type, appeal_point`
@@ -184,9 +188,10 @@ flowchart LR
 - 저장 차단(관리자 프로필): `admin_profile`이 비어 있으면 `심사적용`을 막는다.
 - 인증서류 배지: 인증서류 탭 배지는 **이미지 status가 PENDING/REAPPLY인 개수**로 계산한다(RETURN 제외).
 - 인증서류 탭(배지): `review-reject` 스코프에서는 **PENDING/REAPPLY만** 카운트한다(RETURN 제외).
-- 인증서류 탭(목록): `review-reject` 스코프에서는 `status=PENDING/RETURN/REAPPLY`만 표시한다. 그 외 스코프에서는 전체 인증서류 리스트를 표시한다.
-- 소개글 탭(필터): `review-reject` 상세에서 `about_me`/`intro`에 PENDING/RETURN/REAPPLY가 있으면 **심사 상태만 보기(showOnlyPending)**를 켠다. 이때 `about_me/intro/instagram_id/youtube_id/sns_id` 중 PENDING/RETURN/REAPPLY 상태만 표시한다. `about_me`/`intro`에 PENDING/RETURN/REAPPLY가 없으면 전체 표시한다. `appeal_extra`는 상태와 무관하게 항상 표시한다.
-- 프로필 탭 표시: review-reject 포함 모든 스코프에서 프로필 이미지는 전체 표시하되, 승인/반려 버튼은 `PENDING/REAPPLY`에만 노출한다.
+- 기본정보 탭(목록): 스코프와 무관하게 **항목/내용은 항상 표시**하되, 라벨/버튼/배지는 상태 기준 규칙을 따른다.
+- 인증서류 탭(목록): 스코프와 무관하게 **항목(타입/이미지)은 항상 표시**하되, 라벨/버튼/배지는 상태 기준 규칙을 따른다.
+- 소개글 탭(목록): 스코프와 무관하게 **항목/내용은 항상 표시**하되, 라벨/버튼/배지는 상태 기준 규칙을 따른다. `appeal_extra`는 상태와 무관하게 항상 표시한다.
+- 프로필 탭(목록): review-reject 포함 모든 스코프에서 프로필 이미지는 전체 표시하되, 라벨/버튼/배지는 상태 기준 규칙을 따른다.
 - 스코프 버튼 비활성: `auth`/`intro` 스코프에서는 기본정보/프로필 탭만 비활성화한다. `review-reject` 스코프는 기본정보/프로필 비활성화를 하지 않는다.
 
 ## 상태열 표기 정책(도메인 기준)
