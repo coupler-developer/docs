@@ -128,6 +128,7 @@ flowchart LR
 - 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 “반려됨” 표시만 한다.
 - 완료: `pending_status=COMPLETE`
 - 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
+  - 사용자에게는 "심사중"으로 표시한다. 거절 사실을 명시할 경우 보복성 발언 등의 문제가 발생하여, 재신청 경로 없이 가입 취소만 가능하도록 조치했다.
 
 > `REQUIRED_AUTH_REVIEW`는 기본정보 승인 완료 후 진입하며, 인증서류 제출 여부는 auth pending 유무로 구분한다.
 >
