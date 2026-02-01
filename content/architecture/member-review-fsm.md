@@ -102,6 +102,30 @@ flowchart LR
 - 반려: `pending_status=EDIT_NEED`
 - 재심사 요청: `pending_status=REAPPLY`
   - 심사 아이템 상태는 `STATUS.REAPPLY`로 표시하며, 모바일 인증서류는 `ITEM_PENDING_STATUS.RE_WAIT`로 표시한다.
+- 아이템 상태 정의
+
+  | 상태          | 의미      | 다음 액션     | 상태열 표기 |
+  | ------------- | --------- | ------------- | ----------- |
+  | `UNSUBMITTED` | 미제출    | 사용자 제출   | -           |
+  | `PENDING`     | 첫 제출됨 | 매니저 심사   | 심사대기    |
+  | `RETURN`      | 반려됨    | 사용자 재제출 | 재요청      |
+  | `REAPPLY`     | 재제출됨  | 매니저 재심사 | 재심사요청  |
+  | `NORMAL`      | 승인됨    | - (완료)      | -           |
+
+  ```mermaid
+  stateDiagram-v2
+      [*] --> UNSUBMITTED : 항목 생성
+
+      UNSUBMITTED --> PENDING : 사용자 첫 제출
+      PENDING --> NORMAL : 매니저 승인
+      PENDING --> RETURN : 매니저 반려
+      RETURN --> REAPPLY : 사용자 재제출
+      REAPPLY --> NORMAL : 매니저 승인
+      REAPPLY --> RETURN : 매니저 반려
+      NORMAL --> REAPPLY : 사용자 수정 제출
+  ```
+
+- 어드민 액션/배지 기준: 아이템 상태가 `PENDING/REAPPLY`일 때만 승인/반려 버튼과 배지를 노출한다. `RETURN`은 “반려됨” 표시만 한다.
 - 완료: `pending_status=COMPLETE`
 - 심사 거절(최초): `pending_status=REJECT` (PENDING 회원 전용)
 
@@ -109,6 +133,7 @@ flowchart LR
 >
 > 인증서류/소개글 단계는 `pending_status`만으로 신청/반려/재심사 구분이 어려우므로 해당 단계 아이템 상태로 판단한다(인증서류는 auth pending, 소개글은 intro pending).
 > 이 규칙은 서버 계산 기준이며, 어드민은 서버 값을 그대로 사용한다. 모바일은 서버 값을 우선하되 심사 요청 직후에는 임시 반영을 허용한다.
+> 목록/스코프 분류는 `pending_status`를 쓰고, 승인/반려/배지는 아이템 `status` 기준으로 판단한다.
 >
 > 인증서류 단계 화면 분기:
 >
@@ -140,21 +165,23 @@ flowchart LR
 
 - 목록: `pending_status_display_targets`/`pending_status_display_state`로 상태 라벨/분류를 표시한다.
 - 상세: `pendingType`으로 스코프를 잡되 탭은 숨기지 않는다.
+- 스코프 없음(일반 상세): 배지/승인·반려/상태 라벨을 표시하지 않는다.
 - 승인/반려 액션은 서버 상태 계산을 트리거하고 결과를 표시한다.
 - 배지 정책: 배지는 **PENDING/REAPPLY(첫 제출/재제출)**만 카운트한다. RETURN(반려)은 배지에 포함하지 않는다.
 - 기본정보 배지 대상: `nickname, job, location, school, family, single, drink, religion, smoke, marriage_plan, height, body_type, appeal_point`
-- 스코프 배지: `full-*`는 인증서류 탭 배지만, `intro-*`는 소개글 탭 배지만 표시한다. `review-reject`는 auth/intro 범위에서만 배지를 표시한다.
-- 소개글 배지: `intro-*`/`review-reject` 스코프에서는 `about_me`/`intro`만 카운트한다. `content=''`인 항목은 카운트에서 제외한다.
-- 소개글 배지(기본): 그 외 스코프에서는 `about_me/appeal_extra/intro/instagram_id/youtube_id/sns_id`만 카운트하며 `content=''`는 제외한다.
+- 스코프 배지: `full-*`는 인증서류 탭 배지만, `intro-*`는 소개글 탭 배지만 표시한다. `review-reject`는 기본정보/인증/소개글/프로필 배지를 표시한다.
+- 소개글 배지: `intro-*`/`review-reject` 스코프에서만 표시한다. `about_me`/`intro`만 카운트하며 `content=''`인 항목은 카운트에서 제외한다.
+- `appeal_extra`는 소개글 탭에 표시만 하고 승인/반려/상태 라벨/배지 계산에서 제외한다.
 - 프로필 배지 대상: `video`, `profile`만 카운트하며 `content=''`는 제외한다.
 - 저장 검사: `full-*`는 인증서류, `intro-*`는 소개글, `review-reject`는 인증서류+소개글 탭만 검사한다(기본정보/프로필 제외).
 - 저장 차단: 미처리 **PENDING/REAPPLY**가 남아 있으면 `심사적용`을 막는다. RETURN은 저장 가능하며 최종 상태는 서버 계산 기준을 따른다.
 - 저장 차단(필수 인증): `pending_status=REQUIRED_AUTH_REVIEW`이고 필수 인증 설정이 0이면 `심사적용`을 막는다.
 - 저장 차단(관리자 프로필): `admin_profile`이 비어 있으면 `심사적용`을 막는다.
 - 인증서류 배지: 인증서류 탭 배지는 `image_cancel`에서 **반려된 이미지(`reject_images`)를 제외한 개수**로 계산한다.
-- 인증서류 배지(review-reject): `review-reject` 스코프에서는 `status=RETURN/REAPPLY`인 인증서류만 배지 계산 대상으로 본다.
-- 인증서류 목록: 인증정보 탭은 스코프와 무관하게 **전체 인증서류 리스트를 항상 표시**한다(배지/저장검사만 스코프 영향).
+- 인증서류 배지(review-reject): `review-reject` 스코프에서는 **REAPPLY만** 카운트한다(RETURN/PENDING 제외).
+- 인증서류 목록: `review-reject` 스코프에서는 `status=RETURN/REAPPLY`만 표시하고, 그 외 스코프에서는 전체 인증서류 리스트를 표시한다.
 - 소개글 탭 표시: `review-reject` 상세에서 `about_me`/`intro`에 RETURN/REAPPLY가 있으면 필터를 켠다. 이때 `about_me/appeal_extra/intro/instagram_id/youtube_id/sns_id` 중 RETURN/REAPPLY 상태만 표시한다. `about_me`/`intro`에 RETURN/REAPPLY가 없으면 전체 표시한다.
+- 프로필 탭 표시: review-reject 포함 모든 스코프에서 프로필 이미지는 전체 표시하되, 승인/반려 버튼은 `PENDING/REAPPLY`에만 노출한다.
 - 스코프 버튼 비활성: `auth`/`intro` 스코프에서는 기본정보/프로필 탭만 비활성화한다. `review-reject` 스코프는 기본정보/프로필 비활성화를 하지 않는다.
 
 ## 상태열 표기 정책(도메인 기준)
@@ -180,14 +207,14 @@ flowchart LR
 - 반려 합집합: `review-reject`
 - 프로필 변경 심사: `profile-edit`
 - `review-reject` 목록 포함 조건(쿼리 기준)
-  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류/소개글 pending 없음
-  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 pending 존재
+  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류/소개글 이슈 없음
+  - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 RETURN/REAPPLY 존재
   - `status=NORMAL` + 소개글 RETURN/REAPPLY 존재
   - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW/EDIT_NEED/REAPPLY` + 소개글 RETURN/REAPPLY 존재
   - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 REAPPLY 존재
-  - 인증서류/소개글 pending 기준
-  - 인증서류: 필수 인증 타입 중 status=PENDING/REAPPLY/RETURN
-  - 소개글: `about_me/intro` status=PENDING/REAPPLY/RETURN
+  - 인증서류/소개글 이슈 기준(반려/재심사)
+  - 인증서류: 필수 인증 타입 중 status=RETURN/REAPPLY
+  - 소개글: `about_me/intro` status=RETURN/REAPPLY
 - `full-apply` 목록 포함 조건(쿼리 기준)
   - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 인증서류 REAPPLY 없음 + 소개글 RETURN/REAPPLY 없음
   - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 인증서류 RETURN/REAPPLY 없음 + 소개글 RETURN/REAPPLY 존재
