@@ -53,10 +53,21 @@ markdown_extensions:
 
 nav:
   - Home: AGENTS.md
-  - 개발환경 구성: README.md
+  - Getting Started: README.md
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
+      - 회원 라이프사이클: architecture/member-lifecycle.md
+      - 매칭 FSM: architecture/matching-fsm.md
+      - 매칭 키 시스템: architecture/matching-key-system.md
+      - 매칭 스케줄 알고리즘: architecture/matching-schedule-algorithm.md
+      - 미팅 시스템: architecture/meeting-system.md
+      - 라운지 시스템: architecture/lounge-system.md
+      - 채팅 시스템: architecture/chat-system.md
+      - 결제 시스템: architecture/payment-system.md
+      - 푸시 알림: architecture/push-notification.md
+      - 관리자 권한: architecture/admin-permission.md
+      - 크론 작업: architecture/cron-jobs.md
   - Policy:
       - Git 브랜치 전략: policy/git-branch-strategy.md
       - 커밋 메시지 컨벤션: policy/commit-convention.md
@@ -66,4 +77,5 @@ nav:
   - Flows:
       - 사용자 등록 플로우: flows/cross-project/user-registration-flow.md
       - 사용자 인증 플로우: flows/coupler-mobile-app/user-authentication-flow.md
+      - 매칭 플로우: flows/cross-project/matching-flow.md
   - Technical Debt: technical-debt.md
