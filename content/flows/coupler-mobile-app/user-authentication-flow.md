@@ -96,7 +96,7 @@ Content-Type: application/json
 // PrefUtils (AsyncStorage)
 PrefUtils.setString(ASYNC_PARAM.USER_EMAIL, email);
 PrefUtils.setString(ASYNC_PARAM.USER_PASSWORD, password);
-PrefUtils.setString(ASYNC_PARAM.LAST_LOGIN_PROVIDER, 'email');
+PrefUtils.setString(ASYNC_PARAM.LAST_LOGIN_PROVIDER, "email");
 
 // GlobalState (MobX)
 GlobalState.loginStatus.accessToken = accessToken;
@@ -107,12 +107,12 @@ GlobalState.setMyInfo(user_info);
 
 #### 분기 조건
 
-| pending_stage | 이동 화면 |
-|---------------|----------|
-| `basic_info` | SignupReviewScreen (심사대기) |
-| `required_auth` | MatchingScreen (인증서류) |
-| `intro` | MatchingScreen (소개글) |
-| `complete` | HomeScreen (정상) |
+| pending_stage   | 이동 화면                     |
+| --------------- | ----------------------------- |
+| `basic_info`    | SignupReviewScreen (심사대기) |
+| `required_auth` | MatchingScreen (인증서류)     |
+| `intro`         | MatchingScreen (소개글)       |
+| `complete`      | HomeScreen (정상)             |
 
 ## 자동 로그인
 
@@ -154,12 +154,12 @@ POST /app/v1/auth/login/social
 
 ## 에러 처리
 
-| result_code | 의미 | 처리 |
-|-------------|------|------|
-| 0 | 성공 | 화면 분기 |
-| -1 | 인증 실패 | "이메일 또는 비밀번호가 올바르지 않습니다" |
-| -2 | 차단된 회원 | LoginFailScreen 이동 |
-| -3 | 탈퇴한 회원 | "탈퇴한 계정입니다" |
+| result_code | 의미        | 처리                                       |
+| ----------- | ----------- | ------------------------------------------ |
+| 0           | 성공        | 화면 분기                                  |
+| -1          | 인증 실패   | "이메일 또는 비밀번호가 올바르지 않습니다" |
+| -2          | 차단된 회원 | LoginFailScreen 이동                       |
+| -3          | 탈퇴한 회원 | "탈퇴한 계정입니다"                        |
 
 ## 관련 컴포넌트
 
