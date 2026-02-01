@@ -191,5 +191,5 @@ POST /app/v1/auth/login/social
 
 ## 관련 문서
 
-- [사용자 등록 플로우](/flows/cross-project/user-registration-flow.md)
-- [회원 심사 FSM](/architecture/member-review-fsm.md)
+- [사용자 등록 플로우](../cross-project/user-registration-flow.md)
+- [회원 심사 FSM](../../architecture/member-review-fsm.md)

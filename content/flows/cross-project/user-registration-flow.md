@@ -162,7 +162,7 @@ POST /admin/member/pending/save
 
 ## 상태 흐름
 
-상세한 상태 전이는 [회원 심사 FSM](/architecture/member-review-fsm.md) 참조
+상세한 상태 전이는 [회원 심사 FSM](../../architecture/member-review-fsm.md) 참조
 
 ```
 회원가입 완료
@@ -206,5 +206,5 @@ POST /admin/member/pending/save
 
 ## 관련 문서
 
-- [회원 심사 FSM](/architecture/member-review-fsm.md)
-- [사용자 인증 플로우](/flows/coupler-mobile-app/user-authentication-flow.md)
+- [회원 심사 FSM](../../architecture/member-review-fsm.md)
+- [사용자 인증 플로우](../coupler-mobile-app/user-authentication-flow.md)
