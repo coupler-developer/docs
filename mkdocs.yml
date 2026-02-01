@@ -3,7 +3,7 @@ site_url: https://coupler-developer.github.io/docs
 repo_url: https://github.com/coupler-developer/docs
 repo_name: coupler-developer/docs
 
-docs_dir: .
+docs_dir: content
 
 theme:
   name: material
