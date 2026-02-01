@@ -1,0 +1,65 @@
+site_name: Coupler 개발 문서
+site_url: https://coupler-developer.github.io/docs
+repo_url: https://github.com/coupler-developer/docs
+repo_name: coupler-developer/docs
+
+docs_dir: .
+
+theme:
+  name: material
+  language: ko
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 다크 모드로 전환
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 라이트 모드로 전환
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+plugins:
+  - search:
+      lang: ko
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: AGENTS.md
+  - 개발환경 구성: README.md
+  - Architecture:
+      - 회원 심사 FSM: architecture/member-review-fsm.md
+      - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
+  - Policy:
+      - Git 브랜치 전략: policy/git-branch-strategy.md
+      - 커밋 메시지 컨벤션: policy/commit-convention.md
+      - 로그 정책: policy/log-policy.md
+      - 코드 리뷰 정책: policy/code-review-policy.md
+      - TypeScript 전환 계획: policy/typescript-migration-plan.md
+  - Flows:
+      - 사용자 등록 플로우: flows/cross-project/user-registration-flow.md
+      - 사용자 인증 플로우: flows/coupler-mobile-app/user-authentication-flow.md
+  - Technical Debt: technical-debt.md
