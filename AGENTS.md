@@ -7,6 +7,10 @@
 - [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
 - [프로필 이미지 마이그레이션](architecture/member-review-image-migration-plan.md)
 
+### Technical Debt
+
+- [기술 부채 정리](technical-debt.md)
+
 ### Policy
 
 - [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
