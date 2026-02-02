@@ -215,6 +215,10 @@ flowchart LR
 - 소개글 심사: `intro-apply`, `intro-reject`, `intro-reapply`, `semi-accepted`
 - 반려 합집합: `review-reject`
 - 프로필 변경 심사: `profile-edit`
+- `review-reject` 목록 표시 규칙
+  - 상태열을 `서류/소개글/기본정보` 3개로 분리해 도메인별 상태를 각각 표기한다.
+  - 각 열 상태 우선순위는 RETURN → REAPPLY → PENDING → (없음/승인됨) 기준으로 판단한다.
+  - 기본정보 상태에는 프로필 이미지/영상 심사 상태를 포함한다.
 - `review-reject` 목록 포함 조건(쿼리 기준)
   - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류/소개글 이슈 없음
   - `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 RETURN/REAPPLY 존재
