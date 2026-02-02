@@ -221,12 +221,12 @@ flowchart LR
   - `status=NORMAL` + 소개글 RETURN/REAPPLY 존재
   - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW/EDIT_NEED/REAPPLY` + 소개글 RETURN/REAPPLY 존재
   - `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 REAPPLY 존재
-  - 인증서류/소개글 이슈 기준(반려/재심사)
+- 인증서류/소개글 이슈 기준(반려/재심사)
   - 인증서류: 필수 인증 타입 중 status=RETURN/REAPPLY
-  - 소개글: `about_me/intro` status=RETURN/REAPPLY
+  - 소개글: `about_me/intro` status=RETURN/REAPPLY ( `appeal_extra`는 심사 제외로 이슈 판단에 포함하지 않음 )
 - `full-apply` 목록 포함 조건(쿼리 기준)
-  - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 인증서류 REAPPLY 없음 + 소개글 RETURN/REAPPLY 없음
-  - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 인증서류 RETURN/REAPPLY 없음 + 소개글 RETURN/REAPPLY 존재
+  - 기본 조건: `status=PENDING` + `pending_status=REQUIRED_AUTH_REVIEW` + 인증서류 제출 존재 + 인증서류 REAPPLY 없음 (소개글 상태는 무관, `appeal_extra` 포함)
+  - 병렬 보정: `status=PENDING` + `pending_status=EDIT_NEED/REAPPLY` + 인증서류 PENDING 존재 + 인증서류 RETURN/REAPPLY 없음 + 소개글 RETURN/REAPPLY 존재 (`about_me/intro` 기준)
 - `full-reject` 목록 포함 조건(쿼리 기준)
   - `status=PENDING` + `pending_status=EDIT_NEED` + 인증서류 RETURN 존재
 - `full-reapply` 목록 포함 조건(쿼리 기준)
