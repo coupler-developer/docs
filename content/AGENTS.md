@@ -138,10 +138,12 @@ src/
 
 ## 🧪 테스트 코드 전략 (레포별)
 
+- 공통 규칙: 코드베이스는 `.js/.jsx/.ts/.tsx` 혼용 가능. **테스트 파일에만 `.test.ts`/`.test.tsx`를 적용**한다.
+
 ### coupler-admin-web (CRA)
 
 - 러너: `react-scripts test` 사용 (`coupler-admin-web/package.json`).
-- 위치/규칙: `src/**/*.test.jsx` 또는 `src/**/__tests__`로 시작.
+- 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
   1. `src/helper` 등 순수 로직 단위 테스트
   2. `src/pages` 스모크 렌더링 테스트
@@ -152,6 +154,7 @@ src/
 ### coupler-api (Express)
 
 - 러너: `jest` 사용 (`coupler-api/package.json`).
+- 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
   1. `lib/*.js` 유틸 단위 테스트
   2. `controller`/`routes` 통합 테스트(요청/응답 검증)
@@ -162,7 +165,7 @@ src/
 ### coupler-mobile-app (React Native)
 
 - 러너: `jest` + `preset: react-native` 사용 (`coupler-mobile-app/jest.config.js`).
-- 위치/규칙: `__tests__` 또는 `src/**/__tests__`로 시작.
+- 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
   1. `src/screens/**/steps` 등 핵심 화면 스모크 렌더링
   2. 조건부 UI/상태 변화 테스트
