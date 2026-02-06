@@ -8,7 +8,6 @@
 - `pending_status`: 심사 상태(BASIC_INFO_REVIEW/REQUIRED_AUTH_REVIEW/INTRO_REVIEW/EDIT_NEED/REAPPLY/COMPLETE/REJECT)
 - `pending_stage`: 심사 단계(BASIC_INFO/REQUIRED_AUTH/INTRO/PROFILE_CHANGE/COMPLETE)
 
-
 ## 회원 등급(표기 기준)
 
 - 회원 전: `user.status=PENDING` + `pending_stage=BASIC_INFO`
@@ -16,7 +15,6 @@
 - 준회원(매칭 불가): `user.status=NORMAL` + `pending_stage=INTRO`
 - 정회원(매칭 가능): `user.status=NORMAL` + `pending_stage=COMPLETE`
 - 정회원(프로필 변경 심사중): `user.status=NORMAL` + `pending_stage=PROFILE_CHANGE`
-
 
 ## FSM (Mermaid)
 
@@ -146,7 +144,6 @@ flowchart LR
 
   - 사용자에게는 "심사중"으로 표시한다. 거절 사실을 명시할 경우 보복성 발언 등의 문제가 발생하여, 재신청 경로 없이 가입 취소만 가능하도록 조치했다.
 
-
 > `REQUIRED_AUTH_REVIEW`는 기본정보 승인 완료 후 진입하며, 인증서류 제출 여부는 auth pending 유무로 구분한다.
 >
 > 인증서류/소개글 단계는 `pending_status`만으로 신청/반려/재심사 구분이 어려우므로 해당 단계 아이템 상태로 판단한다(인증서류는 auth pending, 소개글은 intro pending).
@@ -168,7 +165,6 @@ flowchart LR
 - `MatchingAuthRequestScreen`의 제출 버튼은 `Net.member.addAuth`를 호출한다.
 - 로그인/자동로그인 경로에서 `pending_stage=BASIC_INFO`면 `SignupReviewScreen`으로 이동한다. `pending_stage=REQUIRED_AUTH/INTRO`면 매칭 탭(ON_GOING)으로 이동한다.
 
-
 ## Repo별 역할(상태 관점)
 
 ### coupler-mobile-app
@@ -176,12 +172,10 @@ flowchart LR
 - 사용자가 기본정보/서류/소개글을 제출한다.
 - 서버가 내려주는 `pending_status`/`pending_stage`를 기준으로 표시하되, 심사 요청 직후에는 낙관적으로 임시 반영한다.
 
-
 ### coupler-api
 
 - 제출/검수 액션 후 `pending_status`/`pending_stage`를 계산한다.
 - 어드민 목록용 `pending_status_display_targets`/`pending_status_display_state`를 산출한다.
-
 
 ### coupler-admin-web
 
@@ -206,7 +200,6 @@ flowchart LR
 - 프로필 탭(목록): review-reject 포함 모든 스코프에서 프로필 이미지는 전체 표시하되, 라벨/버튼/배지는 상태 기준 규칙을 따른다.
 - 스코프 버튼 비활성: `auth`/`intro` 스코프에서는 기본정보/프로필 탭만 비활성화한다. `review-reject` 스코프는 기본정보/프로필 비활성화를 하지 않는다.
 
-
 ## 상태열 표기 정책(도메인 기준)
 
 - 도메인 정의: 인증서류(`required_auth`), 소개글(`intro`) 두 도메인만 상태열 표기 대상으로 본다.
@@ -223,7 +216,6 @@ flowchart LR
 
   - 같은 상태: `인증필수서류/소개글 재요청`, `인증필수서류/소개글 재심사요청`
   - 다른 상태: `인증필수서류 재요청/소개글 재심사요청`처럼 **도메인별 상태를 분리 표기**한다.
-
 
 ## 어드민 분류 키(pendingType) 요약
 
@@ -258,7 +250,6 @@ flowchart LR
 - `full-reapply` 목록 포함 조건(쿼리 기준)
 
   - `status=PENDING` + `pending_status=REAPPLY` + 인증서류 REAPPLY 존재
-
 
 ## 근거(코드 기준)
 

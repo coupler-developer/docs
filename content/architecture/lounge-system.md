@@ -38,7 +38,6 @@ flowchart TD
 - `parent = 0`: 어미댓글 (최상위)
 - `parent > 0`: 대댓글 (해당 ID의 댓글에 대한 응답)
 
-
 ## API 엔드포인트
 
 ### 게시글
@@ -71,7 +70,6 @@ flowchart TD
 - `t_lounge.best = 'Y'`로 설정
 - 선정 시 작성자에게 FCM 알림 (LOUNGE_BEST)
 
-
 ## 프로필 비공개 처리
 
 ```mermaid
@@ -89,7 +87,6 @@ flowchart TD
 - `lounge_block_date`: 라운지 작성 차단 날짜
 - 차단 기간 중 글/댓글 작성 불가
 - 관리자가 일수 지정하여 패널티 부여
-
 
 ## FCM 알림
 

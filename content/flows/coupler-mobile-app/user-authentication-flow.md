@@ -31,7 +31,6 @@ sequenceDiagram
 
 - `screens/login/LoginScreen.js`
 
-
 #### 입력 데이터
 
 ```javascript
@@ -63,7 +62,6 @@ Content-Type: application/json
 
 - `coupler-api/controller/app/v1/auth.js` → `login()`
 
-
 ### Step 3: API 응답
 
 #### 성공 응답
@@ -91,7 +89,6 @@ Content-Type: application/json
 
 - `mobx/GlobalState.js` → `setMyInfo()`
 - `utils/PrefUtils.js`
-
 
 #### 저장 데이터
 
@@ -144,7 +141,6 @@ if (token) {
 - 네이버
 - 애플 (iOS)
 
-
 ### API
 
 ```
@@ -174,12 +170,10 @@ POST /app/v1/auth/login/social
 - `utils/APIUtils.js` → `Net.auth.login`
 - `utils/PrefUtils.js`
 
-
 ### API
 
 - `controller/app/v1/auth.js` → `login()`
 - `routes/app/v1/auth.js`
-
 
 ## 보안 고려사항
 
@@ -197,7 +191,6 @@ POST /app/v1/auth/login/social
 
    - accessToken 만료 시 재로그인
    - 서버에서 강제 로그아웃 가능
-
 
 ## 관련 문서
 

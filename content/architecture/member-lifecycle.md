@@ -47,12 +47,10 @@ stateDiagram-v2
 - 심사 완료 시 `NORMAL`로 전환
 - 심사 과정 상세: [member-review-fsm.md](./member-review-fsm.md)
 
-
 ### NORMAL (정상)
 
 - 모든 기능 사용 가능
 - 매칭 대상에 포함
-
 
 ### HOLD (휴면)
 
@@ -64,7 +62,6 @@ stateDiagram-v2
 - **제한**: 로그인/매칭 불가
 - **개인정보 파기**: 해당 없음
 
-
 ### BLOCK (영구정지)
 
 - **진입**: Super Admin 차단
@@ -73,7 +70,6 @@ stateDiagram-v2
 - **제한**: 로그인/매칭 불가
 - **개인정보 파기**: 30일 후 자동 파기
 
-
 ### LEAVE (탈퇴)
 
 - **진입**: 회원 자발적 탈퇴 (`member.leave` API)
@@ -81,7 +77,6 @@ stateDiagram-v2
 - **재가입**: 14일 경과 후 정보 리셋하여 신규 가입
 - **제한**: 로그인 시 "존재하지 않는 회원" 처리
 - **개인정보 파기**: 30일 후 자동 파기
-
 
 ## 재가입 정책
 
@@ -94,13 +89,11 @@ stateDiagram-v2
 - 재가입 시 기존 회원정보는 `resetUserInfo()`로 초기화된다.
 - HOLD만 관리자 해제로 기존 정보를 유지한 채 복귀 가능하다.
 
-
 ## 개인정보 자동 파기
 
 - **대상**: `BLOCK` 또는 `LEAVE` 상태
 - **조건**: `status_date`로부터 30일 경과 + `auto_delete=NORMAL`
 - **실행**: Cron 작업
-
 
 ## 근거 (코드 기준)
 

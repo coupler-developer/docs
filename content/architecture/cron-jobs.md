@@ -87,7 +87,6 @@ match_expire_date: 만남일 + 3일 23:59:59
 - 연관 데이터 삭제 (19개 테이블)
 - 매칭/서비스 이용 기록은 보관
 
-
 ### cleanupOldProfileVersions
 
 90일 이상 오래된 프로필:
@@ -95,7 +94,6 @@ match_expire_date: 만남일 + 3일 23:59:59
 - finalize된 이전 버전 삭제
 - 관련 이미지 파일 삭제
 - 현재 버전은 유지
-
 
 ## API 엔드포인트
 
@@ -120,7 +118,6 @@ GET /admin/cron/cleanupOldProfileVersions
 
 - 외부 스케줄러(PM2, crontab 등)에서 HTTP 호출
 - 내부 node-cron 등 미사용
-
 
 ## 근거 (코드 기준)
 

@@ -4,14 +4,12 @@
 
 - React Native 앱의 TypeScript 전환 범위와 우선순위를 문서화한다.
 
-
 ## 현황 요약
 
 - `tsconfig.json`이 존재하며 `@react-native/typescript-config`를 사용한다.
 - `typescript`, `@types/*`가 `devDependencies`에 포함되어 있다.
 - 일부 `.ts/.tsx` 파일이 이미 존재한다.
 - `src` 내 대부분은 `.js/.jsx`로 유지 중이다.
-
 
 ## 기본 원칙 및 제약
 
@@ -25,7 +23,6 @@
 - 세부 규칙은 `AGENTS.md`를 참조한다.
 - `AGENTS.md`와 본 문서가 충돌하면, 우선 `AGENTS.md`에 맞추고 본 문서를 갱신한다.
 
-
 ## 타입/정규화 원칙
 
 - API 응답은 유연하게 받고, 내부 모델은 엄격하게 유지한다.
@@ -35,12 +32,10 @@
 
   - 예: `id: number` (항상 존재) vs `nickname?: string` (선택적)
 
-
 ## 전환 범위
 
 - 전체 전환을 목표로 한다.
 - 우선순위는 leaf 컴포넌트부터 시작한다.
-
 
 ## 단계/우선순위
 
@@ -78,14 +73,12 @@
    - `noImplicitAny` 등 옵션 단계적 강화
    - 완료 기준: lint/test 통과 + 문서 업데이트
 
-
 ## 산출물
 
 - 전환 체크리스트 문서
 - 공통 타입 선언 파일
 - 업데이트된 `tsconfig` 및 린트 규칙
 - 전환된 소스 파일(.ts/.tsx)
-
 
 ## 확인 필요 사항
 

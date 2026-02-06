@@ -8,7 +8,6 @@
 - **coupler-api**: 비즈니스 로직, 상태 관리
 - **coupler-admin-web**: 카드 전달, 큐레이터 제안
 
-
 ## 전체 플로우 다이어그램
 
 ```mermaid
@@ -93,7 +92,6 @@ flowchart LR
 - API: `POST /match/confirm`
 - 취소 시 남성 키 전액 환불
 
-
 #### 선호정보 전달
 
 ```javascript
@@ -106,7 +104,6 @@ flowchart LR
 ```
 
 - API: `POST /match/sendInfo`
-
 
 ### 3단계: 일정 조율 (SEND_FAVOR_INFO → OK_SCHEDULE)
 
@@ -123,7 +120,6 @@ flowchart LR
 - API: `POST /match/addSchedule`
 - 상세: [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md)
 
-
 #### 일정 수락
 
 ```javascript
@@ -135,7 +131,6 @@ flowchart LR
 ```
 
 - API: `POST /match/acceptSchedule`
-
 
 ### 4단계: 만남 준비 (OK_SCHEDULE → CHAT_OPEN)
 
@@ -154,7 +149,6 @@ flowchart LR
 
 - API: `POST /match/setLocation`
 - 카카오맵 API 활용: `GET /match/searchLocation`
-
 
 #### 채팅
 
@@ -183,7 +177,6 @@ flowchart LR
 
 - API: `POST /match/writeReview`
 - 보상: +15 키
-
 
 #### 후기 작성 후 옵션
 
@@ -232,7 +225,6 @@ MatchingScreen
 - [matching-fsm.md](../../architecture/matching-fsm.md) - 상태 머신
 - [matching-key-system.md](../../architecture/matching-key-system.md) - 키 시스템
 - [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md) - 일정 알고리즘
-
 
 ## 근거 (코드 기준)
 
