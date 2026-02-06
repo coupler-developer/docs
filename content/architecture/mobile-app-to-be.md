@@ -13,6 +13,7 @@
 - 상수: 화면 전용은 `src/screens/<도메인>/<화면>Constants.ts`/`.js`, 도메인 공용은 `src/screens/<도메인>/shared/constants/`, 전역은 `src/constants/`.
 - Card는 “화면 일부 재사용 블록”에만 사용하고, 화면 레이아웃을 포함하면 `*ScreenContent`/`*Panel`로 이름을 올린다.
 
+
 ## coupler-mobile-app 예시 폴더 구조 (to-be)
 
 ```text
@@ -49,4 +50,3 @@ src/
 - Tab은 메인 하단 탭(매칭/채팅/스퀘어/설정), 각 탭은 전용 Stack으로 상세 화면을 관리한다.
 - 탭 루트 화면은 해당 탭 Stack의 루트로만 둔다(동일 화면을 RootStack에 중복 등록하지 않는다).
 - 하단 탭이 필요한 화면은 Tab Navigator를 통해 진입한다(탭 지정 네비게이션).
-

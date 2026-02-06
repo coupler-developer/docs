@@ -6,6 +6,7 @@
 - 운영 DB에 마이그레이션 적용 후 즉시 전환한다(듀얼-라이트 없음).
 - 과거 세트는 90일 보관 후 정리한다.
 
+
 ## 새 스키마(DDL)
 
 ```sql
@@ -82,12 +83,15 @@ node scripts/migrate-review-images.js            # 실제 실행
 
 - 세트 번호(`version_no`): 회원별 1부터 순차 증가
 - 세트 생성일(`create_date`):
+
   - 심사중 세트: `t_member_pending.create_date` 사용
   - 현재 세트: `COALESCE(t_member.signup_date, NOW())` 사용
 - 세트 상태(`status`):
+
   - 심사중 세트: `t_member_pending.status` 매핑
   - 현재 세트: `NORMAL(1)` 설정
 - 세트 최종심사일(`finalize_date`): 마이그레이션 시점에는 `NULL`, 이후 승인/반려 시 갱신
+
 
 **프로필 이미지 마이그레이션:**
 
@@ -95,11 +99,14 @@ node scripts/migrate-review-images.js            # 실제 실행
 - **현재 세트**: `t_member.profile` 기준으로 생성
 - **심사중 세트**: `t_member_pending (category='profile')` 기준으로 생성
 - 이미지 상태 매핑:
+
   - 기본: 세트 상태(`PENDING/REAPPLY/RETURN`)를 일괄 적용
 - `image_cancel` 존재 시 (세트 상태가 `RETURN`일 때):
+
   - `image_cancel` 포함 인덱스: `RETURN` (2) + `reason` 매핑
   - 나머지 인덱스: `PENDING` (0) + `reason` NULL
   - `reason` 문자열은 `#` 구분자로 이미지별로 나누어져 있어서, `image_cancel`/`image_index` 순서에 맞춰 각 이미지 행에 해당 분절만 저장하도록 처리해야 함
+
 
 **프로필 비디오 마이그레이션:**
 
@@ -107,27 +114,33 @@ node scripts/migrate-review-images.js            # 실제 실행
 - **현재 세트**: `t_member.video` 기준으로 현재 세트에 포함
 - **심사중 세트**: `t_member_pending (category='video')` 기준으로 심사중 세트에 포함
 - 비디오 상태/사유 매핑:
+
   - pending.status → video_status
   - pending.reason → video_reason
 - **주의**: 여성 전용 기능
+
 
 **세트 상태 집계 규칙 (런타임 API):**
 
 - 런타임에서 `lib/review-image.js:resolveAggregateStatus()` 함수가 이미지/비디오 상태를 집계하여 세트 상태 결정
 - 마이그레이션 시에는 세트 상태를 `pending.status`(심사중) 또는 `NORMAL`(현재) 직접 설정
 
+
 **포인터 설정:**
 
 - `t_member.profile_version_id`: **현재 세트**의 `t_member_profile_version.id`로 설정
+
 
 ### 인증 이미지
 
 - `t_member_auth.image` (#구분자) → `t_member_auth_image`
 - 이미지 상태: `t_member_auth.status`를 일괄 적용
 - `image_cancel` 존재 시 (상태가 `RETURN`일 때):
+
   - `image_cancel` 포함 인덱스: `RETURN` (2) + `reason` 매핑
   - 나머지 인덱스: `PENDING` (0) + `reason` NULL
   - `reason` 칼럼도 `#` 구분자로 이미지별 사유를 담고 있으므로, `image_index` 순서로 분해한 후 `image_cancel` 대상만 당일 reason을 채우고 나머지는 `NULL`로 남기는 방식이라고 명시해주면 구체적임
+
 
 ## FSM 연계 (회원 심사 상태 머신)
 
@@ -140,12 +153,15 @@ node scripts/migrate-review-images.js            # 실제 실행
   → 새 프로필 버전 생성 (`status=PENDING`, `version_no` 증가)
   → 관리자 심사 (`/admin/member/pending/save`)
   → 승인 시:
+
   - 새 버전 `status=NORMAL`로 변경
   - `t_member.profile_version_id` 업데이트
   - `pending_stage=COMPLETE` 복귀
     → 반려 시:
+
   - 새 버전 `status=RETURN`
   - `pending_stage=PROFILE_CHANGE` 유지 (재제출 대기)
+
 
 ### 신규 가입 심사 플로우
 
@@ -154,9 +170,11 @@ node scripts/migrate-review-images.js            # 실제 실행
   → 관리자 기본정보 심사 승인
   → `pending_stage=REQUIRED_AUTH` 전환
   → 최종 승인 시:
+
   - 프로필 버전 `status=NORMAL`
   - `user.status=NORMAL` + `pending_stage=COMPLETE`
   - `t_member.profile_version_id` 설정
+
 
 ### 상태 코드 매핑
 
@@ -176,6 +194,7 @@ node scripts/migrate-review-images.js            # 실제 실행
 - `t_member_pending.status`가 STATUS 상수 값(0=PENDING, 1=NORMAL, 2=RETURN, 3=REAPPLY)을 사용한다고 가정
 - 만약 실제 DB에서 다른 값 체계를 사용한다면 스크립트 수정 필요
 
+
 ## 단계별 마이그레이션 플랜
 
 ### 1. 사전 준비
@@ -183,9 +202,11 @@ node scripts/migrate-review-images.js            # 실제 실행
 - 운영 DB 백업(필수).
 - 배포 창구 설정(점검 모드 또는 쓰기 중단).
 
+
 ### 2. 스키마 추가
 
 - 위 DDL 적용(신규 테이블 + `t_member.profile_version_id` 컬럼).
+
 
 ### 3. 백필(기존 데이터 이행)
 
@@ -193,16 +214,19 @@ node scripts/migrate-review-images.js            # 실제 실행
 - 이행 후 `t_member.profile_version_id` 설정.
 - 이행 스크립트는 idempotent하게 구성(중복 방지).
 
+
 ### 4. 검증
 
 - 마이그레이션 후 아래 검증 쿼리를 실행하여 데이터 무결성 확인.
 - 모든 검증 통과 확인 후 다음 단계 진행.
+
 
 ### 5. 앱/서버 배포 및 즉시 전환
 
 - 신규 테이블 기준으로 읽기/쓰기 전환.
 - **강제 업데이트 필수**: 구버전 앱은 즉시 차단.
 - 배포 순서:
+
   1. 스키마 추가 (신규 테이블 생성)
   2. 마이그레이션 실행 (신규 테이블 백필)
   3. 검증 완료 (아래 검증 쿼리 실행)
@@ -248,6 +272,7 @@ node scripts/migrate-review-images.js            # 실제 실행
 
 - 조건: `현재 세트 제외` + `최종상태(승인/반려)` + `t_member_profile_version.finalize_date <= NOW() - INTERVAL 90 DAY`
 - 대상: `t_member_profile_version` 및 `t_member_profile_image` 삭제.
+
 
 ## 검증 쿼리
 
@@ -387,6 +412,7 @@ UPDATE t_member SET profile_version_id = NULL;
 2. 이전 API 버전으로 재배포
 3. 근본 원인 분석 후 재시도 계획
 
+
 **결과**: 마이그레이션 이전 상태로 완전 복원, 재시도 일정 재수립
 
 ### 시나리오 3: 데이터 손상 발견 (최악의 경우)
@@ -400,6 +426,7 @@ UPDATE t_member SET profile_version_id = NULL;
 3. 이전 앱/서버 버전으로 재배포
 4. 사후 분석 및 재시도 일정 수립
 
+
 **결과**: 마이그레이션 이전 상태로 완전 복원
 
 ### 재시도 전략
@@ -410,6 +437,7 @@ UPDATE t_member SET profile_version_id = NULL;
 - 실패 로그를 상세히 기록하여 재시도 시 참고
 - 배치 크기 조정 가능 (`--batch-size` 옵션)
 
+
 ---
 
 ## 변경 이력
@@ -419,27 +447,34 @@ UPDATE t_member SET profile_version_id = NULL;
 **변경 사항:**
 
 1. **제목 및 범위 업데이트**
+
    - "프로필/인증 이미지" → "프로필 이미지/비디오/인증 이미지"
    - Video를 프로필 심사 항목에 명시적으로 포함
 
 2. **스키마 업데이트**
+
    - `t_member_profile_version`에 video 관련 컬럼 추가:
+
      - `video_url`: 프로필 비디오 URL (여성 전용)
      - `video_status`: 비디오 심사 상태
      - `video_reason`: 비디오 반려 사유
 
 3. **데이터 이행 규칙 업데이트**
+
    - 프로필 비디오 마이그레이션 규칙 추가
    - `t_member.video` + `t_member_pending (category='video')` → `profile_version.video_*`
 
 4. **검증 쿼리 추가**
+
    - Video 마이그레이션 확인 (Query 11)
 
 5. **레거시 컬럼 정리 방침**
+
    - `t_member_auth.image_cancel` 삭제
    - `t_member_pending (category='profile')` 삭제
    - `t_member_pending (category='video')` 삭제
    - **`t_member.video`는 유지** (하위 호환성)
+
 
 **근거:**
 
@@ -447,6 +482,7 @@ UPDATE t_member SET profile_version_id = NULL;
 - Video는 profile과 동일하게 심사 필요 (여성 전용)
 - UI에서 video와 profile images를 같은 리스트로 표시 (`[video, ...images]`)
 - 일관성: profile images와 동일한 버전 관리 필요
+
 
 **마이그레이션 대상 최종 정리:**
 

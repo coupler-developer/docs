@@ -61,6 +61,7 @@ console.error("[ComponentName] error:", error);
 - 여러 값은 쉼표로 구분하지 말고 별도 로그로 분리
 - 객체/배열은 자동 포맷팅 활용 (JSON.stringify 지양)
 
+
 #### 좋은 예
 
 ```javascript
@@ -109,11 +110,13 @@ console.log("[Step3] data:", JSON.stringify(data));
 - Frontend 컴포넌트: `[ComponentName]` (예: `[SignupScreen]`, `[Step3]`)
 - 유틸리티/라이브러리: `[ModuleName]` (예: `[review-image]`, `[APIUtils]`)
 
+
 #### 일관성 유지
 
 - 같은 모듈 내에서는 동일한 태그 사용
 - 키 이름은 변수명과 일치시키기
 - 순서: 입력 파라미터 → 중간 결과 → 최종 결과
+
 
 ### 개발 로그 예시
 
@@ -256,10 +259,12 @@ NODE_ENV=development node app.js | grep '\[uploadImages\]'
 - **접근 로그**: Express 미들웨어 사용
 - **비즈니스 로그**: 최소화, 필요 시 DB에 별도 저장
 
+
 ### Frontend
 
 - **에러 로그**: `console.error`로 기록, 필요 시 모니터링 시스템 연동
 - **console.log**: 번들에서 자동 제거 (Babel plugin 또는 Terser 설정)
+
 
 ---
 
@@ -272,6 +277,7 @@ NODE_ENV=development node app.js | grep '\[uploadImages\]'
 - [ ] 개인정보/민감정보가 포함되지 않았는가?
 - [ ] 운영 환경에 필요한 로그인가? (에러/경고만 허용)
 - [ ] 반복 로그가 아닌가? (루프 외부로 이동 또는 요약)
+
 
 ---
 

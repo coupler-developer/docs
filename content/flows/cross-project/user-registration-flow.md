@@ -10,6 +10,7 @@
 - **coupler-api**: 비즈니스 로직 및 데이터 처리
 - **coupler-admin-web**: 회원 심사 및 관리
 
+
 ## 플로우 다이어그램
 
 ```mermaid
@@ -40,6 +41,7 @@ sequenceDiagram
 - `screens/signup/SignupGeneralMemberStep1.js` (기본정보)
 - `screens/signup/SignupGeneralMemberStep2.js` (프로필)
 - `screens/signup/SignupGeneralMemberStep3.js` (사진)
+
 
 #### 입력 정보
 
@@ -89,6 +91,7 @@ Content-Type: application/json
 
 - `coupler-api/controller/app/v1/auth.js` → `signup()`
 
+
 ### Step 3: 데이터 저장 (API → DB)
 
 #### 처리 순서
@@ -98,6 +101,7 @@ Content-Type: application/json
 3. 회원 정보 저장 (`t_member`)
 4. 프로필 이미지 저장 (`t_member_profile_version`, `t_member_profile_image`)
 5. pending_profile 생성 (`t_member_pending_profile`)
+
 
 #### 테이블
 
@@ -140,12 +144,14 @@ INSERT INTO t_member_profile_image (version_id, image_url, sort_order) VALUES (?
 - `pending_status = 1` (BASIC_INFO_REVIEW)
 - `pending_stage = 'basic_info'`
 
+
 ### Step 5: 관리자 심사 (Admin Web)
 
 #### 관련 파일
 
 - `coupler-admin-web/src/pages/member/pending.js` (목록)
 - `coupler-admin-web/src/pages/member/detail.js` (상세/심사)
+
 
 #### 심사 API
 
@@ -184,16 +190,19 @@ POST /admin/member/pending/save
 - **인증**: 없음 (회원가입 시)
 - **상태 관리**: MobX `GlobalState`
 
+
 ### API → Database
 
 - **DB**: MySQL
 - **ORM**: 직접 쿼리 (mysql2)
 - **트랜잭션**: 필요 시 사용
 
+
 ### API → Admin Web
 
 - **관리 API**: REST API with JWT
 - **세션**: express-session
+
 
 ## 에러 처리
 

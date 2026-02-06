@@ -12,6 +12,7 @@
 
 1. 공용 워크스페이스 폴더를 만든다.
 2. org에 있는 아래 4개 레포를 워크스페이스 하위 폴더로 `git clone` 한다.
+
    - coupler-api: <https://github.com/coupler-developer/coupler-api>
    - coupler-admin-web: <https://github.com/coupler-developer/coupler-admin-web>
    - coupler-mobile-app: <https://github.com/coupler-developer/coupler-mobile-app>

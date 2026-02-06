@@ -17,51 +17,63 @@
 - verbose한 문법 지양
 - Optional (`?`) 최소화: API/데이터 소스에서 반드시 제공하는 필드는 optional로 표시하지 않는다. 실제로 값이 없을 수 있는 경우에만 `?` 사용
 
+
 ## 코드 품질 정책
 
 ### API 스펙 명확성
 
 - **불필요한 분기나 fallback 로직 금지**
+
   - API 파라미터는 하나로 명확하게 정의
   - `param1 ?? param2` 같은 fallback은 API 불일치를 숨김
   - 예시: `profile_image_paths ?? profile` (잘못됨) → `profile_image_paths` (올바름)
   - 이유: fallback은 클라이언트-서버 간 스펙 불일치를 감추어 디버깅을 어렵게 하고 향후 유지보수 시 혼란을 야기함
 
+
 ### 스펙 위반을 숨기지 않기
 
 - **normalize/resolve로 땜질 금지**
+
   - 예시: `normalizeAuthImages(...)`, `resolveXxx(...)`로 잘못된 스펙을 "그럴듯하게" 맞추는 코드 금지
   - 원칙: 스펙이 애매하면 API/DB 스키마부터 고정하고, 클라이언트는 그 스펙만 처리한다
 - **스펙 위반은 에러로 드러내기**
+
   - 불가능한 상태는 `if (...) return;` 같은 조용한 가드로 숨기지 않는다
   - 사용자에게는 토스트/에러 메시지로 알리고, 개발 환경에서는 throw/log로 즉시 드러내기
+
 
 ### 타입/Optional 규칙
 
 - **API가 항상 내려주는 필드면 Optional(`?`) 금지**
+
   - "언젠가 null일 수 있음"이라는 추측으로 `?`를 붙이지 않는다
   - 실제로 값이 없을 수 있는 케이스가 정의된 필드만 Optional로 둔다
 - **단일 스펙 강제**
+
   - `images` vs `image`, `image_url` vs `url`처럼 중복 키를 동시에 허용하지 않는다
   - 배열이면 복수형, 단일 값이면 단수형을 강제하고, 스펙은 한 가지로 고정한다
+
 
 ### 명시적인 이름 사용
 
 - **모호한 이름 금지, 의미가 명확한 이름 사용**
+
   - `profile` (모호함) → `profile_image_paths` (명시적)
   - `data` (모호함) → `memberData` 또는 `authData` (명시적)
 
 - **단수/복수 구분 엄격히 준수**
+
   - `image` (단일 이미지) vs `images` (복수 이미지)
   - `url` (단일 URL) vs `urls` (복수 URL)
   - 배열이면 반드시 복수형, 단일 값이면 반드시 단수형
 
 - **타입과 일치하는 명명**
+
   - 문자열 배열: `imageUrls` (O), `imageUrl` (X)
   - '#' 구분자 문자열: `profileImagesString` 또는 `profileImagesConcatenated` (O), `profile` (X)
+
 
 ## 네이밍 전환 메모
 
 - ritzy -> coupler로 전체적인 개명 필요
 - 기존 코드 전체를 한 번에 바꾸기에는 변경이 크므로, 변경분에 대해서만 앞으로 명칭을 coupler로 고정한다
-

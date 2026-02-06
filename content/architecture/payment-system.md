@@ -71,6 +71,7 @@ flowchart LR
 - API: `POST /admin/iap/change_status`
 - 회수 시 회원 보유 키보다 많이 회수하지 않음 (최소값 제한)
 
+
 ## 결제 통계 API
 
 | API | 응답 |
