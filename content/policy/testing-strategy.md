@@ -39,6 +39,13 @@
 - 상호작용 테스트 필요 시 `@testing-library/react-native` 도입 고려(현재 의존성 없음).
 - 네이티브 모듈(AsyncStorage, Reanimated 등)은 Jest mock/셋업 파일로 분리 구성.
 
+### docs (MkDocs)
+
+- 러너: GitHub Actions (mkdocs build + markdownlint) 사용.
+- 문서 빌드: `mkdocs build --strict`
+- 문서 lint: `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`)
+
 ## 🔧 CI 전략
 
-- 모든 CI는 `pull_request` 이벤트만 트리거한다.
+- 서비스 레포(coupler-*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
+- docs 레포: 문서 배포/검증을 위해 `push(main)`에서도 워크플로가 동작할 수 있다.

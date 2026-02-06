@@ -9,6 +9,7 @@
 - coupler-mobile-app
 - coupler-api
 - coupler-admin-web
+- docs
 
 ## 코드 리뷰 원칙
 
@@ -64,6 +65,7 @@
 - [ ] 문서 업데이트
 - [ ] 자체 테스트 완료
 - [ ] `.ts/.tsx` 변경 시 TypeScript 타입체크 통과 (`npx tsc --noEmit`)
+- [ ] 문서(docs) 변경 시 markdownlint 통과 (CI: `DavidAnson/markdownlint-cli2-action@v16`, globs: `**/*.md`)
 ```
 
 ## 리뷰어 가이드
@@ -104,6 +106,7 @@
 - [ ] `.ts/.tsx` 변경에서 타입 단언(`as`)이 과도하지 않고, TypeScript 오류가 없는가?
 - [ ] 코드 변경 시 관련 문서(FSM, API 스펙 등)도 함께 업데이트했는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?
+- [ ] 문서 변경 시 markdownlint 에러를 0으로 유지했는가? (특히 MD012/MD032)
 
 ### 리뷰 전제
 
