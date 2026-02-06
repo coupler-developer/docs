@@ -57,6 +57,8 @@ nav:
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
+      - 레포지토리 요약: architecture/repo-overview.md
+      - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md
       - 회원 라이프사이클: architecture/member-lifecycle.md
       - 매칭 FSM: architecture/matching-fsm.md
       - 매칭 키 시스템: architecture/matching-key-system.md
@@ -73,6 +75,9 @@ nav:
       - 커밋 메시지 컨벤션: policy/commit-convention.md
       - 로그 정책: policy/log-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md
+      - 엔지니어링 가드레일: policy/engineering-guardrails.md
+      - 테스트/CI 전략: policy/testing-strategy.md
+      - 버그 수정 원칙: policy/bugfix-principles.md
       - TypeScript 전환 계획: policy/typescript-migration-plan.md
   - Flows:
       - 사용자 등록 플로우: flows/cross-project/user-registration-flow.md
