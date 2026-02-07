@@ -3,18 +3,10 @@
 ## 기본 규칙
 
 - [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 준수
-- 한글 권장 (기술 용어/고유명사/짧은 요약은 영문 허용)
+- 한글로 작성
 - 제목은 한 줄 요약 (50자 이내 권장)
 - 본문은 타입별 템플릿 활용
 - 템플릿 이용시 지나친 개행 주의
-
-## Format
-
-- 기본: `<type>: <subject>`
-- scope (선택): `<type>(<scope>): <subject>`
-- scope 규칙:
-  - 소문자 권장
-  - 의미를 좁히는 값 사용 (예: `mobile`, `api`, `admin`, `docs`)
 
 ## Prefix
 
