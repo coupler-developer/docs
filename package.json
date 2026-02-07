@@ -1,0 +1,12 @@
+{
+  "name": "docs",
+  "private": true,
+  "devDependencies": {
+    "markdownlint-cli": "^0.45.0"
+  },
+  "scripts": {
+    "lint:md": "markdownlint -c .markdownlint.json \"AGENTS.md\" \"content/**/*.md\"",
+    "lint:md:review": "markdownlint -c .markdownlint.json \"content/architecture/member-review-fsm.md\" \"content/architecture/member-review-image-migration-plan.md\" \"content/flows/coupler-mobile-app/user-authentication-flow.md\" \"content/flows/cross-project/user-registration-flow.md\""
+  }
+}
+
