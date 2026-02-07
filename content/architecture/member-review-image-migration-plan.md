@@ -141,30 +141,30 @@ node scripts/migrate-review-images.js            # 실제 실행
 
 ### 프로필 변경 심사 플로우
 
-- **정회원** (`user.status=NORMAL` + `pending_stage=COMPLETE`)이 프로필 이미지 변경 제출
-  → `pending_stage=PROFILE_CHANGE` 전환
+- **정회원** (`user.status=NORMAL` + `pending_stage='complete'`)이 프로필 이미지 변경 제출
+  → (API 계산 결과) `pending_stage='profile_change'` 전환
   → 새 프로필 버전 생성 (`status=PENDING`, `version_no` 증가)
   → 관리자 심사 (`/admin/member/pending/save`)
   → 승인 시:
 
   - 새 버전 `status=NORMAL`로 변경
   - `t_member.profile_version_id` 업데이트
-  - `pending_stage=COMPLETE` 복귀
+  - (API 계산 결과) `pending_stage='complete'` 복귀
     → 반려 시:
 
   - 새 버전 `status=RETURN`
-  - `pending_stage=PROFILE_CHANGE` 유지 (재제출 대기)
+  - (API 계산 결과) `pending_stage='profile_change'` 유지 (재제출 대기)
 
 ### 신규 가입 심사 플로우
 
-- **회원 전** (`user.status=PENDING` + `pending_stage=BASIC_INFO`)이 기본정보 제출
+- **회원 전** (`user.status=PENDING` + `pending_stage='basic_info'`)이 기본정보 제출
   → 프로필 이미지 포함 시 버전 생성 (`status=PENDING`, `version_no=1`)
   → 관리자 기본정보 심사 승인
-  → `pending_stage=REQUIRED_AUTH` 전환
+  → (API 계산 결과) `pending_stage='required_auth'` 전환
   → 최종 승인 시:
 
   - 프로필 버전 `status=NORMAL`
-  - `user.status=NORMAL` + `pending_stage=COMPLETE`
+  - `user.status=NORMAL` + (API 계산 결과) `pending_stage='complete'`
   - `t_member.profile_version_id` 설정
 
 ### 상태 코드 매핑
@@ -343,14 +343,17 @@ FROM t_member_auth_image
 WHERE status = 2 AND (reason IS NULL OR reason = '');
 -- 기대값: 0
 
--- 10. pending_stage=PROFILE_CHANGE 연계 확인
+-- 10. profile_change(파생) 연계 확인
+-- pending_stage는 DB 컬럼이 아니라 API 응답에서 계산되는 값이다(buildPendingStageResult()).
+-- 최소 조건: status=NORMAL + pending_status=BASIC_INFO_REVIEW 인 회원은 심사중 프로필 버전이 있어야 함.
 SELECT COUNT(*) FROM t_member M
-WHERE M.pending_stage = 'PROFILE_CHANGE'
+WHERE M.status = 1
+  AND M.pending_status = 0
   AND NOT EXISTS (
     SELECT 1 FROM t_member_profile_version pv
     WHERE pv.member = M.id AND pv.status <> 1 AND pv.id <> M.profile_version_id
   );
--- 기대값: 0 (PROFILE_CHANGE 상태면 반드시 심사중 버전이 있어야 함)
+-- 기대값: 0 (프로필 변경 심사중이면 반드시 심사중 버전이 있어야 함)
 
 -- 11. Video 마이그레이션 확인
 SELECT COUNT(*) as unmigrated_videos

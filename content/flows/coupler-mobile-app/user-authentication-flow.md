@@ -18,7 +18,7 @@ sequenceDiagram
     API->>DB: SELECT FROM t_member WHERE email=?
     API->>API: bcrypt.compare(password)
     API-->>App: { result_code: 0, accessToken, user_info }
-    App->>App: GlobalState.setMyInfo(user_info)
+    App->>App: GlobalState.setMyInfo(result_data)
     App->>App: PrefUtils.setString(TOKEN)
     App->>App: 홈 화면 이동
 ```
@@ -75,9 +75,9 @@ Content-Type: application/json
     "id": 12345,
     "email": "user@example.com",
     "nickname": "닉네임",
-    "gender": 1,
+    "gender": "M",
     "status": 1,
-    "pending_status": 7,
+    "pending_status": 3,
     "pending_stage": "complete"
   }
 }
@@ -100,7 +100,7 @@ PrefUtils.setString(ASYNC_PARAM.LAST_LOGIN_PROVIDER, "email");
 
 // GlobalState (MobX)
 GlobalState.loginStatus.accessToken = accessToken;
-GlobalState.setMyInfo(user_info);
+GlobalState.setMyInfo(result_data);
 ```
 
 ### Step 5: 화면 분기

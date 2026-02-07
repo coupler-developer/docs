@@ -21,8 +21,8 @@ sequenceDiagram
 
     App->>API: POST /app/v1/auth/signup
     API->>DB: INSERT t_member
-    API->>DB: INSERT t_member_pending_profile
-    API-->>App: { result_code: 0, user_info }
+    API->>DB: INSERT t_member_pending
+    API-->>App: { result_code: 0, result_data }
     App->>App: SignupReviewScreen 이동
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
@@ -36,21 +36,21 @@ sequenceDiagram
 
 #### 관련 파일
 
-- `screens/signup/SignupGeneralMemberScreen.js`
-- `screens/signup/SignupGeneralMemberStep1.js` (기본정보)
-- `screens/signup/SignupGeneralMemberStep2.js` (프로필)
-- `screens/signup/SignupGeneralMemberStep3.js` (사진)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberScreen.js`
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep1.js` (기본정보)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep2.js` (프로필)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep3.js` (사진)
 
 #### 입력 정보
 
 ```javascript
-// GlobalState.me.profile 구조
+// GlobalState.me.basic_info (일부)
 {
   email: string,
   password: string,
   name: string,
   phone: string,
-  gender: number,        // 1: 남성, 2: 여성
+  gender: string,        // 'M' | 'F'
   birth: string,         // YYYY-MM-DD
   nickname: string,
   job: string,
@@ -63,31 +63,32 @@ sequenceDiagram
 
 #### 요청
 
-```
+```http
 POST /app/v1/auth/signup
 Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "pwd": "hashedPassword",
+  "pwd": "plainPassword",
   "name": "홍길동",
   "phone": "01012345678",
-  "gender": 1,
+  "gender": "M",
   "birth": "1990-01-01",
   "nickname": "닉네임",
   "job": "개발자",
   "location": "서울",
   "manager_id": 123,
-  "profile_image_paths": "path1#path2#path3",
-  "user_auth": "[]",
-  "auth": "[]",
-  // ... 기타 필드
+  "profile_image_paths": ["path1", "path2", "path3"],
+  "user_auth": [],
+  "auth": []
 }
 ```
 
 #### 관련 파일
 
 - `coupler-api/controller/app/v1/auth.js` → `signup()`
+
+> 위 요청 예시는 이해를 위한 축약본이며, 실제로는 더 많은 필드가 함께 전송된다.
 
 ### Step 3: 데이터 저장 (API → DB)
 
@@ -97,22 +98,25 @@ Content-Type: application/json
 2. 비밀번호 해싱 (bcrypt)
 3. 회원 정보 저장 (`t_member`)
 4. 프로필 이미지 저장 (`t_member_profile_version`, `t_member_profile_image`)
-5. pending_profile 생성 (`t_member_pending_profile`)
+5. pending_profile 생성 (`t_member_pending`)
 
 #### 테이블
 
 ```sql
 -- 회원 기본정보
+-- (예시) 실제 테이블은 필수 컬럼이 더 많으며, 서버가 기본값을 보정한 뒤 저장한다.
 INSERT INTO t_member (
   email, pwd, name, phone, gender, birth,
-  nickname, job, location, status, pending_status, pending_stage
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 'basic_info');
+  nickname, job, location, status, pending_status
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0);
 
 -- 프로필 이미지 버전
-INSERT INTO t_member_profile_version (user_id, status) VALUES (?, 0);
+INSERT INTO t_member_profile_version (member, version_no, create_date, status)
+VALUES (?, 1, NOW(), 0);
 
 -- 프로필 이미지
-INSERT INTO t_member_profile_image (version_id, image_url, sort_order) VALUES (?, ?, ?);
+INSERT INTO t_member_profile_image (profile_version_id, image_index, image_url, status, create_date)
+VALUES (?, ?, ?, 0, NOW());
 ```
 
 #### 응답
@@ -124,7 +128,7 @@ INSERT INTO t_member_profile_image (version_id, image_url, sort_order) VALUES (?
   "result_data": {
     "id": 12345,
     "email": "user@example.com",
-    "pending_status": 1,
+    "pending_status": 0,
     "pending_stage": "basic_info"
   }
 }
@@ -137,8 +141,8 @@ INSERT INTO t_member_profile_image (version_id, image_url, sort_order) VALUES (?
 #### 상태값
 
 - `user.status = 0` (PENDING)
-- `pending_status = 1` (BASIC_INFO_REVIEW)
-- `pending_stage = 'basic_info'`
+- `pending_status = 0` (BASIC_INFO_REVIEW)
+- `pending_stage = 'basic_info'` (DB 저장값이 아니라 API 응답에서 계산되어 내려오는 값)
 
 ### Step 5: 관리자 심사 (Admin Web)
 
@@ -167,13 +171,13 @@ POST /admin/member/pending/save
 ```
 회원가입 완료
     ↓
-[회원 전] status=PENDING, pending_stage=BASIC_INFO
+[회원 전] status=PENDING, pending_stage='basic_info'
     ↓ (기본정보 승인)
-[일반회원] status=PENDING, pending_stage=REQUIRED_AUTH
+[일반회원] status=PENDING, pending_stage='required_auth'
     ↓ (서류 승인)
-[준회원] status=NORMAL, pending_stage=INTRO
+[준회원] status=NORMAL, pending_stage='intro'
     ↓ (소개글 승인)
-[정회원] status=NORMAL, pending_stage=COMPLETE
+[정회원] status=NORMAL, pending_stage='complete'
 ```
 
 ## 데이터 흐름

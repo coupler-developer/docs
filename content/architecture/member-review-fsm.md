@@ -6,15 +6,16 @@
 
 - `user.status`: 회원 상태(PENDING/NORMAL/HOLD/BLOCK/LEAVE)
 - `pending_status`: 심사 상태(BASIC_INFO_REVIEW/REQUIRED_AUTH_REVIEW/INTRO_REVIEW/EDIT_NEED/REAPPLY/COMPLETE/REJECT)
-- `pending_stage`: 심사 단계(BASIC_INFO/REQUIRED_AUTH/INTRO/PROFILE_CHANGE/COMPLETE)
+- `pending_stage`: 심사 단계(`basic_info`/`required_auth`/`intro`/`profile_change`/`complete`)
+  - **API 응답에서 파생되는 값**이며, DB 컬럼이 아니다(`buildPendingStageResult()` 계산 결과).
 
 ## 회원 등급(표기 기준)
 
-- 회원 전: `user.status=PENDING` + `pending_stage=BASIC_INFO`
-- 일반회원(매칭 불가): `user.status=PENDING` + `pending_stage=REQUIRED_AUTH`
-- 준회원(매칭 불가): `user.status=NORMAL` + `pending_stage=INTRO`
-- 정회원(매칭 가능): `user.status=NORMAL` + `pending_stage=COMPLETE`
-- 정회원(프로필 변경 심사중): `user.status=NORMAL` + `pending_stage=PROFILE_CHANGE`
+- 회원 전: `user.status=PENDING` + `pending_stage='basic_info'`
+- 일반회원(매칭 불가): `user.status=PENDING` + `pending_stage='required_auth'`
+- 준회원(매칭 불가): `user.status=NORMAL` + `pending_stage='intro'`
+- 정회원(매칭 가능): `user.status=NORMAL` + `pending_stage='complete'`
+- 정회원(프로필 변경 심사중): `user.status=NORMAL` + `pending_stage='profile_change'`
 
 ## FSM (Mermaid)
 
@@ -22,8 +23,8 @@
 stateDiagram-v2
     [*] --> BASIC_INFO : 기본정보 제출
 
-    state "회원 전 (기본정보 심사)\nuser.status=PENDING\npending_stage=BASIC_INFO" as BASIC_INFO
-    state "일반회원 (서류 심사)\nuser.status=PENDING\npending_stage=REQUIRED_AUTH" as REQUIRED_AUTH {
+    state "회원 전 (기본정보 심사)\nuser.status=PENDING\npending_stage='basic_info'" as BASIC_INFO
+    state "일반회원 (서류 심사)\nuser.status=PENDING\npending_stage='required_auth'" as REQUIRED_AUTH {
         state fork_review <<fork>>
         [*] --> fork_review
         fork_review --> AUTH_ITEMS : 인증서류 심사
@@ -31,9 +32,9 @@ stateDiagram-v2
         AUTH_ITEMS --> [*]
         INTRO_ITEMS --> [*]
     }
-    state "준회원 (소개글 심사)\nuser.status=NORMAL\npending_stage=INTRO" as INTRO
-    state "정회원 (완료)\nuser.status=NORMAL\npending_stage=COMPLETE" as COMPLETE
-    state "프로필 변경 심사\nuser.status=NORMAL\npending_stage=PROFILE_CHANGE" as PROFILE_CHANGE
+    state "준회원 (소개글 심사)\nuser.status=NORMAL\npending_stage='intro'" as INTRO
+    state "정회원 (완료)\nuser.status=NORMAL\npending_stage='complete'" as COMPLETE
+    state "프로필 변경 심사\nuser.status=NORMAL\npending_stage='profile_change'" as PROFILE_CHANGE
     state "심사 거절\nuser.status=PENDING\npending_status=REJECT" as REJECT
 
     BASIC_INFO --> BASIC_INFO : 반려/재심사 요청/재제출
@@ -64,15 +65,15 @@ flowchart LR
     A3["인증서류 제출\nMatchingAuthRequestScreen"] -->|Net.member.addAuth| S3
   end
   subgraph SERVER[서버]
-    S1["/app/v1/auth.signup\n회원가입 저장 + pending_profile 생성\npending_status_date 갱신"]
-    S2["/app/v1/member.editInfo\nresolvePendingStatus(action: submit)"]
-    S3["/app/v1/member.addAuth\nresolvePendingStatus(action: submit)"]
+    S1["/app/v1/auth/signup\n회원가입 저장 + pending_profile 생성\npending_status_date 갱신"]
+    S2["/app/v1/member/editInfo\nresolvePendingStatus(action: submit)"]
+    S3["/app/v1/member/addAuth\nresolvePendingStatus(action: submit)"]
     S1 --> L1
     S2 --> L1
     S3 --> L1
   end
   subgraph ADMIN[어드민/매니저]
-    L1["심사 목록(pendingType)\nmember/pending/list"] --> D1["회원 상세\nmember/detail"]
+    L1["심사 목록(pendingType)\n/admin/member/pending/list"] --> D1["회원 상세\nmember/detail"]
   end
 ```
 
@@ -81,8 +82,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   subgraph ADMIN[어드민/매니저]
-    D1["회원 상세(detail.js)\n승인/반려 버튼"] -->|member/pending/save| S4
-    D1 -->|member/pending/reject| S5
+    D1["회원 상세(detail.js)\n승인/반려 버튼"] -->|/admin/member/pending/save| S4
+    D1 -->|/admin/member/pending/reject| S5
   end
   subgraph SERVER[서버]
     S4["pending_save\nresolvePendingStatus(action: review)\n필요 시 user.status 변경"]
@@ -163,7 +164,7 @@ flowchart LR
 - `MatchingScreen`은 `pending_stage`/인증 상태에 따라 `MatchingAuthRequestScreen`/`FullMemberMatchingLockPanel`/정상 매칭 화면/필수 인증 미설정 안내로 분기한다.
 - `ProfilePreviewScreen`에서 심사 요청 시 `Net.member.editInfo`를 호출하며, 필요 시 `submit_target=intro`를 함께 전송한다.
 - `MatchingAuthRequestScreen`의 제출 버튼은 `Net.member.addAuth`를 호출한다.
-- 로그인/자동로그인 경로에서 `pending_stage=BASIC_INFO`면 `SignupReviewScreen`으로 이동한다. `pending_stage=REQUIRED_AUTH/INTRO`면 매칭 탭(ON_GOING)으로 이동한다.
+- 로그인/자동로그인 경로에서 `pending_stage='basic_info'`면 `SignupReviewScreen`으로 이동한다. `pending_stage in ('required_auth','intro')`면 매칭 탭(ON_GOING)으로 이동한다.
 
 ## Repo별 역할(상태 관점)
 
@@ -202,6 +203,7 @@ flowchart LR
 
 ## 상태열 표기 정책(도메인 기준)
 
+- 본 섹션은 **일반 목록(단일 상태 라벨)**에서 `pending_status_display_*`로 출력하는 상태열 표기 규칙을 설명한다.
 - 도메인 정의: 인증서류(`required_auth`), 소개글(`intro`) 두 도메인만 상태열 표기 대상으로 본다.
 - 도메인 내부 항목은 분리 표기하지 않는다.
 
@@ -217,6 +219,8 @@ flowchart LR
   - 같은 상태: `인증필수서류/소개글 재요청`, `인증필수서류/소개글 재심사요청`
   - 다른 상태: `인증필수서류 재요청/소개글 재심사요청`처럼 **도메인별 상태를 분리 표기**한다.
 
+> `review-reject` 목록은 상태열이 아니라 **3개 컬럼(기본정보/인증서류/소개글)**로 별도 표기한다(아래 `pendingType` 요약의 규칙 참조).
+
 ## 어드민 분류 키(pendingType) 요약
 
 - 기본정보 심사: `semi-apply`, `semi-reject`, `semi-reapply`
@@ -224,9 +228,10 @@ flowchart LR
 - 소개글 심사: `intro-apply`, `intro-reject`, `intro-reapply`, `semi-accepted`
 - 반려 합집합: `review-reject`
 - 프로필 변경 심사: `profile-edit`
+- 심사 거절: `reject`
 - `review-reject` 목록 표시 규칙
 
-  - 상태열을 `서류/소개글/기본정보` 3개로 분리해 도메인별 상태를 각각 표기한다.
+  - 상태열을 `기본정보/인증서류/소개글` 3개로 분리해 도메인별 상태를 각각 표기한다.
   - 각 열 상태 우선순위는 RETURN → REAPPLY → PENDING → (없음/승인됨) 기준으로 판단한다.
   - 기본정보 상태에는 프로필 이미지/영상 심사 상태를 포함한다.
 - `review-reject` 목록 포함 조건(쿼리 기준)
