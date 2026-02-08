@@ -73,6 +73,7 @@ nav:
   - Policy:
       - Git 브랜치 전략: policy/git-branch-strategy.md
       - 커밋 메시지 컨벤션: policy/commit-convention.md
+      - 배포 태그/릴리즈 프로세스: policy/release-process.md
       - 로그 정책: policy/log-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md

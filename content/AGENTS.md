@@ -20,6 +20,7 @@
 
 - [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
 - [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
+- [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그)과 GitHub Release 발행
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [TypeScript 전환 계획](policy/typescript-migration-plan.md)
