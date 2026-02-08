@@ -28,7 +28,7 @@
 - API 응답은 유연하게 받고, 내부 모델은 엄격하게 유지한다.
 - `GlobalState`는 경계에서 normalize 후 내부에서는 단일 primitive 타입을 사용한다.
 - `setMyInfo`, `setSetting`에서 기본값 병합 + 타입 변환을 수행한다.
-- **Optional (`?`) 사용 최소화**: 자세한 기준은 `policy/engineering-guardrails.md`를 따른다.
+- **Optional (`?`) 사용 최소화**: 자세한 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 따른다.
 
 ## 전환 범위
 
