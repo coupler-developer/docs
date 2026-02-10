@@ -104,7 +104,7 @@ flowchart LR
 - 반려: `pending_status=EDIT_NEED`
 - 재심사 요청: `pending_status=REAPPLY`
 
-  - 심사 아이템 상태는 `STATUS.REAPPLY`로 표시하며, 모바일 인증서류는 `ITEM_PENDING_STATUS.RE_WAIT`로 표시한다.
+  - 심사 아이템 상태는 서버 enum `STATUS.REAPPLY`로 표시한다. 모바일도 서버 enum(`STATUS`)를 그대로 사용하며, **미제출은 상태코드(0 등)로 표현하지 않고 "행 없음"으로 구분**한다.
 - 아이템 상태 정의
 
   | 상태          | 의미     | 다음 액션     | 상태열 표기 | 라벨     | 배지 | 심사적용 |
@@ -154,10 +154,12 @@ flowchart LR
 > 인증서류 단계 화면 분기:
 >
 > - 필수 인증 미설정이면 안내 화면/문구를 노출한다
-> - 인증 아이템 상태는 `ITEM_PENDING_STATUS`로 판단한다(WAIT/RE_WAIT/ADD/RETURN/COMPLETE)
-> - 아이템 상태가 RETURN이면 재제출 화면(`MatchingAuthRequestScreen`)
-> - 아이템 상태가 WAIT/RE_WAIT이고 제출된 인증서류가 있으며 `ADD/RETURN`이 없으면 심사중 화면(`LockPanel` 유지)
-> - 제출된 인증서류가 없거나 `ADD/RETURN`이 있으면 재제출 화면(`MatchingAuthRequestScreen`)
+> - 인증 아이템 상태는 서버 enum `STATUS`로 판단한다(`PENDING/REAPPLY/RETURN/NORMAL`)
+> - 미제출은 `auth` 행 없음(=missing)으로 판단한다(상태코드로 표현 금지)
+> - 로컬에서만 필요한 draft(임시) 상태는 서버 enum과 분리해서 취급한다(서버는 절대 내려주지 않음)
+> - 아이템 상태가 `RETURN`이면 재제출 화면(`MatchingAuthRequestScreen`)
+> - 제출된 인증서류가 있으며 `RETURN/draft`가 없고 `PENDING/REAPPLY`만 있으면 심사중 화면(`LockPanel` 유지)
+> - 미제출(missing)이 있거나 `RETURN/draft`가 있으면 재제출 화면(`MatchingAuthRequestScreen`)
 
 ## 화면 분기(앱)
 

@@ -63,10 +63,35 @@
 
   - "언젠가 null일 수 있음"이라는 추측으로 `?`를 붙이지 않는다
   - 실제로 값이 없을 수 있는 케이스가 정의된 필드만 Optional로 둔다
+
+- **`unknown`/`any` 최소화 (특히 API 응답 계약)**
+
+  - 원칙: 앱이 소비하는 API 응답은 `unknown`으로 두지 않고, 실제 스키마 타입을 정의한다
+  - `unknown`은 경계에서만 허용한다
+    - 예: 외부 API/서드파티 SDK/raw JSON을 처음 받는 지점
+    - 이후에는 `parse/validate`를 거쳐 도메인 타입으로 고정한다
+  - “타입이 애매하니 일단 unknown”은 금지한다. 필요한 필드만이라도 타입으로 명시한다
+
+- **`undefined` 금지, `null`로 고정**
+
+  - JSON 응답에서 “없음”은 `undefined`(키 누락)로 표현하지 않고 `null`로 고정한다
+  - 이유: `undefined vs null vs missing key` 분기는 곧 fallback/추측 로직을 만든다
+  - 따라서 “항상 존재하지만 비어있을 수 있음”은 `field: T | null`로 고정한다 (Optional 아님)
 - **단일 스펙 강제**
 
   - `images` vs `image`, `image_url` vs `url`처럼 중복 키를 동시에 허용하지 않는다
   - 배열이면 복수형, 단일 값이면 단수형을 강제하고, 스펙은 한 가지로 고정한다
+
+- **요청(draft) 모델과 응답(response) 모델을 섞지 않기**
+
+  - 서버 응답 필드를 클라이언트 로컬 draft 저장소로 재사용하지 않는다
+  - 예: `profile_set_current`(응답 계약)를 로컬에서 임의 shape로 overwrite해서 제출 payload에 쓰는 방식 금지
+  - 제출 payload는 요청 스펙(`profile_image_paths` 등)으로만 구성하고, 응답 스펙은 오직 서버 응답으로만 갱신한다
+
+- **서버 enum과 로컬 상태를 섞지 않기**
+
+  - 서버에서 내려오는 상태코드(enum)는 서버 enum 그대로만 사용한다
+  - 로컬 UI에서만 필요한 draft/임시 상태는 별도 로컬 enum/필드로 분리한다 (서버 enum 값 재사용 금지)
 
 ### 명시적인 이름 사용
 
