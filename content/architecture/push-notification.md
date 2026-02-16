@@ -133,6 +133,7 @@ sequenceDiagram
 | create_date | DATETIME | 발송 시간 |
 
 운영 집계 호환 규칙:
+
 - 반려 알림 전체 지표는 `type IN (7,73,74)` 기준으로 조회한다.
 - `type = 7` 단독 필터는 신규 반려 알림(73/74)을 누락한다.
 

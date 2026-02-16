@@ -78,7 +78,6 @@ nav:
       - 코드 리뷰 정책: policy/code-review-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
       - 테스트/CI 전략: policy/testing-strategy.md
-      - 버그 수정 원칙: policy/bugfix-principles.md
       - TypeScript 전환 계획: policy/typescript-migration-plan.md
   - Flows:
       - 사용자 등록 플로우: flows/cross-project/user-registration-flow.md
