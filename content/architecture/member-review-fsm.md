@@ -79,6 +79,20 @@
 - 재심사 요청: `REAPPLY`
 - 동일 회원에서 서류/소개글 반려가 동시에 존재할 수 있다.
 
+### 생애주기 승격 트리거 (`status` 0→1)
+
+`syncMemberReviewStatusByMemberId()` 실행 시, 아래 3개 조건이 모두 충족되면 `t_member.status`를 `0(심사중)→1(정상)`으로 자동 승격한다.
+
+| 조건 | 설명 |
+| ---- | ---- |
+| `basic_info_status = 'APPROVED'` | 기본정보 단계 승인 |
+| `required_auth_status = 'APPROVED'` | 필수인증 단계 승인 |
+| `required_auth_guard_code = 'OK'` | 매니저 필수인증 설정 유효 |
+
+- **INTRO 단계는 승격 조건에 포함되지 않는다.** INTRO는 `member_level`(FULL_MEMBER) 산출에만 영향을 준다.
+- `required_auth_guard_code`는 전담매니저 링크·필수인증 설정이 정상인지 검증한다. 매니저 링크 누락·중복, 필수인증 미설정 시 `'OK'`가 아니므로 승격이 차단된다.
+- 승격 성공 시 변경된 `member.status`를 반영하기 위해 `syncMemberReviewStatusByMemberId()`를 1회 재귀 호출한다.
+
 ## 앱/어드민 적용 기준
 
 - 앱:
