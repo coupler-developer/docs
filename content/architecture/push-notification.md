@@ -2,7 +2,7 @@
 
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 
-## FCM 알림 타입 (72개)
+## FCM 알림 타입 (74개)
 
 ### 회원가입 관련 (1-4)
 
@@ -13,7 +13,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 3 | SIGNUP_OK | 가입심사 승인 |
 | 4 | SIGNUP_FAVOR_INFO | 추가정보 입력 안내 |
 
-### 설정 관련 (5-11)
+### 설정 관련 (5-11, 73-74)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
@@ -21,6 +21,8 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 6 | SETTING_PROFILE_OK | 프로필 승인 |
 | 7 | SETTING_PROFILE_DENY | 프로필 반려 |
 | 8-11 | SETTING_RECOMMEND_* | 추천 관련 |
+| 73 | SETTING_MEMBER_REVIEW_DENY | 준회원/정회원 승급 심사 반려(즉시) |
+| 74 | SETTING_MEMBER_REVIEW_DENY_AGAIN | 준회원/정회원 반려 후 미재제출 리마인드 |
 
 ### 1:1 매칭 관련 (12-30)
 
@@ -59,7 +61,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 40 | LOUNGE_BEST | 베스트 선정 |
 | 41 | LOUNGE_BLAME | 신고 |
 
-### 기타 (42-72)
+### 기타 (42-74)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
@@ -125,10 +127,14 @@ sequenceDiagram
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | member | INT | 수신자 ID |
-| type | INT | FCM_TYPE (1-72) |
+| type | INT | FCM_TYPE (1-74) |
 | content | VARCHAR | 알림 메시지 |
 | target | INT | 관련 ID (매칭/미팅/라운지) |
 | create_date | DATETIME | 발송 시간 |
+
+운영 집계 호환 규칙:
+- 반려 알림 전체 지표는 `type IN (7,73,74)` 기준으로 조회한다.
+- `type = 7` 단독 필터는 신규 반려 알림(73/74)을 누락한다.
 
 ## 주요 발송 지점
 

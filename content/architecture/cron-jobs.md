@@ -68,7 +68,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 | 작업            | 알림 타입                              |
 | --------------- | -------------------------------------- |
-| checkSignup     | SIGNUP_PROFILE_EDIT, SIGNUP_FAVOR_INFO |
+| checkSignup     | SIGNUP_PROFILE_EDIT_AGAIN, SIGNUP_FAVOR_INFO, SETTING_MEMBER_REVIEW_DENY_AGAIN |
 | match2Day       | MATCH_D_DAY_2                          |
 | matchToday      | MATCH_DAY                              |
 | checkReview     | MATCH_4_HOUR_PASSED                    |
