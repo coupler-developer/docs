@@ -20,6 +20,7 @@
 - [푸시알림 시스템](architecture/push-notification.md) - FCM
 - [관리자 권한 시스템](architecture/admin-permission.md)
 - [Cron 작업](architecture/cron-jobs.md) - 자동화 스케줄
+- [업로드/미디어 시스템](architecture/upload-media-system.md) - 파일 업로드, 저장, media_proxy
 - [레포지토리 요약](architecture/repo-overview.md)
 - [coupler-mobile-app to-be 아키텍처](architecture/mobile-app-to-be.md)
 
@@ -43,6 +44,7 @@
 - [사용자 등록 플로우](flows/cross-project/user-registration-flow.md) - 회원가입 → 심사
 - [사용자 인증 플로우](flows/coupler-mobile-app/user-authentication-flow.md) - 로그인
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
+- [프로필 관리 플로우](flows/cross-project/profile-management-flow.md) - 프로필 수정 → 재심사
 
 ### Setup
 
