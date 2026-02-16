@@ -4,13 +4,14 @@
 
 ## 회원 상태 (user.status)
 
-| 값  | 상수      | 의미     | 로그인 | 매칭 |
-| --- | --------- | -------- | ------ | ---- |
-| -3  | `LEAVE`   | 탈퇴     | 불가   | 불가 |
-| -2  | `BLOCK`   | 영구정지 | 불가   | 불가 |
-| -1  | `HOLD`    | 휴면     | 불가   | 불가 |
-| 0   | `PENDING` | 심사대기 | 가능   | 불가 |
-| 1   | `NORMAL`  | 정상     | 가능   | 가능 |
+| 값  | 상수       | 의미     | 로그인 | 매칭 |
+| --- | ---------- | -------- | ------ | ---- |
+| -4  | `REJECTED` | 심사거절 | 불가   | 불가 |
+| -3  | `LEAVE`    | 탈퇴     | 불가   | 불가 |
+| -2  | `BLOCK`    | 영구정지 | 불가   | 불가 |
+| -1  | `HOLD`     | 휴면     | 불가   | 불가 |
+| 0   | `PENDING`  | 심사대기 | 가능   | 불가 |
+| 1   | `NORMAL`   | 정상     | 가능   | 가능 |
 
 ## 상태 전환 FSM
 
@@ -20,11 +21,13 @@ stateDiagram-v2
 
     state "심사대기\nuser.status=PENDING" as PENDING
     state "정상\nuser.status=NORMAL" as NORMAL
+    state "심사거절\nuser.status=REJECTED" as REJECTED
     state "휴면\nuser.status=HOLD" as HOLD
     state "영구정지\nuser.status=BLOCK" as BLOCK
     state "탈퇴\nuser.status=LEAVE" as LEAVE
 
     PENDING --> NORMAL : 심사 완료
+    PENDING --> REJECTED : 심사 거절
     PENDING --> BLOCK : 관리자 차단
 
     NORMAL --> HOLD : Cron 자동 (장기 미접속)
@@ -41,10 +44,16 @@ stateDiagram-v2
 
 ## 상태별 상세
 
+### REJECTED (심사거절)
+
+- **진입**: 관리자 심사 거절 (PENDING에서 전환)
+- **복귀**: 없음
+- **제한**: 로그인/매칭 불가
+
 ### PENDING (심사대기)
 
 - 회원가입 직후 진입
-- 심사 완료 시 `NORMAL`로 전환
+- 심사 완료 시 `NORMAL`로, 거절 시 `REJECTED`로 전환
 - 심사 과정 상세: [member-review-fsm.md](./member-review-fsm.md)
 
 ### NORMAL (정상)

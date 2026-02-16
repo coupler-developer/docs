@@ -21,13 +21,14 @@ sequenceDiagram
 
     App->>API: POST /app/v1/auth/signup
     API->>DB: INSERT t_member
-    API->>DB: INSERT t_member_pending
+    API->>DB: INSERT t_member_review_item
+    API->>DB: INSERT t_member_review_status
     API-->>App: { result_code: 0, result_data }
     App->>App: SignupReviewScreen 이동
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
     Admin->>API: POST /admin/member/pending/save
-    API->>DB: UPDATE t_member (status, pending_status)
+    API->>DB: UPDATE t_member_review_status
 ```
 
 ## 단계별 설명
@@ -98,7 +99,8 @@ Content-Type: application/json
 2. 비밀번호 해싱 (bcrypt)
 3. 회원 정보 저장 (`t_member`)
 4. 프로필 이미지 저장 (`t_member_profile_version`, `t_member_profile_image`)
-5. pending_profile 생성 (`t_member_pending`)
+5. 심사 항목 생성 (`t_member_review_item`)
+6. 심사 단계 상태 초기화 (`t_member_review_status`)
 
 #### 테이블
 
@@ -107,8 +109,8 @@ Content-Type: application/json
 -- (예시) 실제 테이블은 필수 컬럼이 더 많으며, 서버가 기본값을 보정한 뒤 저장한다.
 INSERT INTO t_member (
   email, pwd, name, phone, gender, birth,
-  nickname, job, location, status, pending_status
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0);
+  nickname, job, location, status
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
 
 -- 프로필 이미지 버전
 INSERT INTO t_member_profile_version (member, version_no, create_date, status)
@@ -128,8 +130,8 @@ VALUES (?, ?, ?, 0, NOW());
   "result_data": {
     "id": 12345,
     "email": "user@example.com",
-    "pending_status": 0,
-    "pending_stage": "basic_info"
+    "review_stage": "BASIC_INFO",
+    "review_status": "PENDING"
   }
 }
 ```
@@ -141,8 +143,8 @@ VALUES (?, ?, ?, 0, NOW());
 #### 상태값
 
 - `user.status = 0` (PENDING)
-- `pending_status = 0` (BASIC_INFO_REVIEW)
-- `pending_stage = 'basic_info'` (DB 저장값이 아니라 API 응답에서 계산되어 내려오는 값)
+- `t_member_review_status`에서 `review_stage='BASIC_INFO'`, `review_status='PENDING'`
+- API 응답에서 `v_member_review_status` 뷰 기준으로 심사 상태를 내려준다
 
 ### Step 5: 관리자 심사 (Admin Web)
 
@@ -171,13 +173,13 @@ POST /admin/member/pending/save
 ```
 회원가입 완료
     ↓
-[회원 전] status=PENDING, pending_stage='basic_info'
+[PRE_MEMBER] status=PENDING, basic_info_status='PENDING'
     ↓ (기본정보 승인)
-[일반회원] status=PENDING, pending_stage='required_auth'
+[GENERAL] status=PENDING, basic_info_status='APPROVED'
     ↓ (서류 승인)
-[준회원] status=NORMAL, pending_stage='intro'
+[SEMI_MEMBER] status=NORMAL, required_auth_status='APPROVED'
     ↓ (소개글 승인)
-[정회원] status=NORMAL, pending_stage='complete'
+[FULL_MEMBER] status=NORMAL, intro_status='APPROVED'
 ```
 
 ## 데이터 흐름

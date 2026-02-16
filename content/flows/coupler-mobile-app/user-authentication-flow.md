@@ -77,8 +77,10 @@ Content-Type: application/json
     "nickname": "닉네임",
     "gender": "M",
     "status": 1,
-    "pending_status": 3,
-    "pending_stage": "complete"
+    "member_level": "FULL_MEMBER",
+    "basic_info_status": "APPROVED",
+    "required_auth_status": "APPROVED",
+    "intro_status": "APPROVED"
   }
 }
 ```
@@ -107,12 +109,12 @@ GlobalState.setMyInfo(result_data);
 
 #### 분기 조건
 
-| pending_stage   | 이동 화면                     |
-| --------------- | ----------------------------- |
-| `basic_info`    | SignupReviewScreen (심사대기) |
-| `required_auth` | MatchingScreen (인증서류)     |
-| `intro`         | MatchingScreen (소개글)       |
-| `complete`      | HomeScreen (정상)             |
+| member_level  | 이동 화면                    |
+| ------------- | ---------------------------- |
+| `PRE_MEMBER`  | SignupReviewScreen (심사대기) |
+| `GENERAL`     | MatchingScreen (인증서류)    |
+| `SEMI_MEMBER` | MatchingScreen (소개글)      |
+| `FULL_MEMBER` | HomeScreen (정상)            |
 
 ## 자동 로그인
 
@@ -160,6 +162,7 @@ POST /app/v1/auth/login/social
 | -1          | 인증 실패   | "이메일 또는 비밀번호가 올바르지 않습니다" |
 | -2          | 차단된 회원 | LoginFailScreen 이동                       |
 | -3          | 탈퇴한 회원 | "탈퇴한 계정입니다"                        |
+| -4          | 심사거절   | LoginFailScreen 이동                       |
 
 ## 관련 컴포넌트
 
