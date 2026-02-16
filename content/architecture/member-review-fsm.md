@@ -40,7 +40,7 @@
 - 회원당 1행 요약
 - 포함 정보:
   - `member_status`
-  - `member_level` (`PRE_MEMBER`/`GENERAL`/`SEMI_MEMBER`/`FULL_MEMBER`)
+  - `member_level` (`PRE_MEMBER`/`GENERAL_MEMBER`/`SEMI_MEMBER`/`FULL_MEMBER`/`SPECIAL_MEMBER`)
   - `basic_info_status`, `required_auth_status`, `intro_status`
   - 단계별 `*_entered_at`
 - API/모바일은 이 뷰를 기준으로 현재 심사 상태를 해석한다.
@@ -58,11 +58,16 @@
 
 ### 회원 등급
 
-- `member_status IN (-4,-3,-2,-1)`이면 항상 `PRE_MEMBER`
-- `basic_info_status <> 'APPROVED'`이면 `PRE_MEMBER`
-- `basic_info_status='APPROVED'` + `required_auth_status='APPROVED'` + `intro_status='APPROVED'`이면 `FULL_MEMBER`
-- `basic_info_status='APPROVED'` + `required_auth_status='APPROVED'`이면 `SEMI_MEMBER`
-- `basic_info_status='APPROVED'`이면 `GENERAL`
+| 코드 | 표시명 | 조건 |
+| ---- | ------ | ---- |
+| `PRE_MEMBER` | 신청회원 | `member_status IN (-4,-3,-2,-1)` 또는 `basic_info_status <> 'APPROVED'` |
+| `GENERAL_MEMBER` | 일반회원 | `basic_info_status = 'APPROVED'` |
+| `SEMI_MEMBER` | 준회원 | `basic_info_status = 'APPROVED'` + `required_auth_status = 'APPROVED'` |
+| `FULL_MEMBER` | 정회원 | `basic_info_status = 'APPROVED'` + `required_auth_status = 'APPROVED'` + `intro_status = 'APPROVED'` |
+| `SPECIAL_MEMBER` | 특별회원 | 매니저가 수동 지정 |
+
+- **신청회원**(`PRE_MEMBER`): basic-info 제출 전 상태. 매니저 등급 표시 대상이 아니다.
+- **매니저에게 보여지는 등급**: 일반회원, 준회원, 정회원, 특별회원
 
 ### 현재 포커스 단계
 
