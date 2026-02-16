@@ -26,7 +26,6 @@
 - [TypeScript 전환 계획](policy/typescript-migration-plan.md)
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍
 - [테스트/CI 전략](policy/testing-strategy.md) - 레포별 테스트 및 CI 기준
-- [버그 수정 원칙](policy/bugfix-principles.md) - 근본 원인 해결, 체크리스트
 
 ### Flows
 
