@@ -1,6 +1,6 @@
 # 테스트/CI 전략
 
-## 🧪 테스트 코드 전략 (레포별)
+## 테스트 코드 전략 (레포별)
 
 - 공통 규칙: 코드베이스는 `.js/.jsx/.ts/.tsx` 혼용 가능. **테스트 파일에만 `.test.ts`/`.test.tsx`를 적용**한다.
 
@@ -45,7 +45,7 @@
 - 문서 빌드: `mkdocs build --strict`
 - 문서 lint: `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`)
 
-## 🔧 CI 전략
+## CI 전략
 
 - 서비스 레포(coupler-*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: 문서 배포/검증을 위해 `push(main)`에서도 워크플로가 동작할 수 있다.

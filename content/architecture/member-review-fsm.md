@@ -29,6 +29,7 @@
 - PK: `(member_id, review_stage)` (회원당 3행)
 - `review_stage`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO`
 - `review_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
+  - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
 - `entered_at`: 해당 단계 현재 상태 진입시각
 - `status_updated_at`: 행 갱신시각
 
