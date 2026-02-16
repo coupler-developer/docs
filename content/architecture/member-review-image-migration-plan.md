@@ -22,45 +22,45 @@ CREATE TABLE `t_member_profile_version` (
   KEY `idx_member_create_date` (`member`,`create_date`),
   KEY `idx_status_finalize_date` (`status`,`finalize_date`),
   CONSTRAINT `fk_profile_version_member` FOREIGN KEY (`member`) REFERENCES `t_member` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC COMMENT='회원 프로필 이미지 세트 버전';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='회원 프로필 이미지 세트 버전';
 
 -- 프로필 이미지(세트 내 이미지)
 CREATE TABLE `t_member_profile_image` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '아이디',
   `profile_version_id` int NOT NULL COMMENT '프로필 세트 아이디',
   `image_index` smallint unsigned NOT NULL COMMENT '이미지 순번',
-  `image_url` varchar(500) COLLATE utf8mb4_general_ci NOT NULL COMMENT '이미지 URL',
+  `image_url` varchar(500) NOT NULL COMMENT '이미지 URL',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '심사상태(0-심사대기,1-승인,2-반려,3-재심사요청)',
-  `reason` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '반려사유',
+  `reason` varchar(500) DEFAULT NULL COMMENT '반려사유',
   `create_date` datetime NOT NULL COMMENT '생성날짜',
   `finalize_date` datetime DEFAULT NULL COMMENT '최종심사일자',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE KEY `uq_profile_version_index` (`profile_version_id`,`image_index`),
   KEY `idx_profile_version_status` (`profile_version_id`,`status`),
   CONSTRAINT `fk_profile_image_version` FOREIGN KEY (`profile_version_id`) REFERENCES `t_member_profile_version` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC COMMENT='회원 프로필 이미지';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='회원 프로필 이미지';
 
 -- 프로필 비디오 (profile_version 테이블에 컬럼 추가)
 ALTER TABLE `t_member_profile_version`
-  ADD COLUMN `video_url` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '프로필 비디오 URL (여성 전용)' AFTER `finalize_date`,
+  ADD COLUMN `video_url` varchar(500) DEFAULT NULL COMMENT '프로필 비디오 URL (여성 전용)' AFTER `finalize_date`,
   ADD COLUMN `video_status` tinyint DEFAULT NULL COMMENT '비디오 심사상태(0-심사대기,1-승인,2-반려,3-재심사요청)' AFTER `video_url`,
-  ADD COLUMN `video_reason` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '비디오 반려사유' AFTER `video_status`;
+  ADD COLUMN `video_reason` varchar(500) DEFAULT NULL COMMENT '비디오 반려사유' AFTER `video_status`;
 
 -- 인증 이미지(인증 유형별 이미지)
 CREATE TABLE `t_member_auth_image` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '아이디',
   `auth_id` int NOT NULL COMMENT '인증아이디',
   `image_index` smallint unsigned NOT NULL COMMENT '이미지 순번',
-  `image_url` varchar(500) COLLATE utf8mb4_general_ci NOT NULL COMMENT '이미지 URL',
+  `image_url` varchar(500) NOT NULL COMMENT '이미지 URL',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '심사상태(0-심사대기,1-승인,2-반려,3-재심사요청)',
-  `reason` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '반려사유',
+  `reason` varchar(255) DEFAULT NULL COMMENT '반려사유',
   `create_date` datetime NOT NULL COMMENT '생성날짜',
   `finalize_date` datetime DEFAULT NULL COMMENT '최종심사일자',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE KEY `uq_auth_image` (`auth_id`,`image_index`),
   KEY `idx_auth_status` (`auth_id`,`status`),
   CONSTRAINT `fk_auth_image_auth` FOREIGN KEY (`auth_id`) REFERENCES `t_member_auth` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC COMMENT='회원 인증 이미지';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=DYNAMIC COMMENT='회원 인증 이미지';
 
 -- 현재 프로필 이미지 세트 포인터
 -- ⚠️ FK constraint는 마이그레이션 완료 후 추가 (데이터 검증 이슈 방지)
