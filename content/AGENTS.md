@@ -7,8 +7,19 @@
 
 ### Architecture
 
+- [회원 생명주기](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
 - [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
 - [프로필 이미지 마이그레이션](architecture/member-review-image-migration-plan.md)
+- [매칭 FSM](architecture/matching-fsm.md) - 매칭 상태 머신
+- [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
+- [매칭 일정 제안 알고리즘](architecture/matching-schedule-algorithm.md)
+- [미팅 시스템](architecture/meeting-system.md) - 2:2 그룹 미팅
+- [채팅 시스템](architecture/chat-system.md)
+- [라운지 시스템](architecture/lounge-system.md) - 커뮤니티
+- [결제 시스템](architecture/payment-system.md) - 키 충전 및 인앱결제
+- [푸시알림 시스템](architecture/push-notification.md) - FCM
+- [관리자 권한 시스템](architecture/admin-permission.md)
+- [Cron 작업](architecture/cron-jobs.md) - 자동화 스케줄
 - [레포지토리 요약](architecture/repo-overview.md)
 - [coupler-mobile-app to-be 아키텍처](architecture/mobile-app-to-be.md)
 
@@ -31,6 +42,7 @@
 
 - [사용자 등록 플로우](flows/cross-project/user-registration-flow.md) - 회원가입 → 심사
 - [사용자 인증 플로우](flows/coupler-mobile-app/user-authentication-flow.md) - 로그인
+- [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
 
 ### Setup
 
