@@ -43,6 +43,7 @@
 - `profile_set_current`
 - `profile_set_pending`
 - `review_status`
+- `matching_tab_access`
 
 `review_status` 필수 필드:
 
@@ -50,6 +51,14 @@
 - `required_auth_status`
 - `intro_status`
 - `member_level`
+
+`matching_tab_access` 필수 필드:
+
+- `on_going.allowed`
+- `you.allowed`
+- `members.allowed`
+- 잠금 탭에는 `reason_code`를 포함한다.
+: `review_pending`, `required_auth_missing`
 
 ## 라우팅 기준
 
