@@ -2,6 +2,10 @@
 
 - 이 문서에는 문서 인덱스만 가능
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
+- 반드시 읽어야할 것 Technical Debt, Policy 헤더내 링크 내용
+- 새 세션 시작 시 Technical Debt, Policy 헤더 내 링크 문서를 먼저 읽고 첫 응답에 아래 ACK를 반드시 출력
+  - `ACK: TD@YYYY-MM-DD POLICY@YYYY-MM-DD`
+- ACK 출력 전에는 코드 작성/수정/명령 실행을 시작하지 않는다
 
 ## 문서 인덱스
 
