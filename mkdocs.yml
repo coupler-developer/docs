@@ -56,6 +56,7 @@ nav:
   - Getting Started: README.md
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
+      - 회원가입 응답 계약: architecture/signup-response-contract.md
       - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
       - 레포지토리 요약: architecture/repo-overview.md
       - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md

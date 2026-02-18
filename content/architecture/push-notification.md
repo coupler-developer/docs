@@ -2,7 +2,7 @@
 
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 
-## FCM 알림 타입 (74개)
+## FCM 알림 타입 (75개)
 
 ### 회원가입 관련 (1-4)
 
@@ -61,13 +61,14 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 40 | LOUNGE_BEST | 베스트 선정 |
 | 41 | LOUNGE_BLAME | 신고 |
 
-### 기타 (42-74)
+### 기타 (42-75)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
 | 67 | CONCIERGE_CHAT | 큐레이터 채팅 |
 | 68 | ADMIN_FREE_KEY | 무료 키 지급 |
 | 70 | MATCH_CHAT_OPEN | 채팅방 오픈 |
+| 75 | SIGNUP_FULL_MEMBER_OK | 정회원 가입심사 최종 승인 |
 
 ## 발송 흐름
 
@@ -127,7 +128,7 @@ sequenceDiagram
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | member | INT | 수신자 ID |
-| type | INT | FCM_TYPE (1-74) |
+| type | INT | FCM_TYPE (1-75) |
 | content | VARCHAR | 알림 메시지 |
 | target | INT | 관련 ID (매칭/미팅/라운지) |
 | create_date | DATETIME | 발송 시간 |
