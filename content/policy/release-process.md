@@ -13,8 +13,8 @@
 - `coupler-api`
 - `coupler-admin-web`
 - `coupler-mobile-app`
+- `docs`
 
-> `docs` 레포는 `push(main)`으로 바로 배포되는 구조라서(태그 트리거 없음) 이 문서 범위에서 제외한다.
 > 이 워크스페이스는 레포가 여러 개라서, **태그는 레포별로 따로** 만든다.
 
 ## 용어 정리
@@ -27,6 +27,32 @@
 
 - 개발계(EC2) 배포 대상: `coupler-api`, `coupler-admin-web`
 - 모바일 배포 대상: `coupler-mobile-app` (EC2 배포 없음, 스토어/OTA로 배포)
+- 문서 배포 대상: `docs` (GitHub Pages + GitHub Release)
+
+## 릴리즈 운영 모델 (단계별)
+
+> 이 섹션은 과도기 운영 규칙이다. 3단계(자동 검증)까지 정착되면 1~2단계 설명은 제거하고, 최종 통합 릴리즈 규칙만 남긴다.
+
+### 1단계 (현재)
+
+- 문서 레포(`docs`) 단독으로 Release를 운영한다.
+- `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
+- 이 단계의 목적은 release 파이프라인 안정화다.
+
+### 2단계 (확장)
+
+- `docs` 버전을 워크스페이스 통합 버전으로 간주한다.
+- 같은 버전(`vX.Y.Z`)에 대해 아래 3개 레포의 반영 기준점을 함께 기록한다.
+- `coupler-mobile-app` 태그/커밋
+- `coupler-api` 태그/커밋
+- `coupler-admin-web` 태그/커밋
+- 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 한다.
+
+### 3단계 (자동 검증)
+
+- docs release 워크플로우에서 통합 버전 메타데이터를 검증한다.
+- 참조한 레포/태그/커밋이 실제 존재하지 않으면 release를 실패 처리한다.
+- 누락 없는 버전 스냅샷만 배포 기록으로 남긴다.
 
 ## 태그 규칙
 
@@ -67,6 +93,8 @@ git status
 
 ### 3) 태그 생성 및 push (배포 완료 후)
 
+- 반드시 `main` 브랜치(배포 검증 완료 커밋)에서 태그를 생성한다.
+
 ```bash
 # 예: v1.2.1 릴리즈
 git tag -a v1.2.1 -m "Release v1.2.1"
@@ -94,6 +122,40 @@ EOF
 
 gh release create v1.2.1 --title "v1.2.1" --notes-file /tmp/release-notes-v1.2.1.md
 ```
+
+## Docs 배포 (GitHub Pages + Tag Release)
+
+대상: `docs`
+
+- `main` 브랜치에 push되면 `deploy-docs.yml`로 GitHub Pages가 배포된다.
+- `v*.*.*` 태그가 push되면 `release.yml`이 동작해 GitHub Release를 자동 생성한다.
+- Release에는 `mkdocs build --strict` 결과물(`docs-site-vX.Y.Z.tar.gz`)이 첨부된다.
+- Release 노트는 이전 기준점(이전 태그, 첫 릴리스면 초기 커밋) 대비 변경을 자동 생성한다.
+- 자동 노트는 `사용자에게 보이는 변경`과 `내부 개선`으로 나뉜다.
+
+### 1) 태그 생성 및 push
+
+```bash
+git checkout main
+git pull --ff-only
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+```
+
+### 2) 자동 릴리즈 확인
+
+- GitHub Actions에서 `Release Docs` 워크플로우 성공 여부를 확인한다.
+- GitHub Releases에서 동일 태그(`v1.0.0`)가 생성됐는지 확인한다.
+
+### 3) 통합 버전 기록 (2단계부터 적용)
+
+- `docs/content/releases/vX.Y.Z.md` 문서를 생성해 아래를 기록한다.
+- 각 레포 반영 버전
+- `coupler-mobile-app`: `vX.Y.Z` 또는 commit SHA
+- `coupler-api`: `vX.Y.Z` 또는 commit SHA
+- `coupler-admin-web`: `vX.Y.Z` 또는 commit SHA
+- 릴리즈 검증 결과(핵심 시나리오, 롤백 기준)
+- release 노트에서 위 문서를 링크한다.
 
 ## 모바일 배포 (스토어/OTA)
 

@@ -1,0 +1,52 @@
+name: Release Docs
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate annotated tag
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          TAG_TYPE="$(git cat-file -t "refs/tags/${TAG_NAME}")"
+
+          if [ "${TAG_TYPE}" != "tag" ]; then
+            echo "::error::${TAG_NAME} is not an annotated tag. Use: git tag -a ${TAG_NAME} -m \"Release ${TAG_NAME}\""
+            exit 1
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build docs
+        run: mkdocs build --strict
+
+      - name: Package site artifact
+        run: tar -czf "docs-site-${GITHUB_REF_NAME}.tar.gz" -C site .
+
+      - name: Generate release notes
+        run: bash .github/scripts/generate-release-notes.sh "${GITHUB_REF_NAME}" > release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: "docs-site-${{ github.ref_name }}.tar.gz"
