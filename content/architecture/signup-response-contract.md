@@ -27,6 +27,7 @@
 
 - 도메인 상태 원본을 전달한다.
 - 화면 분기에 필요한 모든 상태는 `result_data`에 포함되어야 한다.
+- 심사 상태 필드는 `result_data.review_status` 단일 객체만 사용한다.
 
 ### 4) 클라이언트 라우팅
 
@@ -35,7 +36,7 @@
 
 ## 성공 응답 계약 (`result_code = 0`)
 
-`/app/auth/signup` 성공 응답은 아래 필드를 항상 포함해야 한다.
+`/app/v1/auth/signup` 성공 응답은 아래 필드를 항상 포함해야 한다.
 
 - `token`
 - `basic_info`
@@ -51,6 +52,11 @@
 - `required_auth_status`
 - `intro_status`
 - `member_level`
+
+금지(혼용 금지):
+
+- `result_data.review_stage` 단일 단계 문자열
+- 문자열 `result_data.review_status` (`"PENDING"` 같은 표현)
 
 `matching_tab_access` 필수 필드:
 
@@ -73,6 +79,7 @@
 
 - `result_code=1`을 "심사중", "재제출" 같은 도메인 상태로 사용.
 - 성공 응답에서 `review_status`만 내려주고 나머지 상태를 생략.
+- `review_stage`와 `review_status`(문자열)를 동시에 내려주는 이중 계약.
 - 서버 힌트(`next_step`)를 라우팅 단일 근거로 사용.
 - 클라이언트 로컬 플래그만으로 서버 상태를 덮어 라우팅.
 

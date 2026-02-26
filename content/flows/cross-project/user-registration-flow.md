@@ -22,13 +22,14 @@ sequenceDiagram
     App->>API: POST /app/v1/auth/signup
     API->>DB: INSERT t_member
     API->>DB: INSERT t_member_review_item
-    API->>DB: INSERT t_member_review_status
-    API-->>App: { result_code: 0, result_data }
+    API->>API: syncMemberReviewStatusByMemberId()
+    API->>DB: (호환) UPSERT t_member_review_status
+    API-->>App: { result_code: 0, result_data(token, review_status, ...) }
     App->>App: SignupReviewScreen 이동
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
     Admin->>API: POST /admin/member/pending/save
-    API->>DB: UPDATE t_member_review_status
+    API->>API: syncMemberReviewStatusByMemberId()
 ```
 
 ## 단계별 설명
@@ -87,9 +88,10 @@ Content-Type: application/json
 
 #### 관련 파일
 
-- `coupler-api/controller/app/v1/auth.js` → `signup()`
+- `coupler-api/controller/app/v1/auth.ts` → `signup()`
 
 > 위 요청 예시는 이해를 위한 축약본이며, 실제로는 더 많은 필드가 함께 전송된다.
+> 앱 내부 상태(`basic_info.password`)는 전송 시 서버 계약 키 `pwd`로 매핑된다.
 
 ### Step 3: 데이터 저장 (API → DB)
 
@@ -100,7 +102,7 @@ Content-Type: application/json
 3. 회원 정보 저장 (`t_member`)
 4. 프로필 이미지 저장 (`t_member_profile_version`, `t_member_profile_image`)
 5. 심사 항목 생성 (`t_member_review_item`)
-6. 심사 단계 상태 초기화 (`t_member_review_status`)
+6. 심사 단계 상태 동기화 (`v_member_review_status` 기준, 호환 스냅샷 `t_member_review_status` 갱신)
 
 #### 테이블
 
@@ -128,13 +130,32 @@ VALUES (?, ?, ?, 0, NOW());
   "result_code": 0,
   "result_msg": "SUCCESS",
   "result_data": {
-    "id": 12345,
-    "email": "user@example.com",
-    "review_stage": "BASIC_INFO",
-    "review_status": "PENDING"
+    "token": "<jwt>",
+    "basic_info": {
+      "id": 12345,
+      "email": "user@example.com",
+      "status": 0
+    },
+    "pending_profile": [],
+    "profile_set_current": null,
+    "profile_set_pending": null,
+    "review_status": {
+      "basic_info_status": "PENDING",
+      "required_auth_status": "UNSUBMITTED",
+      "intro_status": "UNSUBMITTED",
+      "member_level": "PRE_MEMBER"
+    },
+    "matching_tab_access": {
+      "on_going": { "allowed": false, "reason_code": "review_pending" },
+      "you": { "allowed": false, "reason_code": "review_pending" },
+      "members": { "allowed": false, "reason_code": "review_pending" }
+    }
   }
 }
 ```
+
+> 심사 상태 필드는 `result_data.review_status` 단일 객체만 사용한다.
+> `result_data.review_stage` 또는 문자열 `result_data.review_status`는 사용하지 않는다.
 
 ### Step 4: 심사 대기 (Mobile App)
 
@@ -143,8 +164,8 @@ VALUES (?, ?, ?, 0, NOW());
 #### 상태값
 
 - `user.status = 0` (PENDING)
-- `t_member_review_status`에서 `review_stage='BASIC_INFO'`, `review_status='PENDING'`
-- API 응답에서 `v_member_review_status` 뷰 기준으로 심사 상태를 내려준다
+- API 응답의 심사 상태는 `v_member_review_status` 뷰 기준으로 내려준다
+- `t_member_review_status`는 동기화/호환 스냅샷으로만 유지된다
 
 ### Step 5: 관리자 심사 (Admin Web)
 
@@ -203,12 +224,10 @@ POST /admin/member/pending/save
 
 ## 에러 처리
 
-| result_code | 의미             | 처리                 |
-| ----------- | ---------------- | -------------------- |
-| 0           | 성공             | 심사대기 화면 이동   |
-| 1           | 이미 가입된 회원 | 로그인 화면 이동     |
-| -2          | 차단된 회원      | LoginFailScreen 이동 |
-| 기타        | 서버 오류        | Toast 메시지 표시    |
+| result_code | 의미                           | 처리                       |
+| ----------- | ------------------------------ | -------------------------- |
+| 0           | 성공                           | 심사대기 화면 이동         |
+| 음수 코드   | 실패(계약/검증/서버 오류 포함) | 에러 메시지/실패 화면 처리 |
 
 ## 관련 문서
 
