@@ -40,7 +40,7 @@ sequenceDiagram
     App->>API: POST /member/editInfo (또는 changeProfile, addAuth)
     API->>DB: INSERT/UPDATE t_member_review_item
     API->>API: syncMemberReviewStatusByMemberId()
-    API->>DB: UPSERT t_member_review_status (3행)
+    API->>DB: (호환) UPSERT t_member_review_status (3행)
     API-->>App: { result_code: 0 }
     App->>App: 심사중 상태 표시
 
@@ -48,7 +48,7 @@ sequenceDiagram
     API-->>Admin: 심사 대기 목록
     Admin->>API: POST /admin/member/pending/save
     API->>DB: UPDATE t_member_review_item (APPROVED/RETURN)
-    API->>DB: syncMemberReviewStatusByMemberId()
+    API->>API: syncMemberReviewStatusByMemberId()
 ```
 
 ## API 엔드포인트
@@ -102,7 +102,8 @@ sequenceDiagram
     ↓
 [PENDING/REAPPLY] t_member_review_item / t_member_profile_version / t_member_auth
     ↓ syncMemberReviewStatusByMemberId()
-[t_member_review_status 갱신] BASIC_INFO / REQUIRED_AUTH / INTRO
+[v_member_review_status 기준 상태 산출]
+    ↓ (호환 스냅샷 t_member_review_status 갱신)
     ↓ (관리자 심사)
 [APPROVED] → v_member_review_status에 반영
 [RETURN] → 앱에서 반려 항목 표시, 재수정 유도 (REAPPLY로 재제출)

@@ -5,7 +5,8 @@
 ## 핵심 원칙
 
 - 회원 생애주기 상태는 `t_member.status`가 단일 기준이다.
-- 심사 단계 상태는 `t_member_review_status`가 단일 기준이다.
+- 심사 단계 상태의 읽기/판정 기준은 `v_member_review_status`가 단일 기준이다.
+- `t_member_review_status`는 동기화/호환용 스냅샷 테이블이며, 비즈니스 판정 SoT로 사용하지 않는다.
 - 최종 거절은 단계 상태가 아니라 `t_member.status = -4`로만 표현한다.
 - 반려/재심사는 단계별 상태(`RETURN`, `REAPPLY`)로 표현한다.
 
@@ -23,15 +24,16 @@
   - `0`: 심사중
   - `1`: 정상
 
-### 2) 심사 단계 상태
+### 2) 심사 단계 상태 스냅샷(호환용)
 
 - 테이블: `t_member_review_status`
 - PK: `(member_id, review_stage)` (회원당 3행)
-- `review_stage`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO`
+- `review_stage`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO` (DB 내부 스냅샷 키, API 응답 필드 아님)
 - `review_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
   - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
 - `entered_at`: 해당 단계 현재 상태 진입시각
 - `status_updated_at`: 행 갱신시각
+- 참고: 최종 상태 판정은 이 테이블 직접 조회가 아니라 `v_member_review_status` 조회를 기준으로 한다.
 
 ## 조회 뷰 역할
 
@@ -44,6 +46,8 @@
   - `basic_info_status`, `required_auth_status`, `intro_status`
   - 단계별 `*_entered_at`
 - API/모바일은 이 뷰를 기준으로 현재 심사 상태를 해석한다.
+- 이 문서에서 심사 상태 SoV(Service Output View)는 `v_member_review_status`를 의미한다.
+- API 응답 계약에서는 단계 상태를 `result_data.review_status` 객체로만 전달한다.
 
 ### `v_member_review_overview` (운영/어드민 기준 뷰)
 
@@ -105,9 +109,10 @@
   - `status=-4`는 거절 회원으로 처리
 - 어드민:
   - 운영 리스트/필터는 `v_member_review_overview` 우선
-  - 상세 단계 상태는 `v_member_review_status` 또는 `t_member_review_status` 원본 확인
+  - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
 
 ## 금지 사항
 
 - `t_member`에 심사 단계 컬럼(`pending_status`, `review_stage`)을 다시 저장하지 않는다.
 - 최종 거절을 단계 상태(`review_status`)로 표현하지 않는다.
+- 심사 상태 판정을 위해 `t_member_review_status`를 직접 조회하는 코드를 신규 추가하지 않는다.
