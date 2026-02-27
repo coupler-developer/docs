@@ -36,7 +36,6 @@ flowchart TD
 uploads/
 ├── image/{type}/{year}/{month}/{day}/
 │   ├── image_1700000000000.jpg
-│   └── image_1700000000000_thumb.jpg   ← 512x512 썸네일
 ├── video/{year}/{month}/{day}/
 │   ├── video_1700000000000.MOV
 │   └── video_1700000000000.jpg         ← 비디오 썸네일 (10초 프레임)
@@ -53,7 +52,7 @@ uploads/
 
 | 타입 | 후처리 | 라이브러리 | 비고 |
 | ---- | ------ | ---------- | ---- |
-| 이미지 | 512x512 리사이즈 → `_thumb` 파일 생성 | GraphicsMagick (gm) | |
+| 이미지 | 기본: 원본 저장, 관리자 이미지(`manager*`)는 `webp` 변환 + 최대 `720x1280` 최적화(quality 82) | GraphicsMagick (gm) | `_thumb` 생성 없음 |
 | 비디오 | 10초 프레임 추출 → JPG 썸네일 | FFmpeg | 썸네일 실패 시 에러 응답 |
 | 오디오 | 원본 → MP3 변환 후 원본 삭제 | FFmpeg | |
 | 파일 | 없음 | - | |
@@ -149,6 +148,16 @@ flowchart TD
 
 - [레포지토리 요약](repo-overview.md)
 - [기술 부채 정리](../technical-debt.md)
+
+## 운영 보정 (레거시 manager 이미지)
+
+- 과거에 저장된 큰 `png/jpg` manager 이미지는 아래 스크립트로 일괄 변환/경로 갱신한다.
+
+```bash
+cd coupler-api
+node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts --dry-run
+node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts
+```
 
 ## 근거 (코드 기준)
 
