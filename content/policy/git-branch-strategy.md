@@ -42,6 +42,7 @@
 ## 관련 문서
 
 - [커밋 메시지 컨벤션](commit-convention.md)
+- [Git 동기화/Rebase 실행 정책](git-sync-rebase-policy.md)
 
 ## 주의사항
 

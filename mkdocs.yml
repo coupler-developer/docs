@@ -73,6 +73,7 @@ nav:
       - 크론 작업: architecture/cron-jobs.md
   - Policy:
       - Git 브랜치 전략: policy/git-branch-strategy.md
+      - Git 동기화/Rebase 실행 정책: policy/git-sync-rebase-policy.md
       - 커밋 메시지 컨벤션: policy/commit-convention.md
       - 배포 태그/릴리즈 프로세스: policy/release-process.md
       - 로그 정책: policy/log-policy.md
