@@ -19,7 +19,8 @@
 ### coupler-api (Express)
 
 - 러너: `jest` 사용 (`coupler-api/package.json`).
-- 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
+- 위치/규칙: `__tests__/**/*.test.(ts|tsx)`만 허용 (현재 `jest.testMatch` 기준).
+- TO-BE: `src/__tests__/` 통일 전환은 기술부채 항목에서 별도 관리.
 - 우선순위:
 
   1. `lib/*.js` 유틸 단위 테스트
