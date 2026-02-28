@@ -198,7 +198,7 @@ POST /admin/member/pending/save
     ↓ (기본정보 승인)
 [GENERAL] status=PENDING, basic_info_status='APPROVED'
     ↓ (서류 승인)
-[SEMI_MEMBER] status=NORMAL, required_auth_status='APPROVED'
+[SEMI_MEMBER] status=PENDING, required_auth_status='APPROVED'
     ↓ (소개글 승인)
 [FULL_MEMBER] status=NORMAL, intro_status='APPROVED'
 ```
