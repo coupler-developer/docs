@@ -27,7 +27,7 @@
 
 - 도메인 상태 원본을 전달한다.
 - 화면 분기에 필요한 모든 상태는 `result_data`에 포함되어야 한다.
-- 심사 상태 필드는 `result_data.review_status` 단일 객체만 사용한다.
+- 심사 분기 필드는 `result_data.review_status`와 `result_data.review_flow`를 함께 사용한다.
 
 ### 4) 클라이언트 라우팅
 
@@ -44,6 +44,7 @@
 - `profile_set_current`
 - `profile_set_pending`
 - `review_status`
+- `review_flow`
 - `matching_tab_access`
 
 `review_status` 필수 필드:
@@ -52,6 +53,10 @@
 - `required_auth_status`
 - `intro_status`
 - `member_level`
+
+`review_flow` 필수 필드:
+
+- `phase`
 
 금지(혼용 금지):
 
@@ -72,7 +77,7 @@
 
 1. `result_code !== 0`이면 에러 처리.
 2. `result_code === 0`이면 `result_data`를 상태 저장소에 반영.
-3. `review_status + basic_info.status`로 다음 화면 결정.
+3. `review_flow + basic_info.status`로 다음 화면 결정.
 4. 필요 시 `getSignupReviewOutcome` 같은 순수 함수로 분기 규칙을 고정.
 
 ## 금지 사항
