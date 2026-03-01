@@ -66,7 +66,6 @@
   - `coupler-api/lib/db.ts`의 `typeCast`가 적용된 DB row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
   - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
   - `req.body` 같은 외부 입력 경계는 parse/validate를 유지하고, 타입 흔들림은 변환 우회가 아니라 `typeCast`/쿼리/DTO 수정으로 해결한다
-  - 재발 방지를 위해 레포 lint 게이트에 자동 검사 스크립트를 연결한다 (예: `coupler-api` `guard:manager-assignment`)
 - **요청(draft) 모델과 응답(response) 모델을 섞지 않기**
   - 서버 응답 필드를 클라이언트 로컬 draft 저장소로 재사용하지 않는다
   - 제출 payload는 요청 스펙으로만 구성하고, 응답 스펙은 오직 서버 응답으로만 갱신한다
