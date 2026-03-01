@@ -149,6 +149,6 @@ if (schedule_count >= 4 && !accepted) {
 
 ## 근거 (코드 기준)
 
-- 일정 제안: `coupler-api/controller/app/v1/match.js` (`addSchedule`)
-- 일정 수락: `coupler-api/controller/app/v1/match.js` (`acceptSchedule`)
-- 일정 모델: `coupler-api/model/match_schedule.js`
+- 일정 제안: `coupler-api/controller/app/v1/match.ts` (`addSchedule`)
+- 일정 수락: `coupler-api/controller/app/v1/match.ts` (`acceptSchedule`)
+- 일정 모델: `coupler-api/model/match_schedule.ts`

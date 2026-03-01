@@ -121,6 +121,6 @@ GET /admin/cron/cleanupOldProfileVersions
 
 ## 근거 (코드 기준)
 
-- 컨트롤러: `coupler-api/controller/admin/cron.js`
-- 라우터: `coupler-api/routes/admin/cron.js`
-- 매칭 모델: `coupler-api/model/match.js`
+- 컨트롤러: `coupler-api/controller/admin/cron.ts`
+- 라우터: `coupler-api/routes/admin/cron.ts`
+- 매칭 모델: `coupler-api/model/match.ts`

@@ -121,8 +121,8 @@ flowchart LR
 
 ## 근거 (코드 기준)
 
-- 상수 정의: `coupler-api/config/constant.js`
-- 결제 처리: `coupler-api/controller/app/v1/member.js` (889-1069)
-- 결제 모델: `coupler-api/model/iap.js`
-- 키 로그 모델: `coupler-api/model/member_key_log.js`
-- 관리자 API: `coupler-api/controller/admin/iap.js`
+- 상수 정의: `coupler-api/config/constant.ts`
+- 결제 처리: `coupler-api/controller/app/v1/member.ts` (889-1069)
+- 결제 모델: `coupler-api/model/iap.ts`
+- 키 로그 모델: `coupler-api/model/member_key_log.ts`
+- 관리자 API: `coupler-api/controller/admin/iap.ts`

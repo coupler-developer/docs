@@ -142,7 +142,7 @@ stateDiagram-v2
 
 ## 근거 (코드 기준)
 
-- 상태 상수: `coupler-api/config/constant.js`
-- 매칭 로직: `coupler-api/controller/app/v1/match.js`
-- 매칭 모델: `coupler-api/model/match.js`
-- 라우팅: `coupler-api/routes/app/v1/match.js`
+- 상태 상수: `coupler-api/config/constant.ts`
+- 매칭 로직: `coupler-api/controller/app/v1/match.ts`
+- 매칭 모델: `coupler-api/model/match.ts`
+- 라우팅: `coupler-api/routes/app/v1/match.ts`

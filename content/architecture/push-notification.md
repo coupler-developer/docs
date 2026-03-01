@@ -142,10 +142,10 @@ sequenceDiagram
 
 | 파일 | 기능 | 주요 알림 |
 |------|------|----------|
-| `controller/admin/cron.js` | 스케줄 작업 | D-DAY, 만남 당일, 카드 만료 |
-| `controller/app/v1/match.js` | 매칭 액션 | 프로필 수락, 채팅, 일정 |
-| `controller/admin/member.js` | 회원 관리 | 심사 승인, 무료키 지급 |
-| `controller/app/v1/lounge.js` | 라운지 | 댓글, 베스트 |
+| `controller/admin/cron.ts` | 스케줄 작업 | D-DAY, 만남 당일, 카드 만료 |
+| `controller/app/v1/match.ts` | 매칭 액션 | 프로필 수락, 채팅, 일정 |
+| `controller/admin/member.ts` | 회원 관리 | 심사 승인, 무료키 지급 |
+| `controller/app/v1/lounge.ts` | 라운지 | 댓글, 베스트 |
 
 ## 다국어 지원
 
@@ -162,8 +162,8 @@ sequenceDiagram
 
 ## 근거 (코드 기준)
 
-- FCM 코어: `coupler-api/lib/fcm.js`
-- 고수준 API: `coupler-api/controller/common.js` (75-255)
-- 알림 타입: `coupler-api/config/constant.js` (FCM_TYPE)
-- 알림 모델: `coupler-api/model/alarm.js`
+- FCM 코어: `coupler-api/lib/fcm.ts`
+- 고수준 API: `coupler-api/controller/common.ts` (75-255)
+- 알림 타입: `coupler-api/config/constant.ts` (FCM_TYPE)
+- 알림 모델: `coupler-api/model/alarm.ts`
 - 다국어: `coupler-api/locales/ko.json`

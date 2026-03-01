@@ -146,6 +146,6 @@ stateDiagram-v2
 
 ## 근거 (코드 기준)
 
-- 컨트롤러: `coupler-api/controller/app/v1/meeting.js`
-- 라우터: `coupler-api/routes/app/v1/meeting.js`
-- 모델: `coupler-api/model/meeting.js`, `meeting_member.js`
+- 컨트롤러: `coupler-api/controller/app/v1/meeting.ts`
+- 라우터: `coupler-api/routes/app/v1/meeting.ts`
+- 모델: `coupler-api/model/meeting.ts`, `coupler-api/model/meeting_member.ts`

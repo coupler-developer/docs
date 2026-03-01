@@ -106,11 +106,11 @@ stateDiagram-v2
 
 ## 근거 (코드 기준)
 
-- 상태 상수: `coupler-api/config/constant.js`
-- 로그인 검증: `coupler-api/controller/app/v1/auth.js`
-- 재가입 로직: `coupler-api/controller/app/v1/auth.js` (1134-1155)
-- HOLD 자동 전환: `coupler-api/controller/admin/cron.js`
-- HOLD 해제: `coupler-api/controller/admin/member.js` (`release_hold`)
-- BLOCK 토글: `coupler-api/controller/admin/member.js` (`block`)
-- 탈퇴: `coupler-api/controller/app/v1/member.js` (`leave`)
-- 개인정보 파기: `coupler-api/controller/admin/cron.js`
+- 상태 상수: `coupler-api/config/constant.ts`
+- 로그인 검증: `coupler-api/controller/app/v1/auth.ts`
+- 재가입 로직: `coupler-api/controller/app/v1/auth.ts` (1134-1155)
+- HOLD 자동 전환: `coupler-api/controller/admin/cron.ts`
+- HOLD 해제: `coupler-api/controller/admin/member.ts` (`release_hold`)
+- BLOCK 토글: `coupler-api/controller/admin/member.ts` (`block`)
+- 탈퇴: `coupler-api/controller/app/v1/member.ts` (`leave`)
+- 개인정보 파기: `coupler-api/controller/admin/cron.ts`

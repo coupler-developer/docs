@@ -135,6 +135,6 @@ const maleRefund = Math.floor(match_info.male_paid_key * 0.5);
 
 ## 근거 (코드 기준)
 
-- 키 상수: `coupler-api/config/constant.js` (MATCH_KEY, MATCH_KEY_LOG)
-- 환불 로직: `coupler-api/controller/app/v1/match.js`
-- 키 로그 모델: `coupler-api/model/member_key_log.js`
+- 키 상수: `coupler-api/config/constant.ts` (MATCH_KEY, MATCH_KEY_LOG)
+- 환불 로직: `coupler-api/controller/app/v1/match.ts`
+- 키 로그 모델: `coupler-api/model/member_key_log.ts`

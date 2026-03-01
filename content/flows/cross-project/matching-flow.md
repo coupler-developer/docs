@@ -229,5 +229,5 @@ MatchingScreen
 ## 근거 (코드 기준)
 
 - 모바일 화면: `coupler-mobile-app/src/screens/matching/`
-- API 라우팅: `coupler-api/routes/app/v1/match.js`
-- 매칭 로직: `coupler-api/controller/app/v1/match.js`
+- API 라우팅: `coupler-api/routes/app/v1/match.ts`
+- 매칭 로직: `coupler-api/controller/app/v1/match.ts`

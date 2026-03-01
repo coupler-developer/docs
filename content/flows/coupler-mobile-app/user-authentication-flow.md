@@ -29,7 +29,7 @@ sequenceDiagram
 
 #### 관련 파일
 
-- `screens/login/LoginScreen.js`
+- `coupler-mobile-app/src/screens/auth/HomeScreen.tsx`
 
 #### 입력 데이터
 
@@ -60,7 +60,7 @@ Content-Type: application/json
 
 #### 관련 파일
 
-- `coupler-api/controller/app/v1/auth.js` → `login()`
+- `coupler-api/controller/app/v1/auth.ts` → `login()`
 
 ### Step 3: API 응답
 
@@ -89,8 +89,8 @@ Content-Type: application/json
 
 #### 관련 파일
 
-- `mobx/GlobalState.js` → `setMyInfo()`
-- `utils/PrefUtils.js`
+- `coupler-mobile-app/src/mobx/GlobalState.ts` → `setMyInfo()`
+- `coupler-mobile-app/src/utils/PrefUtils.ts`
 
 #### 저장 데이터
 
@@ -109,12 +109,12 @@ GlobalState.setMyInfo(result_data);
 
 #### 분기 조건
 
-| member_level  | 이동 화면                    |
-| ------------- | ---------------------------- |
-| `PRE_MEMBER`  | SignupReviewScreen (심사대기) |
-| `GENERAL`     | MatchingScreen (인증서류)    |
-| `SEMI_MEMBER` | MatchingScreen (소개글)      |
-| `FULL_MEMBER` | HomeScreen (정상)            |
+| member_level     | 이동 화면                     |
+| ---------------- | ----------------------------- |
+| `PRE_MEMBER`     | SignupReviewScreen (심사대기) |
+| `GENERAL_MEMBER` | MatchingScreen (인증서류)     |
+| `SEMI_MEMBER`    | MatchingScreen (소개글)       |
+| `FULL_MEMBER`    | HomeScreen (정상)             |
 
 ## 자동 로그인
 
@@ -162,36 +162,33 @@ POST /app/v1/auth/login/social
 | -1          | 인증 실패   | "이메일 또는 비밀번호가 올바르지 않습니다" |
 | -2          | 차단된 회원 | LoginFailScreen 이동                       |
 | -3          | 탈퇴한 회원 | "탈퇴한 계정입니다"                        |
-| -4          | 심사거절   | LoginFailScreen 이동                       |
+| -4          | 심사거절    | LoginFailScreen 이동                       |
 
 ## 관련 컴포넌트
 
 ### Mobile App
 
-- `screens/login/LoginScreen.js`
-- `mobx/GlobalState.js`
-- `utils/APIUtils.js` → `Net.auth.login`
-- `utils/PrefUtils.js`
+- `coupler-mobile-app/src/screens/auth/HomeScreen.tsx`
+- `coupler-mobile-app/src/mobx/GlobalState.ts`
+- `coupler-mobile-app/src/utils/APIUtils.ts` → `Net.auth.login`
+- `coupler-mobile-app/src/utils/PrefUtils.ts`
 
 ### API
 
-- `controller/app/v1/auth.js` → `login()`
-- `routes/app/v1/auth.js`
+- `coupler-api/controller/app/v1/auth.ts` → `login()`
+- `coupler-api/routes/app/v1/auth.ts`
 
 ## 보안 고려사항
 
 1. **비밀번호 전송**
-
    - HTTPS 필수
    - 서버에서 bcrypt 해싱/검증
 
 2. **토큰 저장**
-
    - AsyncStorage 사용
    - 앱 삭제 시 자동 제거
 
 3. **세션 관리**
-
    - accessToken 만료 시 재로그인
    - 서버에서 강제 로그아웃 가능
 

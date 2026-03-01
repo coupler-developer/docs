@@ -136,9 +136,9 @@ const payload = {
 
 ## 근거 (코드 기준)
 
-- 토큰 생성: `coupler-api/controller/admin/auth.js`
-- 토큰 검증: `coupler-api/middleware/auth_admin.js`
-- 권한 체크: `coupler-api/controller/admin/manager.js`
-- 데이터 필터: `coupler-api/controller/admin/member.js`
+- 토큰 생성: `coupler-api/controller/admin/auth.ts`
+- 토큰 검증: `coupler-api/middleware/auth_admin.ts`
+- 권한 체크: `coupler-api/controller/admin/manager.ts`
+- 데이터 필터: `coupler-api/controller/admin/member.ts`
 - 프론트 권한: `coupler-admin-web/src/mobx/store.js`
 - 메뉴 필터: `coupler-admin-web/src/config/page-route.jsx`
