@@ -167,6 +167,18 @@ VALUES (?, ?, ?, 0, NOW());
 - API 응답의 심사 상태는 `v_member_review_status` 뷰 기준으로 내려준다
 - `t_member_review_stage_snapshot`은 동기화/호환 스냅샷으로만 유지된다
 
+#### 모바일 분기 함수(단일 기준)
+
+- 엔트리 라우팅(앱 진입)은 `decidePostLoginEntryRoute` 단일 함수로 결정한다.
+  - 위치: `coupler-mobile-app/src/utils/postLoginEntryRoute.ts`
+  - 적용 화면: `SplashScreen`, `HomeScreen`, `SignupReviewScreen`(Splash 경유), `SignupCongratuScreen`(Splash 경유)
+- 매칭 화면 표시 상태는 `decideMatchingViewState`로 결정한다.
+  - 위치: `coupler-mobile-app/src/screens/matching/shared/utils/matchingAuthUtils.ts`
+  - 목적: `AUTH_REQUEST` / `LOCK_PANEL` / `DEFAULT` 분기
+- 락 패널 문구는 `buildMatchingLockPanelContent`로 생성한다.
+  - 위치: `coupler-mobile-app/src/screens/matching/shared/utils/matchingAuthUtils.ts`
+  - 목적: `review_status.required_auth_status` + `review_status.intro_status` 조합에 대한 title/buttonLabel 생성
+
 ### Step 5: 관리자 심사 (Admin Web)
 
 #### 관련 파일
