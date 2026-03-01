@@ -176,18 +176,18 @@
 
 현상
 
-- 심사 상태의 판정 기준은 `v_member_review_status`인데, 일부 코드/문서에 `t_member_review_status` 직접 의존 흔적이 남아 있음.
-- `t_member_review_status`는 동기화/호환 스냅샷인데 SoT처럼 해석될 여지가 있음.
+- 심사 상태의 판정 기준은 `v_member_review_status`인데, 일부 코드/문서에 `t_member_review_stage_snapshot` 직접 의존 흔적이 남아 있음.
+- `t_member_review_stage_snapshot`은 동기화/호환 스냅샷인데 SoT처럼 해석될 여지가 있음.
 
 영향
 
 - 상태 판정 경계가 모호해져 회귀 시 원인 추적 비용 증가.
-- 신규 코드가 잘못된 기준(`t_member_review_status` 직접 조회)으로 확산될 위험.
+- 신규 코드가 잘못된 기준(`t_member_review_stage_snapshot` 직접 조회)으로 확산될 위험.
 
 액션 후보
 
 - API 읽기 경로를 `v_member_review_status` 단일 기준으로 고정.
-- `t_member_review_status`는 sync/호환 용도로만 제한하고, 신규 비즈니스 판정 코드에서 사용 금지.
+- `t_member_review_stage_snapshot`은 sync/호환 용도로만 제한하고, 신규 비즈니스 판정 코드에서 사용 금지.
 - 문서(FSM/Flow/Swagger 설명)에서 "원천 저장소"와 "판정/출력 기준"을 분리 표기하고, 심사 판정 기준은 `v_member_review_status`로 고정.
 
 ---

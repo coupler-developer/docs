@@ -6,7 +6,7 @@
 
 - 회원 생애주기 상태는 `t_member.status`가 단일 기준이다.
 - 심사 단계 상태의 읽기/판정 기준은 `v_member_review_status`가 단일 기준이다.
-- `t_member_review_status`는 동기화/호환용 스냅샷 테이블이며, 비즈니스 판정 SoT로 사용하지 않는다.
+- `t_member_review_stage_snapshot`은 동기화/호환용 스냅샷 테이블이며, 비즈니스 판정 SoT로 사용하지 않는다.
 - 최종 거절은 단계 상태가 아니라 `t_member.status = -4`로만 표현한다.
 - 반려/재심사는 단계별 상태(`RETURN`, `REAPPLY`)로 표현한다.
 
@@ -26,13 +26,13 @@
 
 ### 2) 심사 단계 상태 스냅샷(호환용)
 
-- 테이블: `t_member_review_status`
-- PK: `(member_id, review_stage)` (회원당 3행)
-- `review_stage`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO` (DB 내부 스냅샷 키, API 응답 필드 아님)
-- `review_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
+- 테이블: `t_member_review_stage_snapshot`
+- PK: `(member_id, stage_code)` (회원당 3행)
+- `stage_code`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO` (DB 내부 스냅샷 키, API 응답 필드 아님)
+- `stage_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
   - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
-- `entered_at`: 해당 단계 현재 상태 진입시각
-- `status_updated_at`: 행 갱신시각
+- `stage_status_entered_at`: 해당 단계 현재 상태 진입시각
+- `snapshot_updated_at`: 행 갱신시각
 - 참고: 최종 상태 판정은 이 테이블 직접 조회가 아니라 `v_member_review_status` 조회를 기준으로 한다.
 
 ## 조회 뷰 역할
@@ -115,4 +115,4 @@
 
 - `t_member`에 심사 단계 컬럼(`pending_status`, `review_stage`)을 다시 저장하지 않는다.
 - 최종 거절을 단계 상태(`review_status`)로 표현하지 않는다.
-- 심사 상태 판정을 위해 `t_member_review_status`를 직접 조회하는 코드를 신규 추가하지 않는다.
+- 심사 상태 판정을 위해 `t_member_review_stage_snapshot`를 직접 조회하는 코드를 신규 추가하지 않는다.

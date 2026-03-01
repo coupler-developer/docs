@@ -21,9 +21,9 @@ sequenceDiagram
 
     App->>API: POST /app/v1/auth/signup
     API->>DB: INSERT t_member
-    API->>DB: INSERT t_member_review_item
+    API->>DB: INSERT t_member_review_request
     API->>API: syncMemberReviewStatusByMemberId()
-    API->>DB: (호환) UPSERT t_member_review_status
+    API->>DB: SELECT v_member_review_status (승격 조건 판정)
     API-->>App: { result_code: 0, result_data(token, review_status, ...) }
     App->>App: SignupReviewScreen 이동
     Admin->>API: GET /admin/member/pending/list
@@ -38,10 +38,10 @@ sequenceDiagram
 
 #### 관련 파일
 
-- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberScreen.js`
-- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep1.js` (기본정보)
-- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep2.js` (프로필)
-- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep3.js` (사진)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberScreen.tsx`
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep1.tsx` (기본정보)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep2.tsx` (프로필)
+- `coupler-mobile-app/src/screens/signup/SignupGeneralMemberStep3.tsx` (사진)
 
 #### 입력 정보
 
@@ -100,9 +100,9 @@ Content-Type: application/json
 1. 이메일 중복 체크 (`t_member`)
 2. 비밀번호 해싱 (bcrypt)
 3. 회원 정보 저장 (`t_member`)
-4. 프로필 이미지 저장 (`t_member_profile_version`, `t_member_profile_image`)
-5. 심사 항목 생성 (`t_member_review_item`)
-6. 심사 단계 상태 동기화 (`v_member_review_status` 기준, 호환 스냅샷 `t_member_review_status` 갱신)
+4. 프로필 이미지 저장 (`t_member_profile_set`, `t_member_profile_set_image`)
+5. 심사 항목 생성 (`t_member_review_request`)
+6. 심사 상태 판정은 `v_member_review_status` 단일 기준으로 수행
 
 #### 테이블
 
@@ -114,12 +114,12 @@ INSERT INTO t_member (
   nickname, job, location, status
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
 
--- 프로필 이미지 버전
-INSERT INTO t_member_profile_version (member, version_no, create_date, status)
+-- 프로필 세트 버전
+INSERT INTO t_member_profile_set (member_id, profile_set_version, created_at, review_status)
 VALUES (?, 1, NOW(), 0);
 
 -- 프로필 이미지
-INSERT INTO t_member_profile_image (profile_version_id, image_index, image_url, status, create_date)
+INSERT INTO t_member_profile_set_image (profile_set_id, image_position, image_url, review_status, created_at)
 VALUES (?, ?, ?, 0, NOW());
 ```
 
@@ -165,7 +165,7 @@ VALUES (?, ?, ?, 0, NOW());
 
 - `user.status = 0` (PENDING)
 - API 응답의 심사 상태는 `v_member_review_status` 뷰 기준으로 내려준다
-- `t_member_review_status`는 동기화/호환 스냅샷으로만 유지된다
+- `t_member_review_stage_snapshot`은 동기화/호환 스냅샷으로만 유지된다
 
 ### Step 5: 관리자 심사 (Admin Web)
 
@@ -196,7 +196,7 @@ POST /admin/member/pending/save
     ↓
 [PRE_MEMBER] status=PENDING, basic_info_status='PENDING'
     ↓ (기본정보 승인)
-[GENERAL] status=PENDING, basic_info_status='APPROVED'
+[GENERAL_MEMBER] status=PENDING, basic_info_status='APPROVED'
     ↓ (서류 승인)
 [SEMI_MEMBER] status=PENDING, required_auth_status='APPROVED'
     ↓ (소개글 승인)

@@ -38,16 +38,16 @@ sequenceDiagram
     participant Admin as Admin Web
 
     App->>API: POST /member/editInfo (또는 changeProfile, addAuth)
-    API->>DB: INSERT/UPDATE t_member_review_item
+    API->>DB: INSERT/UPDATE t_member_review_request
     API->>API: syncMemberReviewStatusByMemberId()
-    API->>DB: (호환) UPSERT t_member_review_status (3행)
+    API->>DB: SELECT v_member_review_status (승격 조건 판정)
     API-->>App: { result_code: 0 }
     App->>App: 심사중 상태 표시
 
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
     Admin->>API: POST /admin/member/pending/save
-    API->>DB: UPDATE t_member_review_item (APPROVED/RETURN)
+    API->>DB: UPDATE t_member_review_request (APPROVED/RETURN)
     API->>API: syncMemberReviewStatusByMemberId()
 ```
 
@@ -69,7 +69,7 @@ sequenceDiagram
 ### editInfo
 
 1. 요청 본문에서 변경 필드를 추출 (`job`, `location`, `school` 등 16개 필드)
-2. 기존 `t_member_review_item` 조회
+2. 기존 `t_member_review_request` 조회
 3. 필드별 비교:
    - 변경값 ≠ 현재값 → INSERT (신규) 또는 UPDATE (기존 RETURN → REAPPLY 자동전환)
    - 변경값 = 현재값 → 기존 심사항목 DELETE
@@ -80,7 +80,7 @@ sequenceDiagram
 ### changeProfile
 
 1. `profile_image_paths` 배열과 현재 이미지 비교
-2. 변경 감지 시 `t_member_profile_version` UPSERT (status=PENDING 또는 REAPPLY)
+2. 변경 감지 시 `t_member_profile_set` UPSERT (`review_status=PENDING` 또는 `REAPPLY`)
 3. 이미지별 개별 status 관리 (`buildImageStatusList`)
 4. 여성회원: 비디오 별도 `video_url`/`video_status` 관리
 5. 이미 PENDING/REAPPLY인 프로필이 있으면 수정 차단 (RETURN만 재제출 가능)
@@ -100,10 +100,9 @@ sequenceDiagram
 ```
 프로필 수정 제출
     ↓
-[PENDING/REAPPLY] t_member_review_item / t_member_profile_version / t_member_auth
+[PENDING/REAPPLY] t_member_review_request / t_member_profile_set / t_member_auth
     ↓ syncMemberReviewStatusByMemberId()
 [v_member_review_status 기준 상태 산출]
-    ↓ (호환 스냅샷 t_member_review_status 갱신)
     ↓ (관리자 심사)
 [APPROVED] → v_member_review_status에 반영
 [RETURN] → 앱에서 반려 항목 표시, 재수정 유도 (REAPPLY로 재제출)
@@ -129,10 +128,10 @@ sequenceDiagram
 
 ## 근거 (코드 기준)
 
-- 설정 화면: `coupler-mobile-app/src/screens/setting/SettingScreen.js`
-- 기본정보 수정: `coupler-mobile-app/src/screens/setting/ModifyMainInfoScreen.js`
+- 설정 화면: `coupler-mobile-app/src/screens/setting/SettingScreen.tsx`
+- 기본정보 수정: `coupler-mobile-app/src/screens/setting/ModifyMainInfoScreen.tsx`
 - 프로필 사진: `coupler-mobile-app/src/screens/setting/ProfileImageScreen.tsx`
-- 인증 서류: `coupler-mobile-app/src/screens/setting/ModifyAuthScreen.js`
+- 인증 서류: `coupler-mobile-app/src/screens/setting/ModifyAuthScreen.tsx`
 - API 라우터: `coupler-api/routes/app/v1/member.ts`
 - 회원 컨트롤러: `coupler-api/controller/app/v1/member.ts`
 - 심사 상태 동기화: `coupler-api/lib/member-review-status.ts`

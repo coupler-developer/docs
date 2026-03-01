@@ -114,8 +114,8 @@ Background:
 - 반려 시 개별 이미지 사유 표시 요구
 
 Changes:
-- t_member_profile_version 테이블 추가
-- t_member_profile_image 테이블 추가
+- t_member_profile_set 테이블 추가
+- t_member_profile_set_image 테이블 추가
 - API 응답에 profile_set_current/pending 추가
 
 Impact:
