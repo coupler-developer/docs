@@ -1,11 +1,20 @@
 # AGENTS
 
-- 이 문서에는 문서 인덱스만 가능
+- 이 문서에는 문서 인덱스와 에이전트 최소 운영 규칙만 포함한다
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
-- 반드시 읽어야할 것 Technical Debt, Policy 헤더내 링크 내용
-- 새 세션 시작 시 Technical Debt, Policy 헤더 내 링크 문서를 먼저 읽고 첫 응답에 아래 ACK를 반드시 출력
-  - `ACK: TD@YYYY-MM-DD POLICY@YYYY-MM-DD`
-- ACK 출력 전에는 코드 작성/수정/명령 실행을 시작하지 않는다
+- 새 세션 시작 전 필수 열람 문서는 아래 Core 4개만 사용한다
+  - `content/technical-debt.md`
+  - `content/policy/code-review-policy.md`
+  - `content/policy/engineering-guardrails.md`
+  - `content/policy/testing-strategy.md`
+- 새 세션 시작 시 첫 응답에 아래 형식을 반드시 출력한다
+  - `ACK: CORE@YYYY-MM-DD CRP@YYYY-MM-DD`
+  - `EVIDENCE: content/technical-debt.md:<line>, content/policy/code-review-policy.md:<line>, content/policy/engineering-guardrails.md:<line>, content/policy/testing-strategy.md:<line>`
+  - `CRP`는 `content/policy/code-review-policy.md`를 의미한다
+  - `YYYY-MM-DD`는 세션 날짜를 사용한다
+- ACK/EVIDENCE 출력 전에는 필수 문서 열람(읽기) 외의 명령 실행 및 코드 작성/수정을 시작하지 않는다
+- 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
+  - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
 
 ## 문서 인덱스
 
