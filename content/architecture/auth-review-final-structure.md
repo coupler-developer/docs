@@ -160,7 +160,7 @@ Fail-Closed:
 - `POST /member/review/auth/submit`
 - Request:
   - `request_origin` (필수)
-  - `idempotency_key` (필수, 요청 재시도 식별자)
+  - `idempotency_key` (요청 재시도 식별자, `SET-04` 완료 시 필수화)
   - `delete_missing_auth` (0/1)
   - `auth: [{ type: number, images: string[] }]`
 - Response:
@@ -173,6 +173,12 @@ Fail-Closed:
 
 - 동일 `(member_id, request_origin, idempotency_key)` 요청은 새 배치를 만들지 않고 기존 `review_batch_id`를 재사용해 반환한다.
 - 동일 키에 payload가 다르면 `AUTH_SUBMIT_IDEMPOTENCY_CONFLICT`로 즉시 실패한다.
+
+과도기 호환 모드(`SET-04` 진행 중):
+
+- 현재 `addAuth`는 `idempotency_key`를 optional로 허용한다.
+- key가 없으면 기존 처리와 동일하게 동작한다.
+- key가 있으면 동일 process 범위에서 `replay/conflict/inflight` 가드를 적용한다.
 
 제출 게이트(설정 추가 인증):
 
