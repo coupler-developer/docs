@@ -57,6 +57,7 @@ nav:
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 회원 심사 3축 분리 정책: architecture/member-review-axis-policy.md
+      - 인증 심사 최종 구조: architecture/auth-review-final-structure.md
       - 회원가입 응답 계약: architecture/signup-response-contract.md
       - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
       - 레포지토리 요약: architecture/repo-overview.md

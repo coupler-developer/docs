@@ -123,6 +123,7 @@ sequenceDiagram
 ## 관련 문서
 
 - [회원 심사 FSM](../../architecture/member-review-fsm.md)
+- [인증 심사 최종 구조](../../architecture/auth-review-final-structure.md)
 - [회원 생명주기](../../architecture/member-lifecycle.md)
 - [사용자 등록 플로우](user-registration-flow.md)
 

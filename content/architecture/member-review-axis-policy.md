@@ -90,4 +90,5 @@
 
 - [회원 생명주기](member-lifecycle.md)
 - [회원 심사 FSM](member-review-fsm.md)
+- [인증 심사 최종 구조](auth-review-final-structure.md)
 - [프로필 관리 플로우](../flows/cross-project/profile-management-flow.md)
