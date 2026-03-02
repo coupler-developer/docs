@@ -27,7 +27,7 @@
 
 - 도메인 상태 원본을 전달한다.
 - 화면 분기에 필요한 모든 상태는 `result_data`에 포함되어야 한다.
-- 심사 분기 필드는 `result_data.review_status`와 `result_data.review_flow`를 함께 사용한다.
+- 심사 분기/권한 필드는 `result_data.access_context` 단일 객체만 사용한다.
 
 ### 4) 클라이언트 라우팅
 
@@ -43,42 +43,27 @@
 - `pending_profile`
 - `profile_set_current`
 - `profile_set_pending`
-- `review_status`
-- `review_flow`
-- `matching_tab_access`
 - `access_context`
-
-`review_status` 필수 필드:
-
-- `basic_info_status`
-- `required_auth_status`
-- `intro_status`
-- `member_level`
-
-`review_flow` 필수 필드:
-
-- `phase`
 
 금지(혼용 금지):
 
 - `result_data.review_stage` 단일 단계 문자열
 - 문자열 `result_data.review_status` (`"PENDING"` 같은 표현)
 
-`matching_tab_access` 필수 필드:
-
-- `on_going.allowed`
-- `you.allowed`
-- `members.allowed`
-- 잠금 탭에는 `reason_code`를 포함한다.
-: `review_pending`, `required_auth_missing`
-
 `access_context` 필수 필드:
 
 - `user_status`
 - `member_level`
-- `review_status`
-- `review_flow`
-- `matching_tab_access`
+- `review_status.basic_info_status`
+- `review_status.required_auth_status`
+- `review_status.intro_status`
+- `review_status.member_level`
+- `review_flow.phase`
+- `matching_tab_access.on_going.allowed`
+- `matching_tab_access.you.allowed`
+- `matching_tab_access.members.allowed`
+- 잠금 탭에는 `matching_tab_access.*.reason_code`를 포함한다.
+: `review_pending`, `required_auth_missing`
 - `permissions.setting_edit_allowed`
 - `permissions.profile_edit_allowed`
 - `permissions.lounge_write_allowed`
@@ -90,13 +75,13 @@
 
 1. `result_code !== 0`이면 에러 처리.
 2. `result_code === 0`이면 `result_data`를 상태 저장소에 반영.
-3. `review_flow + basic_info.status`로 다음 화면 결정.
+3. `access_context.review_flow + basic_info.status`로 다음 화면 결정.
 4. 필요 시 `getSignupReviewOutcome` 같은 순수 함수로 분기 규칙을 고정.
 
 ## 금지 사항
 
 - `result_code=1`을 "심사중", "재제출" 같은 도메인 상태로 사용.
-- 성공 응답에서 `review_status`만 내려주고 나머지 상태를 생략.
+- 성공 응답에서 `access_context` 외 심사 필드를 top-level로 중복 제공.
 - `review_stage`와 `review_status`(문자열)를 동시에 내려주는 이중 계약.
 - 서버 힌트(`next_step`)를 라우팅 단일 근거로 사용.
 - 클라이언트 로컬 플래그만으로 서버 상태를 덮어 라우팅.
