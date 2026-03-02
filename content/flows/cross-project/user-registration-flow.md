@@ -24,7 +24,7 @@ sequenceDiagram
     API->>DB: INSERT t_member_review_request
     API->>API: syncMemberReviewStatusByMemberId()
     API->>DB: SELECT v_member_review_status (승격 조건 판정)
-    API-->>App: { result_code: 0, result_data(token, review_status, ...) }
+    API-->>App: { result_code: 0, result_data(token, access_context, ...) }
     App->>App: SignupReviewScreen 이동
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
@@ -139,22 +139,35 @@ VALUES (?, ?, ?, 0, NOW());
     "pending_profile": [],
     "profile_set_current": null,
     "profile_set_pending": null,
-    "review_status": {
-      "basic_info_status": "PENDING",
-      "required_auth_status": "UNSUBMITTED",
-      "intro_status": "UNSUBMITTED",
-      "member_level": "PRE_MEMBER"
-    },
-    "matching_tab_access": {
-      "on_going": { "allowed": false, "reason_code": "review_pending" },
-      "you": { "allowed": false, "reason_code": "review_pending" },
-      "members": { "allowed": false, "reason_code": "review_pending" }
+    "access_context": {
+      "user_status": 0,
+      "member_level": "PRE_MEMBER",
+      "review_status": {
+        "basic_info_status": "PENDING",
+        "required_auth_status": "UNSUBMITTED",
+        "intro_status": "UNSUBMITTED",
+        "member_level": "PRE_MEMBER"
+      },
+      "review_flow": {
+        "phase": "BASIC_INFO_REVIEW"
+      },
+      "matching_tab_access": {
+        "on_going": { "allowed": false, "reason_code": "review_pending" },
+        "you": { "allowed": false, "reason_code": "review_pending" },
+        "members": { "allowed": false, "reason_code": "review_pending" }
+      },
+      "permissions": {
+        "setting_edit_allowed": false,
+        "profile_edit_allowed": false,
+        "lounge_write_allowed": false,
+        "lounge_comment_allowed": false
+      }
     }
   }
 }
 ```
 
-> 심사 상태 필드는 `result_data.review_status` 단일 객체만 사용한다.
+> 심사 상태 필드는 `result_data.access_context.review_status` 단일 객체만 사용한다.
 > `result_data.review_stage` 또는 문자열 `result_data.review_status`는 사용하지 않는다.
 
 ### Step 4: 심사 대기 (Mobile App)
@@ -177,7 +190,7 @@ VALUES (?, ?, ?, 0, NOW());
   - 목적: `AUTH_REQUEST` / `LOCK_PANEL` / `DEFAULT` 분기
 - 락 패널 문구는 `buildMatchingLockPanelContent`로 생성한다.
   - 위치: `coupler-mobile-app/src/screens/matching/shared/utils/matchingAuthUtils.ts`
-  - 목적: `review_status.required_auth_status` + `review_status.intro_status` 조합에 대한 title/buttonLabel 생성
+  - 목적: `access_context.review_status.required_auth_status` + `access_context.review_status.intro_status` 조합에 대한 title/buttonLabel 생성
 
 ### Step 5: 관리자 심사 (Admin Web)
 

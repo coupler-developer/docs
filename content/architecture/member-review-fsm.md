@@ -47,7 +47,7 @@
   - 단계별 `*_entered_at`
 - API/모바일은 이 뷰를 기준으로 현재 심사 상태를 해석한다.
 - 이 문서에서 심사 상태 SoV(Service Output View)는 `v_member_review_status`를 의미한다.
-- API 응답 계약에서는 단계 상태를 `result_data.review_status` 객체로만 전달한다.
+- API 응답 계약에서는 단계 상태를 `result_data.access_context.review_status` 객체로 전달한다.
 
 ### `v_member_review_overview` (운영/어드민 기준 뷰)
 
