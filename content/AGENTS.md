@@ -2,6 +2,7 @@
 
 - 이 문서에는 문서 인덱스와 에이전트 최소 운영 규칙만 포함한다
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
+- 문서 추가/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
 - 새 세션 시작 전 필수 열람 문서는 아래 Core 4개만 사용한다
   - `content/technical-debt.md`
   - `content/policy/code-review-policy.md`
