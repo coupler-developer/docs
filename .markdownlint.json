@@ -10,6 +10,9 @@
   "MD024": {
     "siblings_only": true
   },
+  "MD029": {
+    "style": "ordered"
+  },
   "MD033": false,
   "MD060": false,
   "MD040": false,
