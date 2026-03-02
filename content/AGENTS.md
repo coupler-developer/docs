@@ -24,6 +24,7 @@
 - [회원 생명주기](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
 - [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
 - [회원 심사 3축 분리 정책](architecture/member-review-axis-policy.md) - 자격/진행/출처 분리 기준
+- [인증 심사 최종 구조](architecture/auth-review-final-structure.md) - addAuth/auth 정리 및 큐 분류 최종안
 - [회원가입 응답 계약](architecture/signup-response-contract.md) - result_code/result_data 역할 분리 최종안
 - [프로필 이미지 마이그레이션](architecture/member-review-image-migration-plan.md)
 - [매칭 FSM](architecture/matching-fsm.md) - 매칭 상태 머신
