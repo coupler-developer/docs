@@ -101,7 +101,7 @@ WHERE NOT EXISTS (
 );
 ```
 
-2. `t_member_profile_set_image` 고아 행 0건
+1. `t_member_profile_set_image` 고아 행 0건
 
 ```sql
 SELECT COUNT(*) AS orphan_profile_set_image
@@ -111,7 +111,7 @@ WHERE NOT EXISTS (
 );
 ```
 
-3. `t_member_auth_evidence_image` 고아 행 0건
+1. `t_member_auth_evidence_image` 고아 행 0건
 
 ```sql
 SELECT COUNT(*) AS orphan_auth_evidence
@@ -121,7 +121,7 @@ WHERE NOT EXISTS (
 );
 ```
 
-4. 반려 데이터 reason 누락 0건
+1. 반려 데이터 reason 누락 0건
 
 ```sql
 SELECT

@@ -46,6 +46,7 @@
 - `review_status`
 - `review_flow`
 - `matching_tab_access`
+- `access_context`
 
 `review_status` 필수 필드:
 
@@ -70,6 +71,18 @@
 - `members.allowed`
 - 잠금 탭에는 `reason_code`를 포함한다.
 : `review_pending`, `required_auth_missing`
+
+`access_context` 필수 필드:
+
+- `user_status`
+- `member_level`
+- `review_status`
+- `review_flow`
+- `matching_tab_access`
+- `permissions.setting_edit_allowed`
+- `permissions.profile_edit_allowed`
+- `permissions.lounge_write_allowed`
+- `permissions.lounge_comment_allowed`
 
 ## 라우팅 기준
 
