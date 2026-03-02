@@ -29,7 +29,8 @@
 | 큐 | 자격 조건 | 출처 조건 | 포함 대상 |
 | --- | --- | --- | --- |
 | 가입/승급 심사 (`semi-*`, `full-*`, `intro-*`) | `t_member.status`가 가입/승급 단계 | `SIGNUP_REVIEW` | 가입/승급 제출분 |
-| 프로필정보 변경 요청 (`profile-edit`) | `t_member.status = NORMAL(1)` | `SETTING_PROFILE_EDIT` 우선 | 정회원 설정 수정 제출분 |
+| 프로필정보 변경 요청 (`profile-edit`) | `t_member.status = NORMAL(1)` | `SETTING_PROFILE_EDIT` 우선 | `PENDING/REAPPLY`(처리 가능)만 포함 |
+| 심사항목 반려/재심사 (`review-item-reapply-queue`) | 상태별 분기(`PENDING/NORMAL`) | `SIGNUP_REVIEW` + `SETTING_PROFILE_EDIT`(과도기 보조 포함) | 반려/재심사 이슈 큐 (`SETTING_PROFILE_EDIT`는 `RETURN`만 포함) |
 
 보조 규칙:
 
@@ -63,6 +64,8 @@
 ## 읽기 정책 (Admin 목록)
 
 - `profile-edit`는 `M.status=1` + 출처 일치(`SETTING_PROFILE_EDIT`)를 기본 조건으로 사용한다.
+- `profile-edit`는 actionable 상태(`PENDING/REAPPLY`)만 포함하고 `RETURN`은 제외한다.
+- `review-item-reapply-queue`의 `SETTING_PROFILE_EDIT` 분기는 `RETURN`만 포함한다(큐 중복 방지).
 - 가입/승급 큐는 출처가 `SIGNUP_REVIEW`인 건만 포함한다.
 - `request_origin`이 `NULL`이거나 미정의 enum이면 어떤 큐에도 포함하지 않는다(Fail-closed).
 - 출처 누락 건은 운영 점검 대상으로만 취급하고, 데이터 보정 후 재심사 큐에 재진입시킨다.
