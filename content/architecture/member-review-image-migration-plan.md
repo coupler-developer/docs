@@ -135,4 +135,4 @@ SELECT
 - [회원 심사 FSM](member-review-fsm.md)
 - [회원 심사 3축 분리 정책](member-review-axis-policy.md)
 - [업로드/미디어 시스템](upload-media-system.md)
-- 최종 스키마 요약: `ritzy운영-coupler운영_마이그레이션_가이드/27_FINAL_SCHEMA_SUMMARY_AND_CONTRACT.md`
+- DB 마이그레이션 판정 기준: [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)

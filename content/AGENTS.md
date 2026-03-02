@@ -16,6 +16,7 @@
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람(읽기) 외의 명령 실행 및 코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
   - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
+- 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
 
 ## 문서 인덱스
 
@@ -52,6 +53,7 @@
 - [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그)과 GitHub Release 발행
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
+- [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
 - [TypeScript 전환 계획](policy/typescript-migration-plan.md)
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍
 - [테스트/CI 전략](policy/testing-strategy.md) - 레포별 테스트 및 CI 기준

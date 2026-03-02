@@ -50,3 +50,8 @@
 
 - 서비스 레포(coupler-*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: 문서 배포/검증을 위해 `push(main)`에서도 워크플로가 동작할 수 있다.
+
+## DB 마이그레이션 검증 (공통)
+
+- 운영 반영 전 최소 검증 순서는 `Local baseline -> Local migration -> 개발계 검증 -> 시나리오 DB 검증`을 따른다.
+- 상세 Gate/판정 기준은 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.

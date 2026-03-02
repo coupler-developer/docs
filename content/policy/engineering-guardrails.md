@@ -190,6 +190,11 @@
 - 코드, 파일엔 명시적이며 직관적인 명칭 사용할 것
 - lint/CI 통과를 merge 조건으로 둔다 (특히 docs 변경 시 markdownlint: MD012/MD032)
 
+### DB Migration Gate 인덱스
+
+- DB 마이그레이션 검증은 [DB Migration Gate 정책](db-migration-gate-policy.md)의 `DBM-GATE-*`를 기준으로 수행한다.
+- 본 문서는 상위 원칙(Fail-closed/No Findings)만 유지하고, DB 마이그레이션 세부 게이트 정의는 분리 문서를 단일 기준으로 사용한다.
+
 ### 안전한 로직 이행 (Shadow Cutover)
 
 - 기존 로직을 통합 함수/신규 로직으로 바꿀 때는 아래 4단계를 순서대로 강제한다.

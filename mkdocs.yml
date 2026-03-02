@@ -80,6 +80,7 @@ nav:
       - 배포 태그/릴리즈 프로세스: policy/release-process.md
       - 로그 정책: policy/log-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md
+      - DB Migration Gate 정책: policy/db-migration-gate-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
       - 테스트/CI 전략: policy/testing-strategy.md
       - TypeScript 전환 계획: policy/typescript-migration-plan.md
