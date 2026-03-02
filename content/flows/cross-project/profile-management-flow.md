@@ -57,6 +57,7 @@ sequenceDiagram
 | ------ | ---------------------- | ---------------------- | --------- |
 | POST   | `/member/editInfo`     | 기본정보/SNS/소개글 수정 | O         |
 | POST   | `/member/changeProfile`| 프로필 사진/동영상 수정   | O         |
+| POST   | `/member/review/auth/submit` | 인증서류 제출(표준 경로) | O |
 | POST   | `/member/addAuth`      | 인증서류 추가/변경        | O         |
 | POST   | `/member/editFavorInfo`| 취향/선호 정보 수정       | X (직접 반영) |
 | GET    | `/member/getProfileInfo`| 현재/심사중 프로필 조회  | -         |
