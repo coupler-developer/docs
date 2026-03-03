@@ -13,6 +13,18 @@
 - 상수: 화면 전용은 `src/screens/<도메인>/<화면>Constants.ts`/`.js`, 도메인 공용은 `src/screens/<도메인>/shared/constants/`, 전역은 `src/constants/`.
 - Card는 “화면 일부 재사용 블록”에만 사용하고, 화면 레이아웃을 포함하면 `*ScreenContent`/`*Panel`로 이름을 올린다.
 
+## 레이어 책임 분리 적용 (Mobile)
+
+- 책임 분리 공통 원칙은 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 사용한다.
+- 본 문서는 모바일 구현 예시/적용 포인트만 다룬다(원칙 본문 반복 금지).
+- 적용 포인트 예시:
+  - Screen 계층: 네비게이션 연결, 화면 상태 조합, UI 이벤트 wiring 중심으로 구성한다.
+  - Domain 계층: 상태 전이/판단/정책 로직은 Store/Service/UseCase로 올려서 재사용 가능하게 유지한다.
+  - Component 계층: 순수 렌더링 중심으로 유지하고, 도메인 판단 분기/네트워크 호출을 넣지 않는다.
+  - 공통 UI: `Frame(저수준 레이아웃)` + `App 수준 조합 컴포넌트` 2계층을 우선 검토한다.
+    - Header 예시: `HeaderFrame`(safe-area/slot/layout) + `AppHeader`(title/back/actions preset).
+  - 타입 경계: 타입 우회(`as unknown as`) 대신 공용 컴포넌트 export 타입을 단일화한다.
+
 ## coupler-mobile-app 예시 폴더 구조 (to-be)
 
 ```text
