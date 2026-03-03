@@ -212,3 +212,27 @@
 - `coupler-mobile-app`은 `fragment`/중첩 화면 폴더를 단계적으로 `*Step*`/`*Section*` 및 도메인 평탄 구조로 이전한다.
 - `coupler-api` 테스트 경로는 현행(`__tests__/`)을 기준으로 문서와 CI를 먼저 일치시키고, 필요 시 `src/__tests__/` 이전을 별도 마이그레이션으로 수행한다.
 - 워크스페이스 루트 산출물(SQL dump, 임시 파일) 보관 위치를 별도 아카이브 디렉터리로 분리해 루트 구조를 단순화한다.
+
+---
+
+## 11) Admin jQuery 의존성 제거 (React 단일 렌더 경로 전환) `P1` `L`
+
+현상
+
+- `coupler-admin-web`에 `jquery` import가 다수 잔존한다(현재 기준 47개).
+- `DataTables`와 `$.fn.*` 확장(`image_lightbox`, `nickname_label`, `user_status` 등)에 의존하는 화면이 넓게 분포한다.
+- React 상태/렌더링과 jQuery 직접 DOM 조작이 혼재되어 단일 렌더 경로가 깨져 있다.
+
+영향
+
+- TypeScript 타입 안정성이 저하되고 전환 품질 판정이 어려워진다.
+- React 렌더링과 jQuery DOM 조작 간 상태 불일치로 회귀 리스크가 증가한다.
+- 테스트/디버깅/리팩터링 비용이 상승한다.
+
+액션 후보
+
+- 테이블 계층을 React 기반(`TanStack Table` 또는 `AG Grid`)으로 단계 전환한다.
+- `$.fn.*` 커스텀 확장을 React 컴포넌트/유틸 함수로 치환한다.
+- DOM 직접 접근(`$()`) 로직을 `state + props + ref` 패턴으로 이전한다.
+- `helper/extension.tsx`의 프로토타입 확장 로직을 순수 유틸 함수로 분리한다.
+- 화면 단위 전환 완료 후 `jquery`, `datatables.net*` 의존성을 제거한다.
