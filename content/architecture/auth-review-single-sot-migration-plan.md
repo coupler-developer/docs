@@ -134,10 +134,8 @@
 
 1. 제출
 
-- 인증 제출 API는 `request_origin`을 명시적으로 받는다.
-- 서버는 `member.status`에서 기대 origin을 계산한다.
-- 요청 body의 `request_origin`은 검증용으로만 사용하고, 저장값은 서버 계산값으로만 기록한다.
-- 요청 body `request_origin`이 서버 계산값과 다르면 즉시 실패(Fail-closed)한다.
+- 인증 제출 API는 `request_origin`을 요청 body로 받지 않는다.
+- 서버는 `member.status`에서 기대 origin을 계산해 저장값을 고정한다.
 - 제출은 request 계열 테이블에만 기록한다.
 - 재제출(`RETURN` 후 제출)은 아래 전이 규칙을 강제한다.
   - 동일 `(member_id, request_origin)` 최신 활성 요청을 `FOR UPDATE`로 잠근다.
