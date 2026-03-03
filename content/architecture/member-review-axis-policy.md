@@ -8,6 +8,13 @@
 - 가입/승급 심사와 설정 수정 심사를 같은 규칙으로 일관되게 분리한다.
 - API, Admin, Mobile이 같은 기준(SoT)을 사용하도록 강제한다.
 
+## 적용 범위
+
+- 본 문서는 `t_member_review_request` 기반 심사 항목(`basic_info`, `intro`)의 출처 분리 규칙을 정의한다.
+- `required_auth`(인증 심사) 출처 분리 규칙은 별도 문서
+  [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)을 따른다.
+- 본 정책의 SoT/큐 규칙은 `explicit review schema`(`t_member_review_request`, `v_member_review_status`)가 적용된 환경 기준이다.
+
 ## 3축 정의 (SoT)
 
 | 축 | 의미 | 단일 SoT | 금지 |
@@ -29,8 +36,8 @@
 | 큐 | 자격 조건 | 출처 조건 | 포함 대상 |
 | --- | --- | --- | --- |
 | 가입/승급 심사 (`semi-*`, `full-*`, `intro-*`) | `t_member.status`가 가입/승급 단계 | `SIGNUP_REVIEW` | 가입/승급 제출분 |
-| 프로필정보 변경 요청 (`profile-edit`) | `t_member.status = NORMAL(1)` | `SETTING_PROFILE_EDIT` 우선 | `PENDING/REAPPLY`(처리 가능)만 포함 |
-| 심사항목 반려/재심사 (`review-item-reapply-queue`) | 상태별 분기(`PENDING/NORMAL`) | `SIGNUP_REVIEW` + `SETTING_PROFILE_EDIT`(과도기 보조 포함) | 반려/재심사 이슈 큐 (`SETTING_PROFILE_EDIT`는 `RETURN`만 포함) |
+| 프로필정보 변경 요청 (`profile-edit`) | `t_member.status = NORMAL(1)` | `SETTING_PROFILE_EDIT` 우선 | `PENDING/REAPPLY`(처리 가능)만 포함 (`t_member_review_request` 기반 항목 기준) |
+| 심사항목 반려/재심사 (`review-item-reapply-queue`) | 상태별 분기(`PENDING/NORMAL`) | `SIGNUP_REVIEW` + `SETTING_PROFILE_EDIT`(과도기 보조 포함) | 반려/재심사 이슈 큐 (`SETTING_PROFILE_EDIT`는 `RETURN`만 포함, `t_member_review_request` 기반 항목 기준) |
 
 보조 규칙:
 
@@ -64,11 +71,13 @@
 ## 읽기 정책 (Admin 목록)
 
 - `profile-edit`는 `M.status=1` + 출처 일치(`SETTING_PROFILE_EDIT`)를 기본 조건으로 사용한다.
-- `profile-edit`는 actionable 상태(`PENDING/REAPPLY`)만 포함하고 `RETURN`은 제외한다.
-- `review-item-reapply-queue`의 `SETTING_PROFILE_EDIT` 분기는 `RETURN`만 포함한다(큐 중복 방지).
+- `profile-edit`는 actionable 상태(`PENDING/REAPPLY`)만 포함하고 `RETURN`은 제외한다(`t_member_review_request` 기반 항목).
+- `review-item-reapply-queue`의 `SETTING_PROFILE_EDIT` 분기는 `RETURN`만 포함한다(큐 중복 방지, `t_member_review_request` 기반 항목).
 - 가입/승급 큐는 출처가 `SIGNUP_REVIEW`인 건만 포함한다.
 - `request_origin`이 `NULL`이거나 미정의 enum이면 어떤 큐에도 포함하지 않는다(Fail-closed).
 - 출처 누락 건은 운영 점검 대상으로만 취급하고, 데이터 보정 후 재심사 큐에 재진입시킨다.
+- `required_auth` 큐 라우팅은 본 문서 대신
+  [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)을 따른다.
 
 ## 테스트 최소 기준
 
@@ -82,7 +91,8 @@
 
 ## 알려진 제한과 확장 계획
 
-- 현재 출처 SoT는 `t_member_review_request.request_origin`에 완전 적용되어 있다.
+- 개발계(explicit schema 적용 환경)에서는 출처 SoT가 `t_member_review_request.request_origin`에 적용되어 있다.
+- 운영계가 `t_member_pending` legacy 상태이면 본 정책을 직접 적용할 수 없고, explicit schema 전환 완료 후 적용한다.
 - `t_member_auth`, `t_member_profile_set`은 별도 `request_origin` 컬럼이 없으므로 과도기 보조 조건이 필요하다.
 - 장기적으로 인증/프로필 버전에도 출처 컬럼을 도입해, 모든 심사 도메인을 동일한 source-first 규칙으로 통일한다.
 
@@ -90,4 +100,5 @@
 
 - [회원 생명주기](member-lifecycle.md)
 - [회원 심사 FSM](member-review-fsm.md)
+- [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)
 - [프로필 관리 플로우](../flows/cross-project/profile-management-flow.md)
