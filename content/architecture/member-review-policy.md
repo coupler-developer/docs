@@ -77,7 +77,7 @@
 ## 전환 기준 (as-is -> to-be)
 
 - DB/API/Admin/Mobile 전환 완료 전까지 as-is와 to-be 차이를 PR 본문에 명시한다.
-- `request_origin` fallback(`coalesce`) 로직은 to-be에서 제거 대상으로 관리한다.
+- `request_origin` fallback(`coalesce`) 로직은 개발 DB 기준 제거 완료이며, 재도입을 금지한다.
 - 큐 중복(동일 요청이 2개 큐에 동시 노출) 0건을 전환 완료 조건으로 둔다.
 
 ## Mobile 제출/재제출 정책
