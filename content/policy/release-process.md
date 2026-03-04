@@ -97,15 +97,21 @@ git status
 
 ```bash
 # 예: v1.2.1 릴리즈
-git tag -a v1.2.1 -m "Release v1.2.1"
-git push origin v1.2.1
+TAG=v1.2.1
+git tag -a "${TAG}" -m "Release ${TAG}"
+
+# 태그 커밋이 origin/main 계보에 포함되는지 확인 (실패 시 중단)
+TAG_COMMIT="$(git rev-list -n 1 "${TAG}")"
+git merge-base --is-ancestor "${TAG_COMMIT}" origin/main
+
+git push origin "${TAG}"
 ```
 
 검증:
 
 ```bash
-git show v1.2.1
-git ls-remote --tags origin v1.2.1
+git show "${TAG}"
+git ls-remote --tags origin "${TAG}"
 ```
 
 ### 4) GitHub Release 발행 (배포 노트 기록)
@@ -132,30 +138,42 @@ gh release create v1.2.1 --title "v1.2.1" --notes-file /tmp/release-notes-v1.2.1
 - Release에는 `mkdocs build --strict` 결과물(`docs-site-vX.Y.Z.tar.gz`)이 첨부된다.
 - Release 노트는 이전 기준점(이전 태그, 첫 릴리스면 초기 커밋) 대비 변경을 자동 생성한다.
 - 자동 노트는 `사용자에게 보이는 변경`과 `내부 개선`으로 나뉜다.
+- 태그 시점에 `content/releases/vX.Y.Z.md`가 포함돼 있으면 Release 노트에 해당 문서 링크가 자동 포함된다.
 
-### 1) 태그 생성 및 push
+### 1) 통합 버전 기록 문서 준비 (2단계부터 적용)
 
-```bash
-git checkout main
-git pull --ff-only
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-```
-
-### 2) 자동 릴리즈 확인
-
-- GitHub Actions에서 `Release Docs` 워크플로우 성공 여부를 확인한다.
-- GitHub Releases에서 동일 태그(`v1.0.0`)가 생성됐는지 확인한다.
-
-### 3) 통합 버전 기록 (2단계부터 적용)
-
-- `docs/content/releases/vX.Y.Z.md` 문서를 생성해 아래를 기록한다.
+- `docs/content/releases/vX.Y.Z.md` 문서를 먼저 작성하고 `main`에 반영한다.
 - 각 레포 반영 버전
 - `coupler-mobile-app`: `vX.Y.Z` 또는 commit SHA
 - `coupler-api`: `vX.Y.Z` 또는 commit SHA
 - `coupler-admin-web`: `vX.Y.Z` 또는 commit SHA
 - 릴리즈 검증 결과(핵심 시나리오, 롤백 기준)
-- release 노트에서 위 문서를 링크한다.
+- 이 문서가 태그 커밋에 포함되어야 릴리즈 기준점과 동일 스냅샷으로 추적할 수 있다.
+
+### 2) 태그 생성 및 push
+
+```bash
+git checkout main
+git pull --ff-only
+TAG=v1.0.0
+git tag -a "${TAG}" -m "Release ${TAG}"
+
+# 태그 커밋이 origin/main 계보에 포함되는지 확인 (실패 시 중단)
+TAG_COMMIT="$(git rev-list -n 1 "${TAG}")"
+git merge-base --is-ancestor "${TAG_COMMIT}" origin/main
+
+git push origin "${TAG}"
+```
+
+### 3) 자동 릴리즈 확인
+
+- GitHub Actions에서 `Release Docs` 워크플로우 성공 여부를 확인한다.
+- GitHub Releases에서 동일 태그(`v1.0.0`)가 생성됐는지 확인한다.
+- Release 본문에 `content/releases/v1.0.0.md` 링크가 포함됐는지 확인한다(2단계부터).
+
+### 4) 예외 처리 (2단계부터)
+
+- Release 본문에 통합 버전 기록 링크가 없으면 `release.yml`/스크립트 오류로 간주하고 수정 후 태그부터 다시 진행한다.
 
 ## 모바일 배포 (스토어/OTA)
 
