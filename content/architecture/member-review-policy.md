@@ -1,0 +1,109 @@
+# 회원 심사 단일 정책 (SoT, To-Be)
+
+본 문서는 회원 심사 규칙의 단일 정책 문서다.  
+가입 단계/설정 수정/Admin 대기 큐/Mobile 제출-재제출 동작을 한 기준으로 고정한다.
+
+> 기준 성격: 본 문서는 **목표(To-Be)** 기준이다.
+> 현행 구현(as-is)이 일부 다를 수 있으며, 전환 완료 전까지는 PR에 차이를 명시한다.
+
+## 목적
+
+- 심사 분류 회귀(가입 심사와 설정 수정 심사 혼재) 방지
+- Admin/Mobile/API가 같은 판정 기준 사용
+- 제출/재제출 UX와 운영 큐 기준 고정
+
+## SoT 기준
+
+- 회원 자격 SoT: `t_member.status`
+- 심사 단계 SoT: `v_member_review_status`
+- 요청 출처 SoT:
+  - 기본정보/소개: `t_member_review_request.request_origin`
+  - 인증: `t_member_auth_review_request.request_origin` (`active_request_slot=1` 기준)
+
+## 회원 레벨 정의 (운영 용어, v2.0)
+
+가입 심사 단계에서 사용하는 레벨은 아래 4단계다.
+
+| 운영 용어 | 코드 | 기준 |
+| --- | --- | --- |
+| 회원전 | `PRE_MEMBER` | 가입 심사 단계(또는 기본정보 미승인) |
+| 일반회원 | `GENERAL_MEMBER` | 기본정보 승인 |
+| 준회원 | `SEMI_MEMBER` | 기본정보 + 필수인증 승인 |
+| 정회원 | `FULL_MEMBER` | 기본정보 + 필수인증 + 소개글 승인 |
+
+`SPECIAL_MEMBER`는 가입 단계 산출 레벨이 아니다.
+
+- `SPECIAL_MEMBER`: 운영자 사후 수동 부여 레벨
+- 부여 시점: 가입 심사 완료 이후
+- 심사 큐 분류 기준은 동일하게 `status/request_origin`을 사용한다.
+
+## 레벨별 심사 정책
+
+| 레벨 | 가입 단계에서 심사 | 설정 수정에서 심사 | Admin 대기 큐 | Mobile 기본 동작 |
+| --- | --- | --- | --- | --- |
+| 회원전 (`PRE_MEMBER`) | 기본정보, 소개글, 필수인증 제출분 심사 | 가입 미완료 상태 수정은 `SIGNUP_REVIEW`로 유지 | 가입/승급 심사 큐 | 단계별 `PENDING/RETURN/REAPPLY` 노출, `RETURN`은 재제출 유도 |
+| 일반회원 (`GENERAL_MEMBER`) | 해당 없음(가입 단계 통과) | 심사대상 필드 수정 시 심사 생성(`SETTING_PROFILE_EDIT`) | 프로필 수정 심사 큐 | 제출 시 `PENDING`, 반려 시 `RETURN` + 재제출 |
+| 준회원 (`SEMI_MEMBER`) | 해당 없음(가입 단계 통과) | 소개글/기본정보/인증 수정 시 심사 생성(`SETTING_PROFILE_EDIT`) | 프로필 수정 심사 큐 | 동일 규칙(`PENDING/RETURN/REAPPLY`) |
+| 정회원 (`FULL_MEMBER`) | 해당 없음(가입 단계 통과) | 기본정보/소개/인증/프로필 변경 시 심사 생성(`SETTING_PROFILE_EDIT`) | 프로필 수정 심사 큐 | 동일 규칙(`PENDING/RETURN/REAPPLY`) |
+
+## 심사 대상 항목
+
+가입/설정 공통으로 아래는 심사 대상이다.
+
+- 기본정보 계열: 프로필 핵심 항목(닉네임, 직업, 지역, 학력 등 정책 대상 필드)
+- 소개글 계열: `about_me`, `intro`
+- 인증 계열: `t_member_auth*`, `t_member_auth_review_request*`
+- 프로필 이미지/영상 계열: `t_member_profile_set*`
+
+아래는 즉시 반영(심사 비대상) 원칙을 유지한다.
+
+- `appeal_extra`
+- `instagram_id`, `youtube_id`, `sns_id`
+- 성향/선호/QA 설정 계열
+
+## Admin 큐 라우팅 정책
+
+| 큐 | 포함 조건 |
+| --- | --- |
+| 가입/승급 심사 큐 | `request_origin = SIGNUP_REVIEW` |
+| 프로필 수정 심사 큐 | `request_origin = SETTING_PROFILE_EDIT` + 처리 가능 상태(`PENDING`, `REAPPLY`) |
+| 반려/재심사 이슈 큐 | `RETURN` 상태만 출처(`SIGNUP_REVIEW`, `SETTING_PROFILE_EDIT`)로 분리 표시 |
+
+필수 원칙:
+
+- `member_level`은 표시 용도이며 큐 필터 기준으로 사용하지 않는다.
+- `request_origin`이 없거나 미정의면 어떤 큐에도 넣지 않는다(Fail-closed).
+
+## 전환 기준 (as-is -> to-be)
+
+- DB/API/Admin/Mobile 전환 완료 전까지 as-is와 to-be 차이를 PR 본문에 명시한다.
+- `request_origin` fallback(`coalesce`) 로직은 to-be에서 제거 대상으로 관리한다.
+- 큐 중복(동일 요청이 2개 큐에 동시 노출) 0건을 전환 완료 조건으로 둔다.
+
+## Mobile 제출/재제출 정책
+
+| 단계 상태 | 화면 동작 | 사용자 액션 |
+| --- | --- | --- |
+| `UNSUBMITTED` | 미제출 안내 | 제출 가능 |
+| `PENDING` | 심사중 안내 | 중복 제출 차단 |
+| `RETURN` | 반려 사유 표시 | 재제출 가능 |
+| `REAPPLY` | 재심사중 안내 | 추가 중복 제출 차단 |
+| `APPROVED` | 승인 상태 표시 | 다음 단계 진행 |
+
+재제출 규칙:
+
+- `RETURN` 상태 항목만 재제출 허용
+- 재제출 시 상태는 `REAPPLY`로 전이
+- 제출/재제출 UI 판단은 `result_data.access_context.review_status` 기준만 사용
+
+## 회귀 방지 금지 사항
+
+- `t_member_review_stage_snapshot` 직접 조회로 심사 판정 금지
+- `member_level`로 심사 큐 분류 금지
+- `request_origin` fallback(`coalesce`)로 출처 추측 금지
+- 클라이언트가 서버 심사 판정을 재구현하는 로직 금지
+
+## 관련 문서
+
+- [회원 심사 FSM](member-review-fsm.md)
+- [회원가입 응답 계약](signup-response-contract.md)
