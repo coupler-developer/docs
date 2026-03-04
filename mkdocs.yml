@@ -57,7 +57,6 @@ nav:
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 회원 심사 3축 분리 정책: architecture/member-review-axis-policy.md
-      - 인증 심사 단일 SoT 마이그레이션 계획: architecture/auth-review-single-sot-migration-plan.md
       - 회원가입 응답 계약: architecture/signup-response-contract.md
       - 프로필 이미지 마이그레이션: architecture/member-review-image-migration-plan.md
       - 레포지토리 요약: architecture/repo-overview.md
@@ -87,7 +86,6 @@ nav:
       - TypeScript 전환 계획: policy/typescript-migration-plan.md
   - Flows:
       - 사용자 등록 플로우: flows/cross-project/user-registration-flow.md
-      - 사용자 인증 플로우: flows/coupler-mobile-app/user-authentication-flow.md
       - 매칭 플로우: flows/cross-project/matching-flow.md
       - 프로필 관리 플로우: flows/cross-project/profile-management-flow.md
   - Technical Debt: technical-debt.md
