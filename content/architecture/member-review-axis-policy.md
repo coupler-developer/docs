@@ -11,8 +11,7 @@
 ## 적용 범위
 
 - 본 문서는 `t_member_review_request` 기반 심사 항목(`basic_info`, `intro`)의 출처 분리 규칙을 정의한다.
-- `required_auth`(인증 심사) 출처 분리 규칙은 별도 문서
-  [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)을 따른다.
+- `required_auth`(인증 심사)는 `request_origin`을 서버에서 계산해 큐를 분리하는 동일 원칙을 적용한다.
 - 본 정책의 SoT/큐 규칙은 `explicit review schema`(`t_member_review_request`, `v_member_review_status`)가 적용된 환경 기준이다.
 
 ## 3축 정의 (SoT)
@@ -76,8 +75,7 @@
 - 가입/승급 큐는 출처가 `SIGNUP_REVIEW`인 건만 포함한다.
 - `request_origin`이 `NULL`이거나 미정의 enum이면 어떤 큐에도 포함하지 않는다(Fail-closed).
 - 출처 누락 건은 운영 점검 대상으로만 취급하고, 데이터 보정 후 재심사 큐에 재진입시킨다.
-- `required_auth` 큐 라우팅은 본 문서 대신
-  [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)을 따른다.
+- `required_auth` 큐 라우팅도 동일하게 `request_origin` 기준(`SIGNUP_REVIEW`/`SETTING_PROFILE_EDIT`)을 사용한다.
 
 ## 테스트 최소 기준
 
@@ -100,5 +98,4 @@
 
 - [회원 생명주기](member-lifecycle.md)
 - [회원 심사 FSM](member-review-fsm.md)
-- [인증 심사 단일 SoT 마이그레이션 계획](auth-review-single-sot-migration-plan.md)
 - [프로필 관리 플로우](../flows/cross-project/profile-management-flow.md)

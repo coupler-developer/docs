@@ -22,13 +22,14 @@ sequenceDiagram
     App->>API: POST /app/v1/auth/signup
     API->>DB: INSERT t_member
     API->>DB: INSERT t_member_review_request
+    API->>DB: (auth 포함 시) INSERT/UPDATE t_member_auth, t_member_auth_evidence_image
     API->>API: syncMemberReviewStatusByMemberId()
     API->>DB: SELECT v_member_review_status (승격 조건 판정)
     API-->>App: { result_code: 0, result_data(token, access_context, ...) }
-    App->>App: SignupReviewScreen 이동
+    App->>App: access_context.review_flow 기반 진입 경로 결정
     Admin->>API: GET /admin/member/pending/list
     API-->>Admin: 심사 대기 목록
-    Admin->>API: POST /admin/member/pending/save
+    Admin->>API: POST /admin/member/pending/save 또는 /admin/member/pending/reject
     API->>API: syncMemberReviewStatusByMemberId()
 ```
 
@@ -101,8 +102,9 @@ Content-Type: application/json
 2. 비밀번호 해싱 (bcrypt)
 3. 회원 정보 저장 (`t_member`)
 4. 프로필 이미지 저장 (`t_member_profile_set`, `t_member_profile_set_image`)
-5. 심사 항목 생성 (`t_member_review_request`)
-6. 심사 상태 판정은 `v_member_review_status` 단일 기준으로 수행
+5. 기본정보/소개글 심사 항목 생성 (`t_member_review_request`)
+6. 인증 제출 데이터가 있으면 `t_member_auth`/`t_member_auth_evidence_image` 갱신
+7. 심사 상태 판정은 `v_member_review_status` 단일 기준으로 수행
 
 #### 테이블
 
@@ -122,6 +124,9 @@ VALUES (?, 1, NOW(), 0);
 INSERT INTO t_member_profile_set_image (profile_set_id, image_position, image_url, review_status, created_at)
 VALUES (?, ?, ?, 0, NOW());
 ```
+
+> 인증 제출(`auth`)이 포함된 경우, signup 경로는 `t_member_auth*` 현재값을 갱신한다.
+> 인증 요청 원장(`t_member_auth_review_request*`)은 `/member/request-review/auth` 경로에서 갱신된다.
 
 #### 응답
 
@@ -170,9 +175,12 @@ VALUES (?, ?, ?, 0, NOW());
 > 심사 상태 필드는 `result_data.access_context.review_status` 단일 객체만 사용한다.
 > `result_data.review_stage` 또는 문자열 `result_data.review_status`는 사용하지 않는다.
 
-### Step 4: 심사 대기 (Mobile App)
+### Step 4: 가입 직후 진입 분기 (Mobile App)
 
-회원가입 완료 후 `SignupReviewScreen`으로 이동하여 심사 대기 상태 표시
+회원가입 완료 후 아래 순서로 진입 경로를 결정한다.
+
+1. `GlobalState.getWriteTasteStatus() === true`면 `SignupCongratuScreen`
+2. 그 외에는 `access_context.review_flow` + `basic_info.status` 기반으로 `SignupReviewScreen` 또는 `Splash`
 
 #### 상태값
 
@@ -184,7 +192,7 @@ VALUES (?, ?, ?, 0, NOW());
 
 - 엔트리 라우팅(앱 진입)은 `decidePostLoginEntryRoute` 단일 함수로 결정한다.
   - 위치: `coupler-mobile-app/src/utils/postLoginEntryRoute.ts`
-  - 적용 화면: `SplashScreen`, `HomeScreen`, `SignupReviewScreen`(Splash 경유), `SignupCongratuScreen`(Splash 경유)
+  - 적용 화면: `SignupGeneralMemberScreen`, `SplashScreen`, `HomeScreen`, `SignupReviewScreen`, `SignupCongratuScreen`
 - 매칭 화면 표시 상태는 `decideMatchingViewState`로 결정한다.
   - 위치: `coupler-mobile-app/src/screens/matching/shared/utils/matchingAuthUtils.ts`
   - 목적: `AUTH_REQUEST` / `LOCK_PANEL` / `DEFAULT` 분기
@@ -203,14 +211,28 @@ VALUES (?, ?, ?, 0, NOW());
 
 ```
 POST /admin/member/pending/save
+POST /admin/member/pending/reject
+
 {
   "user": { ... },
-  "pending": { ... },
+  "pending": [
+    {
+      "id": 1234,
+      "category": "job",
+      "status": 1,
+      "content": "개발자",
+      "reason": ""
+    }
+  ],
   "auth": [ ... ],
   "manager": [ ... ],
   "pendingType": "semi-apply"
 }
 ```
+
+- `pending`는 배열만 허용한다 (`null`/객체는 불가).
+- `auth` 키를 포함하는 경우 배열만 허용한다.
+- 계약 위반 시 `result_msg=review_status_inconsistent`와 `result_data.error_code`를 반환한다.
 
 ## 상태 흐름
 
@@ -251,10 +273,10 @@ POST /admin/member/pending/save
 
 | result_code | 의미                           | 처리                       |
 | ----------- | ------------------------------ | -------------------------- |
-| 0           | 성공                           | 심사대기 화면 이동         |
+| 0           | 성공                           | 서버 상태 기준으로 진입 경로 분기(`SignupCongratuScreen`/`SignupReviewScreen`/`Splash`) |
 | 음수 코드   | 실패(계약/검증/서버 오류 포함) | 에러 메시지/실패 화면 처리 |
 
 ## 관련 문서
 
 - [회원 심사 FSM](../../architecture/member-review-fsm.md)
-- [사용자 인증 플로우](../coupler-mobile-app/user-authentication-flow.md)
+- [회원 심사 3축 분리 정책](../../architecture/member-review-axis-policy.md)
