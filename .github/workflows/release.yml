@@ -28,6 +28,18 @@ jobs:
             exit 1
           fi
 
+      - name: Validate tag commit is on origin/main lineage
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          TAG_COMMIT="$(git rev-list -n 1 "refs/tags/${TAG_NAME}")"
+
+          git fetch --no-tags origin main
+
+          if ! git merge-base --is-ancestor "${TAG_COMMIT}" "origin/main"; then
+            echo "::error::${TAG_NAME} points to ${TAG_COMMIT}, which is not on origin/main lineage."
+            exit 1
+          fi
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:

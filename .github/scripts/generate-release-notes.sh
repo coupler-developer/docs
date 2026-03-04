@@ -14,6 +14,16 @@ if ! git rev-parse -q --verify "refs/tags/${CURRENT_TAG}" >/dev/null; then
 fi
 
 REPO_SLUG="${GITHUB_REPOSITORY:-}"
+RELEASE_RECORD_PATH="content/releases/${CURRENT_TAG}.md"
+RELEASE_RECORD_LINK=""
+
+if [[ -f "${RELEASE_RECORD_PATH}" ]]; then
+  if [[ -n "${REPO_SLUG}" ]]; then
+    RELEASE_RECORD_LINK="[${RELEASE_RECORD_PATH}](https://github.com/${REPO_SLUG}/blob/${CURRENT_TAG}/${RELEASE_RECORD_PATH})"
+  else
+    RELEASE_RECORD_LINK="${RELEASE_RECORD_PATH}"
+  fi
+fi
 
 PREV_TAG=""
 if git rev-parse -q --verify "${CURRENT_TAG}^" >/dev/null; then
@@ -118,6 +128,11 @@ printf -- '- Release Date: %s\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
 printf -- '- Compare: %s\n\n' "${COMPARE_URL}"
 printf -- '- 사용자에게 보이는 변경: %d건\n' "${#user_changes[@]}"
 printf -- '- 내부 개선: %d건\n\n' "${#internal_changes[@]}"
+
+if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
+  printf '## 통합 버전 기록\n'
+  printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
+fi
 
 printf '## 사용자에게 보이는 변경\n'
 print_changes user_changes "사용자에게 직접 보이는 변경은 크지 않고, 안정성/품질 개선 중심 업데이트입니다."
