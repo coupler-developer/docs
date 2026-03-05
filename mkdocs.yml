@@ -83,6 +83,7 @@ nav:
       - 보안/접근통제 정책: policy/security-access-control-policy.md
       - 결제 운영 정책: policy/payment-ops-policy.md
       - 푸시알림 운영 정책: policy/push-notification-policy.md
+      - 데이터 거버넌스 정책: policy/data-governance-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md
       - DB Migration Gate 정책: policy/db-migration-gate-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
