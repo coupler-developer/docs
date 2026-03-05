@@ -4,6 +4,8 @@
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
 - 문서 추가/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
 - 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/engineering-guardrails.md`를 단일 SoT로 따른다
+- 템플릿 문서는 `content/templates/`에 둔다
+- 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
   - `content/technical-debt/technical-debt.md`
   - `content/policy/code-review-policy.md`
