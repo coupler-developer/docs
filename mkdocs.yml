@@ -86,5 +86,4 @@ nav:
   - Flows:
       - 매칭 플로우: flows/cross-project/matching-flow.md
   - Technical Debt:
-      - 기술 부채 정리: technical-debt.md
-      - Admin Color Token 기술 부채: technical-debt-admin-color-token.md
+      - 기술 부채 정리: technical-debt/technical-debt.md

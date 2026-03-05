@@ -147,7 +147,7 @@ flowchart TD
 ## 관련 문서
 
 - [레포지토리 요약](repo-overview.md)
-- [기술 부채 정리](../technical-debt.md)
+- [기술 부채 정리](../technical-debt/technical-debt.md)
 
 ## 운영 보정 (레거시 manager 이미지)
 
