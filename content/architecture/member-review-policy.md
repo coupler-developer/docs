@@ -87,6 +87,8 @@
 
 - `member_level`은 표시 용도이며 큐 필터 기준으로 사용하지 않는다.
 - `request_origin`이 없거나 미정의면 어떤 큐에도 넣지 않는다(Fail-closed).
+- 인증 심사 큐(`full-*`, `profile-edit`)의 대기 판정은 `t_member_auth_review_request`(`active_request_slot=1`)의 `request_origin/request_status`를 필수 기준으로 하며, 필요 시 실제 인증 데이터와 교집합으로 판정한다.
+- 인증 `request_origin`이 큐 목적과 불일치하거나 누락되면 해당 요청은 큐에서 제외한다(Fail-closed).
 
 ## 전환 기준 (as-is -> to-be)
 
