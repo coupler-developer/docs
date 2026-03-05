@@ -65,7 +65,7 @@
 - [ ] 문서 업데이트
 - [ ] 자체 테스트 완료
 - [ ] `.ts/.tsx` 변경 시 TypeScript 타입체크 통과 (`npx tsc --noEmit`)
-- [ ] 문서(docs) 변경 시 markdownlint 통과 (CI: `DavidAnson/markdownlint-cli2-action@v16`, globs: `**/*.md`)
+- [ ] 문서(docs) 변경 시 markdownlint 통과 (CI: `DavidAnson/markdownlint-cli2-action@v16`, globs: `**/*.md` + 제외 `node_modules`, `site`)
 ```
 
 ## 리뷰어 가이드

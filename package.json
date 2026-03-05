@@ -5,7 +5,6 @@
     "markdownlint-cli2": "0.17.2"
   },
   "scripts": {
-    "lint:md": "markdownlint-cli2 --config .markdownlint.json \"AGENTS.md\" \"content/**/*.md\"",
-    "lint:md:review": "markdownlint-cli2 --config .markdownlint.json \"content/architecture/member-review-fsm.md\" \"content/architecture/member-review-policy.md\" \"content/architecture/signup-response-contract.md\""
+    "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\""
   }
 }
