@@ -80,6 +80,7 @@
 | 큐                  | 포함 조건                                                                      |
 | ------------------- | ------------------------------------------------------------------------------ |
 | 가입/승급 심사 큐   | `request_origin = SIGNUP_REVIEW`                                               |
+| 정회원 승급 심사 큐 | `request_origin = SIGNUP_REVIEW` + `required_auth_status = APPROVED`           |
 | 프로필 수정 심사 큐 | `request_origin = SETTING_PROFILE_EDIT` + 처리 가능 상태(`PENDING`, `REAPPLY`) |
 | 반려/재심사 이슈 큐 | `RETURN` 상태만 출처(`SIGNUP_REVIEW`, `SETTING_PROFILE_EDIT`)로 분리 표시      |
 
@@ -118,6 +119,10 @@
 - `RETURN` 상태 항목만 재제출 허용
 - 재제출 시 상태는 `REAPPLY`로 전이
 - 제출/재제출 UI 판단은 `result_data.access_context.review_status` 기준만 사용
+
+## 운영 안내 문구
+
+- Admin 심사 적용 완료 토스트(`pending_complete_notice`): `심사 이력이 반영되어 정회원으로 승급되었습니다.`
 
 ## 회귀 방지 금지 사항
 
