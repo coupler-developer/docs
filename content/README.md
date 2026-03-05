@@ -27,3 +27,10 @@
 항상 워크스페이스 루트를 열고 작업한다.
 개별 레포지토리를 단독으로 열지 않는다.
 ```
+
+## 모바일 에뮬레이터 주의사항 (iOS)
+
+- iOS Simulator에서 소프트웨어 키보드가 내려가 있을 때는 입력 필드를 먼저 터치(클릭)해야 터치 이벤트 기반 포커스가 정상 동작한다.
+- `Command + K`는 소프트웨어 키보드 표시/숨김 토글이다.
+- 하드웨어 키보드 연결(`I/O > Keyboard > Connect Hardware Keyboard`)이 켜져 있으면 입력이 하드웨어 키보드 경로로 처리되어, 터치 이벤트 기반 동작(포커스/키보드 노출 트리거) 재현이 기대와 다를 수 있다.
+- [Apple Simulator 문서](https://developer.apple.com/library/archive/documentation/IDEs/Conceptual/iOS_Simulator_Guide/InteractingwithiOSandwatchOS/InteractingwithiOSandwatchOS.html)
