@@ -139,10 +139,3 @@ stateDiagram-v2
 | 3   | `FROM_CURATOR`  | 큐레이터 제안으로 시작된 매칭 |
 | -1  | `MALE_PASS`     | 남성 패스                     |
 | -2  | `ADMIN_DENY`    | 관리자 거절                   |
-
-## 근거 (코드 기준)
-
-- 상태 상수: `coupler-api/config/constant.ts`
-- 매칭 로직: `coupler-api/controller/app/v1/match.ts`
-- 매칭 모델: `coupler-api/model/match.ts`
-- 라우팅: `coupler-api/routes/app/v1/match.ts`

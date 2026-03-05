@@ -158,12 +158,3 @@ cd coupler-api
 node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts --dry-run
 node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts
 ```
-
-## 근거 (코드 기준)
-
-- multer 스토리지: `coupler-api/lib/file.ts`
-- 업로드 컨트롤러: `coupler-api/controller/upload.ts`
-- 앱 라우터: `coupler-api/routes/app/v1/upload.ts`
-- 관리자 라우터: `coupler-api/routes/admin/upload.ts`
-- media_proxy 미들웨어: `coupler-api/middleware/media_proxy.ts`
-- 정적 파일 서빙: `coupler-api/app.ts` (line 49, 57)

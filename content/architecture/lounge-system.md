@@ -124,9 +124,3 @@ flowchart TD
 | parent  | 어미댓글 ID (0=최상위) |
 | content | 댓글 내용              |
 | alias   | 비공개 시 닉네임       |
-
-## 근거 (코드 기준)
-
-- 컨트롤러: `coupler-api/controller/app/v1/lounge.ts`
-- 라우터: `coupler-api/routes/app/v1/lounge.ts`
-- 모델: `coupler-api/model/lounge.ts`, `coupler-api/model/lounge_cmt.ts`

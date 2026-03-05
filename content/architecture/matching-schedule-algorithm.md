@@ -146,9 +146,3 @@ if (schedule_count >= 4 && !accepted) {
 
 - 상태: `SCHEDULE_NO_REPLY (-103)`
 - Cron 작업으로 자동 처리
-
-## 근거 (코드 기준)
-
-- 일정 제안: `coupler-api/controller/app/v1/match.ts` (`addSchedule`)
-- 일정 수락: `coupler-api/controller/app/v1/match.ts` (`acceptSchedule`)
-- 일정 모델: `coupler-api/model/match_schedule.ts`

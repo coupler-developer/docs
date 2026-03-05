@@ -122,11 +122,3 @@ flowchart TD
 | 70 | MATCH_CHAT_OPEN | 매칭 채팅방 오픈 |
 | 48 | MATCH_REACTIVATE | 재활성화 요청 |
 | 49 | MATCH_REACTIVATE_ACCEPT | 재활성화 수락 |
-
-## 근거 (코드 기준)
-
-- 큐레이터 채팅: `coupler-api/controller/app/v1/chat.ts`
-- 매칭 채팅: `coupler-api/controller/app/v1/match.ts` (1200-2400)
-- 미팅 채팅: `coupler-api/controller/app/v1/meeting.ts` (375-974)
-- 메시지 타입: `coupler-api/config/constant.ts` (MSG_TYPE)
-- 모델: `coupler-api/model/concierge.ts`, `coupler-api/model/match_chat.ts`, `coupler-api/model/meeting_chat.ts`

@@ -65,9 +65,9 @@ stateDiagram-v2
 
 - **진입**: Cron 자동 실행 (장기 미접속 회원)
 - **복귀 경로**:
-
   1. 관리자 해제 → `NORMAL` (기존 정보 유지)
   2. 재가입 시도 → 정보 리셋 후 신규 가입 (대기 기간 없음)
+
 - **제한**: 로그인/매칭 불가
 - **개인정보 파기**: 해당 없음
 
@@ -103,14 +103,3 @@ stateDiagram-v2
 - **대상**: `BLOCK` 또는 `LEAVE` 상태
 - **조건**: `status_date`로부터 30일 경과 + `auto_delete=NORMAL`
 - **실행**: Cron 작업
-
-## 근거 (코드 기준)
-
-- 상태 상수: `coupler-api/config/constant.ts`
-- 로그인 검증: `coupler-api/controller/app/v1/auth.ts`
-- 재가입 로직: `coupler-api/controller/app/v1/auth.ts` (1134-1155)
-- HOLD 자동 전환: `coupler-api/controller/admin/cron.ts`
-- HOLD 해제: `coupler-api/controller/admin/member.ts` (`release_hold`)
-- BLOCK 토글: `coupler-api/controller/admin/member.ts` (`block`)
-- 탈퇴: `coupler-api/controller/app/v1/member.ts` (`leave`)
-- 개인정보 파기: `coupler-api/controller/admin/cron.ts`

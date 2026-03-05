@@ -118,9 +118,3 @@ GET /admin/cron/cleanupOldProfileVersions
 
 - 외부 스케줄러(PM2, crontab 등)에서 HTTP 호출
 - 내부 node-cron 등 미사용
-
-## 근거 (코드 기준)
-
-- 컨트롤러: `coupler-api/controller/admin/cron.ts`
-- 라우터: `coupler-api/routes/admin/cron.ts`
-- 매칭 모델: `coupler-api/model/match.ts`

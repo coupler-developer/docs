@@ -143,9 +143,3 @@ stateDiagram-v2
 | status  | 멤버 상태   |
 | alias   | 랜덤 닉네임 |
 | key     | 소비 키     |
-
-## 근거 (코드 기준)
-
-- 컨트롤러: `coupler-api/controller/app/v1/meeting.ts`
-- 라우터: `coupler-api/routes/app/v1/meeting.ts`
-- 모델: `coupler-api/model/meeting.ts`, `coupler-api/model/meeting_member.ts`

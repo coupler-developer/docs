@@ -118,11 +118,3 @@ flowchart LR
 | 상품 존재 여부 | ✅ 구현됨 |
 | 영수증 서명 검증 | ❌ TODO |
 | 플랫폼 검증 서버 연동 | ❌ TODO |
-
-## 근거 (코드 기준)
-
-- 상수 정의: `coupler-api/config/constant.ts`
-- 결제 처리: `coupler-api/controller/app/v1/member.ts` (889-1069)
-- 결제 모델: `coupler-api/model/iap.ts`
-- 키 로그 모델: `coupler-api/model/member_key_log.ts`
-- 관리자 API: `coupler-api/controller/admin/iap.ts`

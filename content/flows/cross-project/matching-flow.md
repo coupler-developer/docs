@@ -225,9 +225,3 @@ MatchingScreen
 - [matching-fsm.md](../../architecture/matching-fsm.md) - 상태 머신
 - [matching-key-system.md](../../architecture/matching-key-system.md) - 키 시스템
 - [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md) - 일정 알고리즘
-
-## 근거 (코드 기준)
-
-- 모바일 화면: `coupler-mobile-app/src/screens/matching/`
-- API 라우팅: `coupler-api/routes/app/v1/match.ts`
-- 매칭 로직: `coupler-api/controller/app/v1/match.ts`

@@ -123,7 +123,7 @@ const maleRefund = Math.floor(match_info.male_paid_key * 0.5);
 모든 키 변동은 `t_member_key_log` 테이블에 기록된다.
 
 ```javascript
-// model/member_key_log.js
+// key log record 예시
 {
   member_id: Number,     // 회원 ID
   match_id: Number,      // 매칭 ID
@@ -132,9 +132,3 @@ const maleRefund = Math.floor(match_info.male_paid_key * 0.5);
   created_date: Date,    // 발생 시각
 }
 ```
-
-## 근거 (코드 기준)
-
-- 키 상수: `coupler-api/config/constant.ts` (MATCH_KEY, MATCH_KEY_LOG)
-- 환불 로직: `coupler-api/controller/app/v1/match.ts`
-- 키 로그 모델: `coupler-api/model/member_key_log.ts`

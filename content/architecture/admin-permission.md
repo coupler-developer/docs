@@ -107,7 +107,7 @@ const getFilteredRouteList = (isSuper) => {
 ### Super Admin 전용 작업
 
 ```javascript
-// controller/admin/manager.js
+// Super Admin 전용 API 검증 예시
 if (req.admin.super < 1) {
   return common.response_error(res, res.__('forbidden'));
 }
@@ -116,7 +116,7 @@ if (req.admin.super < 1) {
 ### Super Admin + 담당자
 
 ```javascript
-// controller/admin/member.js
+// Super Admin 또는 담당 매니저 검증 예시
 if (req.admin.super < 1 && isChargeManager < 1) {
   return common.response_error(res, res.__('forbidden'));
 }
@@ -125,7 +125,7 @@ if (req.admin.super < 1 && isChargeManager < 1) {
 ## JWT 토큰 구조
 
 ```javascript
-// controller/admin/auth.js
+// JWT payload 예시
 const payload = {
   id: user.id,           // 관리자 ID
   user_id: user.user_id, // 로그인 ID
@@ -133,12 +133,3 @@ const payload = {
   super: user.super,     // 권한 레벨
 };
 ```
-
-## 근거 (코드 기준)
-
-- 토큰 생성: `coupler-api/controller/admin/auth.ts`
-- 토큰 검증: `coupler-api/middleware/auth_admin.ts`
-- 권한 체크: `coupler-api/controller/admin/manager.ts`
-- 데이터 필터: `coupler-api/controller/admin/member.ts`
-- 프론트 권한: `coupler-admin-web/src/mobx/store.js`
-- 메뉴 필터: `coupler-admin-web/src/config/page-route.jsx`
