@@ -45,6 +45,10 @@
 - `profile_set_pending`
 - `access_context`
 
+필드명 고정(명시):
+
+- 심사/권한 컨텍스트 필드명은 `access_context`로 고정한다.
+
 금지(혼용 금지):
 
 - `result_data.review_stage` 단일 단계 문자열
@@ -63,7 +67,7 @@
 - `matching_tab_access.you.allowed`
 - `matching_tab_access.members.allowed`
 - 잠금 탭에는 `matching_tab_access.*.reason_code`를 포함한다.
-: `review_pending`, `required_auth_missing`
+  : `review_pending`, `required_auth_missing`
 - `permissions.setting_edit_allowed`
 - `permissions.profile_edit_allowed`
 - `permissions.lounge_write_allowed`
