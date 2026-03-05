@@ -4,6 +4,9 @@ repo_url: https://github.com/coupler-developer/docs
 repo_name: coupler-developer/docs
 
 docs_dir: content
+exclude_docs: |
+  AGENTS.md
+  CLAUDE.md
 
 theme:
   name: material
@@ -52,8 +55,7 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home: AGENTS.md
-  - Getting Started: README.md
+  - Home: README.md
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 회원 심사 단일 정책: architecture/member-review-policy.md

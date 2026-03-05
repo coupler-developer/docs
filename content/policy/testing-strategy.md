@@ -53,7 +53,8 @@
 
 - 러너: GitHub Actions (mkdocs build + markdownlint) 사용.
 - 문서 빌드: `mkdocs build --strict`
-- 문서 lint: `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
+- 문서 lint(로컬): `npm run lint:md`
+- 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 
 ## CI 전략
 
