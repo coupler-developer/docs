@@ -94,6 +94,13 @@
 - `request_origin` fallback(`coalesce`) 로직은 개발 DB 기준 제거 완료이며, 재도입을 금지한다.
 - 큐 중복(동일 요청이 2개 큐에 동시 노출) 0건을 전환 완료 조건으로 둔다.
 
+## 심사 상태 동기화 호출 정책
+
+- `syncMemberReviewStatusByMemberId` 호출은 쓰기 경계(제출/승인/반려/수정 저장)로 제한한다.
+- 조회/미들웨어 경로에서는 sync를 호출하지 않고 `v_member_review_status` 읽기 결과만 사용한다.
+- sync 실패 응답은 `review_status_inconsistent + error_code` 계약으로 통일한다.
+- sync 실패는 fail-closed를 기본값으로 하며, 트랜잭션 경로에서는 rollback 후 종료한다.
+
 ## Mobile 제출/재제출 정책
 
 | 단계 상태     | 화면 동작      | 사용자 액션         |
