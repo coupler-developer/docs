@@ -80,6 +80,7 @@ nav:
       - 커밋 메시지 컨벤션: policy/commit-convention.md
       - 배포 태그/릴리즈 프로세스: policy/release-process.md
       - 로그 정책: policy/log-policy.md
+      - API 에러 계약 정책: policy/api-error-contract-policy.md
       - 보안/접근통제 정책: policy/security-access-control-policy.md
       - 결제 운영 정책: policy/payment-ops-policy.md
       - 푸시알림 운영 정책: policy/push-notification-policy.md

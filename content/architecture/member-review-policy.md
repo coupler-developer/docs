@@ -104,6 +104,48 @@
 - sync 실패 응답은 `review_status_inconsistent + error_code` 계약으로 통일한다.
 - sync 실패는 fail-closed를 기본값으로 하며, 트랜잭션 경로에서는 rollback 후 종료한다.
 
+## API 에러 응답 계약 (국소 모범 케이스)
+
+적용 범위(1차):
+
+- `POST /app/member/request-review/auth`
+- `POST /app/member/deleteAuth`
+
+상위 기준:
+
+- 전사 에러 계약/환경 분리 기준은 `content/policy/api-error-contract-policy.md`를 단일 SoT로 따른다.
+- 본 섹션은 `MEMBER_AUTH_REVIEW` 도메인의 국소 모범 케이스만 다룬다.
+
+규칙:
+
+- `result_code`는 공통 실패 코드(`RESULT_CODE.ERROR`)를 유지한다.
+- 모바일 원인 판별은 `result_data`의 아래 필드를 단일 기준으로 사용한다.
+  - `error_code`: 도메인 원인 코드(예: `MANAGER_PROFILE_MISSING`, `REQUIRED_AUTH_DELETE_FORBIDDEN`)
+  - `error_source`: 오류가 발생한 도메인(예: `MEMBER_AUTH_REVIEW`)
+  - `error_action`: 모바일 권장 후속 처리(예: `CONTACT_SUPPORT`, `FIX_REQUEST`)
+  - `error_context`: 원인 분석용 구조화 데이터(`member_id`, `manager_id`, `required_auth_types` 등)
+- 호환을 위해 기존 상세 필드(`member_id`, `manager_id`, `required_auth_types`)는 top-level 병행을 허용한다.
+
+예시:
+
+```json
+{
+  "result_code": -10,
+  "result_msg": "이미 제출된 필수 인증은 삭제할 수 없습니다. 수정 후 재제출해주세요.",
+  "result_data": {
+    "error_code": "REQUIRED_AUTH_DELETE_FORBIDDEN",
+    "error_source": "MEMBER_AUTH_REVIEW",
+    "error_action": "FIX_REQUEST",
+    "error_context": {
+      "member_id": 77,
+      "required_auth_types": [2]
+    },
+    "member_id": 77,
+    "required_auth_types": [2]
+  }
+}
+```
+
 ## Mobile 제출/재제출 정책
 
 | 단계 상태     | 화면 동작      | 사용자 액션         |
