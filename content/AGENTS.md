@@ -55,6 +55,7 @@
 - [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그)과 GitHub Release 발행
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
+- [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
 - [TypeScript 전환 계획](policy/typescript-migration-plan.md)
