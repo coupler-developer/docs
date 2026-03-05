@@ -63,7 +63,7 @@
   - 조용한 실패 금지 원칙(핵심 원칙 정의)을 그대로 적용한다
   - 사용자에게는 토스트/에러 메시지, 개발 환경에서는 throw/log로 즉시 드러내기
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
-  - `coupler-api/lib/db.ts`의 `typeCast`가 적용된 DB row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
+  - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
   - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
   - `req.body` 같은 외부 입력 경계는 parse/validate를 유지하고, 타입 흔들림은 변환 우회가 아니라 `typeCast`/쿼리/DTO 수정으로 해결한다
 - **요청(draft) 모델과 응답(response) 모델을 섞지 않기**

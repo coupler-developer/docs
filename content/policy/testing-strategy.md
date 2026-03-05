@@ -14,7 +14,7 @@
 
 ### coupler-admin-web (CRA)
 
-- 러너: `react-scripts test` 사용 (`coupler-admin-web/package.json`).
+- 러너: `react-scripts test` 사용.
 - 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
   1. `src/helper` 등 순수 로직 단위 테스트
@@ -26,11 +26,12 @@
 
 ### coupler-api (Express)
 
-- 러너: `jest` 사용 (`coupler-api/package.json`).
+- 러너: `jest` 사용.
 - 위치/규칙: `__tests__/**/*.test.(ts|tsx)`만 허용 (현재 `jest.testMatch` 기준).
 - TO-BE: `src/__tests__/` 통일 전환은 기술부채 항목에서 별도 관리.
+- 리팩토링 기준: 컨트롤러는 오케스트레이션, 핵심 규칙은 usecase/lib 계층으로 분리된 구조를 기준으로 테스트한다.
 - 우선순위:
-  1. `lib/*.js` 유틸 단위 테스트
+  1. `lib`/usecase 순수 로직 단위 테스트
   2. `controller`/`routes` 통합 테스트(요청/응답 검증)
 
 - 외부 통신 테스트 필요 시 `supertest` 도입 고려(현재 의존성 없음).
@@ -39,20 +40,20 @@
 
 ### coupler-mobile-app (React Native)
 
-- 러너: `jest` + `preset: react-native` 사용 (`coupler-mobile-app/jest.config.js`).
+- 러너: `jest` + `preset: react-native` 사용.
 - 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
   1. `src/screens/**/steps` 등 핵심 화면 스모크 렌더링
   2. 조건부 UI/상태 변화 테스트
 
-- 상호작용 테스트 필요 시 `@testing-library/react-native` 도입 고려(현재 의존성 없음).
+- 상호작용 테스트는 `@testing-library/react-native` 사용을 기본으로 한다.
 - 네이티브 모듈(AsyncStorage, Reanimated 등)은 Jest mock/셋업 파일로 분리 구성.
 
 ### docs (MkDocs)
 
 - 러너: GitHub Actions (mkdocs build + markdownlint) 사용.
 - 문서 빌드: `mkdocs build --strict`
-- 문서 lint: `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`)
+- 문서 lint: `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 
 ## CI 전략
 
