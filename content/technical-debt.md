@@ -211,3 +211,11 @@
 - DOM 직접 접근(`$()`) 로직을 `state + props + ref` 패턴으로 이전한다.
 - 프로토타입 확장 로직을 순수 유틸 함수로 분리한다.
 - 화면 단위 전환 완료 후 `jquery`, `datatables.net*` 의존성을 제거한다.
+
+---
+
+## 11) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
+
+상세 내용은 별도 문서로 분리한다.
+
+- [Admin Color Token 기술 부채](technical-debt-admin-color-token.md)

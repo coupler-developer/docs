@@ -43,6 +43,7 @@
 ### Technical Debt
 
 - [기술 부채 정리](technical-debt.md)
+- [Admin Color Token 기술 부채](technical-debt-admin-color-token.md)
 
 ### Policy
 

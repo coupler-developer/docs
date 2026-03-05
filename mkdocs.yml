@@ -85,4 +85,6 @@ nav:
       - TypeScript 전환 계획: policy/typescript-migration-plan.md
   - Flows:
       - 매칭 플로우: flows/cross-project/matching-flow.md
-  - Technical Debt: technical-debt.md
+  - Technical Debt:
+      - 기술 부채 정리: technical-debt.md
+      - Admin Color Token 기술 부채: technical-debt-admin-color-token.md
