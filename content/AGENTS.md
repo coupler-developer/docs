@@ -6,6 +6,8 @@
 - 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/engineering-guardrails.md`를 단일 SoT로 따른다
 - 템플릿 문서는 `content/templates/`에 둔다
 - 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
+- 같은 도메인에 `policy`, `architecture`, `fsm`, `flow` 문서가 2개 이상 존재하면 각 문서 상단에 역할, 충돌 시 우선 문서, 기준 성격(`as-is`/`to-be`/`transition`)을 명시한다
+- 문서 역할 기준의 단일 SoT는 `content/policy/engineering-guardrails.md`를 따른다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
   - `content/technical-debt/technical-debt.md`
   - `content/policy/code-review-policy.md`
