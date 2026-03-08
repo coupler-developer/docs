@@ -19,6 +19,7 @@
 - 요청 출처 SoT:
   - 기본정보/소개: `t_member_review_request.request_origin`
   - 인증: `t_member_auth_review_request.request_origin` (`active_request_slot=1` 기준)
+  - 프로필 미디어: `t_member_profile_set.request_origin`
 
 ## 회원 레벨 정의 (운영 용어, v2.0)
 
@@ -88,6 +89,7 @@
 
 - `member_level`은 표시 용도이며 큐 필터 기준으로 사용하지 않는다.
 - `request_origin`이 없거나 미정의면 어떤 큐에도 넣지 않는다(Fail-closed).
+- 프로필 이미지/영상도 `t_member_profile_set.request_origin`이 큐 라우팅의 필수 기준이며, 값이 없거나 미정의면 Admin 목록/상세/액션 모두에서 제외한다(Fail-closed).
 - 인증 심사 큐(`full-*`, `profile-edit`)의 대기 판정은 `t_member_auth_review_request`(`active_request_slot=1`)의 `request_origin/request_status`를 필수 기준으로 하며, 필요 시 실제 인증 데이터와 교집합으로 판정한다.
 - 인증 `request_origin`이 큐 목적과 불일치하거나 누락되면 해당 요청은 큐에서 제외한다(Fail-closed).
 
