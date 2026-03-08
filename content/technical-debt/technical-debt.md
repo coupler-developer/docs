@@ -173,7 +173,8 @@
 
 - `coupler-mobile-app`은 to-be 아키텍처(`architecture/mobile-app-to-be.md`) 기준과 달리 `fragment` 디렉터리 및 `*Fragment*` 파일이 다수 잔존함.
 - 모바일 앱 screens 하위에 화면 폴더 중첩 구조가 남아 있어, "도메인 바로 아래 `*Screen`/동일 접두 파일 배치" 원칙과 차이가 있음.
-- `coupler-api` 테스트는 현재 `__tests__/` 기준으로 운영되는데, 일부 정책 문서가 `src/__tests__/`로 안내해 기준 드리프트가 발생함.
+- 일부 화면은 `*StepScreen`처럼 Step과 Screen 개념이 섞인 라우팅 대상을 유지하고 있어, "Step은 라우터 등록 금지" 원칙과 차이가 있음.
+- 테스트 경로 기준은 `coupler-api`의 `__tests__/`, `coupler-admin-web`/`coupler-mobile-app`의 `src/__tests__/`로 현재 문서화되어 있으나, 구조 정책 문서 전반에서 as-is/to-be 경계를 더 선명하게 유지할 필요가 있음.
 
 영향
 
@@ -184,8 +185,8 @@
 액션 후보
 
 - 정책 문서는 "현재(as-is)"와 "목표(to-be)"를 분리 표기해 즉시 드리프트를 제거한다.
-- `coupler-mobile-app`은 `fragment`/중첩 화면 폴더를 단계적으로 `*Step*`/`*Section*` 및 도메인 평탄 구조로 이전한다.
-- `coupler-api` 테스트 경로는 현행(`__tests__/`)을 기준으로 문서와 CI를 먼저 일치시키고, 필요 시 `src/__tests__/` 이전을 별도 마이그레이션으로 수행한다.
+- `coupler-mobile-app`은 `fragment`/중첩 화면 폴더/`*StepScreen` 라우트를 단계적으로 `*Step*`/`*Section*` 및 도메인 평탄 구조로 이전한다.
+- 구조 정책 문서에는 "현재 운영 기준"과 "목표 구조"를 같은 문단에서 섞지 않고, 필요한 경우 전환 조건과 완료 기준을 함께 적는다.
 - 워크스페이스 루트 산출물(SQL dump, 임시 파일) 보관 위치를 별도 아카이브 디렉터리로 분리해 루트 구조를 단순화한다.
 
 ---
