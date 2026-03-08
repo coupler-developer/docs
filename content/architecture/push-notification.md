@@ -1,5 +1,11 @@
 # 푸시알림 시스템 (FCM)
 
+## 문서 역할
+
+- 역할: `구조 설명`
+- 충돌 시 우선 문서: [푸시알림 운영 정책](../policy/push-notification-policy.md)
+- 기준 성격: `as-is`
+
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 
 ## FCM 알림 타입 (75개)

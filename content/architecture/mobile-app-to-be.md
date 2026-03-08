@@ -1,5 +1,11 @@
 # coupler-mobile-app to-be 아키텍처
 
+## 문서 역할
+
+- 역할: `구조 설명`
+- 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md)
+- 기준 성격: `transition`
+
 ## 폴더/네이밍 가이드
 
 - 정의: 도메인 = `src/screens/` 최상위 기능 묶음(`auth`, `signup` 등, `shared` 제외), 화면 = 네비게이션 대상 `*Screen` 파일, Step = 화면 내부 플로우 단계 컴포넌트(`*Step*`).

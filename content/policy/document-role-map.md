@@ -39,37 +39,37 @@
 | --- | --- | --- | --- | --- | --- |
 | 공통 | `policy/engineering-guardrails.md` | 규범 | 자기 자신 | as-is | 없음 |
 | 공통 | `policy/code-review-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
-| 공통 | `policy/testing-strategy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/commit-convention.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/git-branch-strategy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/git-sync-rebase-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/release-process.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/log-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/data-governance-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/db-migration-gate-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 공통 | `policy/typescript-migration-plan.md` | 규범 | 자기 자신 | transition | 메타 정규화 필요 |
-| 공통 | `architecture/repo-overview.md` | 구조 설명 | 단일 문서 예외 | as-is | 메타 정규화 필요 |
+| 공통 | `policy/testing-strategy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/commit-convention.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/git-branch-strategy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/git-sync-rebase-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/release-process.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/log-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/data-governance-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/db-migration-gate-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 공통 | `policy/typescript-migration-plan.md` | 규범 | 자기 자신 | transition | 없음 |
+| 공통 | `architecture/repo-overview.md` | 구조 설명 | 단일 문서 예외 | as-is | 없음 |
 | 회원 | `architecture/member-review-policy.md` | 규범 | 자기 자신 | transition | 없음 |
 | 회원 | `architecture/member-review-fsm.md` | 상태 흐름 설명 | `member-review-policy.md` | as-is | 없음 |
-| 회원 | `architecture/member-lifecycle.md` | 상태 흐름 설명 | `member-review-policy.md` | as-is | 메타 정규화 필요 |
-| 회원 | `architecture/signup-response-contract.md` | 규범 | 자기 자신 | transition | 메타 정규화 필요 |
-| 회원 | `policy/api-error-contract-policy.md` | 규범 | 자기 자신 | transition | 메타 정규화 필요 |
+| 회원 | `architecture/member-lifecycle.md` | 상태 흐름 설명 | `member-review-policy.md` | as-is | 없음 |
+| 회원 | `architecture/signup-response-contract.md` | 규범 | 자기 자신 | transition | 없음 |
+| 회원 | `policy/api-error-contract-policy.md` | 규범 | 자기 자신 | transition | 없음 |
 | 매칭 | `architecture/matching-fsm.md` | 상태 흐름 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
 | 매칭 | `architecture/matching-key-system.md` | 구조 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
 | 매칭 | `architecture/matching-schedule-algorithm.md` | 구조 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
 | 매칭 | `flows/cross-project/matching-flow.md` | 시나리오 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
-| 결제 | `policy/payment-ops-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 결제 | `architecture/payment-system.md` | 구조 설명 | `payment-ops-policy.md` | as-is | 메타 정규화 필요 |
-| 푸시 | `policy/push-notification-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 푸시 | `architecture/push-notification.md` | 구조 설명 | `push-notification-policy.md` | as-is | 메타 정규화 필요 |
-| 보안/권한 | `policy/security-access-control-policy.md` | 규범 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 보안/권한 | `architecture/admin-permission.md` | 구조 설명 | `security-access-control-policy.md` | as-is | 메타 정규화 필요 |
-| 업로드/미디어 | `architecture/upload-media-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 크론 | `architecture/cron-jobs.md` | 단일 문서 예외 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 채팅 | `architecture/chat-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 라운지 | `architecture/lounge-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 미팅 | `architecture/meeting-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 메타 정규화 필요 |
-| 모바일 구조 | `architecture/mobile-app-to-be.md` | 구조 설명 | 상위 규범 문서 링크 필요 | transition | 규범 연결 보강 필요 |
+| 결제 | `policy/payment-ops-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 결제 | `architecture/payment-system.md` | 구조 설명 | `payment-ops-policy.md` | as-is | 없음 |
+| 푸시 | `policy/push-notification-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 푸시 | `architecture/push-notification.md` | 구조 설명 | `push-notification-policy.md` | as-is | 없음 |
+| 보안/권한 | `policy/security-access-control-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
+| 보안/권한 | `architecture/admin-permission.md` | 구조 설명 | `security-access-control-policy.md` | as-is | 없음 |
+| 업로드/미디어 | `architecture/upload-media-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 없음 |
+| 크론 | `architecture/cron-jobs.md` | 단일 문서 예외 | 자기 자신 | as-is | 없음 |
+| 채팅 | `architecture/chat-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 없음 |
+| 라운지 | `architecture/lounge-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 없음 |
+| 미팅 | `architecture/meeting-system.md` | 단일 문서 예외 | 자기 자신 | as-is | 없음 |
+| 모바일 구조 | `architecture/mobile-app-to-be.md` | 구조 설명 | `engineering-guardrails.md` | transition | 없음 |
 
 ## 우선 조치 대상
 

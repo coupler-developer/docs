@@ -1,5 +1,11 @@
 # 커밋 메시지 컨벤션
 
+## 문서 역할
+
+- 역할: `규범`
+- 충돌 시 우선 문서: 이 문서
+- 기준 성격: `as-is`
+
 ## 기본 규칙
 
 - [Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 준수
