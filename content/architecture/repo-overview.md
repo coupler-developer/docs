@@ -6,7 +6,7 @@
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: `as-is`
 
-- 단일 문서 예외로 현재는 규범과 설명을 함께 다룬다.
+- 현재 범위에서는 워크스페이스 구조와 각 레포지토리의 역할 설명에 집중하며, 별도 규범 문서는 두지 않는다.
 
 - **`coupler-admin-web`**: CRA 기반 어드민 프론트엔드. `npm start`(포트 8000)로 개발 서버를 띄우며 MobX 상태 관리와 Chart.js, DataTables 등을 활용해 운영 지표와 회원 관리 UI를 제공합니다.
 - **`coupler-api`**: Express + MySQL + TypeScript 백엔드. `app.ts` 진입점에서 REST API, i18n, Firebase Admin 연동을 제공하며, 도메인 로직은 controller와 lib/usecase 계층에 분산되어 있고 응답 경계는 DTO 기반으로 관리합니다. 심사 상태 판정은 `v_member_review_status` 단일 기준을 사용하며 cron/알림 자동화를 운영합니다.
