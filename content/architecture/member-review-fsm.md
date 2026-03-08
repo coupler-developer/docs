@@ -3,11 +3,11 @@
 ## 문서 역할
 
 - 역할: `상태 흐름 설명`
-- 충돌 시 우선 문서: [회원 심사 단일 정책](member-review-policy.md)
+- 충돌 시 우선 문서: [회원 심사 단일 정책](../policy/member-review-policy.md)
 - 기준 성격: `as-is`
 
 본 문서는 현재 운영 기준의 심사 상태 모델을 정리한다.
-규범 문서가 아니라 상태 흐름과 현재 구조를 설명하는 문서이며, MUST/SHOULD/금지 사항의 원문 기준은 [회원 심사 단일 정책](member-review-policy.md)을 따른다.
+규범 문서가 아니라 상태 흐름과 현재 구조를 설명하는 문서이며, MUST/SHOULD/금지 사항의 원문 기준은 [회원 심사 단일 정책](../policy/member-review-policy.md)을 따른다.
 
 ## 구조 요약
 

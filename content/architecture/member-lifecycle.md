@@ -3,7 +3,7 @@
 ## 문서 역할
 
 - 역할: `상태 흐름 설명`
-- 충돌 시 우선 문서: [회원 심사 단일 정책](member-review-policy.md)
+- 충돌 시 우선 문서: [회원 심사 단일 정책](../policy/member-review-policy.md)
 - 기준 성격: `as-is`
 
 회원의 전체 상태 흐름을 정리한 문서이다. 심사 과정의 세부 사항은 [member-review-fsm.md](./member-review-fsm.md)를 참고한다.

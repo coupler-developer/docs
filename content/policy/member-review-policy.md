@@ -184,5 +184,5 @@
 
 ## 관련 문서
 
-- [회원 심사 FSM](member-review-fsm.md)
+- [회원 심사 FSM](../architecture/member-review-fsm.md)
 - [회원가입 응답 계약](signup-response-contract.md)

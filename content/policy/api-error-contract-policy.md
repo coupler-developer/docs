@@ -28,7 +28,7 @@
 - 상위 기술 원칙: `content/policy/engineering-guardrails.md`
 - 테스트/검증 기준: `content/policy/testing-strategy.md`
 - 로그/운영 기준: `content/policy/log-policy.md`
-- 회원가입 계약(특정 도메인): `content/architecture/signup-response-contract.md`
+- 회원가입 계약(특정 도메인): `content/policy/signup-response-contract.md`
 
 ## 필수 규칙
 
@@ -153,5 +153,5 @@
 - [엔지니어링 가드레일](engineering-guardrails.md)
 - [로그 정책](log-policy.md)
 - [테스트/CI 전략](testing-strategy.md)
-- [회원가입 응답 계약](../architecture/signup-response-contract.md)
-- [회원 심사 단일 정책](../architecture/member-review-policy.md)
+- [회원가입 응답 계약](signup-response-contract.md)
+- [회원 심사 단일 정책](member-review-policy.md)

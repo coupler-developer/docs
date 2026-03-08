@@ -58,8 +58,6 @@ nav:
   - Home: README.md
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
-      - 회원 심사 단일 정책: architecture/member-review-policy.md
-      - 회원가입 응답 계약: architecture/signup-response-contract.md
       - 레포지토리 요약: architecture/repo-overview.md
       - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md
       - 회원 라이프사이클: architecture/member-lifecycle.md
@@ -84,6 +82,8 @@ nav:
       - 보안/접근통제 정책: policy/security-access-control-policy.md
       - 결제 운영 정책: policy/payment-ops-policy.md
       - 매칭 운영 정책: policy/matching-ops-policy.md
+      - 회원 심사 단일 정책: policy/member-review-policy.md
+      - 회원가입 응답 계약: policy/signup-response-contract.md
       - 푸시알림 운영 정책: policy/push-notification-policy.md
       - 데이터 거버넌스 정책: policy/data-governance-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md

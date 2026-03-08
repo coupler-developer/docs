@@ -29,8 +29,6 @@
 
 - [회원 라이프사이클](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
 - [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
-- [회원 심사 단일 정책](architecture/member-review-policy.md) - 가입/설정/Admin/Mobile 심사 기준 단일화
-- [회원가입 응답 계약](architecture/signup-response-contract.md) - result_code/result_data 역할 분리 최종안
 - [매칭 FSM](architecture/matching-fsm.md) - 매칭 상태 머신
 - [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
 - [매칭 스케줄 알고리즘](architecture/matching-schedule-algorithm.md)
@@ -60,6 +58,8 @@
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
 - [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정 기준 단일화
+- [회원 심사 단일 정책](policy/member-review-policy.md) - 가입/설정/Admin/Mobile 심사 기준 단일화
+- [회원가입 응답 계약](policy/signup-response-contract.md) - result_code/result_data 역할 분리 최종안
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드

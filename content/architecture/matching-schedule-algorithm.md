@@ -6,22 +6,15 @@
 - 충돌 시 우선 문서: [매칭 운영 정책](../policy/matching-ops-policy.md)
 - 기준 성격: `as-is`
 
-일정 제안/역제안의 범위 검증 및 제한 규칙을 정리한 문서이다.
+일정 제안/역제안 검증의 구조와 대표 흐름을 정리한 문서이다.
 
-## 일정 제안 개요
+정확한 허용 횟수, 날짜 개수, 범위 규칙의 원문 SoT는 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
-- 최대 4회까지 제안/역제안 가능
-- 각 제안 시 4~7개의 날짜를 제시해야 함
-- 제안 횟수에 따라 선택 가능한 날짜 범위가 다름
+## 검증 구조 요약
 
-## 제안 횟수별 날짜 범위
-
-| 제안 횟수    | 범위 시작         | 범위 끝           | 비고         |
-| ------------ | ----------------- | ----------------- | ------------ |
-| 1차 (최초)   | 내일              | 오늘 + 14일       | 2주 이내     |
-| 2차 (역제안) | 내일              | 1차 제안일 + 14일 | 1차 기준 2주 |
-| 3차 (역제안) | 내일              | 1차 제안일 + 14일 | 1차 기준 2주 |
-| 4차 (역제안) | 1차 제안일 + 15일 | 1차 제안일 + 25일 | 원거리 날짜  |
+- 서버는 제안 횟수에 따라 허용 날짜 창을 다르게 적용한다.
+- 각 제안은 날짜 개수, 중복 여부, 과거 날짜 여부를 함께 검증한다.
+- 이 문서는 분기 구조와 시퀀스를 설명하고, 실제 제한 값은 정책 문서를 기준으로 본다.
 
 ## 범위 검증 로직
 
@@ -61,25 +54,16 @@ switch (schedule_count) {
 }
 ```
 
-## 제안 규칙
-
-### 날짜 개수
-
-- 최소: 4개
-- 최대: 7개
+## 입력 검증 예시
 
 ```javascript
 // match.js 라인 788-793
-if (schedule_list.length < 4 || schedule_list.length > 7) {
-  return response_error(res, "4~7개의 날짜를 선택해주세요");
+if (schedule_list.length < MIN_COUNT || schedule_list.length > MAX_COUNT) {
+  return response_error(res, "허용 범위를 벗어난 날짜 개수");
 }
 ```
 
-### 검증 조건
-
-1. 모든 날짜가 허용 범위 내에 있어야 함
-2. 중복 날짜 불가
-3. 과거 날짜 불가
+- 실제 최소/최대 허용 개수와 상태 전이 결과는 정책 문서를 따른다.
 
 ## 역제안 흐름
 
@@ -121,17 +105,13 @@ sequenceDiagram
     end
 ```
 
-## 4회 불합의 처리
+## 불합의 종료 예시
 
-4차 제안까지 합의되지 않으면:
-
-1. 상태: `SCHEDULE_NOT_SELECTED (-105)`
-2. 환불: 양쪽 50%
-3. 매칭 종료
+정책에서 정의한 최종 제안 횟수까지 합의되지 않으면 서버는 불합의 종료 상태로 전환하고 환불 규칙을 적용한다.
 
 ```javascript
 // match.js 라인 941-975
-if (schedule_count >= 4 && !accepted) {
+if (schedule_count >= MAX_SCHEDULE_ATTEMPTS && !accepted) {
   // 상태 변경
   await MMatch.getInstance().update(
     {
@@ -140,7 +120,7 @@ if (schedule_count >= 4 && !accepted) {
     match_id,
   );
 
-  // 50% 환불
+  // 정책 기준 환불 적용
   const femaleRefund = Math.floor(female_paid_key * 0.5);
   const maleRefund = Math.floor(male_paid_key * 0.5);
 }
@@ -148,7 +128,5 @@ if (schedule_count >= 4 && !accepted) {
 
 ## 만료 처리
 
-각 제안 후 다음날 자정까지 응답이 없으면:
-
-- 상태: `SCHEDULE_NO_REPLY (-103)`
-- Cron 작업으로 자동 처리
+- 각 제안 후 응답 기한이 지나면 서버가 무응답 종료 상태로 전환한다.
+- 구체적인 기한과 상태 값은 정책 문서를 따른다.
