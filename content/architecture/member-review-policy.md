@@ -1,10 +1,15 @@
-# 회원 심사 단일 정책 (SoT, To-Be)
+# 회원 심사 단일 정책
+
+## 문서 역할
+
+- 역할: `규범`
+- 충돌 시 우선 문서: 이 문서
+- 기준 성격: `transition`
+  - 최종 목표 기준을 우선 사용한다.
+  - 미전환 구현과의 차이는 PR/작업 보고에 명시한다.
 
 본 문서는 회원 심사 규칙의 단일 정책 문서다.
 가입 단계/설정 수정/Admin 대기 큐/Mobile 제출-재제출 동작을 한 기준으로 고정한다.
-
-> 기준 성격: 본 문서는 **목표(To-Be)** 기준이다.
-> 현행 구현(as-is)이 일부 다를 수 있으며, 전환 완료 전까지는 PR에 차이를 명시한다.
 
 ## 목적
 
@@ -12,14 +17,16 @@
 - Admin/Mobile/API가 같은 판정 기준 사용
 - 제출/재제출 UX와 운영 큐 기준 고정
 
-## SoT 기준
+## 기준 분리
 
-- 회원 자격 SoT: `t_member.status`
-- 심사 단계 SoT: `v_member_review_status`
-- 요청 출처 SoT:
+- 회원 생애주기 상태 SoT: `t_member.status`
+- 심사 상태 판정/읽기 SoT: `v_member_review_status`
+- 큐 라우팅 출처 원천:
   - 기본정보/소개: `t_member_review_request.request_origin`
-  - 인증: `t_member_auth_review_request.request_origin` (`active_request_slot=1` 기준)
+  - 인증: `t_member_auth_review_request.request_origin`
   - 프로필 미디어: `t_member_profile_set.request_origin`
+- 인증 요청의 현재 활성 건 판정은 `t_member_auth_review_request.active_request_slot = 1`을 기준으로 한다.
+- `request_origin`은 출처/큐 라우팅용 원천 데이터이며, 심사 상태 판정 SoT를 대체하지 않는다.
 
 ## 회원 레벨 정의 (운영 용어, v2.0)
 

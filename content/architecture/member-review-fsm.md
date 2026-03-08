@@ -1,8 +1,15 @@
-# 회원 심사 FSM (현행 기준)
+# 회원 심사 FSM
+
+## 문서 역할
+
+- 역할: `상태 흐름 설명`
+- 충돌 시 우선 문서: [회원 심사 단일 정책](member-review-policy.md)
+- 기준 성격: `as-is`
 
 본 문서는 현재 운영 기준의 심사 상태 모델을 정리한다.
+규범 문서가 아니라 상태 흐름과 현재 구조를 설명하는 문서이며, MUST/SHOULD/금지 사항의 원문 기준은 [회원 심사 단일 정책](member-review-policy.md)을 따른다.
 
-## 핵심 원칙
+## 구조 요약
 
 - 회원 생애주기 상태는 `t_member.status`가 단일 기준이다.
 - 심사 단계 상태의 읽기/판정 기준은 `v_member_review_status`가 단일 기준이다.
@@ -49,14 +56,15 @@
 - 이 문서에서 심사 상태 SoV(Service Output View)는 `v_member_review_status`를 의미한다.
 - API 응답 계약에서는 단계 상태를 `result_data.access_context.review_status` 객체로 전달한다.
 
-### `v_member_review_overview` (운영/어드민 기준 뷰)
+### `v_member_review_overview` (운영 보조 집계 뷰)
 
-- 운영 판단용 확장 요약
+- 운영 판단 보조용 확장 요약
 - 포함 정보:
   - `current_focus_stage`
   - 현재 반려/재심사 플래그(`has_issue_current`)
   - 단계별 현재 플래그(`*_pending_current`, `*_return_current`, `*_reapply_current`)
   - 단계별 이력 집계(`*_history_cnt`)
+- 심사 상태 읽기 SoT를 대체하지 않는다.
 
 ## 상태 해석 규칙
 
@@ -110,8 +118,8 @@
   - 앱 진입 라우팅은 `decidePostLoginEntryRoute` 단일 함수로 처리한다
   - 매칭 화면 분기는 `decideMatchingViewState`(화면 상태) + `buildMatchingLockPanelContent`(문구)로 분리한다
 - 어드민:
-  - 운영 리스트/필터는 `v_member_review_overview` 우선
   - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
+  - 큐 분류와 원본 증거 판정은 `request_origin`이 저장된 원본 테이블을 함께 확인한다
 
 ## 금지 사항
 
