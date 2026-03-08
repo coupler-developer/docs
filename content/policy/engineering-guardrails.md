@@ -124,6 +124,17 @@
 - verbose한 문법 지양
 - 하드코딩/Magic Number 금지: 상수로 정의한다
 
+### Mobile UI token (`coupler-mobile-app`)
+
+- 텍스트 스타일 SoT는 `src/constants/TextStyles.ts` 하나로 고정한다.
+- 색상 SoT는 `src/constants/Colors.ts` 하나로 고정한다.
+- 화면/컴포넌트/유틸에서 `fontFamily`, `fontSize`, `fontWeight`, `letterSpacing`, `lineHeight`를 직접 정의하지 않는다.
+- 화면/컴포넌트/유틸에서 HEX/RGB/RGBA 색상 literal을 직접 정의하지 않는다.
+- `LinearGradient` 등 색상 배열 props도 `Colors` 토큰만 사용한다.
+- 새 typography/color variant가 필요하면 화면에서 inline override로 덮지 말고 `TextStyles`/`Colors`에 명시적으로 추가한다.
+- 예외는 런타임 계산이 필요한 값만 허용한다. 이 경우 해당 라인 또는 직전 라인에 `design-token-exception: <reason>` 주석을 남기고, 계산 결과를 여러 화면에서 재사용한다면 helper 또는 token variant로 승격한다.
+- 재유입 차단은 리뷰만으로 끝내지 않고 lint/정적 검사로 자동 검증한다.
+
 ### 버그 수정
 
 - 증상이 아닌 근본 원인을 추적하여 제거한다
@@ -172,6 +183,7 @@
 - 화면 컴포넌트에서 normalize/resolve/fallback로 계약 불일치를 보정하지 않는다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
 - 구/신 API 이중 경로를 동시에 유지하지 않는다. 불가피한 과도기에는 Shadow Cutover 규칙을 따른다.
+- typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
 
 ### Admin (coupler-admin-web)
 
