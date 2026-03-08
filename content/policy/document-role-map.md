@@ -54,10 +54,11 @@
 | 회원 | `architecture/member-lifecycle.md` | 상태 흐름 설명 | `member-review-policy.md` | as-is | 없음 |
 | 회원 | `architecture/signup-response-contract.md` | 규범 | 자기 자신 | transition | 없음 |
 | 회원 | `policy/api-error-contract-policy.md` | 규범 | 자기 자신 | transition | 없음 |
-| 매칭 | `architecture/matching-fsm.md` | 상태 흐름 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
-| 매칭 | `architecture/matching-key-system.md` | 구조 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
-| 매칭 | `architecture/matching-schedule-algorithm.md` | 구조 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
-| 매칭 | `flows/cross-project/matching-flow.md` | 시나리오 설명 | 신규 규범 문서 필요 | as-is | 규범 문서 부재 |
+| 매칭 | `policy/matching-ops-policy.md` | 규범 | 자기 자신 | transition | 세부 규칙 이관 필요 |
+| 매칭 | `architecture/matching-fsm.md` | 상태 흐름 설명 | `matching-ops-policy.md` | as-is | 세부 규칙 이관 필요 |
+| 매칭 | `architecture/matching-key-system.md` | 구조 설명 | `matching-ops-policy.md` | as-is | 세부 규칙 이관 필요 |
+| 매칭 | `architecture/matching-schedule-algorithm.md` | 구조 설명 | `matching-ops-policy.md` | as-is | 세부 규칙 이관 필요 |
+| 매칭 | `flows/cross-project/matching-flow.md` | 시나리오 설명 | `matching-ops-policy.md` | as-is | 세부 규칙 이관 필요 |
 | 결제 | `policy/payment-ops-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
 | 결제 | `architecture/payment-system.md` | 구조 설명 | `payment-ops-policy.md` | as-is | 없음 |
 | 푸시 | `policy/push-notification-policy.md` | 규범 | 자기 자신 | as-is | 없음 |
@@ -73,10 +74,8 @@
 
 ## 우선 조치 대상
 
-1. 매칭 도메인: 복수 문서가 있지만 규범 문서가 없다.
-2. 회원 도메인: `signup-response-contract.md`, `member-lifecycle.md` 상단 메타와 규범 연결이 필요하다.
-3. 결제/푸시/보안: 규범 문서는 있으나 설명 문서 메타 정규화가 필요하다.
-4. 단일 문서 예외 도메인: 상단 메타를 추가해 예외임을 명시해야 한다.
+1. 매칭 도메인: 새 규범 문서는 생겼지만 상세 규칙의 중복 이관이 남아 있다.
+2. 공통/단일 문서 예외 도메인: 규범과 설명의 분리 필요성을 계속 점검해야 한다.
 
 ## 체크리스트
 

@@ -59,6 +59,7 @@
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 에러 응답 및 환경 분리 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
+- [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정 기준 단일화
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드

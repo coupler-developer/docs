@@ -1,5 +1,11 @@
 # 매칭 상태 머신 (Matching FSM)
 
+## 문서 역할
+
+- 역할: `상태 흐름 설명`
+- 충돌 시 우선 문서: [매칭 운영 정책](../policy/matching-ops-policy.md)
+- 기준 성격: `as-is`
+
 매칭의 전체 상태 흐름을 정리한 문서이다.
 
 ## 매칭 상태 (MATCH_STATUS)
