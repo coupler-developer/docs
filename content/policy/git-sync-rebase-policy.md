@@ -15,16 +15,16 @@
 ## 적용 범위
 
 - 워크스페이스 내 코드 레포 3종
-  - `coupler-api`
-  - `coupler-mobile-app`
-  - `coupler-admin-web`
+    - `coupler-api`
+    - `coupler-mobile-app`
+    - `coupler-admin-web`
 
 ## 기준 선택 규칙 (필수)
 
 - **요청이 "main 기준 최신화"면 기준은 무조건 `origin/main`**
 - **요청이 "현재 브랜치 최신화"면 기준은 `origin/<현재브랜치>`**
 - 한 작업 단위에서 기준을 섞지 않는다.
-  - 금지: 같은 작업 중 일부 레포는 `origin/main`, 일부 레포는 `origin/<feature>`
+    - 금지: 같은 작업 중 일부 레포는 `origin/main`, 일부 레포는 `origin/<feature>`
 
 ## 실행 전 점검 (레포별 필수)
 

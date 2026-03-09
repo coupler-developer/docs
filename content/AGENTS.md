@@ -9,18 +9,18 @@
 - 같은 도메인에 `policy`, `architecture`, `fsm`, `flow` 문서가 2개 이상 존재하면 각 문서 상단에 역할, 충돌 시 우선 문서, 기준 성격(`as-is`/`to-be`/`transition`)을 명시한다
 - 문서 역할 기준의 단일 SoT는 `content/policy/engineering-guardrails.md`를 따른다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
-  - `content/technical-debt/technical-debt.md`
-  - `content/policy/code-review-policy.md`
-  - `content/policy/engineering-guardrails.md`
-  - `content/policy/testing-strategy.md`
+    - `content/technical-debt/technical-debt.md`
+    - `content/policy/code-review-policy.md`
+    - `content/policy/engineering-guardrails.md`
+    - `content/policy/testing-strategy.md`
 - 새 세션 첫 응답은 아래 형식을 반드시 사용한다
-  - `ACK: CORE@YYYY-MM-DD CRP@YYYY-MM-DD`
-  - `EVIDENCE: content/technical-debt/technical-debt.md:<line>, content/policy/code-review-policy.md:<line>, content/policy/engineering-guardrails.md:<line>, content/policy/testing-strategy.md:<line>`
-  - `CRP`는 `content/policy/code-review-policy.md`를 의미한다
-  - `YYYY-MM-DD`는 세션 날짜를 사용한다
+    - `ACK: CORE@YYYY-MM-DD CRP@YYYY-MM-DD`
+    - `EVIDENCE: content/technical-debt/technical-debt.md:<line>, content/policy/code-review-policy.md:<line>, content/policy/engineering-guardrails.md:<line>, content/policy/testing-strategy.md:<line>`
+    - `CRP`는 `content/policy/code-review-policy.md`를 의미한다
+    - `YYYY-MM-DD`는 세션 날짜를 사용한다
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람 외 명령 실행/코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
-  - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
+    - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
 
 ## 문서 인덱스

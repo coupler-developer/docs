@@ -24,12 +24,12 @@
 - 테이블: `t_member`
 - 컬럼: `status`
 - 값:
-  - `-4`: 심사 거절
-  - `-3`: 탈퇴
-  - `-2`: 차단
-  - `-1`: 홀딩
-  - `0`: 심사중
-  - `1`: 정상
+    - `-4`: 심사 거절
+    - `-3`: 탈퇴
+    - `-2`: 차단
+    - `-1`: 홀딩
+    - `0`: 심사중
+    - `1`: 정상
 
 ### 2) 심사 단계 상태 스냅샷(호환용)
 
@@ -37,7 +37,7 @@
 - PK: `(member_id, stage_code)` (회원당 3행)
 - `stage_code`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO` (DB 내부 스냅샷 키, API 응답 필드 아님)
 - `stage_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
-  - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
+    - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
 - `stage_status_entered_at`: 해당 단계 현재 상태 진입시각
 - `snapshot_updated_at`: 행 갱신시각
 - 참고: 최종 상태 판정은 이 테이블 직접 조회가 아니라 `v_member_review_status` 조회를 기준으로 한다.
@@ -48,10 +48,10 @@
 
 - 회원당 1행 요약
 - 포함 정보:
-  - `member_status`
-  - `member_level` (`PRE_MEMBER`/`GENERAL_MEMBER`/`SEMI_MEMBER`/`FULL_MEMBER`/`SPECIAL_MEMBER`)
-  - `basic_info_status`, `required_auth_status`, `intro_status`
-  - 단계별 `*_entered_at`
+    - `member_status`
+    - `member_level` (`PRE_MEMBER`/`GENERAL_MEMBER`/`SEMI_MEMBER`/`FULL_MEMBER`/`SPECIAL_MEMBER`)
+    - `basic_info_status`, `required_auth_status`, `intro_status`
+    - 단계별 `*_entered_at`
 - API/모바일은 이 뷰를 기준으로 현재 심사 상태를 해석한다.
 - 이 문서에서 심사 상태 SoV(Service Output View)는 `v_member_review_status`를 의미한다.
 - API 응답 계약에서는 단계 상태를 `result_data.access_context.review_status` 객체로 전달한다.
@@ -60,10 +60,10 @@
 
 - 운영 판단 보조용 확장 요약
 - 포함 정보:
-  - `current_focus_stage`
-  - 현재 반려/재심사 플래그(`has_issue_current`)
-  - 단계별 현재 플래그(`*_pending_current`, `*_return_current`, `*_reapply_current`)
-  - 단계별 이력 집계(`*_history_cnt`)
+    - `current_focus_stage`
+    - 현재 반려/재심사 플래그(`has_issue_current`)
+    - 단계별 현재 플래그(`*_pending_current`, `*_return_current`, `*_reapply_current`)
+    - 단계별 이력 집계(`*_history_cnt`)
 - 심사 상태 읽기 SoT를 대체하지 않는다.
 
 ## 상태 해석 규칙
@@ -113,13 +113,13 @@
 ## 앱/어드민 적용 기준
 
 - 앱:
-  - `v_member_review_status` 기준으로 심사 분기
-  - `status=-4`는 거절 회원으로 처리
-  - 앱 진입 라우팅은 `decidePostLoginEntryRoute` 단일 함수로 처리한다
-  - 매칭 화면 분기는 `decideMatchingViewState`(화면 상태) + `buildMatchingLockPanelContent`(문구)로 분리한다
+    - `v_member_review_status` 기준으로 심사 분기
+    - `status=-4`는 거절 회원으로 처리
+    - 앱 진입 라우팅은 `decidePostLoginEntryRoute` 단일 함수로 처리한다
+    - 매칭 화면 분기는 `decideMatchingViewState`(화면 상태) + `buildMatchingLockPanelContent`(문구)로 분리한다
 - 어드민:
-  - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
-  - 큐 분류와 원본 증거 판정은 `request_origin`이 저장된 원본 테이블을 함께 확인한다
+    - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
+    - 큐 분류와 원본 증거 판정은 `request_origin`이 저장된 원본 테이블을 함께 확인한다
 
 ## 금지 사항
 

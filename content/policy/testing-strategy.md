@@ -23,9 +23,9 @@
 - 러너: `react-scripts test` 사용.
 - 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
-  1. `src/helper` 등 순수 로직 단위 테스트
-  2. `src/pages` 스모크 렌더링 테스트
-  3. MobX 스토어 상태 변경 테스트
+    1. `src/helper` 등 순수 로직 단위 테스트
+    2. `src/pages` 스모크 렌더링 테스트
+    3. MobX 스토어 상태 변경 테스트
 
 - 외부 통신: axios mock 또는 MSW 도입 고려(현재 의존성 없음).
 - Chart.js / DataTables: “렌더링 성공 + 주요 props 처리” 수준의 얕은 테스트부터 시작.
@@ -37,8 +37,8 @@
 - TO-BE: `src/__tests__/` 통일 전환은 기술부채 항목에서 별도 관리.
 - 리팩토링 기준: 컨트롤러는 오케스트레이션, 핵심 규칙은 usecase/lib 계층으로 분리된 구조를 기준으로 테스트한다.
 - 우선순위:
-  1. `lib`/usecase 순수 로직 단위 테스트
-  2. `controller`/`routes` 통합 테스트(요청/응답 검증)
+    1. `lib`/usecase 순수 로직 단위 테스트
+    2. `controller`/`routes` 통합 테스트(요청/응답 검증)
 
 - 외부 통신 테스트 필요 시 `supertest` 도입 고려(현재 의존성 없음).
 - 외부 연동(Firebase/SMS/메일): mock 처리로 실서비스 호출 차단.
@@ -49,8 +49,8 @@
 - 러너: `jest` + `preset: react-native` 사용.
 - 위치/규칙: `src/__tests__/**/*.test.(ts|tsx)`만 허용.
 - 우선순위:
-  1. `src/screens/**`의 핵심 화면 스모크 렌더링과 same-level `*Step*` 파일 테스트
-  2. 조건부 UI/상태 변화 테스트
+    1. `src/screens/**`의 핵심 화면 스모크 렌더링과 same-level `*Step*` 파일 테스트
+    2. 조건부 UI/상태 변화 테스트
 
 - 구조 메모: 현행 코드는 화면 레벨 `*Step*` 파일이 주류이며, to-be 구조에서도 화면 전용 Step은 `src/screens/<도메인>/<화면>Step*.ts(x)`를 기본으로 둔다. 도메인 공용 Step만 `src/screens/<도메인>/shared/steps/`를 사용한다.
 - 상호작용 테스트는 `@testing-library/react-native` 사용을 기본으로 한다.

@@ -26,18 +26,18 @@
 ## 공통 tsconfig 규칙
 
 - `allowJs: false`는 무조건 고정한다.
-  - JS 파일을 TypeScript 프로그램에 포함시켜 `typecheck`하지 않는다.
-  - JS가 남아있는 구간은 `.js/.jsx`를 `.ts/.tsx`로 전환하면서 범위를 늘린다.
-  - 따라서 JS 구간의 문법/규칙 검증은 `ESLint` 단계에서 담당한다.
+    - JS 파일을 TypeScript 프로그램에 포함시켜 `typecheck`하지 않는다.
+    - JS가 남아있는 구간은 `.js/.jsx`를 `.ts/.tsx`로 전환하면서 범위를 늘린다.
+    - 따라서 JS 구간의 문법/규칙 검증은 `ESLint` 단계에서 담당한다.
 
 ## CI/로컬 실행 규칙
 
 - 각 코드 레포는 아래 스크립트를 제공해야 한다(`package.json`).
-  - `typecheck`: `tsc --noEmit` 기반
-  - `lint`: `ESLint` 기반
+    - `typecheck`: `tsc --noEmit` 기반
+    - `lint`: `ESLint` 기반
 - 실행은 “해당 레포”에서 레포의 패키지 매니저에 맞게 수행한다.
-  - 예: `yarn typecheck`, `yarn lint`
-  - 예: `npm run typecheck`, `npm run lint`
+    - 예: `yarn typecheck`, `yarn lint`
+    - 예: `npm run typecheck`, `npm run lint`
 
 ## 전환 우선순위 (권장)
 

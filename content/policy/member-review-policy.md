@@ -5,8 +5,8 @@
 - 역할: `규범`
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: `transition`
-  - 최종 목표 기준을 우선 사용한다.
-  - 미전환 구현과의 차이는 PR/작업 보고에 명시한다.
+    - 최종 목표 기준을 우선 사용한다.
+    - 미전환 구현과의 차이는 PR/작업 보고에 명시한다.
 
 본 문서는 회원 심사 규칙의 단일 정책 문서다.
 가입 단계/설정 수정/Admin 대기 큐/Mobile 제출-재제출 동작을 한 기준으로 고정한다.
@@ -22,9 +22,9 @@
 - 회원 생애주기 상태 SoT: `t_member.status`
 - 심사 상태 판정/읽기 SoT: `v_member_review_status`
 - 큐 라우팅 출처 원천:
-  - 기본정보/소개: `t_member_review_request.request_origin`
-  - 인증: `t_member_auth_review_request.request_origin`
-  - 프로필 미디어: `t_member_profile_set.request_origin`
+    - 기본정보/소개: `t_member_review_request.request_origin`
+    - 인증: `t_member_auth_review_request.request_origin`
+    - 프로필 미디어: `t_member_profile_set.request_origin`
 - 인증 요청의 현재 활성 건 판정은 `t_member_auth_review_request.active_request_slot = 1`을 기준으로 한다.
 - `request_origin`은 출처/큐 라우팅용 원천 데이터이며, 심사 상태 판정 SoT를 대체하지 않는다.
 
@@ -129,10 +129,10 @@
 
 - `result_code`는 공통 실패 코드(`RESULT_CODE.ERROR`)를 유지한다.
 - 모바일 원인 판별은 `result_data`의 아래 필드를 단일 기준으로 사용한다.
-  - `error_code`: 도메인 원인 코드(예: `MANAGER_PROFILE_MISSING`, `REQUIRED_AUTH_DELETE_FORBIDDEN`)
-  - `error_source`: 오류가 발생한 도메인(예: `MEMBER_AUTH_REVIEW`)
-  - `error_action`: 모바일 권장 후속 처리(예: `CONTACT_SUPPORT`, `FIX_REQUEST`)
-  - `error_context`: 원인 분석용 구조화 데이터(`member_id`, `manager_id`, `required_auth_types` 등)
+    - `error_code`: 도메인 원인 코드(예: `MANAGER_PROFILE_MISSING`, `REQUIRED_AUTH_DELETE_FORBIDDEN`)
+    - `error_source`: 오류가 발생한 도메인(예: `MEMBER_AUTH_REVIEW`)
+    - `error_action`: 모바일 권장 후속 처리(예: `CONTACT_SUPPORT`, `FIX_REQUEST`)
+    - `error_context`: 원인 분석용 구조화 데이터(`member_id`, `manager_id`, `required_auth_types` 등)
 - 호환을 위해 기존 상세 필드(`member_id`, `manager_id`, `required_auth_types`)는 top-level 병행을 허용한다.
 
 예시:
