@@ -5,7 +5,6 @@ repo_name: coupler-developer/docs
 
 docs_dir: content
 exclude_docs: |
-  AGENTS.md
   CLAUDE.md
 
 theme:
@@ -56,6 +55,7 @@ markdown_extensions:
 
 nav:
   - Home: README.md
+  - Workspace AGENTS: AGENTS.md
   - Architecture:
       - 회원 심사 FSM: architecture/member-review-fsm.md
       - 레포지토리 요약: architecture/repo-overview.md

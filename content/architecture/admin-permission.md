@@ -2,7 +2,8 @@
 
 ## 문서 역할
 
-- 역할: `구조 설명`
+- 역할: `설명`
+- 문서 종류: `architecture`
 - 충돌 시 우선 문서: [보안/접근통제 정책](../policy/security-access-control-policy.md)
 - 기준 성격: `as-is`
 

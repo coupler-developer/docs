@@ -3,6 +3,7 @@
 ## 문서 역할
 
 - 역할: `규범`
+- 문서 종류: `policy`
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: `as-is`
 
@@ -59,7 +60,7 @@
 ### docs (MkDocs)
 
 - 러너: GitHub Actions (mkdocs build + markdownlint) 사용.
-- 문서 빌드: `mkdocs build --strict`
+- 문서 빌드(로컬): `npm run build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `npm run lint:md`
 - 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 

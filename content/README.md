@@ -1,6 +1,6 @@
 # Coupler 개발 문서
 
-> 이 문서는 docs 홈/환경 안내용이다. 작업 시작 규칙, 필독 문서, 세션 시작 절차의 단일 SoT는 `AGENTS.md`다.
+> 이 문서는 docs 홈/환경 안내용이다. 작업 시작 규칙, 필독 문서, 세션 시작 절차의 단일 SoT는 [AGENTS.md](AGENTS.md)다.
 
 ## 문서 구조
 
@@ -23,6 +23,15 @@
 3. 워크스페이스 루트에 `AGENTS.md`를 만들고 아래 내용을 넣는다.
 4. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
 5. 첫 작업 전에는 반드시 `docs/content/AGENTS.md`를 열고 Core 4 문서 선열람, 첫 응답 `ACK/EVIDENCE` 형식, 선열람 전 명령 실행 금지 규칙까지 확인한다.
+
+## 문서 검증
+
+1. Python 의존성 설치: `python3 -m pip install -r requirements.txt`
+2. 문서 빌드 검증: `npm run build:docs`
+3. Markdown lint 검증: `npm run lint:md`
+
+- `npm run build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
+- `npm run lint:md`는 Markdown 구조 규칙만 검증하므로, 작업 완료 기준은 빌드와 lint를 모두 통과하는 것이다.
 
 ```text
 # AGENTS (워크스페이스 전용)

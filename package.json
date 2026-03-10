@@ -5,6 +5,7 @@
     "markdownlint-cli2": "0.17.2"
   },
   "scripts": {
+    "build:docs": "python3 -m mkdocs build --strict",
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\""
   }
 }

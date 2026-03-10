@@ -2,7 +2,8 @@
 
 ## 문서 역할
 
-- 역할: `구조 설명`
+- 역할: `설명`
+- 문서 종류: `architecture`
 - 충돌 시 우선 문서: [매칭 운영 정책](../policy/matching-ops-policy.md)
 - 기준 성격: `as-is`
 
