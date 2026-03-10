@@ -45,8 +45,8 @@ flowchart TD
 uploads/
 ├── image/{type}/{year}/{month}/{day}/
 │   ├── image_1700000000000.jpg
-├── image/manager-detail-master/{year}/{month}/{day}/
-│   └── image_1700000000000.webp      ← 긴 상세 원본을 width 기준으로 1차 정규화한 master
+├── image/manager-detail-source/{year}/{month}/{day}/
+│   └── image_1700000000000.png       ← 업로드 원본 보관
 ├── image/manager-detail-slice/{year}/{month}/{day}/
 │   ├── image_1700000000000_slice_000.webp
 │   └── image_1700000000000_slice_001.webp
@@ -67,7 +67,7 @@ uploads/
 | 타입 | 후처리 | 라이브러리 | 비고 |
 | ---- | ------ | ---------- | ---- |
 | 이미지 | 기본: 원본 저장, `manager-list`는 `webp` 변환 + 최대 `720x1280` 최적화 | GraphicsMagick (gm) | `_thumb` 생성 없음 |
-| 긴 manager 상세 이미지 | 원본 업로드 → `manager-detail-master` webp 정규화 → `manager-detail-slice` 다중 webp 생성 | GraphicsMagick (gm) | `target_width=1080`, `slice_height=2048`, `detail_profile_set` 반환 |
+| 긴 manager 상세 이미지 | 원본 업로드 → `manager-detail-source` 보관 → 원본에서 직접 `manager-detail-slice` 다중 webp 생성 | GraphicsMagick (gm) | `target_width=1080`, `slice_height=2048`, `detail_profile_set` 반환 |
 | 비디오 | 10초 프레임 추출 → JPG 썸네일 | FFmpeg | 썸네일 실패 시 에러 응답 |
 | 오디오 | 원본 → MP3 변환 후 원본 삭제 | FFmpeg | |
 | 파일 | 없음 | - | |
@@ -75,9 +75,8 @@ uploads/
 ## manager 상세 긴 이미지 구조
 
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
-- API는 업로드 직후 master 1장과 ordered slice N장을 생성하고, `detail_profile_set` 메타데이터를 응답한다.
+- API는 업로드 원본을 `manager-detail-source`로 보관하고, 원본에서 ordered slice N장을 직접 생성한 뒤 `detail_profile_set` 메타데이터를 응답한다.
 - DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는 `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다.
-- `t_manager.detail_profile`는 transition 동안 첫 slice preview 경로를 유지한다. 최종 contract 단계 전까지는 레거시 호환 필드다.
 - Mobile 상세 화면은 `/app/manager/detail/:id`에서 `detail_profile_set.slices`를 순서대로 렌더링하고, 선택 리스트에서는 상세 이미지를 preload하지 않는다.
 
 ### `detail_profile_set` 예시
@@ -85,11 +84,12 @@ uploads/
 ```json
 {
   "version_id": 31,
-  "master_image_path": "uploads/image/manager-detail-master/2026/3/10/image_1700000000000.webp",
-  "master_width": 1080,
-  "master_height": 22480,
+  "source_image_path": "uploads/image/manager-detail-source/2026/3/10/image_1700000000000.png",
+  "source_width": 1170,
+  "source_height": 30000,
+  "target_width": 1080,
   "slice_height": 2048,
-  "slice_count": 11,
+  "slice_count": 14,
   "total_bytes": 1842231,
   "slices": [
     {
@@ -169,6 +169,7 @@ flowchart TD
 - `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 Dev EC2(`13.124.79.87:3002`)로 프록시된다
 - 로컬 디스크에 파일이 저장되지 않는다 → **EC2 의존**
 - Dev EC2 접근 불가 시 업로드/파일 서빙 불가 (502 응답)
+- 긴 manager 상세 이미지는 전체 `master.webp`를 만들지 않고 원본에서 직접 slice를 생성해야 GM dimension limit에 걸리지 않는다
 - 이 구조는 개발 환경에서 파일 저장소를 공유하기 위한 임시 방편이다
 
 ## 설정
