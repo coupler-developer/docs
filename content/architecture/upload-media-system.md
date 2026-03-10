@@ -78,8 +78,10 @@ uploads/
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
 - API는 업로드 요청에서 원본만 `manager-detail-source`로 옮기고 `pending` version row를 만든 뒤 즉시 응답한다.
 - background worker가 원본에서 ordered slice N장을 직접 생성하고 `status=ready`가 되면 `detail_profile_set`이 조회 가능해진다.
-- DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는 `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다. preview용 `t_manager.detail_profile` 레거시 컬럼은 cleanup 단계에서 제거 대상이다.
+- DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는 `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다. `t_manager.detail_profile` 레거시 컬럼은 2026-03-10 개발계 기준 제거 완료 상태다.
+- `t_manager_detail_profile_version`의 source 메타데이터는 `source_image_path`, `source_width`, `source_height` 3개 컬럼으로 유지한다.
 - `t_manager_detail_profile_version`은 `status(pending/processing/ready/failed/discarded)`와 `error_message`를 가지며, save는 `ready` version id만 허용한다.
+- save에서 새 `detail_profile_version_id`를 attach하거나 `null`로 clear하면, 이전 활성 version은 `discarded`로 retire되고 source/slice 파일 cleanup 대상으로 넘긴다.
 - Admin는 `status/:id` polling으로 완료 여부를 보고, `ready` 전에는 save를 막는다.
 - Mobile 상세 화면은 `/app/manager/detail/:id`에서 `ready` 상태의 `detail_profile_set.slices`만 순서대로 렌더링하고, 선택 리스트에서는 상세 이미지를 preload하지 않는다.
 
