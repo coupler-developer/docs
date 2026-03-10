@@ -27,16 +27,16 @@ flowchart TD
 
 ## 업로드 엔드포인트
 
-| 메서드 | 엔드포인트 | 설명 | multer 설정 |
-| ------ | ----------------------------- | ------------ | ----------------------- |
-| POST   | `/app/upload/image/:type`     | 단일 이미지   | `imageUpload.single('file')` |
-| POST   | `/app/upload/images/:type`    | 다중 이미지   | `imageUpload.array('file')` |
-| POST   | `/app/upload/video`           | 단일 비디오   | `videoUpload.single('file')` |
-| POST   | `/admin/upload/image/:type`   | (관리자) 이미지 | `imageUpload.single('file')` |
-| POST   | `/admin/upload/images/:type`  | (관리자) 다중  | `imageUpload.array('file')` |
-| POST   | `/admin/upload/video`         | (관리자) 비디오 | `videoUpload.single('file')` |
-| POST   | `/admin/manager/detail-profile/upload` | (관리자) 긴 manager 상세 이미지 source 업로드 | `imageUpload.single('file')` 후 pending version 생성 |
-| GET    | `/admin/manager/detail-profile/status/:id` | (관리자) 긴 manager 상세 이미지 처리 상태 조회 | worker 결과 polling |
+| 메서드 | 엔드포인트                                 | 설명                                           | multer 설정                                          |
+| ------ | ------------------------------------------ | ---------------------------------------------- | ---------------------------------------------------- |
+| POST   | `/app/upload/image/:type`                  | 단일 이미지                                    | `imageUpload.single('file')`                         |
+| POST   | `/app/upload/images/:type`                 | 다중 이미지                                    | `imageUpload.array('file')`                          |
+| POST   | `/app/upload/video`                        | 단일 비디오                                    | `videoUpload.single('file')`                         |
+| POST   | `/admin/upload/image/:type`                | (관리자) 이미지                                | `imageUpload.single('file')`                         |
+| POST   | `/admin/upload/images/:type`               | (관리자) 다중                                  | `imageUpload.array('file')`                          |
+| POST   | `/admin/upload/video`                      | (관리자) 비디오                                | `videoUpload.single('file')`                         |
+| POST   | `/admin/manager/detail-profile/upload`     | (관리자) 긴 manager 상세 이미지 source 업로드  | `imageUpload.single('file')` 후 pending version 생성 |
+| GET    | `/admin/manager/detail-profile/status/:id` | (관리자) 긴 manager 상세 이미지 처리 상태 조회 | worker 결과 polling                                  |
 
 - 모든 라우트에 `proxyUpload` 미들웨어가 multer보다 먼저 실행된다
 - `manager-detail` 긴 상세 포스터는 일반 `/admin/upload/image/:type`이 아니라 전용 `/admin/manager/detail-profile/upload`를 기준으로 처리한다
@@ -66,13 +66,13 @@ uploads/
 
 ## 파일 타입별 처리
 
-| 타입 | 후처리 | 라이브러리 | 비고 |
-| ---- | ------ | ---------- | ---- |
-| 이미지 | 기본: 원본 저장, `manager-list`는 `webp` 변환 + 최대 `720x1280` 최적화 | GraphicsMagick (gm) | `_thumb` 생성 없음 |
+| 타입                   | 후처리                                                                               | 라이브러리          | 비고                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------ | ------------------- | ----------------------------------------------------------------------------------------- |
+| 이미지                 | 기본: 원본 저장, `manager-list`는 `webp` 변환 + 최대 `720x1280` 최적화               | GraphicsMagick (gm) | `_thumb` 생성 없음                                                                        |
 | 긴 manager 상세 이미지 | 원본 업로드 → pending version 생성 → background worker가 `manager-detail-slice` 생성 | GraphicsMagick (gm) | `target_width=1080`, `slice_height=2048`, `status=ready`일 때만 `detail_profile_set` 반환 |
-| 비디오 | 10초 프레임 추출 → JPG 썸네일 | FFmpeg | 썸네일 실패 시 에러 응답 |
-| 오디오 | 원본 → MP3 변환 후 원본 삭제 | FFmpeg | |
-| 파일 | 없음 | - | |
+| 비디오                 | 10초 프레임 추출 → JPG 썸네일                                                        | FFmpeg              | 썸네일 실패 시 에러 응답                                                                  |
+| 오디오                 | 원본 → MP3 변환 후 원본 삭제                                                         | FFmpeg              |                                                                                           |
+| 파일                   | 없음                                                                                 | -                   |                                                                                           |
 
 ## manager 상세 긴 이미지 구조
 
@@ -128,10 +128,14 @@ uploads/
 
 ```typescript
 // app.ts line 49 — 루트 정적 파일 (직접 접근)
-app.use(express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, "uploads")));
 
 // app.ts line 57 — /uploads 경로 (proxyDownload 미들웨어 적용)
-app.use('/uploads', proxyDownload, express.static(path.join(__dirname, 'uploads')));
+app.use(
+  "/uploads",
+  proxyDownload,
+  express.static(path.join(__dirname, "uploads")),
+);
 ```
 
 ## media_proxy 미들웨어
@@ -151,29 +155,29 @@ flowchart TD
 
 ### 핵심 조건
 
-| 조건 | 설명 |
-| ---- | ---- |
-| `canProxyToTarget` | 프록시 대상이 존재하고 localhost가 아닌 경우 |
-| `isLocalRequest` | 요청 출처가 localhost, 127.x, 10.0.2.2(Android), 10.0.3.2(Genymotion) |
-| `isRequestToTargetHost` | 요청이 이미 타겟 서버를 향하고 있는 경우 (무한 루프 방지) |
+| 조건                    | 설명                                                                  |
+| ----------------------- | --------------------------------------------------------------------- |
+| `canProxyToTarget`      | 프록시 대상이 존재하고 localhost가 아닌 경우                          |
+| `isLocalRequest`        | 요청 출처가 localhost, 127.x, 10.0.2.2(Android), 10.0.3.2(Genymotion) |
+| `isRequestToTargetHost` | 요청이 이미 타겟 서버를 향하고 있는 경우 (무한 루프 방지)             |
 
 ### 프록시 대상 결정
 
-| `server.is_dev` | 프록시 대상 |
-| --------------- | ---------- |
-| `true` | `DEV_EC2_SERVER_URL` (하드코딩: `http://13.124.79.87:3002`) |
-| `false` | `config.server.base_url` (운영 서버 URL) |
+| `server.is_dev` | 프록시 대상                                                |
+| --------------- | ---------------------------------------------------------- |
+| `true`          | `DEV_EC2_SERVER_URL` (하드코딩: `http://3.36.66.178:3002`) |
+| `false`         | `config.server.base_url` (운영 서버 URL)                   |
 
 ### 적용 범위
 
-| 미들웨어 | 적용 위치 | 조건 |
-| -------- | --------- | ---- |
-| `proxyUpload` | 모든 upload 라우트 (multer 앞) | shouldProxyUpload |
-| `proxyDownload` | `/uploads` 정적 파일 경로 | shouldProxyDownload + `/uploads/terms/` 제외 |
+| 미들웨어        | 적용 위치                      | 조건                                         |
+| --------------- | ------------------------------ | -------------------------------------------- |
+| `proxyUpload`   | 모든 upload 라우트 (multer 앞) | shouldProxyUpload                            |
+| `proxyDownload` | `/uploads` 정적 파일 경로      | shouldProxyDownload + `/uploads/terms/` 제외 |
 
 ### 로컬 개발 제약
 
-- `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 Dev EC2(`13.124.79.87:3002`)로 프록시된다
+- `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 Dev EC2(`3.36.66.178:3002`)로 프록시된다
 - 로컬 디스크에 파일이 저장되지 않는다 → **EC2 의존**
 - Dev EC2 접근 불가 시 업로드/파일 서빙 불가 (502 응답)
 - 긴 manager 상세 이미지는 전체 `master.webp`를 만들지 않고 원본에서 직접 slice를 생성해야 GM dimension limit에 걸리지 않는다
@@ -182,20 +186,20 @@ flowchart TD
 
 ## 설정
 
-| 키 | 값 | 설명 |
-| -- | -- | ---- |
-| `server.is_dev` | `true`/`false` | true이면 DEV_EC2로 프록시 |
-| `server.base_url` | URL | 운영환경 기준 URL |
-| `DEV_EC2_SERVER_URL` | `http://13.124.79.87:3002` | 하드코딩된 개발 EC2 주소 |
+| 키                   | 값                        | 설명                      |
+| -------------------- | ------------------------- | ------------------------- |
+| `server.is_dev`      | `true`/`false`            | true이면 DEV_EC2로 프록시 |
+| `server.base_url`    | URL                       | 운영환경 기준 URL         |
+| `DEV_EC2_SERVER_URL` | `http://3.36.66.178:3002` | 하드코딩된 개발 EC2 주소  |
 
 ## To-Be 방향: S3 직접 업로드
 
-| 항목 | 현행 (As-Is) | 목표 (To-Be) |
-| ---- | ------------ | ------------ |
-| 업로드 | multer.diskStorage → 로컬 디스크 | multer-s3 → S3 직접 업로드 |
-| 서빙 | express.static + media_proxy | CloudFront CDN |
-| 썸네일 | GM/FFmpeg 서버 내 동기처리 | Lambda 비동기 처리 (선택) |
-| 로컬 개발 | Dev EC2 프록시 필수 | S3 직접 접근 (media_proxy 제거) |
+| 항목      | 현행 (As-Is)                     | 목표 (To-Be)                    |
+| --------- | -------------------------------- | ------------------------------- |
+| 업로드    | multer.diskStorage → 로컬 디스크 | multer-s3 → S3 직접 업로드      |
+| 서빙      | express.static + media_proxy     | CloudFront CDN                  |
+| 썸네일    | GM/FFmpeg 서버 내 동기처리       | Lambda 비동기 처리 (선택)       |
+| 로컬 개발 | Dev EC2 프록시 필수              | S3 직접 접근 (media_proxy 제거) |
 
 **핵심 목표**: API 서버는 비즈니스 로직만 담당하고, 파일 저장/서빙은 S3/CDN으로 관심사를 분리한다
 
