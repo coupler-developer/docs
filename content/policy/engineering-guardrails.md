@@ -72,6 +72,9 @@
 - **스펙 위반은 에러로 드러내기**
     - 조용한 실패 금지 원칙(핵심 원칙 정의)을 그대로 적용한다
     - 사용자에게는 토스트/에러 메시지, 개발 환경에서는 throw/log로 즉시 드러내기
+- **실패 응답 계약은 단일 정책 문서를 따른다**
+    - 실패 `result_data`의 표준 구조(`error_code`, `error_source`, `error_action`, `error_context`, `request_id`)와 분기 기준은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT로 따른다
+    - 가드레일은 "실패를 숨기지 말 것"과 책임 경계만 정의하고, 실패 응답 envelope 세부 계약은 별도 정책 문서를 따른다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
     - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
