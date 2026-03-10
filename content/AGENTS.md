@@ -8,6 +8,7 @@
 - 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
 - 같은 도메인에 `policy`, `architecture`, `fsm`, `flow` 문서가 2개 이상 존재하면 각 문서 상단에 역할, 충돌 시 우선 문서, 기준 성격(`as-is`/`to-be`/`transition`)을 명시한다
 - 문서 역할 기준의 단일 SoT는 `content/policy/engineering-guardrails.md`를 따른다
+- 문서 작성/수정/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
     - `content/technical-debt/technical-debt.md`
     - `content/policy/code-review-policy.md`
