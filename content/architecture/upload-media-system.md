@@ -76,7 +76,7 @@ uploads/
 
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
 - API는 업로드 원본을 `manager-detail-source`로 보관하고, 원본에서 ordered slice N장을 직접 생성한 뒤 `detail_profile_set` 메타데이터를 응답한다.
-- DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는 `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다.
+- DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는 `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다. preview용 `t_manager.detail_profile` 레거시 컬럼은 cleanup 단계에서 제거 대상이다.
 - Mobile 상세 화면은 `/app/manager/detail/:id`에서 `detail_profile_set.slices`를 순서대로 렌더링하고, 선택 리스트에서는 상세 이미지를 preload하지 않는다.
 
 ### `detail_profile_set` 예시
