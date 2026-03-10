@@ -103,6 +103,14 @@
     - 중복 키(`images` vs `image`, `image_url` vs `url`) 동시 허용 금지
     - 배열이면 복수형, 단일 값이면 단수형, 스펙은 한 가지로 고정
 
+### TypeScript 운영 (코드 레포)
+
+- 코드 레포의 `typecheck` SoT는 `tsc`다.
+- 코드 레포의 `lint` SoT는 `ESLint`다.
+- `ESLint`만으로 `typecheck`를 대체할 수 없고, `tsc`만으로 `lint` 규칙을 대체할 수 없다.
+- 각 코드 레포는 `package.json`에 `typecheck`, `lint` 스크립트를 제공해야 한다.
+- 각 코드 레포의 `tsconfig`는 `compilerOptions.allowJs: false`를 유지한다.
+
 ### `?.` / `??` 사용 규칙
 
 - **스펙이 확정된 경로에서는 `?.` / `??`를 기본값으로 쓰지 않는다**

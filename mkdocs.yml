@@ -90,7 +90,6 @@ nav:
       - DB Migration Gate 정책: policy/db-migration-gate-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
       - 테스트/CI 전략: policy/testing-strategy.md
-      - TypeScript 전환 계획: policy/typescript-migration-plan.md
   - Flows:
       - 매칭 플로우: flows/cross-project/matching-flow.md
   - Technical Debt:
