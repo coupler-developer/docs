@@ -218,17 +218,9 @@ MatchingScreen
 | `POST /match/call/end` | 통화 종료 |
 | `GET /match/generateAgoraToken` | Agora 토큰 |
 
-## 에러 코드
-
-| result_code | 의미 | 처리 |
-|-------------|------|------|
-| 0 | 성공 | 다음 단계 |
-| -1 | 키 부족 | 충전 안내 |
-| -100 | 즉시 처리 필요 | 상태 갱신 |
-| 기타 | 서버 오류 | 에러 메시지 |
-
 ## 관련 문서
 
 - [matching-fsm.md](../../architecture/matching-fsm.md) - 상태 머신
 - [matching-key-system.md](../../architecture/matching-key-system.md) - 키 시스템
 - [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md) - 일정 알고리즘
+- [api-error-contract-policy.md](../../policy/api-error-contract-policy.md) - 공통 에러 응답 계약
