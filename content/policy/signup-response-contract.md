@@ -86,7 +86,7 @@
 
 1. `result_code !== 0`이면 에러 처리.
 2. `result_code === 0`이면 `result_data`를 상태 저장소에 반영.
-3. `access_context.review_flow + basic_info.status`로 다음 화면 결정.
+3. `access_context.review_flow.phase + access_context.review_status.basic_info_status`로 다음 화면 결정.
 4. 필요 시 `getSignupReviewOutcome` 같은 순수 함수로 분기 규칙을 고정.
 
 ## 금지 사항

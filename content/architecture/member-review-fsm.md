@@ -73,13 +73,14 @@
 
 | 코드 | 표시명 | 조건 |
 | ---- | ------ | ---- |
-| `PRE_MEMBER` | 신청회원 | `member_status IN (-4,-3,-2,-1)` 또는 `basic_info_status <> 'APPROVED'` |
+| `PRE_MEMBER` | 신청회원 | 가입 심사 진행 중이며 `basic_info_status <> 'APPROVED'` |
 | `GENERAL_MEMBER` | 일반회원 | `basic_info_status = 'APPROVED'` |
 | `SEMI_MEMBER` | 준회원 | `basic_info_status = 'APPROVED'` + `required_auth_status = 'APPROVED'` |
 | `FULL_MEMBER` | 정회원 | `basic_info_status = 'APPROVED'` + `required_auth_status = 'APPROVED'` + `intro_status = 'APPROVED'` |
 | `SPECIAL_MEMBER` | 특별회원 | 매니저가 수동 지정 |
 
-- **신청회원**(`PRE_MEMBER`): basic-info 제출 전 상태. 매니저 등급 표시 대상이 아니다.
+- **신청회원**(`PRE_MEMBER`): 가입 심사 진행 중이며 아직 기본정보 승인이 완료되지 않은 상태다. 매니저 등급 표시 대상이 아니다.
+- `member_status IN (-4,-3,-2,-1)`인 회원은 `PRE_MEMBER`로 해석하지 않고, 생애주기 상태(`REJECTED` 또는 `INACTIVE`)를 우선 해석한다.
 - **매니저에게 보여지는 등급**: 일반회원, 준회원, 정회원, 특별회원
 
 ### 현재 포커스 단계
@@ -121,9 +122,3 @@
 - 어드민:
     - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
     - 큐 분류와 원본 증거 판정은 `request_origin`이 저장된 원본 테이블을 함께 확인한다
-
-## 금지 사항
-
-- `t_member`에 심사 단계 컬럼(`pending_status`, `review_stage`)을 다시 저장하지 않는다.
-- 최종 거절을 단계 상태(`review_status`)로 표현하지 않는다.
-- 심사 상태 판정을 위해 `t_member_review_stage_snapshot`를 직접 조회하는 코드를 신규 추가하지 않는다.
