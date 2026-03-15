@@ -8,7 +8,8 @@
 - 기준 성격: `as-is`
 
 주기적으로 실행되는 자동화 작업을 정리한 문서이다.
-현재 범위에서는 자동화 작업의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
+이 문서가 우선하는 범위는 작업 목록, 실행 주기, 트리거 방식이다.
+도메인별 상태 전이, 환불, 삭제, 알림 판정 규칙의 원문 SoT는 각 정책 문서를 따른다.
 
 ## 작업 목록
 
@@ -29,6 +30,9 @@
 
 ## 매칭 자동 상태 변경
 
+- 매칭 상태 전이, 만료 판정, 환불 규칙의 원문 SoT는 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
+- 이 섹션은 어떤 cron 작업이 어떤 시점의 매칭을 다루는지 설명하는 요약본이다.
+
 ### D-2일 (48시간 전)
 
 ```javascript
@@ -46,16 +50,10 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 ### 만료 시 자동 취소
 
-| 상태             | 만료 시                  | 환불                |
-| ---------------- | ------------------------ | ------------------- |
-| PENDING          | CANCELED                 | -                   |
-| FEMALE_WANT_SEE  | CANCELED                 | 여성 키             |
-| MALE_WANT_SEE    | CONFIRM_NO_REPLY         | 남성 키 + 프로필 키 |
-| FINAL_CONFIRM    | FAVOR_INFO_NO_REPLY      | 남성 키 + 프로필 키 |
-| SEND_FAVOR_INFO  | SCHEDULE_NO_REPLY        | 제안자 키           |
-| SUGGEST_SCHEDULE | SCHEDULE_ACCEPT_NO_REPLY | 환불                |
-| OK_SCHEDULE      | LOCATION_NO_REPLY        | 여성 키             |
-| CHAT_OPEN        | CHAT_3_DAYS_OVER         | -                   |
+| 작업 | 설명 | 상세 기준 |
+| --- | --- | --- |
+| `checkMatch` | 만료 조건에 도달한 매칭을 스캔해 종료 처리한다. | 상태 전이/환불/예외는 [매칭 운영 정책](../policy/matching-ops-policy.md), 상태 도표는 [매칭 FSM](./matching-fsm.md) |
+| `remindMatchCard` | 카드 만료 전 사용자 리마인드 알림을 발송한다. | 카드 만료 상태와 알림 의미는 [매칭 운영 정책](../policy/matching-ops-policy.md), 알림 타입은 [푸시알림 운영 정책](../policy/push-notification-policy.md) |
 
 ## 미팅 자동 상태 변경
 
@@ -67,12 +65,17 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 ## 회원 자동 상태 변경
 
+- 회원 상태와 심사 상태의 원문 SoT는 [회원 심사 단일 정책](../policy/member-review-policy.md)을 따른다.
+- 개인정보 삭제 기준의 원문 SoT는 [데이터 거버넌스 정책](../policy/data-governance-policy.md)을 따른다.
+
 | 조건                     | 변경          |
 | ------------------------ | ------------- |
 | 마지막 로그인 6개월 경과 | status → HOLD |
 | 탈퇴/차단 30일 경과      | 개인정보 삭제 |
 
 ## FCM 알림 발송
+
+- 알림 타입 추가/변경/장애 대응 기준의 원문 SoT는 [푸시알림 운영 정책](../policy/push-notification-policy.md)을 따른다.
 
 | 작업            | 알림 타입                              |
 | --------------- | -------------------------------------- |
@@ -94,6 +97,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 - 키 = 0 초기화
 - 연관 데이터 삭제 (19개 테이블)
 - 매칭/서비스 이용 기록은 보관
+- 삭제 범위와 예외 기준은 [데이터 거버넌스 정책](../policy/data-governance-policy.md)을 따른다.
 
 ### cleanupOldProfileVersions
 

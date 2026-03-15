@@ -8,6 +8,7 @@
 - 기준 성격: `as-is`
 
 사용자가 매칭 카드를 받고 만남까지 진행하는 전체 플로우를 정리한 문서이다.
+상태값, 키 차감/환불, 일정 검증의 원문 SoT는 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
 
 ## 참여 시스템
 
@@ -67,23 +68,23 @@ sequenceDiagram
 
 ## 단계별 상세
 
-### 1단계: 카드 응답 (PENDING → MALE_WANT_SEE)
+### 1단계: 카드 응답 (`PENDING -> FEMALE_WANT_SEE -> MALE_WANT_SEE`)
 
 #### 여성 액션
 
-| 액션 | API | 결과 상태 | 키 소진 |
-|------|-----|----------|---------|
-| 만남희망 | `POST /match/wantSee` | FEMALE_WANT_SEE (1) | -35 (프로필) |
-| 패스 | `POST /match/pass` | FEMALE_PASS (-1) | -5 |
-| 천천히 결정 | `POST /match/postpone` | PENDING (유지) | -5 |
+| 액션 | API | 결과 상태 | 비고 |
+|------|-----|----------|------|
+| 만남희망 | `POST /match/wantSee` | FEMALE_WANT_SEE (1) | 키 차감 기준은 정책 문서 참조 |
+| 패스 | `POST /match/pass` | FEMALE_PASS (-1) | 키 차감/환불 기준은 정책 문서 참조 |
+| 천천히 결정 | `POST /match/postpone` | PENDING (유지) | 키 차감 기준은 정책 문서 참조 |
 
 #### 남성 액션
 
-| 액션 | API | 결과 상태 | 키 소진 |
-|------|-----|----------|---------|
-| 만남희망 | `POST /match/wantSee` | MALE_WANT_SEE (2) | -200~450 |
-| 패스 | `POST /match/pass` | MALE_PASS (-2) | 없음 (여성 환불) |
-| 3일 채팅 | `POST /match/chat` | CHAT_OPEN (8) | -5 |
+| 액션 | API | 결과 상태 | 비고 |
+|------|-----|----------|------|
+| 만남희망 | `POST /match/wantSee` | MALE_WANT_SEE (2) | 등급별 키 차감 기준은 정책 문서 참조 |
+| 패스 | `POST /match/pass` | MALE_PASS (-2) | 환불 기준은 정책 문서 참조 |
+| 3일 채팅 | `POST /match/chat` | CHAT_OPEN (8) | 키 차감 기준은 정책 문서 참조 |
 
 ### 2단계: 최종컨펌 (MALE_WANT_SEE → SEND_FAVOR_INFO)
 
@@ -97,7 +98,7 @@ flowchart LR
 ```
 
 - API: `POST /match/confirm`
-- 취소 시 남성 키 전액 환불
+- 취소 시 환불 기준은 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
 
 #### 선호정보 전달
 
@@ -118,14 +119,15 @@ flowchart LR
 
 ```javascript
 // 요청 바디
-{
+  {
   match_id: Number,
-  schedule_list: ['2024-01-15', '2024-01-16', ...],  // 4~7개
-}
+  schedule_list: ['2024-01-15', '2024-01-16', ...],
+  }
 ```
 
 - API: `POST /match/addSchedule`
-- 상세: [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md)
+- 허용 개수/범위/응답 만료 기준: [매칭 운영 정책](../../policy/matching-ops-policy.md)
+- 시퀀스 상세: [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md)
 
 #### 일정 수락
 
@@ -183,14 +185,14 @@ flowchart LR
 ```
 
 - API: `POST /match/writeReview`
-- 보상: +15 키
+- 보상 기준은 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
 
 #### 후기 작성 후 옵션
 
-| 액션 | API | 키 소진 |
-|------|-----|---------|
-| 연락처 공개 | `POST /match/sendContract` | 별도 |
-| 직진만남 | `POST /match/sendDirect` | -77 |
+| 액션 | API | 비고 |
+|------|-----|------|
+| 연락처 공개 | `POST /match/sendContract` | 추가 조건/보상은 정책 문서 참조 |
+| 직진만남 | `POST /match/sendDirect` | 키 차감 기준은 정책 문서 참조 |
 
 ## 모바일 앱 화면 구조
 

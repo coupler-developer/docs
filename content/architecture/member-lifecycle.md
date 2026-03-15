@@ -7,9 +7,11 @@
 - 충돌 시 우선 문서: [회원 심사 단일 정책](../policy/member-review-policy.md)
 - 기준 성격: `as-is`
 
-회원의 전체 상태 흐름을 정리한 문서이다. 심사 과정의 세부 사항은 [member-review-fsm.md](./member-review-fsm.md)를 참고한다.
+회원의 전체 상태 흐름을 정리한 문서이다.
+회원 생애주기 상태의 원문 SoT는 [회원 심사 단일 정책](../policy/member-review-policy.md)을 따른다.
+심사 과정의 세부 상태 흐름은 [회원 심사 FSM](./member-review-fsm.md)을 참고한다.
 
-## 회원 상태 (user.status)
+## 회원 상태 (`t_member.status`)
 
 | 값  | 상수       | 의미     | 로그인            | 매칭 |
 | --- | ---------- | -------- | ----------------- | ---- |
@@ -26,12 +28,12 @@
 stateDiagram-v2
     [*] --> PENDING : 회원가입
 
-    state "심사대기\nuser.status=PENDING" as PENDING
-    state "정상\nuser.status=NORMAL" as NORMAL
-    state "심사거절\nuser.status=REJECTED" as REJECTED
-    state "휴면\nuser.status=HOLD" as HOLD
-    state "영구정지\nuser.status=BLOCK" as BLOCK
-    state "탈퇴\nuser.status=LEAVE" as LEAVE
+    state "심사대기\nt_member.status=PENDING" as PENDING
+    state "정상\nt_member.status=NORMAL" as NORMAL
+    state "심사거절\nt_member.status=REJECTED" as REJECTED
+    state "휴면\nt_member.status=HOLD" as HOLD
+    state "영구정지\nt_member.status=BLOCK" as BLOCK
+    state "탈퇴\nt_member.status=LEAVE" as LEAVE
 
     PENDING --> NORMAL : 심사 완료
     PENDING --> REJECTED : 심사 거절
@@ -62,7 +64,7 @@ stateDiagram-v2
 
 - 회원가입 직후 진입
 - 심사 완료 시 `NORMAL`로, 거절 시 `REJECTED`로 전환
-- 심사 과정 상세: [member-review-fsm.md](./member-review-fsm.md)
+- 심사 과정 상세: [회원 심사 단일 정책](../policy/member-review-policy.md), [회원 심사 FSM](./member-review-fsm.md)
 
 ### NORMAL (정상)
 
