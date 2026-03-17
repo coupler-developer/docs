@@ -72,6 +72,10 @@
 
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
 
+### Releases
+
+- [2.0.0 릴리스 실행 계획](releases/v2.0.0.md) - docs 선행 Release Note 생성부터 RDS/EC2/Mobile 최종 태그까지
+
 ### Setup
 
 - [개발환경 구성](README.md)

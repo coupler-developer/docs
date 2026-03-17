@@ -54,6 +54,9 @@
 - `coupler-api` 태그/커밋
 - `coupler-admin-web` 태그/커밋
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 한다.
+- 메이저 릴리즈에서는 `docs`가 릴리즈 제어판 역할을 한다. 즉, `docs/content/releases/vX.Y.Z.md`를 `main`에 먼저 반영하고 `docs` 태그를 선행 push해 초기 Release Note를 생성할 수 있다.
+- 단, 이 예외는 `docs`에만 적용한다. `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그는 여전히 실제 운영 배포와 검증 완료 후에만 생성한다.
+- `docs` 선행 태그로 생성된 Release Note는 "초기 배포 계획 + 체크리스트" 상태로 간주한다. 실배포가 끝나면 GitHub Release 본문을 최종 상태로 갱신한다.
 
 ### 3단계 (자동 검증)
 
@@ -66,12 +69,86 @@
 - 태그 이름: `vMAJOR.MINOR.PATCH` (예: `v1.2.0`, `v1.2.1`)
 - 태그는 **annotated tag**만 사용: `git tag -a ...`
 - 원칙: **Production 배포가 끝나고 검증까지 완료된 커밋**에 태그를 찍는다.
+- 예외: `docs` 레포는 메이저 릴리즈 제어판을 먼저 열기 위해, `docs/content/releases/vX.Y.Z.md`가 `main`에 포함된 상태라면 서비스 배포 전에 태그를 선행 생성할 수 있다.
 
 ## 버전 올리는 기준 (SemVer)
 
 - `MAJOR`: 호환 깨짐(Breaking change)
 - `MINOR`: 기능 추가(하위 호환 유지)
 - `PATCH`: 버그 수정/핫픽스(하위 호환 유지)
+
+## 통합 메이저 릴리즈 실행 순서
+
+대상: `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`, `docs`, 운영 `RDS`
+
+### 0) 릴리즈 기록 문서 선반영
+
+- `docs/content/releases/vX.Y.Z.md`를 먼저 작성하고 `main`에 병합한다.
+- 문서에는 아래를 최소 포함한다.
+    - 릴리즈 목표/범위
+    - `RDS -> API/Admin EC2 -> Mobile -> RDS contract` 순서
+    - 적용 대상 SQL/Gate
+    - 서비스 레포 목표 태그 또는 목표 commit SHA
+    - 검증 시나리오와 롤백 기준
+
+### 1) docs 태그 push로 초기 Release Note 생성
+
+- `docs` 레포에서만 아래 순서를 먼저 수행할 수 있다.
+
+```bash
+git checkout main
+git pull --ff-only
+TAG=v2.0.0
+git tag -a "${TAG}" -m "Release ${TAG}"
+git push origin "${TAG}"
+```
+
+- 이 단계의 목적은 GitHub Release를 "배포 제어판"으로 먼저 여는 것이다.
+- 이 시점 Release Note 상태는 `planned` 또는 `in_progress`로 둔다.
+- 서비스 레포 태그를 대신하는 행위가 아니다.
+
+### 2) 운영 RDS 선반영
+
+- 운영 `RDS` 반영은 워크스페이스 루트 `ritzy운영-coupler운영_마이그레이션_가이드/25_EXECUTION_PROCEDURE.md`와 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 따른다.
+- 운영 절차는 `운영 dump baseline -> local full replay -> 개발계 검증 -> 운영계 반영 -> 운영계 postcheck` 순서를 고정한다.
+- live DB에서는 `00_EXECUTION_ORDER.txt`의 주석 조건을 그대로 따른다.
+- 특히 `44_drop_manager_detail_profile_master_columns_after_cutover.sql`, `45_drop_manager_detail_profile_preview_column_after_cutover.sql`는 서비스 cutover와 legacy read/write 0건 확인 전에는 실행 금지다.
+
+### 3) API/Admin EC2 배포
+
+- `coupler-api`, `coupler-admin-web`는 운영 `EC2`에 반영한다.
+- 배포 전 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`)를 완료한다.
+- API는 운영 반영 후 루트 응답, 핵심 app/admin API, 에러 로그를 확인한다.
+- Admin은 운영 URL 로그인, 핵심 운영 화면 진입, 주요 액션 1회를 확인한다.
+
+### 4) Mobile 배포
+
+- `coupler-mobile-app`은 스토어 binary 배포와 OTA 배포를 분리한다.
+- native 변경이 포함된 메이저 릴리즈는 스토어 binary(iOS/Android)를 먼저 배포한다.
+- OTA는 스토어 배포 이후 JS-only 후속 수정에만 사용한다.
+- 버전값은 Android `versionCode`/`versionName`, iOS `CURRENT_PROJECT_VERSION`/`MARKETING_VERSION`를 함께 올린다.
+
+### 5) 운영 안정화 확인 후 RDS contract/drop
+
+- `DBM-GATE-400`이 적용되는 SQL은 아래를 모두 충족할 때만 실행한다.
+    - API/Admin/Mobile 신계약 버전 운영 반영 완료
+    - legacy read/write 0건 로그 확보
+    - 운영 postcheck guard 통과
+- 위 조건 미충족이면 contract/drop은 이번 릴리즈에서 제외하고 릴리즈 상태를 `완료`로 닫지 않는다.
+
+### 6) 서비스 레포 태그 생성
+
+- `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`는 실제 운영 배포와 검증이 완료된 커밋에 태그를 생성한다.
+- 서비스 레포 태그는 `docs` 선행 태그와 별개이며, 예외 없이 post-deploy 원칙을 따른다.
+
+### 7) docs Release Note 최종화
+
+- 초기 생성된 `docs` GitHub Release 본문에 아래를 최종 반영한다.
+    - 실제 반영 완료 시각
+    - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 최종 태그/SHA
+    - 운영 `RDS` 적용 SQL/Gate/로그 경로
+    - 검증 결과와 롤백 기준
+- 초기 상태가 `planned` 또는 `in_progress`였다면, 모든 반영과 검증이 끝난 뒤 `released` 상태로 갱신한다.
 
 ## EC2 배포 (API/Admin)
 
@@ -150,6 +227,7 @@ gh release create v1.2.1 --title "v1.2.1" --notes-file /tmp/release-notes-v1.2.1
 ### 1) 통합 버전 기록 문서 준비 (2단계부터 적용)
 
 - `docs/content/releases/vX.Y.Z.md` 문서를 먼저 작성하고 `main`에 반영한다.
+- 메이저 릴리즈에서는 이 문서를 배포 전 체크리스트로 먼저 작성하고, `docs` 태그 push 후 생성된 Release Note의 기준 문서로 사용한다.
 - 각 레포 반영 버전
 - `coupler-mobile-app`: `vX.Y.Z` 또는 commit SHA
 - `coupler-api`: `vX.Y.Z` 또는 commit SHA
@@ -177,6 +255,7 @@ git push origin "${TAG}"
 - GitHub Actions에서 `Release Docs` 워크플로우 성공 여부를 확인한다.
 - GitHub Releases에서 동일 태그(`v1.0.0`)가 생성됐는지 확인한다.
 - Release 본문에 `content/releases/v1.0.0.md` 링크가 포함됐는지 확인한다(2단계부터).
+- 메이저 릴리즈에서 `docs` 태그를 선행 push한 경우, 서비스 반영 완료 후 GitHub Release 본문을 수동으로 최종 상태로 갱신한다.
 
 ### 4) 예외 처리 (2단계부터)
 

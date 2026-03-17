@@ -92,5 +92,7 @@ nav:
       - 테스트/CI 전략: policy/testing-strategy.md
   - Flows:
       - 매칭 플로우: flows/cross-project/matching-flow.md
+  - Releases:
+      - 2.0.0 릴리스 실행 계획: releases/v2.0.0.md
   - Technical Debt:
       - 기술 부채 정리: technical-debt/technical-debt.md
