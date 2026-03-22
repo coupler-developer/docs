@@ -53,6 +53,71 @@ clean_subject() {
   echo "$1" | sed -E 's/^[a-zA-Z]+(\([^)]+\))?!?:[[:space:]]*//'
 }
 
+extract_markdown_section() {
+  local file_path="$1"
+  local section_title="$2"
+
+  awk -v section_title="${section_title}" '
+    $0 == "## " section_title {
+      in_section=1
+      next
+    }
+    in_section && /^## / {
+      exit
+    }
+    in_section {
+      print
+    }
+  ' "${file_path}"
+}
+
+print_release_record_items() {
+  local section_title="$1"
+  local max_items="$2"
+  local empty_message="$3"
+  local item_type="$4"
+  local raw_section=""
+  local count=0
+
+  if [[ ! -f "${RELEASE_RECORD_PATH}" ]]; then
+    printf -- '- %s\n' "${empty_message}"
+    return
+  fi
+
+  raw_section="$(extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" | sed '/^[[:space:]]*$/d')"
+  if [[ -z "${raw_section}" ]]; then
+    printf -- '- %s\n' "${empty_message}"
+    return
+  fi
+
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+
+    case "${item_type}" in
+      bullet)
+        [[ "${line}" =~ ^-  ]] || continue
+        ;;
+      numbered)
+        [[ "${line}" =~ ^[0-9]+\.  ]] || continue
+        ;;
+      *)
+        echo "Unknown item type: ${item_type}" >&2
+        exit 1
+        ;;
+    esac
+
+    printf '%s\n' "${line}"
+    count=$((count + 1))
+    if [[ "${count}" -ge "${max_items}" ]]; then
+      break
+    fi
+  done <<< "${raw_section}"
+
+  if [[ "${count}" -eq 0 ]]; then
+    printf -- '- %s\n' "${empty_message}"
+  fi
+}
+
 is_internal_noise() {
   local lower_text="$1"
   case "${lower_text}" in
@@ -132,6 +197,21 @@ printf -- '- 내부 개선: %d건\n\n' "${#internal_changes[@]}"
 if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
   printf '## 통합 버전 기록\n'
   printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
+
+  printf '## 릴리스 개요\n'
+  print_release_record_items "목적" 3 "릴리스 목적 문서화 필요" bullet
+  print_release_record_items "릴리스 상태" 4 "릴리스 상태 문서화 필요" bullet
+  printf '\n'
+
+  printf '## 핵심 실행 순서\n'
+  print_release_record_items "메인 흐름" 8 "핵심 실행 순서 문서화 필요" numbered
+  printf '\n'
+fi
+
+if [[ -z "${PREV_TAG}" ]]; then
+  printf '## 참고\n'
+  printf -- '- 첫 릴리스라 이전 태그 기준점이 없어 전체 문서 히스토리가 비교 범위에 포함됩니다.\n'
+  printf -- '- 실제 운영 배포 순서와 판정은 통합 버전 기록 문서를 우선 확인합니다.\n\n'
 fi
 
 printf '## 사용자에게 보이는 변경\n'

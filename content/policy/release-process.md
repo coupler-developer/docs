@@ -223,6 +223,8 @@ gh release create v1.2.1 --title "v1.2.1" --notes-file /tmp/release-notes-v1.2.1
 - Release 노트는 이전 기준점(이전 태그, 첫 릴리스면 초기 커밋) 대비 변경을 자동 생성한다.
 - 자동 노트는 `사용자에게 보이는 변경`과 `내부 개선`으로 나뉜다.
 - 태그 시점에 `content/releases/vX.Y.Z.md`가 포함돼 있으면 Release 노트에 해당 문서 링크가 자동 포함된다.
+- `content/releases/vX.Y.Z.md`가 있으면 Release 노트 상단에 `목적`, `릴리스 상태`, `메인 흐름` 요약을 먼저 노출한다.
+- 첫 릴리스처럼 이전 태그가 없으면 전체 문서 히스토리가 비교 범위에 포함될 수 있으므로, 실제 배포 판단은 `content/releases/vX.Y.Z.md`를 우선 기준으로 확인한다.
 
 ### 1) 통합 버전 기록 문서 준비 (2단계부터 적용)
 
