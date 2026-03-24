@@ -74,7 +74,7 @@
 
 ### Releases
 
-- [2.0.0 릴리스 실행 계획](releases/v2.0.0.md) - docs 선행 Release Note 생성부터 RDS/EC2/Mobile 최종 태그까지
+- [2.0.0 릴리스 실행 기록](releases/v2.0.0.md) - docs 선행 Release Note 생성부터 RDS contract/drop, 서비스 최종 태그까지
 
 ### Setup
 
