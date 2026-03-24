@@ -208,12 +208,8 @@ flowchart TD
 - [레포지토리 요약](repo-overview.md)
 - [기술 부채 정리](../technical-debt/technical-debt.md)
 
-## 운영 보정 (레거시 manager 이미지)
+## 레거시 manager 이미지 메모
 
-- 과거에 저장된 큰 `png/jpg` manager 이미지는 아래 스크립트로 일괄 변환/경로 갱신한다.
-
-```bash
-cd coupler-api
-node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts --dry-run
-node -r ts-node/register/transpile-only scripts/migrate-manager-images-to-webp.ts
-```
+- 신규 `manager-list`, `manager-detail` 업로드는 현재 정책대로 `webp` 최적화를 적용한다.
+- 과거에 저장된 legacy manager 이미지는 `jpg/png/webp` 혼합 상태를 허용한다.
+- API/Mobile/Admin은 상대경로와 브라우저/클라이언트 기본 디코딩을 사용하므로, legacy `jpg/png`를 별도 일괄 마이그레이션하지 않는다.
