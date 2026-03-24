@@ -170,10 +170,19 @@ git status
 
 ### 2) EC2 배포 수행
 
+- 배포 전 기술 판정은 [엔지니어링 가드레일](engineering-guardrails.md)의 `No Findings 게이트`를 단일 기준으로 따른다.
+- 리뷰 대상 범위에서 finding이 1건이라도 있으면 배포를 진행하지 않고, `원인 분석 -> 수정 -> test/typecheck/lint/format 및 필수 정책 검사 재검증 -> 재리뷰`를 `No Findings`까지 반복한다.
 - 레포/플랫폼별 배포 가이드를 따른다.
+- `coupler-api`와 `coupler-admin-web`의 운영 반영 방식은 다르다.
+    - `coupler-api`: 프로세스 앱으로 배포하고 `pm2`로 관리한다.
+    - `coupler-admin-web`: `npm run build` 결과물(`build/`)만 EC2에 업로드하고 `nginx`가 정적 서빙한다.
+- `coupler-admin-web` 운영 배포 시 `react-scripts start`, `pm2 start ./node_modules/react-scripts/scripts/start.js`, CRA 개발 서버 기반 서빙을 금지한다.
+- `coupler-admin-web`의 서버 준비, artifact 업로드, `nginx` 설정, `pm2 save`, 검증, 롤백 절차는 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 단일 실행 기준으로 따른다.
+
 - 배포 후 아래를 확인한다.
     - API: `GET /health` 200 확인, 에러 로그 확인(최소 10-30분)
     - Admin: 로그인, 핵심 화면 1-2개(예: 심사/회원관리) 진입 및 주요 액션 1회 확인
+    - Admin: 브라우저 콘솔에 CRA 개발 서버 WebSocket(`:8000/ws`) 재연결 오류가 없는지 확인
 
 ### 3) 태그 생성 및 push (배포 완료 후)
 

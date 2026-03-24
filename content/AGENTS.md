@@ -71,6 +71,7 @@
 ### Flows
 
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
+- [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
 
 ### Releases
 
