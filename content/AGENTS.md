@@ -24,6 +24,10 @@
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
+- 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경이 필요하면 사용자 승인 후 진행한다
+    - 승인 후에는 `content/policy/code-review-policy.md`와 `content/policy/testing-strategy.md`의 품질 기준을 그대로 따르고, 최종 보고에 변경 파일과 변경 이유를 남긴다
+    - 회귀 수정 시 `skip/only`, assertion 완화, 무분별한 snapshot 갱신으로 테스트를 약화하지 않는다
+    - 필요 시 `docs/.github/scripts/`로 테스트 파일 변경 여부를 확인한다
 
 ## 문서 인덱스
 

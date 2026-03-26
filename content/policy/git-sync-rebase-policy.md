@@ -79,9 +79,9 @@ git rev-list --count --merges origin/main..HEAD
 
 ## 회귀 검증 (레포별 필수)
 
-- `coupler-api`: `pnpm lint && pnpm typecheck && pnpm jest --runInBand`
-- `coupler-mobile-app`: `npm run -s lint && npm run -s typecheck && npx jest --runInBand`
-- `coupler-admin-web`: `npm run -s lint && CI=true npm run -s test:ci`
+- `coupler-api`: `pnpm lint && pnpm typecheck && pnpm format && pnpm jest --runInBand`
+- `coupler-mobile-app`: `npm run -s lint && npm run -s typecheck && npm run -s format && npx jest --runInBand`
+- `coupler-admin-web`: `npm run -s lint && npm run -s typecheck && npm run -s format && CI=true npm run -s test:ci`
 
 ## 재발 방지 체크리스트
 
@@ -90,4 +90,4 @@ git rev-list --count --merges origin/main..HEAD
 - [ ] `behind=0`를 확인했다
 - [ ] merge commit 유입이 없음을 확인했다
 - [ ] 충돌 마커 잔존이 없다
-- [ ] lint/typecheck/test 결과를 레포별로 확인했다
+- [ ] lint/typecheck/format/test 결과를 레포별로 확인했다
