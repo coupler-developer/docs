@@ -84,7 +84,8 @@
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기반 작성 여부 확인 (예외 시 근거 명시)
 - [ ] 자체 테스트 완료
 - [ ] 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`) 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
-- [ ] 문서(docs) 변경 시 markdownlint 통과 (CI: `DavidAnson/markdownlint-cli2-action@v16`, globs: `**/*.md` + 제외 `node_modules`, `site`)
+- [ ] 문서(docs) 변경 시 `markdownlint`와 `mkdocs build --strict` 통과 + 실행 명령/결과 링크 첨부
+- [ ] 문서 추가/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
 ```
 
 ## 리뷰어 가이드
@@ -128,7 +129,8 @@
 - [ ] 기능 회귀 가능성이 있는 변경은 없는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기준을 따르는가? (예외 시 근거 확인)
-- [ ] 문서 변경 시 markdownlint 에러를 0으로 유지했는가? (특히 MD012/MD032)
+- [ ] 문서 변경 시 `markdownlint` 에러를 0으로 유지했고 `mkdocs build --strict`도 통과했는가?
+- [ ] 문서 추가/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`가 같은 PR에서 함께 갱신됐는가?
 
 ### 리뷰 전제
 
@@ -151,6 +153,11 @@
 - [ ] 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`) 검증 완료 및 로그 링크 확인 (`N/A` 항목은 미적용 근거 확인)
 - [ ] 문서 동기화 점검 결과(필요 시 반영, 불필요 시 근거) 확인
 - [ ] 리뷰 코멘트별 근거 링크(문서/코드/로그) 확인
+
+## 관련 문서
+
+- [엔지니어링 가드레일](engineering-guardrails.md)
+- [테스트/CI 전략](testing-strategy.md)
 
 ## 예외 사항
 

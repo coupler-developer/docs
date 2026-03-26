@@ -1,4 +1,4 @@
-name: Markdown Lint
+name: Docs Validation
 
 on:
   push:
@@ -23,3 +23,20 @@ jobs:
             **/*.md
             #node_modules
             #site
+
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build docs
+        run: mkdocs build --strict

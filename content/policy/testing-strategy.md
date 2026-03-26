@@ -7,6 +7,10 @@
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: `as-is`
 
+## 목적
+
+- 레포별 테스트 위치와 docs 포함 공통 검증 게이트를 고정한다.
+
 ## 테스트 코드 전략 (레포별)
 
 - 공통 규칙: 코드베이스는 `.js/.jsx/.ts/.tsx` 혼용 가능. **테스트 파일에만 `.test.ts`/`.test.tsx`를 적용**한다.
@@ -59,17 +63,25 @@
 
 ### docs (MkDocs)
 
-- 러너: GitHub Actions (mkdocs build + markdownlint) 사용.
+- 러너: GitHub Actions docs validation workflow (`markdownlint` + `mkdocs build --strict`) 사용.
 - 문서 빌드(로컬): `npm run build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `npm run lint:md`
 - 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
+- 문서 build(CI): Python 의존성 설치 후 `mkdocs build --strict`
 
 ## CI 전략
 
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
-- docs 레포: 문서 배포/검증을 위해 `push(main)`에서도 워크플로가 동작할 수 있다.
+- docs 레포: 검증 워크플로는 `pull_request(main)`과 `push(main)`에서 동작한다.
+- docs 레포: `pull_request(main)` 검증이 merge gate이고, `push(main)` 검증은 배포 전 최종 안전망으로 사용한다.
 
 ## DB 마이그레이션 검증 (공통)
 
 - 운영 반영 전 최소 검증 순서는 `Local baseline -> Local migration -> 개발계 검증 -> 시나리오 DB 검증`을 따른다.
 - 상세 Gate/판정 기준은 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
+
+## 관련 문서
+
+- [엔지니어링 가드레일](engineering-guardrails.md)
+- [코드 리뷰 정책](code-review-policy.md)
+- [DB Migration Gate 정책](db-migration-gate-policy.md)
