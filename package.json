@@ -1,11 +1,14 @@
 {
   "name": "docs",
   "private": true,
+  "packageManager": "yarn@1.22.22",
   "devDependencies": {
     "markdownlint-cli2": "0.17.2"
   },
   "scripts": {
+    "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
     "build:docs": "python3 -m mkdocs build --strict",
-    "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\""
+    "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
+    "validate:docs": "yarn validate:docs-structure && yarn lint:md && yarn build:docs"
   }
 }

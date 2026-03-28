@@ -27,11 +27,13 @@
 ## 문서 검증
 
 1. Python 의존성 설치: `python3 -m pip install -r requirements.txt`
-2. 문서 빌드 검증: `npm run build:docs`
-3. Markdown lint 검증: `npm run lint:md`
+2. 문서 구조 검증: `yarn validate:docs-structure`
+3. Markdown lint 검증: `yarn lint:md`
+4. 문서 빌드 검증: `yarn build:docs`
 
-- `npm run build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
-- `npm run lint:md`는 Markdown 구조 규칙만 검증하므로, 작업 완료 기준은 빌드와 lint를 모두 통과하는 것이다.
+- `yarn validate:docs-structure`는 메타데이터 형식, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성을 검증한다.
+- `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
+- `yarn validate:docs`로 구조 검증, lint, 빌드를 한 번에 실행할 수 있다.
 
 ```text
 # AGENTS (워크스페이스 전용)

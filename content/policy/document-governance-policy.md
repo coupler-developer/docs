@@ -61,6 +61,7 @@
 
 - 문서 추가/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`를 같은 PR에서 함께 갱신한다.
 - `content/templates/` 기반 문서는 역할/문서 종류/충돌 시 우선 문서/기준 성격 메타데이터를 누락하지 않는다.
+- 메타데이터 형식, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성은 docs 구조 검증으로 자동 확인 가능해야 한다.
 - docs 검증이 통과해도 SoT 충돌이 있으면 완료로 간주하지 않는다. 충돌은 규범 문서부터 수정한다.
 
 ## 관련 문서

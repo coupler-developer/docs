@@ -10,6 +10,28 @@ permissions:
   contents: read
 
 jobs:
+  docs-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Validate docs structure
+        run: yarn validate:docs-structure
+
   markdown-lint:
     runs-on: ubuntu-latest
     steps:

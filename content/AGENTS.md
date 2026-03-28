@@ -34,8 +34,6 @@
 ### Architecture
 
 - [회원 라이프사이클](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
-- [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
-- [매칭 FSM](architecture/matching-fsm.md) - 매칭 상태 머신
 - [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
 - [매칭 스케줄 알고리즘](architecture/matching-schedule-algorithm.md)
 - [미팅 시스템](architecture/meeting-system.md) - 2:2 그룹 미팅
@@ -48,6 +46,11 @@
 - [업로드/미디어 시스템](architecture/upload-media-system.md) - 파일 업로드, 저장, media_proxy
 - [레포지토리 요약](architecture/repo-overview.md)
 - [coupler-mobile-app to-be 아키텍처](architecture/mobile-app-to-be.md)
+
+### FSM
+
+- [회원 심사 FSM](architecture/member-review-fsm.md) - 상태머신 및 심사 플로우
+- [매칭 FSM](architecture/matching-fsm.md) - 매칭 상태 머신
 
 ### Technical Debt
 
