@@ -273,3 +273,26 @@
 - 규범 문서에서는 현재 SoT만 유지하고, 네이밍 전환 잔존은 기술 부채로 관리한다.
 - 변경분에 한해 신규 코드/문서 명칭은 `coupler`로 고정하고, 외부 계약상 변경 불가 식별자(SKU, 도메인, 외부 시스템 키)는 예외 근거를 함께 남긴다.
 - 잔존 `ritzy` 사용처는 "운영 식별자", "레거시 파일/패키지명", "문서 표현"으로 분류해 순차 정리한다.
+
+---
+
+## 13) Mobile patch-package 의존 제거 가능성 검증 `P2` `S`
+
+현상
+
+- `coupler-mobile-app`은 `postinstall: patch-package`에 의존하고 있다.
+- 현재 기준 patch는 `@react-native-google-signin/google-signin@13.3.1` 1건이며, `TurboModuleRegistry.getEnforcing` 실패 시 `NativeModules.RNGoogleSignin` fallback으로 우회한다.
+- 패치 필요 조건과 제거 조건이 문서화되어 있지 않아, React Native/라이브러리 업그레이드 시 계속 유지해야 하는지 판단 기준이 불명확하다.
+
+영향
+
+- `node_modules` 직접 patch는 업스트림 버전 변경 시 충돌하거나 조용히 무효화될 수 있어 설치/빌드 재현성이 떨어진다.
+- Google Sign-In 연동 장애가 생기면 원인이 "native linking 문제"인지 "patch drift"인지 분리 추적하기 어렵다.
+- patch-package 잔존은 React Native/서드파티 의존성 업그레이드 비용을 높이고, 신규 작업자 온보딩 시 암묵 지식을 요구한다.
+
+액션 후보
+
+- `@react-native-google-signin/google-signin` 최신 호환 버전에서 동일 patch가 불필요한지 우선 검증한다.
+- `RNGoogleSignin` 등록 경로(TurboModule, legacy NativeModule, iOS/Android linking, Pod/Gradle 설정)를 점검해 근본 원인을 분리한다.
+- patch 제거가 가능하면 `patch-package`, `postinstall`, `patches/`를 함께 제거하고 회귀 검증 절차를 문서화한다.
+- 즉시 제거가 불가하면 "왜 필요한지", "어떤 버전 범위에서 필요한지", "재검증 시점"을 문서/추적 이슈로 남긴다.
