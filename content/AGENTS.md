@@ -3,12 +3,12 @@
 - 이 문서에는 문서 인덱스와 에이전트 최소 운영 규칙만 포함한다
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
 - 문서 추가/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
-- 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/engineering-guardrails.md`를 단일 SoT로 따른다
+- 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/document-governance-policy.md`를 단일 SoT로 따른다
 - 템플릿 문서는 `content/templates/`에 둔다
 - 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
 - 같은 도메인에 `policy`, `architecture`, `fsm`, `flow`, `technical-debt` 문서가 2개 이상 존재하면 각 문서 상단에 역할, 문서 종류, 충돌 시 우선 문서, 기준 성격(`as-is`/`to-be`/`transition`)을 명시한다
 - 문서 역할은 `규범`, `설명`, `시각화`, `시나리오`, `부채`를 사용한다. `technical-debt`는 문제/우선순위 기록 문서이며 규범 문서를 대체하지 않는다
-- 문서 역할 기준의 단일 SoT는 `content/policy/engineering-guardrails.md`를 따른다
+- 문서 역할 기준의 단일 SoT는 `content/policy/document-governance-policy.md`를 따른다
 - 문서 작성/수정/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
     - `content/technical-debt/technical-debt.md`
@@ -70,6 +70,7 @@
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
+- [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍
 - [테스트/CI 전략](policy/testing-strategy.md) - 레포별 테스트 및 CI 기준
 

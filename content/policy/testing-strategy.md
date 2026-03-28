@@ -11,6 +11,17 @@
 
 - 레포별 테스트 위치와 docs 포함 공통 검증 게이트를 고정한다.
 
+## 공통 품질 게이트 (단일 SoT)
+
+- 코드 레포의 표준 품질 게이트는 `test`, `typecheck`, `lint`, `format`이다.
+- docs의 표준 품질 게이트는 `markdownlint`, `mkdocs build --strict`다.
+- 레포에서 미제공인 항목은 `N/A`로 표기하고, 미적용 근거를 PR/작업 보고에 남긴다.
+- 표준 검증 명령은 아래를 단일 기준으로 사용한다.
+    - `coupler-api`: `pnpm lint && pnpm typecheck && pnpm format && pnpm jest --runInBand`
+    - `coupler-mobile-app`: `npm run -s lint && npm run -s typecheck && npm run -s format && npx jest --runInBand`
+    - `coupler-admin-web`: `npm run -s lint && npm run -s typecheck && npm run -s format && CI=true npm run -s test:ci`
+    - `docs`: `npm run lint:md && npm run build:docs`
+
 ## 테스트 코드 전략 (레포별)
 
 - 공통 규칙: 코드베이스는 `.js/.jsx/.ts/.tsx` 혼용 가능. **테스트 파일에만 `.test.ts`/`.test.tsx`를 적용**한다.

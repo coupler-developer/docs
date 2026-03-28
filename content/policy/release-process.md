@@ -117,7 +117,7 @@ git push origin "${TAG}"
 ### 3) API/Admin EC2 배포
 
 - `coupler-api`, `coupler-admin-web`는 운영 `EC2`에 반영한다.
-- 배포 전 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`)를 완료한다.
+- 배포 전 [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트를 완료한다.
 - API는 운영 반영 후 루트 응답, 핵심 app/admin API, 에러 로그를 확인한다.
 - Admin은 운영 URL 로그인, 핵심 운영 화면 진입, 주요 액션 1회를 확인한다.
 
@@ -171,7 +171,7 @@ git status
 ### 2) EC2 배포 수행
 
 - 배포 전 기술 판정은 [엔지니어링 가드레일](engineering-guardrails.md)의 `No Findings 게이트`를 단일 기준으로 따른다.
-- 리뷰 대상 범위에서 finding이 1건이라도 있으면 배포를 진행하지 않고, `원인 분석 -> 수정 -> test/typecheck/lint/format 및 필수 정책 검사 재검증 -> 재리뷰`를 `No Findings`까지 반복한다.
+- 리뷰 대상 범위에서 finding이 1건이라도 있으면 배포를 진행하지 않고, `원인 분석 -> 수정 -> 테스트/CI 전략의 공통 품질 게이트 및 필수 정책 검사 재검증 -> 재리뷰`를 `No Findings`까지 반복한다.
 - 레포/플랫폼별 배포 가이드를 따른다.
 - `coupler-api`와 `coupler-admin-web`의 운영 반영 방식은 다르다.
     - `coupler-api`: 프로세스 앱으로 배포하고 `pm2`로 관리한다.

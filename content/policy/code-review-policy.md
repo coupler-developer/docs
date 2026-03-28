@@ -83,9 +83,9 @@
 - [ ] 문서 동기화 점검(필요 시 업데이트, 불필요 시 근거 명시)
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기반 작성 여부 확인 (예외 시 근거 명시)
 - [ ] 자체 테스트 완료
-- [ ] 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`) 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
-- [ ] 문서(docs) 변경 시 `markdownlint`와 `mkdocs build --strict` 통과 + 실행 명령/결과 링크 첨부
-- [ ] 문서 추가/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
+- [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
+- [ ] 문서(docs) 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트 통과 + 실행 명령/결과 링크 첨부
+- [ ] 문서 추가/이동/개명 시 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
 ```
 
 ## 리뷰어 가이드
@@ -119,8 +119,8 @@
 - [ ] 코드가 읽기 쉽고 이해하기 쉬운가?
 - [ ] 중복 코드는 없는가?
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `No Findings 게이트` 기준으로 기술 판정을 완료했는가? (Fail-closed, 레이어 책임 분리, Shadow Cutover, 문서 동기화 포함)
-- [ ] 같은 도메인에 문서가 여러 개면 규범 문서가 1개로 고정돼 있고, 각 문서 상단에 역할/문서 종류/우선순위/as-is-to-be 기준이 명시돼 있는가?
-- [ ] 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`) 검증 결과와 로그 링크가 PR에 명시되어 있는가? (`N/A` 항목은 미적용 근거 포함)
+- [ ] 같은 도메인에 문서가 여러 개면 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 규범 문서가 1개로 고정돼 있고, 각 문서 상단에 역할/문서 종류/우선순위/as-is-to-be 기준이 명시돼 있는가?
+- [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 결과와 로그 링크가 PR에 명시되어 있는가? (`N/A` 항목은 미적용 근거 포함)
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
 - [ ] 에러 처리가 적절한가?
 - [ ] 테스트 코드가 충분한가? (중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
@@ -129,8 +129,8 @@
 - [ ] 기능 회귀 가능성이 있는 변경은 없는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기준을 따르는가? (예외 시 근거 확인)
-- [ ] 문서 변경 시 `markdownlint` 에러를 0으로 유지했고 `mkdocs build --strict`도 통과했는가?
-- [ ] 문서 추가/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`가 같은 PR에서 함께 갱신됐는가?
+- [ ] 문서 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트를 통과했는가?
+- [ ] 문서 추가/이동/개명 시 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`가 같은 PR에서 함께 갱신됐는가?
 
 ### 리뷰 전제
 
@@ -150,7 +150,7 @@
 - [ ] 필요한 승인 획득
 - [ ] CI/CD 통과
 - [ ] 충돌 해결
-- [ ] 공통 품질 게이트(`test`, `typecheck`, `lint`, `format`) 검증 완료 및 로그 링크 확인 (`N/A` 항목은 미적용 근거 확인)
+- [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 및 로그 링크 확인 (`N/A` 항목은 미적용 근거 확인)
 - [ ] 문서 동기화 점검 결과(필요 시 반영, 불필요 시 근거) 확인
 - [ ] 리뷰 코멘트별 근거 링크(문서/코드/로그) 확인
 
@@ -158,6 +158,7 @@
 
 - [엔지니어링 가드레일](engineering-guardrails.md)
 - [테스트/CI 전략](testing-strategy.md)
+- [문서 거버넌스 정책](document-governance-policy.md)
 
 ## 예외 사항
 

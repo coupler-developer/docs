@@ -79,9 +79,7 @@ git rev-list --count --merges origin/main..HEAD
 
 ## 회귀 검증 (레포별 필수)
 
-- `coupler-api`: `pnpm lint && pnpm typecheck && pnpm format && pnpm jest --runInBand`
-- `coupler-mobile-app`: `npm run -s lint && npm run -s typecheck && npm run -s format && npx jest --runInBand`
-- `coupler-admin-web`: `npm run -s lint && npm run -s typecheck && npm run -s format && CI=true npm run -s test:ci`
+- 회귀 검증 명령은 [테스트/CI 전략](testing-strategy.md)의 `공통 품질 게이트 (단일 SoT)`를 따른다.
 
 ## 재발 방지 체크리스트
 
@@ -90,4 +88,4 @@ git rev-list --count --merges origin/main..HEAD
 - [ ] `behind=0`를 확인했다
 - [ ] merge commit 유입이 없음을 확인했다
 - [ ] 충돌 마커 잔존이 없다
-- [ ] lint/typecheck/format/test 결과를 레포별로 확인했다
+- [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 결과를 레포별로 확인했다
