@@ -127,7 +127,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 
 ## 비포함 / 금지
 
-- 운영에서 `npm start`, `react-scripts start`, `pm2 start ./node_modules/react-scripts/scripts/start.js`를 사용하지 않는다.
+- 운영에서 `yarn start`, `react-scripts start`, `pm2 start ./node_modules/react-scripts/scripts/start.js`를 사용하지 않는다.
 - `coupler-admin-web`를 프로세스 앱처럼 `pm2`로 상시 운영하지 않는다.
 - 이 문서를 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 규범 기준 대신 사용하지 않는다.
 

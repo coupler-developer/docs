@@ -175,7 +175,7 @@ git status
 - 레포/플랫폼별 배포 가이드를 따른다.
 - `coupler-api`와 `coupler-admin-web`의 운영 반영 방식은 다르다.
     - `coupler-api`: 프로세스 앱으로 배포하고 `pm2`로 관리한다.
-    - `coupler-admin-web`: `npm run build` 결과물(`build/`)만 EC2에 업로드하고 `nginx`가 정적 서빙한다.
+    - `coupler-admin-web`: `yarn build` 결과물(`build/`)만 EC2에 업로드하고 `nginx`가 정적 서빙한다.
 - `coupler-admin-web` 운영 배포 시 `react-scripts start`, `pm2 start ./node_modules/react-scripts/scripts/start.js`, CRA 개발 서버 기반 서빙을 금지한다.
 - `coupler-admin-web`의 서버 준비, artifact 업로드, `nginx` 설정, `pm2 save`, 검증, 롤백 절차는 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 단일 실행 기준으로 따른다.
 
