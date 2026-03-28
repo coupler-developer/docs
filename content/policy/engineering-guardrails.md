@@ -104,9 +104,9 @@
     - API 응답은 `unknown`으로 두지 않고 실제 스키마 타입을 정의한다
     - `unknown`은 경계(외부 API/서드파티 SDK/raw JSON)에서만 허용, 이후 parse/validate로 도메인 타입 고정
     - "타입이 애매하니 일단 unknown"은 금지. 필요한 필드만이라도 타입으로 명시한다
-- **`undefined` 금지, `null`로 고정**
-    - JSON 응답에서 "없음"은 `null`로 고정한다 (`field: T | null`)
-    - `undefined vs null vs missing key` 분기는 fallback/추측 로직을 만든다
+- **API/JSON 계약에서 "없음"은 `undefined` 대신 `null`로 고정**
+    - 요청/응답 DTO, Swagger 예시, JSON payload에서 "없음"은 `null`로 고정한다 (`field: T | null`)
+    - 내부 로컬 변수/함수 파라미터까지 일괄 `null`로 강제하는 규칙은 아니다. 외부 계약 경계에서 `undefined vs null vs missing key`를 섞지 않는다
 - **단일 스펙 강제**
     - 중복 키(`images` vs `image`, `image_url` vs `url`) 동시 허용 금지
     - 배열이면 복수형, 단일 값이면 단수형, 스펙은 한 가지로 고정
@@ -145,9 +145,9 @@
 
 ### 문법/스타일
 
-- 삼항 연산자는 한 표현식에서 1회까지만 허용. 중첩(`a ? b : c ? d : e`) 금지, 분기 2개 초과 시 `if/else`
+- 중첩 삼항(`a ? b : c ? d : e`)은 금지한다. 분기 2개 초과 시 `if/else`를 사용한다
 - 주석 최소화: 코드로 의도가 충분히 드러나면 주석 금지, 불가피한 경우에만 1줄
-- verbose한 문법 지양
+- 같은 의미를 반복하는 불필요한 래퍼 함수/중간 변수/분기 추가를 지양한다
 - 하드코딩/Magic Number 금지: 상수로 정의한다
 
 ### Mobile UI token (`coupler-mobile-app`)
@@ -227,10 +227,8 @@
 - 필수 코드, 파일만 추가한다(무분별한 파일 생성 금지).
 - 임의 커밋(의도/근거/리뷰 단위 없는 커밋)은 금지한다. 코드 반영은 `code-review-policy.md`의 PR 절차를 따른다.
 - 삭제 대상으로 명시되지 않은 기존 기능 삭제 금지
-- 플랫폼 고려: android, ios일 때 레이아웃
-- 프로젝트 일관성, 확장성, 재사용성 고려
-- 한국어 사용, 영어단어는 알파뱃으로 표시
-- 코드, 파일엔 명시적이며 직관적인 명칭 사용할 것
+- UI 변경은 Android/iOS 주요 레이아웃 차이를 함께 검증한다
+- 기존 패턴과 충돌하는 새 구조/유틸/상태 모델을 추가하기 전에는 재사용 가능한 기존 기준을 먼저 확인한다
 - lint/CI 통과를 merge 조건으로 둔다.
     - docs 검증과 문서 동기화 기준은 [테스트/CI 전략](testing-strategy.md)과 [문서 거버넌스 정책](document-governance-policy.md)을 따른다.
 
