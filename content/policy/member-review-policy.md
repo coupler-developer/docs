@@ -18,6 +18,12 @@
 - Admin/Mobile/API가 같은 판정 기준 사용
 - 제출/재제출 UX와 운영 큐 기준 고정
 
+## 적용 우선순위
+
+- 신규 구현, 리뷰, 전환 완료 판정의 규범 SoT는 이 문서를 사용한다.
+- 현재 운영 상태를 읽고 설명할 때는 as-is 문서인 [회원 심사 FSM](../architecture/member-review-fsm.md), [회원 생명주기](../architecture/member-lifecycle.md)를 함께 확인한다.
+- as-is 문서와 transition 목표 사이에 차이가 있으면, 목표 기준을 따르되 현재 운영 차이와 전환 범위를 PR/작업 보고에 명시한다.
+
 ## 기준 분리
 
 - 회원 생애주기 상태 SoT: `t_member.status`

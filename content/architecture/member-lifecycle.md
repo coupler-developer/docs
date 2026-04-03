@@ -7,9 +7,9 @@
 - 충돌 시 우선 문서: [회원 심사 단일 정책](../policy/member-review-policy.md)
 - 기준 성격: `as-is`
 
-회원의 전체 상태 흐름을 정리한 문서이다.
-회원 생애주기 상태의 원문 SoT는 [회원 심사 단일 정책](../policy/member-review-policy.md)을 따른다.
-심사 과정의 세부 상태 흐름은 [회원 심사 FSM](./member-review-fsm.md)을 참고한다.
+회원의 전체 상태 흐름을 정리한 as-is 문서다.
+현재 운영 중인 회원 생애주기 상태를 읽고 설명할 때는 이 문서를 우선 참고한다.
+신규 구현/리뷰/전환 목표의 규범 SoT는 [회원 심사 단일 정책](../policy/member-review-policy.md)을 따르며, 심사 과정의 세부 상태 흐름은 [회원 심사 FSM](./member-review-fsm.md)을 참고한다.
 
 ## 회원 상태 (`t_member.status`)
 

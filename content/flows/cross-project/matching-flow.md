@@ -121,7 +121,7 @@ flowchart LR
 // 요청 바디
   {
   match_id: Number,
-  schedule_list: ['2024-01-15', '2024-01-16', ...],
+  schedule_list: ['YYYY-MM-DD', 'YYYY-MM-DD', ...],
   }
 ```
 

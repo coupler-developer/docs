@@ -92,7 +92,7 @@ function shouldIgnore(relativePath) {
   }
 
   const parts = relativePath.split(path.sep);
-  return parts.includes("templates") || parts.includes("releases");
+  return parts.includes("templates");
 }
 
 function parseMkdocsRefs(source) {
@@ -172,6 +172,9 @@ function inferDirectoryKind(relativePath) {
   }
   if (parts.includes("technical-debt")) {
     return "technical-debt";
+  }
+  if (parts.includes("releases")) {
+    return "flow";
   }
 
   return null;
