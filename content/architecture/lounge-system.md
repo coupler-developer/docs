@@ -62,12 +62,16 @@ flowchart TD
 | GET    | `/lounge/list`       | 글 목록    |
 | GET    | `/lounge/myList`     | 내 글 목록 |
 | GET    | `/lounge/detail`     | 글 상세    |
+| POST   | `/lounge/visit`      | 글 조회수 증가 |
 | POST   | `/lounge/add`        | 글 작성    |
 | POST   | `/lounge/delete`     | 글 삭제    |
 | POST   | `/lounge/like`       | 좋아요     |
 | POST   | `/lounge/blame`      | 신고       |
 | POST   | `/lounge/hide`       | 글 차단    |
 | POST   | `/lounge/block_user` | 회원 차단  |
+
+- `GET /lounge/detail`은 순수 조회만 수행한다.
+- 조회수 증가는 최초 진입 시 `POST /lounge/visit`에서만 수행한다.
 
 ### 댓글
 
