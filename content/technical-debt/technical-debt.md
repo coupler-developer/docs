@@ -1,4 +1,4 @@
-# 기술 부채 정리 (2026-03-05)
+# 기술 부채 정리 (2026-04-02)
 
 ## 문서 역할
 
@@ -296,3 +296,26 @@
 - `RNGoogleSignin` 등록 경로(TurboModule, legacy NativeModule, iOS/Android linking, Pod/Gradle 설정)를 점검해 근본 원인을 분리한다.
 - patch 제거가 가능하면 `patch-package`, `postinstall`, `patches/`를 함께 제거하고 회귀 검증 절차를 문서화한다.
 - 즉시 제거가 불가하면 "왜 필요한지", "어떤 버전 범위에서 필요한지", "재검증 시점"을 문서/추적 이슈로 남긴다.
+
+---
+
+## 14) iOS SDK / Xcode 업로드 기준 선제 업그레이드 필요 `P1` `M`
+
+현상
+
+- App Store Connect가 `COUPLER(커플러)` iOS 배포본(Version `2.0.1`, Build `87`)에 대해 SDK 버전 경고를 발송했다.
+- 현재 바이너리는 iOS `18.2` SDK로 빌드됐고, 안내 기준상 `2026-04-28`부터는 iOS/iPadOS 앱 업로드 및 제출에 iOS `26` SDK 이상, Xcode `26` 이상이 필요하다.
+- 이번 전달은 성공했지만, 차기 배포부터는 업로드 단계에서 차단될 가능성이 있다.
+
+영향
+
+- 마감 직전까지 Xcode/SDK 업그레이드를 미루면 App Store 배포가 막혀 긴급 대응이 필요해진다.
+- React Native, CocoaPods, 서드파티 iOS SDK, CI/macOS 이미지가 새 Xcode 기준과 충돌할 수 있어 릴리스 리드타임이 증가한다.
+- 로컬 개발 환경과 CI 환경의 Xcode 버전이 어긋나면 "로컬 성공 / CI 실패" 유형의 배포 회귀가 발생할 수 있다.
+
+액션 후보
+
+- `coupler-mobile-app`의 iOS 빌드 체인(Xcode, iOS SDK, CocoaPods, Ruby/Bundler, fastlane 또는 CI runner)을 Xcode `26` 기준으로 점검한다.
+- React Native 및 주요 네이티브 의존성의 Xcode `26` / iOS `26` SDK 호환성 매트릭스를 확인하고 선행 업그레이드 순서를 문서화한다.
+- App Store 제출 전 체크리스트에 "현재 Xcode/SDK 기준 충족 여부"를 추가하고, CI에서 빌드 도구 버전을 고정 검증한다.
+- 실제 제출 마감 전에 TestFlight 업로드 리허설을 수행해 archive, signing, upload 단계 회귀를 사전 확인한다.
