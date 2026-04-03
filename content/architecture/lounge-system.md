@@ -46,6 +46,13 @@ flowchart TD
 - `parent = 0`: 어미댓글 (최상위)
 - `parent > 0`: 대댓글 (해당 ID의 댓글에 대한 응답)
 
+## 댓글 수 표시 기준
+
+- API 응답과 화면에 표시되는 `cmt_cnt`는 로그인한 사용자가 실제로 볼 수 있는 댓글 수를 의미한다.
+- `t_member_hide`에 `type = 'LOUNGE'`로 등록된 작성자의 댓글은 댓글 목록과 `cmt_cnt`에서 제외한다.
+- 삭제 상태 댓글은 `cmt_cnt`에 포함하지 않는다.
+- 같은 기준을 글 목록, 내 글 목록, 글 상세에 동일하게 적용한다.
+
 ## API 엔드포인트
 
 ### 게시글
@@ -121,7 +128,7 @@ flowchart TD
 | alias       | 비공개 시 닉네임     |
 | visit_cnt   | 조회수               |
 | like_cnt    | 좋아요 수            |
-| cmt_cnt     | 댓글 수              |
+| cmt_cnt     | 저장 댓글 수 캐시 필드 |
 
 ### t_lounge_cmt
 
