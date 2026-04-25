@@ -21,17 +21,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+      - name: Install Node dependencies
+        run: yarn install --frozen-lockfile
 
-      - name: Build docs
-        run: mkdocs build --strict
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate docs
+        run: yarn validate:docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

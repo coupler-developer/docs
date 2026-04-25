@@ -86,8 +86,8 @@ print_release_record_items() {
 
   raw_section="$(extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" | sed '/^[[:space:]]*$/d')"
   if [[ -z "${raw_section}" ]]; then
-    printf -- '- %s\n' "${empty_message}"
-    return
+    echo "Release record section is missing or empty: ${section_title}" >&2
+    exit 1
   fi
 
   while IFS= read -r line; do
@@ -114,7 +114,8 @@ print_release_record_items() {
   done <<< "${raw_section}"
 
   if [[ "${count}" -eq 0 ]]; then
-    printf -- '- %s\n' "${empty_message}"
+    echo "Release record section has no ${item_type} items: ${section_title}" >&2
+    exit 1
   fi
 }
 

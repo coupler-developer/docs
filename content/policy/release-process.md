@@ -284,6 +284,8 @@ git push origin "${TAG}"
 
 - 스토어 배포: 앱 바이너리(iOS/Android) 업데이트
 - OTA 배포: NextPush(CodePush)로 JS 번들 업데이트
+- iOS 스토어 업로드 전에는 현재 Apple 제출 기준을 만족하는 Xcode/iOS SDK로 빌드했는지 확인한다.
+- iOS 제출 기준 증빙은 `xcodebuild -version`과 `xcrun --sdk iphoneos --show-sdk-version` 실행 결과를 릴리즈 기록에 남긴다.
 
 ### 2) OTA 배포 (NextPush)
 

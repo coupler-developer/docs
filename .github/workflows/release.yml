@@ -40,16 +40,29 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      - name: Install dependencies
+      - name: Install Node dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Build docs
-        run: mkdocs build --strict
+      - name: Validate docs
+        run: yarn validate:docs
 
       - name: Package site artifact
         run: tar -czf "docs-site-${GITHUB_REF_NAME}.tar.gz" -C site .
