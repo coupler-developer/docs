@@ -55,6 +55,7 @@
 ### Technical Debt
 
 - [기술 부채 정리](technical-debt/technical-debt.md)
+- [Firebase Apple SDK CocoaPods 마이그레이션 계획](technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md)
 
 ### Policy
 
