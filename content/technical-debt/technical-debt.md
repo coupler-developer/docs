@@ -393,37 +393,7 @@
 
 ---
 
-## 18) 수동 DB 마이그레이션 적용 이력 ledger 미도입 `P1` `S`
-
-현상
-
-- DB 마이그레이션 SQL 파일은 누적되고 있지만, 개발계/운영계 DB 안에 "어떤 SQL이 어디까지 성공 적용됐는지"를 기록하는 DB-local ledger가 없다.
-- 현재는 실행 순서 파일, 작업 로그, postcheck 결과로 적용 상태를 확인한다.
-- Flyway/Liquibase 같은 migration tool도 사용하지 않고 있어, 중복 적용/누락/체크섬 불일치를 DB 내부에서 판정할 수 없다.
-- `DBM-GATE-010`의 목표 기준은 [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)을 따르지만, ledger bootstrap SQL은 아직 도입하지 않았다.
-
-영향
-
-- 개발계/운영계처럼 오래 유지되는 DB에서 수동 SQL 적용 이력이 사람 기억이나 외부 로그에 의존한다.
-- 같은 SQL을 두 번 실행하거나, 일부 SQL만 누락한 상태를 뒤늦게 발견할 위험이 있다.
-- 운영 장애/복구/릴리즈 인수인계 시 "현재 DB가 어느 migration 상태인가"를 즉시 조회하기 어렵다.
-
-액션 후보
-
-- 최소 컬럼만 가진 `schema_migrations` 또는 동등한 migration tool ledger 도입 여부를 결정한다.
-- 별도 도구 없이 수동 SQL을 유지한다면 `migration_name`, `target_env`, `checksum_sha256`, `database_name`, `server_hostname`, `server_id`, `server_version`, `applied_by`, `applied_at` 중심의 최소 테이블을 추가한다.
-- 개발계/운영계에 적용 가능한 bootstrap SQL을 별도 번호로 만들고, 비즈니스 DDL과 섞지 않는다.
-- ledger 도입 전까지는 실행 SQL 목록, checksum, postcheck 결과, 실제 접속 DB 식별값을 작업 로그에 남긴다.
-
-완료 기준
-
-- 개발계/운영계에서 `SELECT * FROM schema_migrations ORDER BY id` 또는 동등한 tool ledger 조회로 적용 완료 SQL 목록을 확인할 수 있다.
-- 같은 DB에서 동일 migration 중복 적용이 차단된다.
-- 적용된 파일과 현재 파일의 checksum 불일치가 발견되면 즉시 중단할 수 있다.
-
----
-
-## 19) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
+## 18) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
 
 현상
 
