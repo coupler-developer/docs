@@ -53,6 +53,8 @@
 - 운영/개발계에 적용 완료된 SQL 파일은 append-only로 취급한다. 수정이 필요하면 기존 파일을 고치지 말고 새 번호의 SQL 파일을 추가한다.
 - 개발계/운영계 DB에 적용하는 각 SQL 파일은 성공 후 `schema_migrations`에 기록한다. postcheck-only SQL도 실행 순서에 포함되면 동일하게 기록한다.
 - 일회성 로컬 검증 DB는 `schema_migrations` 기록 대신 복원 `dump`, 실행 SQL 목록, postcheck 결과, 데이터 보존 검증 로그로 증빙할 수 있다.
+- 개발계/운영계 반영이 실패하거나 실행이 중단되면 동일 SQL 세트를 즉시 재실행하지 않는다. 먼저 실제 대상 DB에서 DB 식별값, 적용 완료 row, 적용 대상 객체/컬럼/데이터 상태, 실패 SQL 로그를 확인해 `미적용`, `부분 적용`, `성공 후 ledger 누락` 중 하나로 분류한다.
+- 실패/중단 후 복구 또는 재개 SQL이 필요하면 기존 파일을 수정하지 않고 새 번호의 SQL 파일로 추가한다. 새 SQL은 다시 Local baseline -> 개발계 -> 운영계 순서로 검증한다.
 
 ## 적용 이력 테이블
 
@@ -165,7 +167,7 @@ ORDER BY id;
 3. `개발계 이력 확인`: 개발계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 적용 예정 SQL의 중복/체크섬 불일치가 없는지 확인한다. ledger가 없으면 즉시 중단한다.
 4. `개발계 반영`: 로컬에서 통과한 동일 SQL 세트를 개발계 DB에 동일 순서로 적용하고, 카운터/해시/guard 결과가 동일 결론(`No Findings`)인지 확인한 뒤 `target_env='dev'`로 기록한다.
 5. `운영계 이력 확인`: 운영계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 개발계와 동일한 기준으로 중복/체크섬 불일치를 확인한다. ledger가 없으면 즉시 중단한다.
-6. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영 실패 시 Local 단계부터 다시 수행한다.
+6. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영 실패 또는 중단 시 즉시 중단하고, 작성 규칙의 실패/중단 분류를 완료한 뒤 동일 SQL 재시도 또는 새 번호의 복구/재개 SQL 추가 여부를 결정해 Local 단계부터 다시 검증한다.
 7. `운영계 postcheck`: 운영계 반영 직후 동일 Gate 기준 postcheck SQL을 실행해 최종 guard 결과를 확인한다. 성공 후 `target_env='prod'`로 ledger에 기록한다.
 8. `근거 기록`: PR/리뷰에 적용 대상 Gate별 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`를 남기고, 비적용 Gate는 `Gate ID + N/A 사유 + 근거 경로`를 남긴다.
 9. `승인 조건`: Local/개발계 DB 검증 근거가 없으면 승인하지 않는다. 운영 반영 완료 판정은 운영계 postcheck 로그와 ledger 기록을 함께 확인한다.
