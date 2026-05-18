@@ -83,7 +83,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 | match2Day       | MATCH_D_DAY_2                          |
 | matchToday      | MATCH_DAY                              |
 | checkReview     | MATCH_4_HOUR_PASSED                    |
-| checkMatchCall  | MATCH_VOICE_CALL                       |
+| checkMatchCall  | MATCH_VOICE_CALL(모바일 알림 노출 제외) |
 | checkMeetMember | MEET_DELETED                           |
 | remindMatchCard | MATCH_CARD_WILL_DISAPPEAR              |
 
