@@ -35,6 +35,16 @@
 - 인증 요청의 현재 활성 건 판정은 `t_member_auth_review_request.active_request_slot = 1`을 기준으로 한다.
 - `request_origin`은 출처/큐 라우팅용 원천 데이터이며, 심사 상태 판정 SoT를 대체하지 않는다.
 
+## 필수 인증 표시 기준
+
+- `manager_required_auth`는 매니저가 요구한 필수 인증 정책 플래그이며, 회원의 인증 완료 상태가 아니다.
+- `manager_required_auth_types`는 인증 버킷별로 어떤 `t_member_auth.type`이 해당 버킷에 속하는지 정의하는 타입 매핑이며, 버킷이 매니저 요구 대상인지 여부는 `manager_required_auth`가 나타낸다.
+- Mobile 설정 화면의 대표 인증 버킷(신분증, 직장/직업, 학력, 소득)은 `manager_required_auth`만으로 완료 표시를 하지 않는다.
+- 대표 인증 버킷의 완료/심사중/반려 표시는 실제 `t_member_auth*` 데이터 중 해당 버킷 타입에 속하는 현재 인증 행의 `status`를 기준으로 한다.
+- 회원이 가입 단계에서 매니저가 요구한 필수 인증을 제출하고 승인받아 준회원이 된 경우, 설정 화면은 동일한 실제 인증 행을 기준으로 해당 대표 버킷을 승인 상태로 표시한다.
+- legacy `type=2`는 신분증/직장 버킷에 중복될 수 있으므로 `manager_required_auth`와 함께 해석한다. 신분증이 필수인 경우 `type=2`는 신분증으로 표시하고, 직장/직업 버킷 완료로 중복 표시하지 않는다.
+- 서버의 단계 판정은 계속 `v_member_review_status.required_auth_status`를 기준으로 하며, Mobile의 버킷별 표시는 서버가 내려준 실제 인증 행을 화면에 투영하는 용도로만 사용한다.
+
 ## 회원 레벨 정의 (운영 용어, v2.0)
 
 가입 심사 단계에서 사용하는 레벨은 아래 4단계다.
