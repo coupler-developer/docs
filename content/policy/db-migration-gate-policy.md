@@ -65,6 +65,8 @@
 - `schema_migrations`는 성공한 실행만 기록한다. 실패/중단 시도는 로그로만 남기고 적용 완료 row를 insert하지 않는다.
 - `target_env`는 실행자가 의도한 환경(`local`, `dev`, `prod`)이며, 단독 증빙으로 인정하지 않는다.
 - `database_name`, `server_hostname`, `server_id`, `server_version`, `applied_by`를 함께 기록해 실제 접속 DB를 확인한다.
+- `applied_by`는 작업자 이름이 아니라 실제 DB 실행 계정으로 고정하며, 신규 적용 row는 반드시 `CURRENT_USER()` 값으로 기록한다.
+- 작업자/에이전트 식별이 별도로 필요하면 `applied_by`를 임의 문자열로 대체하지 말고 `note`에 보조 정보로 남긴다.
 - 동일 DB에서 `migration_name`이 이미 존재하고 `checksum_sha256`이 같으면 중복 적용하지 않는다. 이미 존재하지만 checksum이 다르면 즉시 중단한다.
 - 개발계/운영계 DB에서 `schema_migrations`가 없으면 현재 운영 기준 이탈로 보고 신규 비즈니스 마이그레이션을 중단한다.
 - 이력 테이블 생성/복구가 필요하면 일반 비즈니스 마이그레이션과 분리한 별도 복구 작업으로 처리하고, 복구 완료 후 실제 DB 식별값과 적용 이력 row를 확인한다.
@@ -127,7 +129,7 @@ SELECT
   @@hostname AS server_hostname,
   @@server_id AS server_id,
   @@version AS server_version,
-  CURRENT_USER() AS current_user;
+  CURRENT_USER() AS db_execution_user;
 
 SELECT
   migration_name,
