@@ -10,6 +10,7 @@
 - 문서 역할은 `규범`, `설명`, `시각화`, `시나리오`, `부채`를 사용한다. `technical-debt`는 문제/우선순위 기록 문서이며 규범 문서를 대체하지 않는다
 - 문서 역할 기준의 단일 SoT는 `content/policy/document-governance-policy.md`를 따른다
 - 문서 작성/수정/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
+- 사용자와 명시적으로 합의하지 않았거나, 처음 온 사람이 추측해야 하는 임의 축약어/내부 은어를 쓰지 않는다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
     - `content/technical-debt/technical-debt.md`
     - `content/policy/code-review-policy.md`
