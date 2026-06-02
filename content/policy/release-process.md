@@ -110,7 +110,7 @@ git push origin "${TAG}"
 ### 2) 운영 RDS 선반영
 
 - 운영 `RDS` 반영은 워크스페이스 루트 `ritzy운영-coupler운영_마이그레이션_가이드/25_EXECUTION_PROCEDURE.md`와 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 따른다.
-- 운영 절차는 `운영 dump baseline -> local full replay -> 개발계 검증 -> 운영계 반영 -> 운영계 postcheck` 순서를 고정한다.
+- 운영 절차 순서는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 실행 검증 파이프라인을 따른다.
 - live DB에서는 `00_EXECUTION_ORDER.txt`의 주석 조건을 그대로 따른다.
 - 특히 `44_drop_manager_detail_profile_master_columns_after_cutover.sql`, `45_drop_manager_detail_profile_preview_column_after_cutover.sql`는 서비스 cutover와 legacy read/write 0건 확인 전에는 실행 금지다.
 

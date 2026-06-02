@@ -91,7 +91,7 @@
 
 ## DB 마이그레이션 검증 (공통)
 
-- 운영 반영 전 최소 검증 순서는 `Local baseline -> Local migration -> 개발계 검증 -> 시나리오 DB 검증`을 따른다.
+- 운영 반영 전 최소 검증 순서는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 실행 검증 파이프라인을 따른다.
 - 상세 Gate/판정 기준은 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
 
 ## 관련 문서
