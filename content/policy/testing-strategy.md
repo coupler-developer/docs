@@ -71,6 +71,18 @@
 - 구조 메모: 현행 코드는 화면 레벨 `*Step*` 파일이 주류이며, to-be 구조에서도 화면 전용 Step은 `src/screens/<도메인>/<화면>Step*.ts(x)`를 기본으로 둔다. 도메인 공용 Step만 `src/screens/<도메인>/shared/steps/`를 사용한다.
 - 상호작용 테스트는 `@testing-library/react-native` 사용을 기본으로 한다.
 - 네이티브 모듈(AsyncStorage, Reanimated 등)은 Jest mock/셋업 파일로 분리 구성.
+- 선택적 E2E smoke는 `Maestro`를 사용한다. 초기 도입 단계에서는 표준 품질 게이트와 branch protection에 포함하지 않는다.
+- Maestro smoke selector는 텍스트보다 React Native `testID`를 우선 사용한다.
+- Maestro smoke selector 문자열은 `coupler-mobile-app/src/testing/e2eTestIds.ts`에서 관리하고, 실제 flow가 기다리거나 누르거나 입력하는 핵심 요소에만 `testID`를 붙인다. `.maestro` flow의 `id` selector drift는 `yarn test:ci`에서 검증한다.
+- Maestro CLI는 npm/yarn 의존성으로 고정하지 않고 로컬/CI 실행 환경에 설치한다.
+- `coupler-mobile-app/package.json`의 Maestro 실행 스크립트는 아래 기준으로 유지한다.
+    - `yarn e2e:maestro:studio`: 로컬 플로우 작성/디버깅
+    - `yarn e2e:maestro:smoke`: `.maestro/smoke.yaml` 단일 smoke 실행
+    - `yarn e2e:maestro`: `.maestro` 하위 전체 플로우 실행
+- Android Maestro smoke는 `e2e` build type과 앱 ID `com.ritzy.fourhundred.e2e`를 사용한다.
+- `coupler-mobile-app/android/app/src/e2e/google-services.json`은 e2e 앱 ID용 Google Services 리소스 생성을 위한 variant 전용 설정이다.
+- `e2e` build type은 CodePush, 시작 시 백엔드 설정 조회, 푸시 권한 요청, Firebase Analytics/FCM 자동 수집을 건너뛰고 첫 화면 smoke만 검증한다.
+- CI smoke는 `coupler-mobile-app/.github/workflows/maestro-smoke.yml`에서 Android 기준으로 실행한다. `pull_request` 경로 필터로 관련 변경 PR에서 실행하고, `workflow_dispatch`로 수동 실행할 수 있다. PR에서는 Ubuntu runner가 runner-local Gradle heap/workers 설정을 적용해 Android emulator용 x86_64 전용 `e2e` APK artifact 빌드까지만 검증한다. 실제 Maestro emulator smoke는 GitHub hosted Android emulator 안정화 전까지 `workflow_dispatch`에서만 실행하며, Intel macOS runner의 API 33 `google_atd` emulator에 APK를 설치해 검증한다. 수동 smoke 설치 단계는 emulator의 ADB install verification timeout을 피하기 위해 package verifier를 비활성화하고, 대형 APK 설치 직후 Maestro driver APK 설치가 `Broken pipe`로 실패할 때만 한 번 재시도한다. 새 workflow의 수동 실행은 GitHub Actions 특성상 default branch에 반영된 뒤 노출된다. 이 workflow는 PR 필수 게이트가 아니며, 안정화 전까지 표준 검증 명령(`yarn lint && yarn typecheck && yarn format && yarn test:ci`)에 포함하지 않는다.
 
 ### docs (MkDocs)
 
