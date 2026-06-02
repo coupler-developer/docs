@@ -12,7 +12,7 @@
 - DB 마이그레이션 검증을 `Gate ID` 기반으로 추적 가능하게 고정한다.
 - 실행자/리뷰어/에이전트가 동일 근거로 합격/실패를 판정하게 한다.
 - fail-closed 원칙으로 중간 상태 배포를 차단한다.
-- 운영 `dump`를 baseline으로 삼아 `Local -> 개발계 DB -> 운영계` 순서로 동일 SQL 검증/반영 절차를 고정한다.
+- 운영 `dump`를 baseline으로 삼고, 본 문서의 실행 검증 파이프라인 순서로 동일 SQL 검증/반영 절차를 고정한다.
 - 각 DB 내부에 적용 완료 이력을 남겨 "어디까지 마이그레이션되었는가"를 파일명/기억이 아니라 DB 조회로 확인하게 한다.
 
 ## 적용 범위
@@ -50,11 +50,16 @@
 - 적용되지 않는 Gate는 생략하지 말고 `N/A`로 기록한다.
 - `N/A`는 `Gate ID + N/A 사유 + 근거 경로` 3종 세트가 있을 때만 인정한다.
 - 더미 SQL 또는 의미 없는 0건 결과로 Gate를 통과 처리하지 않는다.
+- Draft SQL은 공유 DB(개발계/운영계) 쓰기 작업 전까지만 수정 가능하다. Local 검증 또는 운영 read-only preflight에서 발견된 문제는 기존 Draft SQL을 수정해 재검증하며, 새 번호 SQL 파일을 만들지 않는다.
+- 개발계 쓰기 작업 전 운영 read-only preflight로 대상 DB 차이를 먼저 확인한다.
+- 운영 read-only preflight는 DB 식별값, 적용 이력, 대상 객체 정의/카운터 조회 결과를 로그로 남긴다.
 - 운영/개발계에 적용 완료된 SQL 파일은 append-only로 취급한다. 수정이 필요하면 기존 파일을 고치지 말고 새 번호의 SQL 파일을 추가한다.
 - 개발계/운영계 DB에 적용하는 각 SQL 파일은 성공 후 `schema_migrations`에 기록한다. postcheck-only SQL도 실행 순서에 포함되면 동일하게 기록한다.
 - 일회성 로컬 검증 DB는 `schema_migrations` 기록 대신 복원 `dump`, 실행 SQL 목록, postcheck 결과, 데이터 보존 검증 로그로 증빙할 수 있다.
-- 개발계/운영계 반영이 실패하거나 실행이 중단되면 동일 SQL 세트를 즉시 재실행하지 않는다. 먼저 실제 대상 DB에서 DB 식별값, 적용 완료 row, 적용 대상 객체/컬럼/데이터 상태, 실패 SQL 로그를 확인해 `미적용`, `부분 적용`, `성공 후 ledger 누락` 중 하나로 분류한다.
-- 실패/중단 후 복구 또는 재개 SQL이 필요하면 기존 파일을 수정하지 않고 새 번호의 SQL 파일로 추가한다. 새 SQL은 다시 Local baseline -> 개발계 -> 운영계 순서로 검증한다.
+- 개발계/운영계 쓰기 작업이 실패하거나 실행이 중단되면 동일 SQL 세트를 즉시 재실행하지 않는다. 먼저 실제 대상 DB에서 DB 식별값, 적용 완료 row, 적용 대상 객체/컬럼/데이터 상태, 실패 SQL 로그를 확인해 `미적용`, `부분 적용`, `성공 후 ledger 누락` 중 하나로 분류한다.
+- `미적용`이고 해당 SQL이 아직 개발계/운영계 어느 공유 DB에도 성공 적용되거나 ledger 기록되지 않았다면 기존 Draft SQL을 수정해 실행 검증 파이프라인 순서로 다시 검증한다.
+- `부분 적용`이거나 이미 한 공유 DB에라도 성공 적용된 SQL이면 기존 SQL 파일을 수정하지 않고 새 번호의 복구/재개 SQL 파일을 추가한다. 새 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
+- `성공 후 ledger 누락`이면 적용 당시 checksum, 성공 postcheck 로그, 실제 DB 식별값을 확인한 뒤 이력 테이블 복구 절차로 처리한다.
 
 ## 적용 이력 테이블
 
@@ -166,15 +171,16 @@ ORDER BY id;
 
 1. `Local Baseline 검증`: 최신 운영 `dump`를 로컬 MySQL에 복원하고 precheck SQL을 먼저 실행한다. `DBM-GATE-000` 또는 baseline gate 미통과 시 즉시 중단한다.
 2. `Local 마이그레이션 검증`: 운영 `dump` 기준 로컬 DB에 신규 DDL/backfill/cutover/contract SQL을 순서대로 실행하고, `DBM-GATE-100/200/300/400` 통과 전까지 수정-재실행을 반복한다.
-3. `개발계 이력 확인`: 개발계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 적용 예정 SQL의 중복/체크섬 불일치가 없는지 확인한다. ledger가 없으면 즉시 중단한다.
-4. `개발계 반영`: 로컬에서 통과한 동일 SQL 세트를 개발계 DB에 동일 순서로 적용하고, 카운터/해시/guard 결과가 동일 결론(`No Findings`)인지 확인한 뒤 `target_env='dev'`로 기록한다.
-5. `운영계 이력 확인`: 운영계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 개발계와 동일한 기준으로 중복/체크섬 불일치를 확인한다. ledger가 없으면 즉시 중단한다.
-6. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영 실패 또는 중단 시 즉시 중단하고, 작성 규칙의 실패/중단 분류를 완료한 뒤 동일 SQL 재시도 또는 새 번호의 복구/재개 SQL 추가 여부를 결정해 Local 단계부터 다시 검증한다.
-7. `운영계 postcheck`: 운영계 반영 직후 동일 Gate 기준 postcheck SQL을 실행해 최종 guard 결과를 확인한다. 성공 후 `target_env='prod'`로 ledger에 기록한다.
-8. `근거 기록`: PR/리뷰에 적용 대상 Gate별 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`를 남기고, 비적용 Gate는 `Gate ID + N/A 사유 + 근거 경로`를 남긴다.
-9. `승인 조건`: Local/개발계 DB 검증 근거가 없으면 승인하지 않는다. 운영 반영 완료 판정은 운영계 postcheck 로그와 ledger 기록을 함께 확인한다.
+3. `운영 read-only preflight`: 운영계 DB 식별값, 적용 이력, 대상 객체 정의/카운터를 조회해 운영 차이를 먼저 확인한다. 쓰기 작업은 금지한다.
+4. `개발계 이력 확인`: 개발계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 적용 예정 SQL의 중복/체크섬 불일치가 없는지 확인한다. ledger가 없으면 즉시 중단한다.
+5. `개발계 반영`: 로컬에서 통과한 동일 SQL 세트를 개발계 DB에 동일 순서로 적용하고, 카운터/해시/guard 결과가 동일 결론(`No Findings`)인지 확인한 뒤 `target_env='dev'`로 기록한다.
+6. `운영계 이력 확인`: 운영계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 개발계와 동일한 기준으로 중복/체크섬 불일치를 확인한다. ledger가 없으면 즉시 중단한다.
+7. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영 실패 또는 중단 시 즉시 중단하고, 작성 규칙의 실패/중단 분류에 따라 후속 조치를 결정한다. 재검증이 필요한 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
+8. `운영계 postcheck`: 운영계 반영 직후 동일 Gate 기준 postcheck SQL을 실행해 최종 guard 결과를 확인한다. 성공 후 `target_env='prod'`로 ledger에 기록한다.
+9. `근거 기록`: PR/리뷰에 운영 read-only preflight 로그 경로(`DB 식별값 + 적용 이력 + 대상 객체 정의/카운터`)를 남긴다. 적용 대상 Gate별 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`를 남기고, 비적용 Gate는 `Gate ID + N/A 사유 + 근거 경로`를 남긴다.
+10. `승인 조건`: Local 검증, 운영 read-only preflight, 개발계 DB 검증 근거 중 하나라도 없으면 승인하지 않는다. 운영 반영 완료 판정은 운영계 postcheck 로그와 ledger 기록을 함께 확인한다.
 
 ## 에이전트/리뷰어 추적 규칙
 
 - 작업 지시 또는 리뷰에서 `DBM-GATE-*`가 언급되면, 본 문서를 우선 기준으로 해석한다.
-- 근거 제시는 적용 Gate에 대해 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`, 비적용 Gate에 대해 `Gate ID + N/A 사유 + 근거 경로`를 기본으로 한다.
+- 근거 제시는 운영 read-only preflight에 대해 `로그 경로 + DB 식별값 + 적용 이력 + 대상 객체 정의/카운터`, 적용 Gate에 대해 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`, 비적용 Gate에 대해 `Gate ID + N/A 사유 + 근거 경로`를 기본으로 한다.
