@@ -75,6 +75,7 @@
 - [회원가입 응답 계약](policy/signup-response-contract.md) - result_code/result_data 역할 분리 최종안
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
+- [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
 - [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
