@@ -65,7 +65,7 @@
 - [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
 - [Git 동기화/Rebase 실행 정책](policy/git-sync-rebase-policy.md) - pull/rebase 기준 및 최신화 검증 규칙
 - [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
-- [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그)과 GitHub Release 발행
+- [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그), docs GitHub Release, 릴리즈 기록
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 에러 응답 및 환경 분리 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
@@ -85,6 +85,7 @@
 ### Flows
 
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
+- [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
 
 ### Releases

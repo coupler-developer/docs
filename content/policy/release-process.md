@@ -11,7 +11,7 @@
 
 - Production 배포 단위를 `git tag`로 고정해, "무엇이 언제 배포됐는지"를 추적한다.
 - 문제 발생 시 "어느 버전으로 롤백할지" 기준점을 만든다.
-- GitHub Release로 변경점/주의사항을 한 곳에 모은다.
+- `docs` GitHub Release와 릴리즈 기록 문서로 변경점/주의사항을 한 곳에 모은다.
 
 > 참고: `docs/site/`는 `mkdocs build`가 생성하는 정적 사이트 빌드 산출물이다. 커밋 대상이 아니라 `.gitignore`로 제외한다.
 
@@ -28,13 +28,23 @@
 
 - 개발계(EC2): 서버에 접속해서 배포/검증하는 개발 환경
 - 운영(Production): 실사용자 대상 환경
-- NextPush `Staging`/`Production`: 서버 환경이 아니라 **모바일 OTA 배포 채널 이름**
+- NextPush `Production`: 현재 사용하는 모바일 OTA 배포 label
 
 ## 현재 배포 대상(정리)
 
 - 개발계(EC2) 배포 대상: `coupler-api`, `coupler-admin-web`
 - 모바일 배포 대상: `coupler-mobile-app` (EC2 배포 없음, 스토어/OTA로 배포)
-- 문서 배포 대상: `docs` (GitHub Pages + GitHub Release)
+- 문서 배포 대상: `docs` (GitHub Pages + docs GitHub Release)
+
+## 배포 범위 선택 원칙
+
+- 운영 배포는 항상 모든 구성요소를 포함하지 않는다.
+- 배포 시작 시 포함 범위를 먼저 고정한다: `DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`.
+- 선택되지 않은 범위는 `N/A` 사유와 근거를 릴리즈 기록에 남긴다.
+- DB 변경이 포함되면 [DB Migration Gate 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
+- `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
+- 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
+- Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는 OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다.
 
 ## 릴리즈 운영 모델 (단계별)
 
@@ -44,6 +54,7 @@
 
 - 문서 레포(`docs`) 단독으로 Release를 운영한다.
 - `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
+- `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
 - 이 단계의 목적은 release 파이프라인 안정화다.
 
 ### 2단계 (확장)
@@ -103,7 +114,7 @@ git tag -a "${TAG}" -m "Release ${TAG}"
 git push origin "${TAG}"
 ```
 
-- 이 단계의 목적은 GitHub Release를 "배포 제어판"으로 먼저 여는 것이다.
+- 이 단계의 목적은 docs GitHub Release를 "배포 제어판"으로 먼저 여는 것이다.
 - 이 시점 Release Note 상태는 `planned` 또는 `in_progress`로 둔다.
 - 서비스 레포 태그를 대신하는 행위가 아니다.
 
@@ -154,8 +165,8 @@ git push origin "${TAG}"
 
 대상: `coupler-api`, `coupler-admin-web`
 
-> 참고: 현재 서비스 레포들의 GitHub Actions는 기본적으로 `pull_request`에서만 돌고, `tag push`로 자동 배포가 트리거되지 않는다.
-> 따라서 이 문서의 태그/릴리즈는 “자동 배포 버튼”이 아니라 **배포 기록(감사 로그)과 롤백 기준점**을 만드는 목적이다.
+> 참고: 현재 서비스 레포들의 GitHub Actions는 `pull_request`와 `workflow_dispatch`에서만 돌고, `tag push`로 자동 배포나 GitHub Release 생성이 트리거되지 않는다.
+> 따라서 서비스 레포 태그는 “자동 배포 버튼”이 아니라 **배포 기록(감사 로그)과 롤백 기준점**을 만드는 목적이다.
 
 ### 1) 배포 커밋 확정 (main 고정)
 
@@ -180,7 +191,7 @@ git status
 - `coupler-admin-web`의 서버 준비, artifact 업로드, `nginx` 설정, `pm2 save`, 검증, 롤백 절차는 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 단일 실행 기준으로 따른다.
 
 - 배포 후 아래를 확인한다.
-    - API: `GET /health` 200 확인, 에러 로그 확인(최소 10-30분)
+    - API: 루트 응답(예: `GET /` 200), 배포 범위 관련 핵심 API 1개 이상, 에러 로그 확인(최소 10-30분)
     - Admin: 로그인, 핵심 화면 1-2개(예: 심사/회원관리) 진입 및 주요 액션 1회 확인
     - Admin: 브라우저 콘솔에 CRA 개발 서버 WebSocket(`:8000/ws`) 재연결 오류가 없는지 확인
 
@@ -207,22 +218,19 @@ git show "${TAG}"
 git ls-remote --tags origin "${TAG}"
 ```
 
-### 4) GitHub Release 발행 (배포 노트 기록)
+### 4) 서비스 레포 릴리즈 기록 남기기
 
-- GitHub UI에서 `v1.2.1` 태그 기준으로 Release를 생성한다.
-- CLI를 쓸 경우(선택):
+- `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`는 현재 GitHub Release를 기본 산출물로 운영하지 않는다.
+- 서비스 레포 태그 push 후 GitHub Release 또는 zip artifact 생성을 기다리지 않는다.
+- 릴리즈 기록 문서 또는 `docs` 통합 Release Note에 아래를 남긴다.
+    - 레포 이름
+    - 태그 이름
+    - 태그 커밋 SHA
+    - 운영 반영 시각
+    - 검증 결과
+    - 롤백 기준점
 
-```bash
-# 임시 파일 생성 후 업로드 (여러 줄 노트용)
-cat > /tmp/release-notes-v1.2.1.md <<'EOF'
-## Summary
-- (한 줄) 이번 배포의 핵심
-EOF
-
-gh release create v1.2.1 --title "v1.2.1" --notes-file /tmp/release-notes-v1.2.1.md
-```
-
-## Docs 배포 (GitHub Pages + Tag Release)
+## Docs 배포 (GitHub Pages + docs Tag Release)
 
 대상: `docs`
 
@@ -278,7 +286,7 @@ git push origin "${TAG}"
 
 - 모바일은 EC2에 배포하지 않는다.
 - 배포 단위는 "스토어 빌드" 또는 "NextPush OTA 배포"이다.
-- NextPush의 `Staging`/`Production`은 서버 환경이 아니라 **OTA 배포 채널 이름**이다.
+- 현재 NextPush OTA 배포는 `Production` label만 사용한다.
 
 ### 1) 배포 유형 선택
 
@@ -289,22 +297,22 @@ git push origin "${TAG}"
 
 ### 2) OTA 배포 (NextPush)
 
-레포 스크립트:
+Production OTA만 아래 레포 스크립트로 실행한다.
 
 ```bash
 # Android
-yarn codepush-and-stag
 yarn codepush-and-prod
 
 # iOS
-yarn codepush-ios-stag
 yarn codepush-ios-prod
 ```
 
 ### 3) 태그/릴리즈 남기기
 
-- OTA/스토어 배포가 끝나고 검증한 커밋에 태그를 찍는다.
-- GitHub Release에는 "어느 채널에 배포했는지(NextPush Staging/Production)"와 "검증 시나리오"를 남긴다.
+- 스토어 배포가 끝나고 검증한 커밋에는 모바일 레포 태그를 찍는다.
+- NextPush-only 배포는 기본적으로 모바일 레포 태그를 새로 만들지 않는다.
+- NextPush-only 배포의 기준점은 NextPush app/deployment label, uploaded time, target binary version, rollout/mandatory/disabled 상태, 배포한 git commit SHA로 기록한다.
+- 릴리즈 기록 또는 `docs` 통합 Release Note에는 실제 배포한 NextPush app, `Production` deployment label, 검증 시나리오를 남긴다.
 
 ## 릴리즈 노트 템플릿
 
