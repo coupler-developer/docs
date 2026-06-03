@@ -1,4 +1,4 @@
-# API 에러 계약 정책 (Dev/Prod 통합)
+# API 에러 계약 정책
 
 ## 문서 역할
 
@@ -9,145 +9,289 @@
 
 ## 목적
 
-- API/Admin/Mobile 전 영역에서 개발계/운영계를 분리 운영하되, 에러 응답 계약은 단일 형태로 고정해 원인 추적성과 회귀 안정성을 확보한다.
+- 전사 API 실패 응답 계약을 단일 SoT로 고정한다.
+- 개발/운영 응답 구조를 동일하게 유지한다.
+- API/Admin/Mobile 에러 분기 기준을 하나로 고정한다.
+- 도메인 문서는 실패 응답 계약을 재정의하지 않고 이 문서를 참조한다.
+
+## 용어
+
+- API: 서버와 클라이언트가 주고받는 호출 계약
+- JSON: API 응답 본문 형식
+- HTTP Status: HTTP 응답 상태 코드
+- TypeScript: 서버와 클라이언트 코드 언어
+- SoT: `Single Source of Truth`, 단일 기준
+- DTO: `Data Transfer Object`, 요청/응답 데이터 객체
+- Phase: 점진 이전 단계
+- to-be: 목표 기준
+- envelope: 공통 응답 바깥 구조
+- factory/mapper: 생성/변환 함수
+- Swagger(OpenAPI 문서): API 경로, 응답, 샘플을 적는 문서
+
+## 작성 기준
+
+- 표준 개발 용어는 사용할 수 있다.
+- 첫 등장이나 용어 섹션에서 뜻을 밝힌다.
+- 코드 식별자와 응답 필드는 원문 그대로 쓴다.
+- 문장은 필수 단어로 짧게 쓴다.
 
 ## 문서 상태
 
-- 본 문서는 API 에러 응답의 최종 목표 계약을 정의하는 정책 문서다.
-- 전역 구현이 아직 동일 수준으로 맞춰지지 않은 구간은 허용하며, 도메인별 국소 적용 후 점진 이관한다.
-- 따라서 본 문서는 "현재 전 레포가 이미 전부 준수 중인 현행 설명"이 아니라, PR/리뷰/후속 이관의 판정 기준으로 사용한다.
+- 이 문서는 최종 목표 계약과 점진 이전 Phase를 함께 정의한다.
+- 신규 실패 응답은 이 문서의 최종 계약을 기준으로 작성한다.
+- 기존 미준수 구현은 Phase, 제거 조건, 담당자, 목표 시점, 검증 증빙을 남기고 이전한다.
+- "현재 구현" 설명과 이 문서가 충돌하면 이 문서를 to-be 기준으로 사용한다.
 
 ## 적용 범위
 
-- 레포: `coupler-api`, `coupler-mobile-app`, `coupler-admin-web`
-- 환경: local/dev/staging/prod
-- 대상: HTTP API 응답, 모바일/어드민의 에러 분기 로직, 운영 로그/모니터링
-- 제외: 외부 서드파티 원본 응답 형식(단, 내부 경계에서 본 정책 DTO로 변환해 반환해야 함)
+- 저장소: `coupler-api`, `coupler-mobile-app`, `coupler-admin-web`
+- 환경: local, dev, staging, prod
+- 대상: HTTP API 실패 응답, 클라이언트 에러 분기, 운영 로그 상관관계
+- 제외: 외부 서드파티 원본 응답
+    - 단, 내부 API 경계에서는 이 문서의 `ApiErrorData`로 변환한다.
 
-## 단일 SoT
+## 우선순위
 
-- 상위 기술 원칙: `content/policy/engineering-guardrails.md`
-- 테스트/검증 기준: `content/policy/testing-strategy.md`
-- 로그/운영 기준: `content/policy/log-policy.md`
-- 회원가입 계약(특정 도메인): `content/policy/signup-response-contract.md`
+1. 실패 응답 envelope, `ApiErrorData`, `error_action`, `request_id`, HTTP Status 기준은 이 문서가 우선한다.
+2. Fail-closed, 조용한 실패 금지, 레이어 책임은 [엔지니어링 가드레일](engineering-guardrails.md)을 따른다.
+3. 로그 레벨, 민감정보 제외, 저장/전송 방식은 [로그 정책](log-policy.md)을 따른다.
+4. 도메인 문서는 성공 DTO, 도메인 상태, 도메인별 적용 Phase만 정의한다.
+5. 도메인 문서는 실패 응답 필드, 분기 기준, `request_id` 필수 여부를 재정의하지 않는다.
 
-## 필수 규칙
+## 아키텍처
 
-### 1) 개발계/운영계 분리 원칙
+- API 서버는 실패 원인을 표준 `ApiErrorData`로 매핑한다.
+- API 서버는 실패 응답을 공통 생성 경로로 만든다.
+- API 서버는 Phase 기준에 따라 `request_id`, `error_code`, `error_source`를 같은 로그에 남긴다.
+- Mobile/Admin은 `result_code`로 성공/실패를 1차 분기한다.
+- Mobile/Admin은 실패 시 `error_action`과 `error_code`로 동작을 결정한다.
+- Mobile/Admin은 `result_msg` 문자열을 파싱하지 않는다.
+- 운영 추적은 `request_id -> error_source -> error_code` 순서로 좁힌다.
 
-- 개발계와 운영계는 반드시 분리한다.
-- 단, 응답 필드 구조/타입/의미는 모든 환경에서 동일해야 한다.
-- 금지:
-    - 환경별로 응답 키를 다르게 내리는 행위
-    - 개발계에서만 에러 코드를 추가/변경하는 행위
-    - 운영계에서만 fallback 분기로 다른 계약을 노출하는 행위
+## TypeScript/JSON 네이밍 경계
 
-### 2) 응답 Envelope 단일화
+- API 응답 JSON 필드는 기존 envelope와 같은 `snake_case`를 사용한다.
+- TypeScript 내부 도메인 모델, 함수 인자, factory 입력은 `camelCase`를 사용한다.
+- `camelCase` 내부 값은 공통 factory/mapper 경계에서만 `snake_case` 응답 DTO로 변환한다.
+- 컨트롤러와 도메인 로직은 신규 실패 응답 JSON을 직접 조립하지 않고 공통 생성 경로를 사용한다.
+- `error_context`의 API 응답 key도 `snake_case`를 사용한다.
+- 클라이언트가 내부 모델을 `camelCase`로 정규화하더라도 API 분기 계약은 이 문서의 `snake_case` API 응답 필드를 기준으로 한다.
+- 같은 API 응답 안에서 `errorCode`와 `error_code`처럼 동일 의미의 camel/snake 필드를 병행하지 않는다.
 
-- 성공/실패 모두 공통 envelope를 사용한다.
-- 필수 필드:
-    - `result_code`: 성공/실패 1차 게이트 코드
-    - `result_msg`: 사용자 표시용 문구(로직 분기 금지)
-    - `result_data`: 성공 데이터 또는 에러 구조체
-- `result_data` 타입 규칙:
-    - 성공 응답에서는 엔드포인트별 성공 DTO를 사용한다.
-    - 실패 응답에서는 공통 에러 DTO(`ApiErrorData`)를 사용한다.
-    - 따라서 `result_data`는 전역 단일 고정 타입이 아니라, 성공형/실패형에 따라 타입이 달라지는 discriminated payload로 취급한다.
+## 응답 Envelope
 
-### 3) 실패 응답 표준(최종형)
+성공과 실패는 같은 envelope를 사용한다.
 
-- 실패 시 `result_data`는 아래 에러 구조를 따른다.
-    - `error_code`: 도메인 원인 코드(문자열, 안정 식별자)
-    - `error_source`: 오류 도메인/모듈 식별자(예: `MEMBER_AUTH_REVIEW`)
-    - `error_action`: 클라이언트 권장 후속 처리(예: `RETRY`, `FIX_REQUEST`, `CONTACT_SUPPORT`)
-    - `error_context`: 원인 분석용 구조화 데이터
-    - `request_id`: 서버 로그 상관관계 식별자(Phase 1에서는 선택, Phase 2부터 필수)
-- `result_msg`는 표시용이며, 분기 로직은 `error_code/error_action`만 사용한다.
+```json
+{
+  "result_code": 0,
+  "result_msg": "OK",
+  "result_data": {}
+}
+```
 
-### 4) HTTP Status와 result_code의 역할 분리
+실패 시 `result_data`는 이 문서의 Phase별 `ApiErrorData`를 사용한다.
 
-- HTTP Status:
-    - 프로토콜/인증/권한/서버장애 레벨 표현(`2xx`, `4xx`, `5xx`)
-- `result_code`:
-    - 앱 공통 성공/실패 1차 분기
-- `error_code`:
-    - 도메인 원인 판별 단일 기준
-- 금지:
-    - 사용자 상태값(`BLOCK`, `LEAVE` 등)을 `result_code`로 재사용
-    - `result_msg` 문자열 파싱으로 분기하는 로직
+```json
+{
+  "result_code": -10,
+  "result_msg": "요청을 처리할 수 없습니다.",
+  "result_data": {
+    "error_code": "MEMBER_AUTH_DELETE_FORBIDDEN",
+    "error_source": "MEMBER_AUTH_REVIEW",
+    "error_action": "FIX_REQUEST",
+    "error_context": {
+      "member_id": 77
+    },
+    "request_id": "req_20260603_000001"
+  }
+}
+```
 
-### 5) 코드 체계 규칙
+## 필드 의미
 
-- `result_code`는 공통 코드 풀만 사용한다(환경/도메인별 임의 추가 금지).
-- 도메인 원인 코드는 `error_code` 문자열로 확장한다.
-- `error_code` 네이밍 규칙:
-    - 대문자 스네이크(`DOMAIN_REASON_DETAIL`)
-    - 변경 시 하위호환 계획/적용 범위를 문서에 명시
+| 필드 | 의미 | 분기 사용 |
+| --- | --- | --- |
+| HTTP Status | 프로토콜, 인증, 권한, 서버 장애 레벨 | 가능 |
+| `result_code` | 앱 공통 성공/실패 1차 게이트 | 가능 |
+| `result_msg` | 사용자 표시 문구 | 금지 |
+| `result_data` 성공형 | 엔드포인트별 성공 DTO | 가능 |
+| `result_data` 실패형 | `ApiErrorData` | 가능 |
+| `error_code` | 도메인 원인 코드 | 가능 |
+| `error_source` | 오류 도메인/모듈 | 가능 |
+| `error_action` | 클라이언트 권장 동작 | 가능 |
+| `error_context` | 원인 분석용 구조화 데이터 | 금지 |
+| `request_id` | 서버 로그 상관관계 ID | 가능 |
 
-### 5-1) `result_code` 공통 코드 풀 SoT
+## `ApiErrorData` 최종형
 
-- 공통 `result_code`는 서버 상수 정의를 기준으로 관리한다.
-- 정책 본문에는 개별 코드값 목록을 고정하지 않는다. 값 스냅샷은 구현 변경에 따라 드리프트되기 쉽기 때문이다.
-- 다른 레포의 상수 정의는 서버 기준과 값/의미가 일치해야 하며, 임의 재정의/부분 복사/플랫폼별 변형을 금지한다.
-- `result_code` 신규 추가는 원칙적으로 금지한다. 불가피할 경우 서버 상수, 관련 클라이언트 상수, Swagger/샘플 응답, 본 정책 문서의 규칙을 같은 작업 단위에서 함께 갱신한다.
+최종 계약(Phase 2 이후)의 필수 필드는 아래 5개다.
 
-### 6) 환경별 허용 차이
+- `error_code`: 대문자 스네이크 원인 코드
+- `error_source`: 대문자 스네이크 도메인/모듈 코드
+- `error_action`: 클라이언트 권장 동작 값
+- `error_context`: 민감정보 없는 객체
+- `request_id`: 서버 로그 상관관계 ID
 
-- 허용:
-    - 개발계에서만 상세 로그 출력 강화
-    - 개발계/스테이징에서만 디버그 대시보드 노출
-- 비허용:
-    - 응답 계약/필드의 존재 여부 차이
-    - 같은 입력에 대해 환경마다 다른 `error_code` 반환
+`error_context`는 로직 분기 기준이 아니다.
+클라이언트 분기는 `error_action`을 우선하고, 필요 시 `error_code`를 보조 기준으로 사용한다.
 
-### 7) 호환/이행 규칙
+## 코드 체계
 
-- Phase 1:
-    - 기존 `result_code/result_msg/result_data` 유지
-    - 실패 `result_data`에 표준 에러 구조(`error_code/source/action/context`)를 병행 추가
-    - `request_id`는 인프라 준비 전까지 선택 적용(도입 계획/담당자/기한을 PR에 명시)
-- Phase 2:
-    - 모바일/어드민 분기를 `error_code/error_action` 중심으로 전환
-    - `result_msg` 의존 로직 제거
-- Phase 3:
-    - HTTP Status를 문서 계약대로 정렬(필요한 경로부터 점진 적용)
-    - legacy 숫자 코드 재사용/충돌 제거
+### `result_code`
 
-### 7-1) 도메인 적용 완료 판정
+- `result_code` 값 기준은 서버 공통 상수다.
+- 성공은 `0`만 사용한다.
+- 실패는 공통 실패 코드만 사용한다.
+- 도메인 상태값을 `result_code`로 재사용하지 않는다.
+- 신규 `result_code` 추가는 원칙적으로 금지한다.
 
-- 특정 도메인/엔드포인트는 아래 조건을 모두 만족할 때 본 정책 적용 완료로 본다.
-    - 실패 응답 `result_data`에 `error_code`, `error_source`, `error_action`, `error_context`가 항상 포함된다.
-    - 클라이언트 분기 로직이 `result_msg` 문자열이나 도메인별 숫자 `result_code`에 의존하지 않는다.
-    - `request_id`를 포함했거나, 미포함 시 Phase/담당자/도입 기한이 PR 또는 추적 이슈에 남아 있다.
-    - Swagger/문서/샘플 응답이 실제 구현과 같은 구조를 가리킨다.
-- 부분 적용 상태의 도메인은 PR/문서에 `Phase 1`, `Phase 2`, `Phase 3` 중 현재 단계를 명시한다.
+### `error_source`
 
-## 운영 절차
+- 형식: 대문자 스네이크
+- 의미: 오류가 발생한 도메인/모듈
+- 예: `MEMBER_AUTH_REVIEW`, `SIGNUP_REVIEW`, `SECURITY_ACCESS_CONTROL`
 
-- 변경 요청: 신규 에러 코드/행동코드 추가 제안서 작성
-- 검토: API/Mobile/Admin 담당자 공동 리뷰(계약 충돌, UX 영향, 운영 로그 영향)
-- 적용: API 구현 -> 클라이언트 분기 반영 -> 문서/Swagger 동기화
-- 검증: [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 + 계약 테스트 통과
-- 롤백: 신규 코드/분기 비활성화 시 legacy 분기로 즉시 복귀 가능해야 함
+### `error_code`
 
-## 증빙/추적
+- 형식: 대문자 스네이크
+- 의미: 안정적인 도메인 원인
+- 권장 형식: `{DOMAIN}_{REASON}_{DETAIL}`
+- 값 기준: API 서버 도메인 상수
+- Swagger(OpenAPI 문서)는 API 서버 도메인 상수와 같은 작업 단위에서 동기화한다.
+- 문서 역할: 형식, 변경 절차, 분기 책임 고정
 
-- PR에 반드시 포함:
-    - 추가/변경 `error_code` 목록
-    - 모바일/어드민 처리 규칙 변경점
-    - 샘플 응답(성공/실패)
-    - 테스트 로그 링크
-- 운영 장애 대응 시:
-    - `request_id`, `error_code`, `error_source` 3종으로 상관관계 추적
+### `error_action`
+
+`error_action`은 클라이언트 권장 동작이다.
+
+- 값 기준: `coupler-api/lib/api-error.ts`의 `API_ERROR_ACTION` 상수
+- 이 문서는 `error_action` 값 목록을 직접 소유하지 않는다.
+- 정책 문서에 후보 값을 미리 예약하지 않는다.
+- API 서버 상수에 없는 `error_action`은 응답에 사용하지 않는다.
+- 신규 `error_action`은 API 서버 상수, Swagger(OpenAPI 문서), Mobile/Admin 분기, 테스트, 관련 문서를 같은 작업 단위에서 갱신한 뒤 사용한다.
+- 장기 목표는 API 서버, Swagger(OpenAPI 문서), Mobile/Admin 타입을 같은 계약 파일에서 생성하거나 검증하는 구조다.
+
+## HTTP Status
+
+- `2xx`: 요청 처리 성공
+- `400`: 요청 형식/검증 실패
+- `401`: 인증 실패
+- `403`: 권한 실패
+- `404`: 리소스 없음
+- `409`: 상태 충돌
+- `422`: 도메인 검증 실패
+- `5xx`: 서버 장애
+
+HTTP Status와 `result_code`는 같은 의미를 중복 표현하지 않는다.
+HTTP Status는 프로토콜 레벨, `error_code`는 도메인 원인이다.
+
+## 환경 규칙
+
+- 모든 환경은 같은 응답 필드, 타입, 의미를 사용한다.
+- 개발계 전용 상세 로그는 허용한다.
+- 개발계 전용 응답 필드는 금지한다.
+- 운영계 전용 fallback 응답은 금지한다.
+- 같은 입력은 모든 환경에서 같은 `error_code`를 반환한다.
+
+## Phase
+
+### Phase 0: Legacy
+
+- 표준 `ApiErrorData`가 없는 기존 상태다.
+- 신규 실패 케이스에 Phase 0 추가는 금지한다.
+- 잔존 Phase 0은 도메인 문서나 PR에 이전 대상을 명시한다.
+
+### Phase 1: Server DTO
+
+- 기존 envelope는 유지한다.
+- 실패 `result_data`에 `error_code`, `error_source`, `error_action`, `error_context`를 항상 포함한다.
+- Phase 1 `ApiErrorData`는 최종형에서 `request_id`만 선택 허용한 전환 DTO다.
+- `request_id`는 인프라 준비 전까지 선택 허용한다.
+- `request_id` 미적용 시 담당자, 목표 시점, 추적 이슈를 남긴다.
+- `error_context` 밖의 호환 필드는 제거 조건이 있을 때만 임시 허용한다.
+
+### Phase 2: Client Branch
+
+- 실패 `result_data.request_id`를 항상 포함한다.
+- Mobile/Admin 분기는 `error_action`과 `error_code`만 사용한다.
+- `result_msg` 문자열 분기를 제거한다.
+- 서버 로그는 `request_id`, `error_source`, `error_code`로 검색 가능해야 한다.
+
+### Phase 3: Final
+
+- HTTP Status를 이 문서 기준으로 정렬한다.
+- 도메인 숫자 코드 재사용을 제거한다.
+- `error_context` 밖의 호환 필드를 제거한다.
+- Swagger(OpenAPI 문서), 문서, 테스트가 같은 실패 계약을 가리킨다.
+
+## 완료 판정
+
+### Phase 1 완료
+
+- 실패 응답에 `error_code`, `error_source`, `error_action`, `error_context`가 항상 있다.
+- 환경별 응답 구조 차이가 없다.
+- Swagger(OpenAPI 문서)/샘플 응답이 실제 구현과 같다.
+- 남은 호환 필드에는 제거 조건, 담당자, 목표 시점, 추적 이슈가 있다.
+
+### Phase 2 완료
+
+- 실패 응답에 `request_id`가 항상 있다.
+- Mobile/Admin이 `result_msg`로 분기하지 않는다.
+- 운영 로그에서 `request_id`, `error_source`, `error_code`를 함께 조회할 수 있다.
+
+### 최종 완료
+
+- Phase 3 조건을 만족한다.
+- 신규/기존 실패 응답이 모두 `ApiErrorData`를 사용한다.
+- 코드, Swagger(OpenAPI 문서), 도메인 문서, 테스트가 같은 계약을 가리킨다.
+
+## 도메인 문서 규칙
+
+도메인 문서의 에러 섹션은 아래 문장을 포함한다.
+
+```markdown
+실패 응답 계약은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
+이 문서는 도메인 적용 Phase(전환 단계)와 도메인별 `error_code` 예시만 기록한다.
+```
+
+도메인 문서는 아래 항목만 기록할 수 있다.
+
+- 적용 엔드포인트
+- 현재 Phase
+- `error_source`
+- 도메인별 `error_code` 예시
+- `error_action` 매핑
+- `error_context` 필드 예시
+- 남은 호환 필드와 제거 조건
+
+도메인 문서는 아래 항목을 재정의하지 않는다.
+
+- envelope 구조
+- `ApiErrorData` 필수 필드
+- `request_id` 필수 여부
+- HTTP Status 기준
+- `result_code` 의미
+- `result_msg` 분기 금지
+
+## 변경 절차
+
+1. `error_code` 또는 `error_action` 변경 필요를 제안한다.
+2. API/Mobile/Admin 영향 범위를 확인한다.
+3. 서버 상수, Swagger(OpenAPI 문서), 클라이언트 분기, 도메인 문서 적용 Phase를 같은 작업 단위에서 갱신한다.
+4. [테스트/CI 전략](testing-strategy.md)의 품질 게이트와 계약 테스트를 통과한다.
+5. PR에 샘플 성공/실패 응답, 테스트 로그, 문서 동기화 근거를 남긴다.
 
 ## 체크리스트
 
-- [ ] 환경별 응답 계약 차이가 없는가
-- [ ] `result_msg`가 로직 분기에 사용되지 않는가
-- [ ] 신규 실패 케이스에 `error_code/source/action/context`가 포함되는가
-- [ ] `request_id` 미적용 시 도입 계획/추적 이슈가 남아 있는가
-- [ ] 모바일/어드민이 `error_action` 기준으로 사용자 동작을 안내하는가
-- [ ] 코드/문서/테스트가 동일한 에러 계약을 가리키는가
+- [ ] 실패 응답 계약은 이 문서를 참조하는가
+- [ ] `result_msg` 문자열 분기가 없는가
+- [ ] 실패 `result_data`가 `ApiErrorData`인가
+- [ ] `error_action`이 API 서버 상수에 있는 값인가
+- [ ] 환경별 응답 구조 차이가 없는가
+- [ ] `request_id` 누락 시 Phase 1 추적 정보가 있는가
+- [ ] 호환 필드가 있다면 제거 조건이 있는가
+- [ ] Swagger(OpenAPI 문서)/문서/테스트가 같은 계약을 가리키는가
 
 ## 관련 문서
 

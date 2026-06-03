@@ -15,6 +15,15 @@
 
 ## 기본 원칙
 
+### 0. API 실패 로그
+
+- API 실패 응답 계약과 상관관계 필드는 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
+- API 실패 로그는 `error_source`, `error_code`를 함께 남긴다.
+- `request_id`는 [API 에러 계약 정책](api-error-contract-policy.md)의 Phase(전환 단계) 기준을 따른다.
+    - Phase 1: 발급된 경우 로그에 포함하고, 미발급 시 담당자/목표 시점/추적 이슈를 남긴다.
+    - Phase 2 이후: `request_id`, `error_source`, `error_code`를 같은 로그에 항상 남긴다.
+- 로그 정책은 출력 레벨, 민감정보 제외, 저장/전송 방식만 다룬다.
+
 ### 1. 환경 분리
 
 #### Backend (coupler-api)
@@ -153,13 +162,16 @@ const handleSubmit = () => {
 
 ### 운영 로그 예시
 
-#### 에러만 기록 (항상 표시)
+#### 에러만 기록 (항상 표시, Phase 2 이후 예시)
 
 ```javascript
 try {
   await someOperation();
 } catch (error) {
   console.error("[ModuleName] operation failed:", {
+    request_id: requestId,
+    error_source: "MODULE_NAME",
+    error_code: "MODULE_OPERATION_FAILED",
     message: error.message,
     stack: error.stack,
     context: relevantData, // 개인정보 제외
@@ -278,6 +290,7 @@ NODE_ENV=development node app.js | grep '\[uploadImages\]'
 - [ ] 로그 메시지에 모듈/컴포넌트명 포함했는가?
 - [ ] 개인정보/민감정보가 포함되지 않았는가?
 - [ ] 운영 환경에 필요한 로그인가? (에러/경고만 허용)
+- [ ] API 실패 로그라면 `error_source/error_code`가 포함됐고, `request_id`는 API 에러 계약 정책의 Phase(전환 단계) 기준에 맞는가?
 - [ ] 반복 로그가 아닌가? (루프 외부로 이동 또는 요약)
 
 ---

@@ -111,6 +111,9 @@ const getFilteredRouteList = (isSuper) => {
 
 ## 권한 검증 코드
 
+아래 코드는 현행 권한 검증 위치 예시다.
+권한 실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
+
 ### Super Admin 전용 작업
 
 ```javascript

@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 회원 심사 규칙은 이 문서, 실패 응답은 `api-error-contract-policy.md`
 - 기준 성격: `transition`
     - 최종 목표 기준을 우선 사용한다.
     - 미전환 구현과의 차이는 PR/작업 보고에 명시한다.
@@ -127,50 +127,44 @@
 
 - `syncMemberReviewStatusByMemberId` 호출은 쓰기 경계(제출/승인/반려/수정 저장)로 제한한다.
 - 조회/미들웨어 경로에서는 sync를 호출하지 않고 `v_member_review_status` 읽기 결과만 사용한다.
-- sync 실패 응답은 `review_status_inconsistent + error_code` 계약으로 통일한다.
+- sync 실패 응답은 [API 에러 계약 정책](api-error-contract-policy.md)의 `ApiErrorData`로 통일한다.
 - sync 실패는 fail-closed를 기본값으로 하며, 트랜잭션 경로에서는 rollback 후 종료한다.
 
-## API 에러 응답 계약 (국소 모범 케이스)
+## API 에러 적용 현황 (`MEMBER_AUTH_REVIEW`)
+
+실패 응답 계약은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
+이 문서는 도메인 적용 Phase(전환 단계)와 도메인별 `error_code` 예시만 기록한다.
 
 적용 범위(1차):
 
 - `POST /app/member/request-review/auth`
 - `POST /app/member/deleteAuth`
 
-상위 기준:
+현재 Phase:
 
-- 전사 에러 계약/환경 분리 기준은 `content/policy/api-error-contract-policy.md`를 단일 SoT로 따른다.
-- 본 섹션은 `MEMBER_AUTH_REVIEW` 도메인의 국소 모범 케이스만 다룬다.
+- Phase 1: Server DTO(서버 응답 데이터 객체)
+- Phase 2 전환 시 `request_id` 필수화와 클라이언트 `error_action/error_code` 분기 완료를 확인한다.
 
 규칙:
 
-- `result_code`는 공통 실패 코드(`RESULT_CODE.ERROR`)를 유지한다.
-- 모바일 원인 판별은 `result_data`의 아래 필드를 단일 기준으로 사용한다.
-    - `error_code`: 도메인 원인 코드(예: `MANAGER_PROFILE_MISSING`, `REQUIRED_AUTH_DELETE_FORBIDDEN`)
-    - `error_source`: 오류가 발생한 도메인(예: `MEMBER_AUTH_REVIEW`)
-    - `error_action`: 모바일 권장 후속 처리(예: `CONTACT_SUPPORT`, `FIX_REQUEST`)
-    - `error_context`: 원인 분석용 구조화 데이터(`member_id`, `manager_id`, `required_auth_types` 등)
-- 호환을 위해 기존 상세 필드(`member_id`, `manager_id`, `required_auth_types`)는 top-level 병행을 허용한다.
+- 이 도메인의 `error_source`는 `MEMBER_AUTH_REVIEW`다.
+- `error_code`, `error_action`, `error_context` 예시는 아래 표만 사용한다.
+- Mobile/Admin 분기 우선순위는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다.
+- `error_context` 밖의 기존 상세 필드(`member_id`, `manager_id`, `required_auth_types`) 병행은 Phase 1에서만 임시 허용한다.
+- 병행 상세 필드는 Phase 2 전환 시 제거하며, 유지 중인 PR에는 담당자, 목표 시점, 추적 이슈를 남긴다.
 
 예시:
 
-```json
-{
-  "result_code": -10,
-  "result_msg": "이미 제출된 필수 인증은 삭제할 수 없습니다. 수정 후 재제출해주세요.",
-  "result_data": {
-    "error_code": "REQUIRED_AUTH_DELETE_FORBIDDEN",
-    "error_source": "MEMBER_AUTH_REVIEW",
-    "error_action": "FIX_REQUEST",
-    "error_context": {
-      "member_id": 77,
-      "required_auth_types": [2]
-    },
-    "member_id": 77,
-    "required_auth_types": [2]
-  }
-}
-```
+| `error_source` | `error_code` 예시 | `error_action` | `error_context` 예시 |
+| --- | --- | --- | --- |
+| `MEMBER_AUTH_REVIEW` | `REQUIRED_AUTH_DELETE_FORBIDDEN` | `FIX_REQUEST` | `member_id`, `required_auth_types` |
+| `MEMBER_AUTH_REVIEW` | `MANAGER_PROFILE_MISSING` | `CONTACT_SUPPORT` | `member_id`, `manager_id` |
+
+Phase 1 호환 필드:
+
+- `member_id`
+- `manager_id`
+- `required_auth_types`
 
 ## Mobile 제출/재제출 정책
 

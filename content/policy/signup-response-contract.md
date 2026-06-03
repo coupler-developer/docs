@@ -4,42 +4,42 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 성공 응답/라우팅은 이 문서, 실패 응답은 `api-error-contract-policy.md`
 - 기준 성격: `transition`
 
 본 문서는 가입/재제출/재심사 제출 API의 최종 응답 계약을 고정한다.
 목표는 클라이언트 추측 라우팅 제거와 회귀 방지다.
 
+## 에러 계약 우선순위
+
+- 본 문서는 회원가입 성공 응답과 라우팅 기준을 다룬다.
+- 실패 응답 계약은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
+- 본 문서는 실패 응답 envelope(응답 바깥 구조), `ApiErrorData`, `request_id`, `error_action`을 재정의하지 않는다.
+
 ## 목적
 
 - 회원가입 플로우에서 화면 분기 기준을 단일화한다.
-- `result_code`와 `result_data`의 역할을 분리한다.
+- 성공 응답의 `result_code`와 `result_data` 역할을 분리한다.
 - 모바일/서버가 같은 상태 모델을 기준으로 동작하게 한다.
 
 ## 역할 분리
 
-### 1) HTTP Status
+### 1) 성공 `result_code`
 
-- 프로토콜/인증/서버 장애 레벨만 표현한다.
-- 예: `401`, `403`, `422`, `500`.
+- 회원가입 성공 응답은 `result_code = 0`이다.
+- 실패 `result_code`, HTTP Status, `ApiErrorData`는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다.
 
-### 2) `result_code`
+### 2) 성공 `result_data`
 
-- 공통 성공/실패 코드만 표현한다.
-- 성공은 `0`만 사용한다.
-- 실패는 음수 코드만 사용한다.
-- 금지: 성공 의미의 양수 코드(`1`, `2` 등)를 비즈니스 상태로 재해석.
-
-### 3) `result_data`
-
-- 도메인 상태 원본을 전달한다.
-- 화면 분기에 필요한 모든 상태는 `result_data`에 포함되어야 한다.
+- 성공 시 도메인 상태 원본을 전달한다.
+- 성공 화면 분기에 필요한 모든 상태는 `result_data`에 포함되어야 한다.
 - 심사 분기/권한 필드는 `result_data.access_context` 단일 객체만 사용한다.
+- 실패 시 `result_data`는 [API 에러 계약 정책](api-error-contract-policy.md)의 `ApiErrorData`를 사용한다.
 
-### 4) 클라이언트 라우팅
+### 3) 클라이언트 라우팅
 
-- 라우팅은 `result_data` 상태 기반으로만 수행한다.
-- `result_code`는 성공/실패 1차 분기용으로만 사용한다.
+- 성공 라우팅은 `result_data` 상태 기반으로만 수행한다.
+- 실패 분기는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다.
 
 ## 성공 응답 계약 (`result_code = 0`)
 
@@ -84,7 +84,7 @@
 
 클라이언트는 아래 순서로 동작한다.
 
-1. `result_code !== 0`이면 에러 처리.
+1. `result_code !== 0`이면 [API 에러 계약 정책](api-error-contract-policy.md)의 `error_action/error_code`로 에러 처리.
 2. `result_code === 0`이면 `result_data`를 상태 저장소에 반영.
 3. `access_context.review_flow.phase + access_context.review_status.basic_info_status`로 다음 화면 결정.
 4. 필요 시 `getSignupReviewOutcome` 같은 순수 함수로 분기 규칙을 고정.
@@ -109,6 +109,7 @@
 ## 검증 체크리스트
 
 - 성공 응답에서 필수 필드 누락 시 서버 계약 위반으로 처리하는가.
+- 실패 응답 처리 기준이 [API 에러 계약 정책](api-error-contract-policy.md)을 참조하는가.
 - 클라이언트 라우팅이 `result_code` 양수값에 의존하지 않는가.
 - 가입/재제출/설정 재심사 제출 모두 동일 계약으로 응답하는가.
 - 과도기 fallback이 남아 있다면 제거 조건/담당자/목표 시점/추적 이슈/검증 근거가 PR 또는 추적 이슈에 남아 있는가.

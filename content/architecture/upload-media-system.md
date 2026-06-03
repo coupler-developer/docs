@@ -9,6 +9,7 @@
 
 파일 업로드, 저장, 서빙의 전체 아키텍처와 로컬 개발 환경의 media_proxy 동작을 정리한 문서이다.
 현재 범위에서는 업로드/미디어의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
+실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
 
 ## 현행 아키텍처
 
@@ -74,6 +75,8 @@ uploads/
 | 오디오                 | 원본 → MP3 변환 후 원본 삭제                                                         | FFmpeg              |                                                                                           |
 | 파일                   | 없음                                                                                 | -                   |                                                                                           |
 
+썸네일/변환 실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)의 `ApiErrorData`를 사용한다.
+
 ## manager 상세 긴 이미지 구조
 
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
@@ -111,6 +114,9 @@ uploads/
 ```
 
 ## API 응답 형식
+
+아래는 성공 응답 예시다.
+실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
 
 ```json
 {

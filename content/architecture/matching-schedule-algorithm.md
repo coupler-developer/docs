@@ -57,6 +57,9 @@ switch (schedule_count) {
 
 ## 입력 검증 예시
 
+아래 코드는 현행 입력 검증 위치 예시다.
+실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
+
 ```javascript
 // match.js 라인 788-793
 if (schedule_list.length < MIN_COUNT || schedule_list.length > MAX_COUNT) {
