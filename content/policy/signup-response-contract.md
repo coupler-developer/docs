@@ -51,6 +51,7 @@
 - `profile_set_current`
 - `profile_set_pending`
 - `access_context`
+- `marketing_events`
 
 필드명 고정(명시):
 
@@ -80,6 +81,19 @@
 - `permissions.lounge_write_allowed`
 - `permissions.lounge_comment_allowed`
 
+`marketing_events.complete_registration` 필수 필드:
+
+- `track`: `boolean`
+- `event_name`: `af_complete_registration`
+- `event_id`: `string | null`
+
+마케팅 이벤트 계약:
+
+- 가입 완료 이벤트 발행 여부는 `marketing_events.complete_registration.track`만 사용한다.
+- 서버는 신규 회원 레코드가 생성되는 최초 가입 제출에만 `track = true`를 내려준다.
+- 기존 회원/승급 제출, 심사 재제출, 프로필 수정 제출은 성공 응답이어도 `track = false`를 내려준다.
+- `event_id`는 운영 추적용 값이며, `track = true`일 때만 문자열을 내려주고 그 외에는 `null`로 내려준다.
+
 ## 라우팅 기준
 
 클라이언트는 아래 순서로 동작한다.
@@ -88,6 +102,7 @@
 2. `result_code === 0`이면 `result_data`를 상태 저장소에 반영.
 3. `access_context.review_flow.phase + access_context.review_status.basic_info_status`로 다음 화면 결정.
 4. 필요 시 `getSignupReviewOutcome` 같은 순수 함수로 분기 규칙을 고정.
+5. 마케팅 이벤트는 라우팅 기준이 아니며, 상태 반영 후 `marketing_events.complete_registration.track = true`일 때만 실행.
 
 ## 금지 사항
 
@@ -96,6 +111,7 @@
 - `review_stage`와 `review_status`(문자열)를 동시에 내려주는 이중 계약.
 - 서버 힌트(`next_step`)를 라우팅 단일 근거로 사용.
 - 클라이언트 로컬 플래그만으로 서버 상태를 덮어 라우팅.
+- 클라이언트 로컬 `member.id`, 세션, pending/review 상태 조합으로 가입 완료 이벤트 발행 여부를 추론.
 
 ## 호환/이행 규칙
 
@@ -111,5 +127,6 @@
 - 성공 응답에서 필수 필드 누락 시 서버 계약 위반으로 처리하는가.
 - 실패 응답 처리 기준이 [API 에러 계약 정책](api-error-contract-policy.md)을 참조하는가.
 - 클라이언트 라우팅이 `result_code` 양수값에 의존하지 않는가.
+- 가입 완료 이벤트 발행 여부가 `marketing_events.complete_registration.track`만 사용하도록 고정되어 있는가.
 - 가입/재제출/설정 재심사 제출 모두 동일 계약으로 응답하는가.
 - 과도기 fallback이 남아 있다면 제거 조건/담당자/목표 시점/추적 이슈/검증 근거가 PR 또는 추적 이슈에 남아 있는가.
