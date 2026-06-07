@@ -55,6 +55,13 @@
 - 만료 조건 없는 임시 권한은 배포 전 차단한다.
 - 임시 권한 종료 후 회수 검증 로그를 PR/작업 보고에 첨부한다.
 
+### 6) Mobile 캡처/녹화 보호
+
+| Platform | Screenshot | Recording | User screen | Build | QA |
+| --- | --- | --- | --- | --- | --- |
+| Android | `FLAG_SECURE` | `FLAG_SECURE` | `차단` | `release-only` | `실기기` |
+| iOS | `secureTextEntry-layer`, `white` | `isCaptured`, `white-overlay` | `white` | `release-only` | `실기기` |
+
 ## 운영 절차
 
 1. 권한 변경 요청: 변경 대상/사유/영향 범위를 기록한다.
