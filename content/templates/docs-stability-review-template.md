@@ -13,8 +13,11 @@
 
 ## 범위
 
+- 변경 유형: `<오타/N/A | 문서-only | 코드+문서 | 고위험 문서-only>`
 - 대상:
+- 직접 연결 문서:
 - 제외:
+- N/A 근거:
 - 기준 문서:
 
 ## 검증
@@ -25,8 +28,21 @@
 
 ## 판정
 
-판정 값은 `No Findings`, `Finding`, `N/A`만 사용한다.
+판정 값은 `No Findings`, `Finding`, `기존 부채`, `N/A`만 사용한다.
 근거는 `path:line` 또는 로그 링크로 적는다.
+관점별 상세 로그는 남기지 않고 판정/근거만 기록한다.
+
+| 관문/관점 | 판정 | 근거 |
+| --- | --- | --- |
+| Scope Gate |  |  |
+| SoT / Policy Editor |  |  |
+| Change Impact / Sync Auditor |  |  |
+| First-time Reader |  |  |
+| Domain Implementer |  |  |
+| QA / Evidence Reviewer |  |  |
+| Lifecycle Owner |  |  |
+| Finding 병합 |  |  |
+| Exit Gate |  |  |
 
 | 항목 | 판정 | 근거 |
 | --- | --- | --- |
@@ -38,9 +54,9 @@
 
 ## Findings
 
-| ID | 상태 | 내용 | 근거 | 조치 |
-| --- | --- | --- | --- | --- |
-| DSR-001 |  |  |  |  |
+| ID | 상태 | 관점 | 내용 | 근거 | 조치 |
+| --- | --- | --- | --- | --- | --- |
+| DSR-001 |  |  |  |  |  |
 
 ## 기존 부채
 
