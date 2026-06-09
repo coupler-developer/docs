@@ -88,6 +88,7 @@
     - 시간이 지나면 바뀌는 사실에 최신 근거 있음
     - To-Be 또는 임시 구조에 부채/추적 문서 연결 있음
 - 최종 판정은 `No Findings`, `Finding`, `기존 부채`, `N/A`만 사용한다.
+- `Exit Gate`는 마지막 수정 이후 docs 검증을 다시 통과하고, Scope Gate/6개 관점/필수 확인 항목이 `No Findings`, 근거 있는 `N/A`, 또는 변경 범위 밖 `기존 부채`이며, 열린 Finding이 0건일 때만 `No Findings`로 판정한다.
 - Finding이 있으면 `원인 수정 -> docs 검증 -> 재리뷰`를 `No Findings`까지 반복한다.
 - 변경 범위 밖 기존 불일치는 기존 부채로 기록한다. 이번 변경이 만들거나 넓힌 불일치는 Finding으로 본다.
 

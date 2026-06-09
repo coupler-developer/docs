@@ -81,6 +81,27 @@
 - 관련 문서 갱신 필요 여부 (필요/불필요)
 - 불필요 시 판단 근거(문서/코드/로그 링크)
 
+## 다중 관점 리뷰 기록
+
+- 리뷰 범위: PR diff/커밋 범위/변경 파일
+- 제외 범위와 N/A 기준:
+
+| 관점 | 판정 | 근거 |
+| --- | --- | --- |
+| Review Lead / Policy Gatekeeper |  |  |
+| Senior PM / Product |  |  |
+| Business / Operations |  |  |
+| Senior Security |  |  |
+| Senior Backend |  |  |
+| Senior Frontend / Client |  |  |
+| QA / Release |  |  |
+
+## 최종 리뷰 판정
+
+- 마지막 수정 이후 검증:
+- 열린 Finding:
+- 최종 판정:
+
 ## 스크린샷 (UI 변경 시)
 
 - 변경 전/후 스크린샷
@@ -93,6 +114,7 @@
 - [ ] 자체 테스트 완료
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
+- [ ] 다중 관점 리뷰 기록에서 7개 관점 판정과 근거를 기록 (`N/A`는 영향 없음 근거 필수)
 - [ ] 문서(docs) 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트 통과 + 실행 명령/결과 링크 첨부
 - [ ] 문서 추가/이동/개명 시 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
 ```
@@ -138,6 +160,21 @@
 - **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, 에러 계약을 확인한다.
 - **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 로컬 상태와 서버 상태 혼용, 디자인 토큰을 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙을 확인한다.
+
+### No Findings 최종 리뷰 기록
+
+- 최종 리뷰 기록은 마지막 수정 이후 다시 수행한 검증과 재리뷰 결과만 기준으로 한다.
+- 관점별 판정은 `No Findings`, `Finding`, `기존 부채`, `N/A`만 사용한다.
+- `No Findings`는 아래 조건을 모두 충족할 때만 선언한다.
+    - 리뷰 범위가 PR diff, 커밋 범위, 변경 파일 중 하나로 고정되어 있다.
+    - 코드/기능 변경의 7개 관점이 모두 `No Findings`, 근거 있는 `N/A`, 또는 이번 변경이 만들거나 확산하지 않은 `기존 부채`다.
+    - 문서-only 변경은 [문서 거버넌스 정책](document-governance-policy.md)의 `문서 안정성 평가`를 통과했다.
+    - 코드와 문서가 함께 변경된 경우 7개 관점 리뷰와 문서 안정성 평가가 모두 끝났다.
+    - 열린 Finding이 0건이며, 기존 부채는 이번 변경이 만들거나 확산하지 않았다는 근거가 있다.
+    - [테스트/CI 전략](testing-strategy.md)의 적용 품질 게이트가 마지막 수정 이후 통과했다.
+    - 회귀 안전성, 문서 동기화, `N/A` 사유가 경로/라인/로그 중 하나 이상의 근거로 기록되어 있다.
+- Finding이 있으면 `원인 수정 -> 적용 품질 게이트 재실행 -> 동일 범위 재리뷰 -> 최종 기록 갱신`을 `No Findings`까지 반복한다.
+- 근거 없는 관점 판정, 마지막 수정 이전 검증 결과, 미해결 Finding이 하나라도 있으면 `No Findings`로 판정하지 않는다.
 
 ### 외부 공유/메시지 SDK 리뷰 기준
 
