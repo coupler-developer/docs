@@ -13,10 +13,11 @@
 
 ## 범위
 
-- 변경 유형: `<오타/N/A | 문서-only | 코드+문서 | 고위험 문서-only>`
+- 변경 유형: `<오타/N/A | 문서-only | 코드+문서>`
 - 대상:
 - 직접 연결 문서:
 - 제외:
+- 조건부 추가 관점: `<없음 | 적용: 보안/권한/결제/DB/배포/릴리즈 중 해당 항목>`
 - N/A 근거:
 - 기준 문서:
 
@@ -47,6 +48,7 @@
 | Domain Implementer |  |  |
 | QA / Evidence Reviewer |  |  |
 | Lifecycle Owner |  |  |
+| 조건부 추가 관점 |  |  |
 | Finding 병합 |  |  |
 | Exit Gate |  |  |
 
