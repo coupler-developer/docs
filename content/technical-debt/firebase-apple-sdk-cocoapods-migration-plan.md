@@ -36,6 +36,8 @@
 
 ## 외부 제약
 
+- 확인일: `2026-06-09`
+- 공식 출처: [Firebase Apple installation options](https://firebase.google.com/docs/ios/installation-methods) (문서 Last updated `2026-06-08 UTC`), [Firebase: Migrate from CocoaPods](https://firebase.google.com/docs/ios/cocoapods-deprecation)
 - Firebase는 2026년 10월부터 Firebase Apple SDK 신규 버전을 CocoaPods로 배포하지 않는다. 기존 CocoaPods 버전은 계속 설치 가능하지만 신규 기능, 성능 개선, 중요 수정은 받을 수 없다.
 - Firebase 공식 문서는 CocoaPods와 Swift Package Manager를 같은 target에서 섞으면 dependency cycle과 build error가 생길 수 있다고 안내한다.
 - Firebase 공식 문서는 non-Firebase 의존성이 Swift Package Manager를 지원하지 않으면 Firebase manual installation이 더 안정적인 통합 경로가 될 수 있다고 안내한다.

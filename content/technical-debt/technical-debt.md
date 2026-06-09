@@ -346,6 +346,7 @@
 
 - App Store Connect가 `COUPLER(커플러)` iOS 배포본(Version `2.0.1`, Build `87`)에 대해 SDK 버전 경고를 발송했다.
 - 현재 바이너리는 iOS `18.2` SDK로 빌드됐고, 안내 기준상 `2026-04-28`부터는 iOS/iPadOS 앱 업로드 및 제출에 iOS `26` SDK 이상, Xcode `26` 이상이 필요하다.
+- 공식 출처 확인: [Apple Developer Upcoming Requirements](https://developer.apple.com/news/upcoming-requirements/), 확인일 `2026-06-09`.
 - 이번 전달은 성공했지만, 차기 배포부터는 업로드 단계에서 차단될 가능성이 있다.
 
 영향
