@@ -106,7 +106,7 @@
 | ------------------- | ------------------------------------------------------------------------------ |
 | 가입/승급 심사 큐   | `request_origin = SIGNUP_REVIEW`                                               |
 | 정회원 승급 심사 큐 | `request_origin = SIGNUP_REVIEW` + `required_auth_status = APPROVED`           |
-| 프로필 수정 심사 큐 | `request_origin = SETTING_PROFILE_EDIT` + 처리 가능 상태(`PENDING`, `REAPPLY`) |
+| 프로필 수정 심사 큐 | `request_origin = SETTING_PROFILE_EDIT` + 처리 가능 상태(`PENDING`, `RETURN`, `REAPPLY`) |
 | 반려/재심사 이슈 큐 | `RETURN` 상태만 출처(`SIGNUP_REVIEW`, `SETTING_PROFILE_EDIT`)로 분리 표시      |
 
 필수 원칙:
@@ -114,6 +114,9 @@
 - `member_level`은 표시 용도이며 큐 필터 기준으로 사용하지 않는다.
 - `request_origin`이 없거나 미정의면 어떤 큐에도 넣지 않는다(Fail-closed).
 - 프로필 이미지/영상도 `t_member_profile_set.request_origin`이 큐 라우팅의 필수 기준이며, 값이 없거나 미정의면 Admin 목록/상세/액션 모두에서 제외한다(Fail-closed).
+- Admin 정상 회원 목록의 상태 보조 표시는 큐에서 실제 처리 가능한 `display_targets`가 있을 때만 노출한다. `v_member_review_status`의 미제출/누락 상태만으로는 `정상(심사대기)`를 표시하지 않는다.
+- 정상 회원의 소개글 승급 심사는 `SIGNUP_REVIEW` intro 항목의 처리 가능 상태(`PENDING`, `RETURN`, `REAPPLY`)가 있을 때만 상태 보조 표시 대상으로 본다.
+- 프로필 이미지/영상의 Admin 표시/큐 판정은 `t_member_profile_set`의 최신 non-normal 버전(`created_at DESC, id DESC`) 1건을 기준으로 한다. 과거 non-normal 버전은 현재 처리 대상으로 표시하지 않는다.
 - 인증 심사 큐(`full-*`, `profile-edit`)의 대기 판정은 `t_member_auth_review_request`(`active_request_slot=1`)의 `request_origin/request_status`를 필수 기준으로 하며, 필요 시 실제 인증 데이터와 교집합으로 판정한다.
 - 인증 `request_origin`이 큐 목적과 불일치하거나 누락되면 해당 요청은 큐에서 제외한다(Fail-closed).
 
