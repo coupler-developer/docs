@@ -261,7 +261,14 @@ git -C "${REPO}" push origin "${TAG}"
 git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 ```
 
-NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다. 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다.
+여러 레포를 같은 릴리스 버전으로 닫을 때는 아래 순서로 기록한다.
+
+1. 운영 반영/검증이 끝난 서비스 레포부터 태그를 push한다.
+2. `docs/content/releases/vX.Y.Z.md`에 서비스별 태그/SHA와 검증 결과를 반영한다.
+3. `docs` `main`을 push해 Pages 기준 문서를 먼저 배포한다.
+4. `docs` 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
+
+NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다. 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다. 스토어 심사 중인 빌드는 제출 커밋만 기록하고, 스토어 승인 후 운영 출시와 기본 검증이 끝날 때 모바일 태그를 생성한다.
 
 ## Docs 포함 시
 

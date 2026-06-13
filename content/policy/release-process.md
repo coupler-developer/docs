@@ -81,6 +81,9 @@
 - 태그는 **annotated tag**만 사용: `git tag -a ...`
 - 원칙: **Production 배포가 끝나고 검증까지 완료된 커밋**에 태그를 찍는다.
 - 예외: `docs` 레포는 메이저 릴리즈 제어판을 먼저 열기 위해, `docs/content/releases/vX.Y.Z.md`가 `main`에 포함된 상태라면 서비스 배포 전에 태그를 선행 생성할 수 있다.
+- `docs` 태그가 서비스 레포 태그를 대체하지 않는다. 서비스 레포 태그는 각 레포의 실제 운영 반영/검증 완료 커밋에 별도로 생성한다.
+- 스토어 심사 중인 모바일 빌드는 `submitted` 또는 `in_review`로만 기록한다. `coupler-mobile-app` 태그는 스토어 승인 후 운영 출시와 기본 검증이 끝난 커밋에 생성한다.
+- 일부 범위만 완료된 릴리스의 `docs/content/releases/vX.Y.Z.md`는 전체 릴리스 상태를 `released`로 닫지 않고, 완료/대기 범위를 구분해 기록한다.
 
 ## 버전 올리는 기준 (SemVer)
 
@@ -160,6 +163,7 @@ git push origin "${TAG}"
     - 운영 `RDS` 적용 SQL/Gate/로그 경로
     - 검증 결과와 롤백 기준
 - 초기 상태가 `planned` 또는 `in_progress`였다면, 모든 반영과 검증이 끝난 뒤 `released` 상태로 갱신한다.
+- 일부 범위가 대기 상태면 GitHub Release와 릴리즈 기록을 `in_progress`로 유지하고, 완료된 서비스 태그와 대기 중인 범위를 함께 표시한다.
 
 ## EC2 배포 (API/Admin)
 
