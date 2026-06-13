@@ -98,7 +98,7 @@ print_release_record_items() {
         [[ "${line}" =~ ^-  ]] || continue
         ;;
       numbered)
-        [[ "${line}" =~ ^[0-9]+\.  ]] || continue
+        [[ "${line}" =~ ^[0-9]+\.[[:space:]]+ ]] || continue
         ;;
       *)
         echo "Unknown item type: ${item_type}" >&2
