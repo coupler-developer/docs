@@ -69,13 +69,17 @@ GIT_EDITOR=true git rebase --continue
 
 ## 완료 판정 (레포별 필수)
 
+- 완료 판정의 기준 원격 브랜치는 시작 시 선택한 기준과 같아야 한다.
+    - main 기준 최신화: `origin/main`
+    - 현재 브랜치 기준 최신화: `origin/<현재브랜치명>`
+
 ```bash
-git rev-list --left-right --count HEAD...origin/main
-git rev-list --count --merges origin/main..HEAD
+git rev-list --left-right --count HEAD...<기준원격브랜치>
+git rev-list --count --merges <기준원격브랜치>..HEAD
 ```
 
-- `HEAD...origin/main` 결과가 `N  0`이어야 한다 (`behind=0`).
-- `origin/main..HEAD`의 merge commit 수는 `0`이어야 한다.
+- `HEAD...<기준원격브랜치>` 결과가 `N  0`이어야 한다 (`behind=0`).
+- `<기준원격브랜치>..HEAD`의 merge commit 수는 `0`이어야 한다.
 
 ## 회귀 검증 (레포별 필수)
 
