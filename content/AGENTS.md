@@ -27,9 +27,12 @@
 - 커밋 생성/수정 요청을 받으면 `content/policy/commit-convention.md`를 먼저 열람하고 해당 정책을 따른다
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
-- 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경이 필요하면 사용자 승인 후 진행한다
-    - 승인 후에는 `content/policy/code-review-policy.md`와 `content/policy/testing-strategy.md`의 품질 기준을 그대로 따르고, 최종 보고에 변경 파일과 변경 이유를 남긴다
-    - 회귀 수정 시 `skip/only`, assertion 완화, 무분별한 snapshot 갱신으로 테스트를 약화하지 않는다
+- 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경은 `content/policy/testing-strategy.md`의 `테스트 변경 판정` 기준을 따른다
+    - 사용자 요청 또는 작업 목표가 `테스트 변경 판정` 기준상 테스트 추가/갱신 대상이면 테스트 파일 변경은 사전 승인된 것으로 본다
+    - 테스트 변경 필요성이 작업 중 새로 발견됐고 사용자 요청 또는 작업 목표의 범위를 벗어나면 변경 전 사용자 승인을 받는다
+    - 승인 또는 사전 승인 후에는 `content/policy/code-review-policy.md`와 `content/policy/testing-strategy.md`의 품질 기준을 그대로 따르고, 최종 보고에 `테스트 변경 여부`(`추가`/`갱신`/`미변경`)를 남긴다
+    - 테스트 파일을 추가/갱신한 경우 최종 보고에 변경 파일과 변경 이유를 함께 남긴다
+    - `skip/only`, assertion 완화, 무검토 snapshot 갱신처럼 테스트를 약화하는 변경은 금지한다
     - 필요 시 `docs/.github/scripts/`로 테스트 파일 변경 여부를 확인한다
 
 ## 문서 인덱스
