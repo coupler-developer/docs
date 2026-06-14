@@ -36,15 +36,25 @@
 
 ```mermaid
 flowchart TD
-    A[게시글] --> B[어미댓글 parent=0]
-    B --> C[대댓글 parent=어미ID]
-    B --> D[대댓글 parent=어미ID]
-    A --> E[어미댓글 parent=0]
-    E --> F[대댓글 parent=어미ID]
+    A[게시글] --> B[댓글 parent=0]
+    B --> C[대댓글 parent=B.id]
+    C --> D[대댓글 parent=C.id]
+    A --> E[댓글 parent=0]
+    E --> F[대댓글 parent=E.id]
 ```
 
-- `parent = 0`: 어미댓글 (최상위)
-- `parent > 0`: 대댓글 (해당 ID의 댓글에 대한 응답)
+- `parent = 0`: 직접 부모 댓글이 없는 최상위 댓글
+- `parent > 0`: 직접 부모 댓글 ID
+- 댓글 목록 API는 `parent` 관계를 직접 부모 트리로 해석한 뒤, 최상위 댓글부터 각 자식 댓글을 생성 순서대로 이어 붙인 평탄 목록을 반환한다.
+- 현재 모바일 화면은 `parent > 0`인 댓글을 동일한 대댓글 스타일로 표시한다.
+
+개념 모델은 아래 구조를 기준으로 한다. DB/API 숫자 표현은 기존 호환 저장 형식이다.
+
+```ts
+type CommentParentRef =
+  | { type: 'root' }
+  | { type: 'comment'; id: number };
+```
 
 ## 댓글 수 표시 기준
 
@@ -140,6 +150,6 @@ flowchart TD
 | ------- | ---------------------- |
 | lounge  | 게시글 ID              |
 | member  | 작성자 ID              |
-| parent  | 어미댓글 ID (0=최상위) |
+| parent  | 직접 부모 댓글 ID (0=없음) |
 | content | 댓글 내용              |
 | alias   | 비공개 시 닉네임       |
