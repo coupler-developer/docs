@@ -22,6 +22,16 @@
     - `coupler-admin-web`: `yarn lint && yarn typecheck && yarn format && CI=true yarn test:ci`
     - `docs`: `yarn validate:docs`
 
+### 모바일 UI/E2E 게이트
+
+- `coupler-mobile-app`의 PR 기본 게이트는 공통 품질 게이트(`yarn lint && yarn typecheck && yarn format && yarn test:ci`)로 둔다.
+- Storybook 또는 visual regression test가 도입된 뒤에는 컴포넌트/화면 표시 회귀를 잡는 PR 기본 게이트로 사용한다.
+- Maestro 같은 emulator/device 기반 E2E는 실행 시간이 길고 runner 상태 영향을 받으므로 모든 PR의 기본 required check로 두지 않는다.
+- PR에서 모바일 native 설정, 앱 시작 경로, 인증 진입 화면, e2e flow 자체를 변경하면 `run-maestro` 라벨 또는 `workflow_dispatch`로 Maestro smoke를 실행하고 PR에 run URL과 결과를 남긴다.
+- 모바일 release candidate와 Store binary 배포 전에는 Android/iOS별로 준비된 Maestro smoke 또는 동등한 배포 리허설을 완료해야 한다.
+- 특정 플랫폼의 Maestro 자동화가 아직 준비되지 않은 경우, 해당 플랫폼은 `N/A` 사유와 대체 검증(실기기/Simulator 수동 리허설, 빌드 산출물, 로그)을 릴리즈 기록에 남긴다.
+- CI 결제/runner 장애처럼 테스트가 실행 전 차단된 상태는 통과로 간주하지 않는다. 릴리즈 판정은 재실행 성공 또는 승인된 대체 검증 근거가 확보될 때까지 보류한다.
+
 ## 회귀 안전성 검증
 
 - 회귀 판정 기준은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`를 단일 기준으로 사용한다.
