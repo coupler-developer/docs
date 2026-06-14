@@ -265,8 +265,10 @@ git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 
 1. 운영 반영/검증이 끝난 서비스 레포부터 태그를 push한다.
 2. `docs/content/releases/vX.Y.Z.md`에 서비스별 태그/SHA와 검증 결과를 반영한다.
-3. `docs` `main`을 push해 Pages 기준 문서를 먼저 배포한다.
-4. `docs` 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
+3. docs 로컬 tag를 생성하고 Release Note preview를 만든다.
+4. preview 산출물과 릴리스 기록을 문서 안정성 평가로 리뷰한다.
+5. `No Findings`일 때만 `docs` `main`을 push해 Pages 기준 문서를 먼저 배포한다.
+6. `docs` 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
 
 NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다. 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다. 스토어 심사 중인 빌드는 제출 커밋만 기록하고, 스토어 승인 후 운영 출시와 기본 검증이 끝날 때 모바일 태그를 생성한다.
 
@@ -281,6 +283,8 @@ NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지
 - GitHub Pages URL 또는 workflow 링크
 
 docs tag/GitHub Release를 만드는 경우에는 이 문서의 `Tag/Release Record` 범위에도 포함한다. 이때 `release.yml` 결과, GitHub Release 링크, `docs-site-vX.Y.Z.tar.gz` 첨부 여부를 함께 남긴다.
+
+docs GitHub Release를 정정 재발행해야 하는 경우에는 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 `docs-only corrective reissue` 조건을 먼저 충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
 
 ## 검증 기록
 

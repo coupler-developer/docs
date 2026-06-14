@@ -75,3 +75,6 @@ jobs:
         with:
           body_path: release-notes.md
           files: "docs-site-${{ github.ref_name }}.tar.gz"
+          overwrite_files: true
+          append_body: false
+          fail_on_unmatched_files: true

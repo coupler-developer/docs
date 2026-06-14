@@ -119,6 +119,37 @@ print_release_record_items() {
   fi
 }
 
+print_release_record_section() {
+  local section_title="$1"
+  local output_title="$2"
+  local empty_message="$3"
+  local required="${4:-required}"
+
+  if [[ ! -f "${RELEASE_RECORD_PATH}" ]]; then
+    return
+  fi
+
+  local raw_section=""
+  raw_section="$(extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" | sed '/^[[:space:]]*$/d')"
+
+  if [[ -z "${raw_section}" ]]; then
+    if [[ "${required}" == "required" ]]; then
+      echo "Release record section is missing or empty: ${section_title}" >&2
+      exit 1
+    fi
+    return
+  fi
+
+  printf '## %s\n' "${output_title}"
+  printf '%s\n\n' "${raw_section}"
+}
+
+print_docs_change_history() {
+  printf '## 문서 레포 변경 이력\n'
+  printf -- '- 전체 docs 변경 이력은 Compare 링크에서 확인한다: %s\n' "${COMPARE_URL}"
+  printf -- '- 릴리스 판단 기준은 위 통합 버전 기록과 검증 근거를 우선한다.\n'
+}
+
 is_internal_noise() {
   local lower_text="$1"
   case "${lower_text}" in
@@ -188,26 +219,40 @@ while IFS= read -r subject; do
   fi
 done < <(git log "${RANGE}" --no-merges --pretty=format:'%s')
 
+if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
+  printf '## Summary\n'
+  printf '이 릴리스는 통합 버전 기록을 기준으로 정리했습니다.\n\n'
+  printf -- '- Release Date: %s\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+  printf -- '- Compare: %s\n\n' "${COMPARE_URL}"
+
+  printf '## 통합 버전 기록\n'
+  printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
+  printf -- '- docs tag commit: `%s`\n\n' "$(git rev-list -n 1 "${CURRENT_TAG}")"
+
+  printf '## 릴리스 개요\n'
+  print_release_record_items "목적" 3 "릴리스 목적 문서화 필요" bullet
+  print_release_record_items "릴리스 상태" 12 "릴리스 상태 문서화 필요" bullet
+  printf '\n'
+
+  print_release_record_section "릴리스 결과" "릴리스 결과" "릴리스 결과 문서화 필요"
+
+  printf '## 핵심 실행 순서\n'
+  print_release_record_items "메인 흐름" 8 "핵심 실행 순서 문서화 필요" numbered
+  printf '\n'
+
+  print_release_record_section "검증 근거" "검증 근거" "검증 근거 문서화 필요"
+  print_release_record_section "롤백 기준" "롤백 기준" "롤백 기준 문서화 필요"
+  print_release_record_section "후속 작업" "후속 작업" "후속 작업 없음" optional
+  print_docs_change_history
+  exit 0
+fi
+
 printf '## Summary\n'
 printf '%s\n\n' "${BASE_TEXT}"
 printf -- '- Release Date: %s\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
 printf -- '- Compare: %s\n\n' "${COMPARE_URL}"
 printf -- '- 사용자에게 보이는 변경: %d건\n' "${#user_changes[@]}"
 printf -- '- 내부 개선: %d건\n\n' "${#internal_changes[@]}"
-
-if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
-  printf '## 통합 버전 기록\n'
-  printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
-
-  printf '## 릴리스 개요\n'
-  print_release_record_items "목적" 3 "릴리스 목적 문서화 필요" bullet
-  print_release_record_items "릴리스 상태" 4 "릴리스 상태 문서화 필요" bullet
-  printf '\n'
-
-  printf '## 핵심 실행 순서\n'
-  print_release_record_items "메인 흐름" 8 "핵심 실행 순서 문서화 필요" numbered
-  printf '\n'
-fi
 
 if [[ -z "${PREV_TAG}" ]]; then
   printf '## 참고\n'

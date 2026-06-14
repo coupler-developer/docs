@@ -242,7 +242,8 @@ git ls-remote --tags origin "${TAG}"
 - `v*.*.*` 태그가 push되면 `release.yml`이 동작해 GitHub Release를 자동 생성한다.
 - Release에는 `mkdocs build --strict` 결과물(`docs-site-vX.Y.Z.tar.gz`)이 첨부된다.
 - Release 노트는 이전 기준점(이전 태그, 첫 릴리스면 초기 커밋) 대비 변경을 자동 생성한다.
-- 자동 노트는 `사용자에게 보이는 변경`과 `내부 개선`으로 나뉜다.
+- `content/releases/vX.Y.Z.md`가 있으면 Release 노트는 해당 릴리스 기록을 1차 원본으로 사용한다.
+- 이전 기준점 대비 git log는 보조적인 "문서 레포 변경 이력"으로만 사용한다.
 - 태그 시점에 `content/releases/vX.Y.Z.md`가 포함돼 있으면 Release 노트에 해당 문서 링크가 자동 포함된다.
 - `content/releases/vX.Y.Z.md`가 있으면 Release 노트 상단에 `목적`, `릴리스 상태`, `메인 흐름` 요약을 먼저 노출한다.
 - 첫 릴리스처럼 이전 태그가 없으면 전체 문서 히스토리가 비교 범위에 포함될 수 있으므로, 실제 배포 판단은 `content/releases/vX.Y.Z.md`를 우선 기준으로 확인한다.
@@ -257,6 +258,7 @@ git ls-remote --tags origin "${TAG}"
 - `coupler-admin-web`: `vX.Y.Z` 또는 commit SHA
 - 릴리즈 검증 결과(핵심 시나리오, 롤백 기준)
 - 이 문서가 태그 커밋에 포함되어야 릴리즈 기준점과 동일 스냅샷으로 추적할 수 있다.
+- `content/releases/vX.Y.Z.md` 작성 후에는 로컬 docs tag로 Release Note preview를 생성하고, [문서 거버넌스 정책](document-governance-policy.md)의 문서 안정성 평가가 `No Findings`일 때만 원격 tag를 push한다.
 
 ### 2) 태그 생성 및 push
 
@@ -266,12 +268,17 @@ git pull --ff-only
 TAG=v1.0.0
 git tag -a "${TAG}" -m "Release ${TAG}"
 
+# 원격 push 전 Release Note preview를 생성하고 리뷰한다.
+GITHUB_REPOSITORY=coupler-developer/docs bash .github/scripts/generate-release-notes.sh "${TAG}" > "/tmp/release-notes-${TAG}.md"
+
 # 태그 커밋이 origin/main 계보에 포함되는지 확인 (실패 시 중단)
 TAG_COMMIT="$(git rev-list -n 1 "${TAG}")"
 git merge-base --is-ancestor "${TAG_COMMIT}" origin/main
 
 git push origin "${TAG}"
 ```
+
+- preview에서 finding이 나오면 원격 tag를 push하지 않는다. 로컬 tag를 갱신해 다시 preview를 만들고, `yarn validate:docs`와 문서 안정성 평가를 `No Findings`까지 반복한다.
 
 ### 3) 자동 릴리즈 확인
 
@@ -283,6 +290,13 @@ git push origin "${TAG}"
 ### 4) 예외 처리 (2단계부터)
 
 - Release 본문에 통합 버전 기록 링크가 없으면 `release.yml`/스크립트 오류로 간주하고 수정 후 태그부터 다시 진행한다.
+- 이미 생성된 docs GitHub Release를 정정해야 하는 경우는 `docs-only corrective reissue`로 기록한다.
+- `docs-only corrective reissue`는 아래 조건을 모두 만족할 때만 허용한다.
+    - 서비스 레포 tag(`coupler-api`, `coupler-admin-web`, `coupler-mobile-app`)를 변경하지 않는다.
+    - 정정 대상이 docs Release 본문, docs site artifact, docs 릴리스 기록에 한정된다.
+    - Release Note preview와 `yarn validate:docs`가 마지막 수정 이후 통과했다.
+    - 문서 안정성 평가가 `No Findings`다.
+    - GitHub Release 본문과 artifact가 교체됐는지 확인한다.
 
 ## 모바일 배포 (스토어/OTA)
 
