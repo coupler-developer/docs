@@ -14,59 +14,27 @@
 ## 검증 구조 요약
 
 - 서버는 제안 횟수에 따라 허용 날짜 창을 다르게 적용한다.
-- 각 제안은 날짜 개수, 중복 여부, 과거 날짜 여부를 함께 검증한다.
+- 각 제안은 날짜 범위와 날짜 개수를 함께 검증한다.
 - 이 문서는 분기 구조와 시퀀스를 설명하고, 실제 제한 값은 정책 문서를 기준으로 본다.
 
-## 범위 검증 로직
+## 범위 검증 구조
 
-```javascript
-// match.js 라인 756-786
-switch (schedule_count) {
-  case 0:
-    // 최초 제안: 내일 ~ +14일
-    moment(date).isBetween(
-      moment().add(1, "days"),
-      moment().add(14, "days"),
-      "day",
-      "[]", // 경계 포함
-    );
-    break;
+현행 구현 경계는 `coupler-api/lib/matching-schedule-parser.ts`다.
 
-  case 1:
-  case 2:
-    // 1차, 2차 역제안: 내일 ~ 최초제안일 + 14일
-    moment(date).isBetween(
-      moment().add(1, "days"),
-      moment(first_schedule_date).add(14, "days"),
-      "day",
-      "[]",
-    );
-    break;
+| 함수 | 역할 |
+| --- | --- |
+| `getMatchingScheduleSelectableDateRange` | 제안 횟수별 허용 날짜 범위 산출 |
+| `parseMatchingScheduleCandidates` | 입력된 날짜 후보를 허용 범위 기준으로 필터링 |
+| `getMatchingScheduleDayCountErrorCode` | 필터링된 후보가 허용 개수인지 판정 |
 
-  case 3:
-    // 3차, 4차 역제안: 최초제안일 + 15일 ~ +25일
-    moment(date).isBetween(
-      moment(first_schedule_date).add(15, "days"),
-      moment(first_schedule_date).add(25, "days"),
-      "day",
-      "[]",
-    );
-    break;
-}
-```
+## 입력 검증 경계
 
-## 입력 검증 예시
-
-아래 코드는 현행 입력 검증 위치 예시다.
+컨트롤러 경계는 `coupler-api/controller/app/v1/match.ts`의 `addSchedule` 흐름이다.
 실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
 
-```javascript
-// match.js 라인 788-793
-if (schedule_list.length < MIN_COUNT || schedule_list.length > MAX_COUNT) {
-  return response_error(res, "허용 범위를 벗어난 날짜 개수");
-}
-```
-
+- `addSchedule`은 parser 결과를 기준으로 허용 날짜 개수를 판정한다.
+- 범위 밖 날짜는 후보에서 제외되며, 제외 후 개수가 허용 최소보다 작으면 실패한다.
+- 중복 없는 날짜 요구사항은 [매칭 운영 정책](../policy/matching-ops-policy.md)의 규범이지만, 현행 parser/controller 경계는 중복 제거/거부를 별도로 수행하지 않는다.
 - 실제 최소/최대 허용 개수와 상태 전이 결과는 정책 문서를 따른다.
 
 ## 역제안 흐름
@@ -113,22 +81,8 @@ sequenceDiagram
 
 정책에서 정의한 최종 제안 횟수까지 합의되지 않으면 서버는 불합의 종료 상태로 전환하고 환불 규칙을 적용한다.
 
-```javascript
-// match.js 라인 941-975
-if (schedule_count >= MAX_SCHEDULE_ATTEMPTS && !accepted) {
-  // 상태 변경
-  await MMatch.getInstance().update(
-    {
-      status: MATCH_STATUS.SCHEDULE_NOT_SELECTED,
-    },
-    match_id,
-  );
-
-  // 정책 기준 환불 적용
-  const femaleRefund = Math.floor(female_paid_key * 0.5);
-  const maleRefund = Math.floor(male_paid_key * 0.5);
-}
-```
+현행 종료 처리는 `coupler-api/controller/app/v1/match.ts`의 매칭 취소 흐름에서 수행한다.
+서버는 일정 제안 횟수를 확인한 뒤 정책 기준 환불 로그를 남기고, 매칭 상태를 `SCHEDULE_NOT_SELECTED`로 갱신한다.
 
 ## 만료 처리
 

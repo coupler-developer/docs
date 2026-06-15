@@ -32,6 +32,9 @@ jobs:
       - name: Validate docs structure
         run: yarn validate:docs-structure
 
+      - name: Validate release records
+        run: yarn validate:release-records
+
   markdown-lint:
     runs-on: ubuntu-latest
     steps:

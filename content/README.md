@@ -33,7 +33,7 @@
 
 - `yarn validate:docs-structure`는 메타데이터 형식, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성을 검증한다.
 - `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
-- `yarn validate:docs`로 구조 검증, lint, 빌드를 한 번에 실행할 수 있다.
+- `yarn validate:docs`로 구조 검증, 릴리스 기록 검증, lint, 빌드를 한 번에 실행할 수 있다.
 
 ```text
 # AGENTS (워크스페이스 전용)

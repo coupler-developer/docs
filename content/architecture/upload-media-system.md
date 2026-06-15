@@ -133,10 +133,10 @@ uploads/
 ## 파일 서빙
 
 ```typescript
-// app.ts line 49 — 루트 정적 파일 (직접 접근)
+// coupler-api/app.ts — 루트 정적 파일 (직접 접근)
 app.use(express.static(path.join(__dirname, "uploads")));
 
-// app.ts line 57 — /uploads 경로 (proxyDownload 미들웨어 적용)
+// coupler-api/app.ts — /uploads 경로 (proxyDownload 미들웨어 적용)
 app.use(
   "/uploads",
   proxyDownload,

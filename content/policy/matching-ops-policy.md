@@ -21,7 +21,7 @@
 
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
 - 리뷰/증빙 기준: [코드 리뷰 정책](code-review-policy.md)
-- 매칭 상태 읽기/판정 SoT: 서버의 `t_match.status`
+- 매칭 상태 읽기/판정 SoT: 서버의 `t_match.match_status`
 - 키 정산 SoT: 서버의 `t_member_key_log`, `t_member.key`
 - 일정 제안 검증 SoT: 서버 검증 로직
 
@@ -29,7 +29,7 @@
 
 ### 1) 상태 전이 기준
 
-- 매칭 진행/취소/종료 상태는 서버의 `t_match.status`를 단일 기준으로 사용한다.
+- 매칭 진행/취소/종료 상태는 서버의 `t_match.match_status`를 단일 기준으로 사용한다.
 - 모바일/어드민은 상태 전이를 재구현하지 않고 서버 상태를 표시한다.
 - 진행 상태는 아래 값을 기준으로 사용한다.
 
@@ -99,7 +99,7 @@
 | `FEMALE_PASS`, `CHAT_ROOM_LEAVE`, `USER_BLAME`, `CHAT_3_DAYS_OVER` | 환불 없음 |
 
 - 모든 키 변동은 `t_member_key_log`와 `t_member.key`를 함께 기준으로 판정한다.
-- 키 항목 예시와 로그 타입 설명은 [매칭 키 시스템](../architecture/matching-key-system.md)에 두되, 충돌 시 이 문서가 우선한다.
+- 키 항목 예시와 로그 기록 방식은 [매칭 키 시스템](../architecture/matching-key-system.md)에 두되, 충돌 시 이 문서가 우선한다.
 
 ### 3) 일정 제안 기준
 
