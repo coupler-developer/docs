@@ -22,6 +22,14 @@
     - `coupler-admin-web`: `yarn lint && yarn typecheck && yarn format && CI=true yarn test:ci`
     - `docs`: `yarn validate:docs`
 
+### 모바일 Storybook PR 게이트
+
+- `coupler-mobile-app`에 Storybook 게이트가 도입된 뒤에는 PR 검증에 `yarn storybook:check`를 포함한다.
+- `yarn storybook:check`는 Storybook story 수집, `.storybook/storybook.requires.ts` 최신성, Storybook 전용 TypeScript 체크, story 렌더/snapshot 테스트를 함께 검증해야 한다.
+- UI 표시 변경, Storybook 인프라 변경, 또는 이미 story가 있는 컴포넌트 변경은 관련 story와 snapshot을 함께 추가/갱신하고 PR에 변경 이유를 남긴다.
+- Storybook snapshot은 컴포넌트 표시 회귀 증빙이며, native 설정/앱 시작/실기기 동작/화면 전환 E2E 검증을 대체하지 않는다.
+- CI 결제/runner 장애처럼 테스트가 실행 전 차단된 상태는 통과로 간주하지 않는다. PR에서는 로컬 `yarn storybook:check` 결과를 임시 증빙으로 기록할 수 있지만 원격 CI 상태는 `미검증`으로 남긴다.
+
 ## 회귀 안전성 검증
 
 - 회귀 판정 기준은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`를 단일 기준으로 사용한다.
