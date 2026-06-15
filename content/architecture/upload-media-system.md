@@ -77,6 +77,22 @@ uploads/
 
 썸네일/변환 실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)의 `ApiErrorData`를 사용한다.
 
+## Mobile 사전 선택/Crop 경계
+
+Mobile의 갤러리/카메라 선택과 Crop 여부는 업로드 API 호출 전 클라이언트 단계에서 결정된다.
+회원 심사 제출 미디어의 규범 기준은 [회원 심사 단일 정책](../policy/member-review-policy.md)의 `Mobile 미디어 선택/Crop 정책`을 따른다.
+
+| Mobile 제출 영역 | 업로드 전 처리 | 업로드 API |
+| --- | --- | --- |
+| 인증 서류 이미지 | Crop 없이 원본 비율 유지 | `/app/upload/image/auth` 또는 `/app/upload/images/auth` |
+| 프로필 사진 | 정사각형 Crop 적용 | `/app/upload/image/profile` 또는 `/app/upload/images/profile` |
+| 미니프로필 사진 | 정사각형 Crop 적용 | `/app/upload/image/profile` |
+| 동영상 | Crop 없음 | `/app/upload/video` |
+
+- API 서버는 Mobile이 보낸 파일을 현재 업로드 타입(`profile`, `auth`, `lounge` 등)에 맞는 저장 경로에 저장하고 상대경로를 반환한다.
+- 서버는 인증 서류 이미지의 원본 비율 유지 여부를 별도 DB 상태로 저장하지 않는다.
+- Crop 정책 변경은 Mobile 제출 전 처리 기준 변경이며, 업로드 엔드포인트/DB 저장 경로/심사 큐 라우팅 계약을 변경하지 않는다.
+
 ## manager 상세 긴 이미지 구조
 
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
