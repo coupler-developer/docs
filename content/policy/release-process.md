@@ -141,6 +141,8 @@ git push origin "${TAG}"
 - native 변경이 포함된 메이저 릴리즈는 스토어 binary(iOS/Android)를 먼저 배포한다.
 - OTA는 스토어 배포 이후 JS-only 후속 수정에만 사용한다.
 - 버전값은 Android `versionCode`/`versionName`, iOS `CURRENT_PROJECT_VERSION`/`MARKETING_VERSION`를 함께 올린다.
+- Mobile 범위가 포함된 릴리즈는 [테스트/CI 전략](testing-strategy.md)의 모바일 UI/E2E 게이트를 완료한 뒤에만 `docs` Release Note를 최종화한다.
+- Maestro 또는 동등한 배포 리허설이 CI 결제/runner 장애로 실행 전 차단된 경우, 해당 실행은 검증 완료로 보지 않는다.
 
 ### 5) 운영 안정화 확인 후 RDS contract/drop
 
@@ -257,6 +259,7 @@ git ls-remote --tags origin "${TAG}"
 - `coupler-api`: `vX.Y.Z` 또는 commit SHA
 - `coupler-admin-web`: `vX.Y.Z` 또는 commit SHA
 - 릴리즈 검증 결과(핵심 시나리오, 롤백 기준)
+- Mobile 범위가 포함되면 Android/iOS release candidate의 E2E 또는 대체 배포 리허설 run URL, 산출물, SHA, `N/A` 사유를 `검증 근거`에 남긴다.
 - 이 문서가 태그 커밋에 포함되어야 릴리즈 기준점과 동일 스냅샷으로 추적할 수 있다.
 - `content/releases/vX.Y.Z.md` 작성 후에는 로컬 docs tag로 Release Note preview를 생성하고, [문서 거버넌스 정책](document-governance-policy.md)의 문서 안정성 평가가 `No Findings`일 때만 원격 tag를 push한다.
 
@@ -313,7 +316,15 @@ git push origin "${TAG}"
 - iOS 스토어 업로드 전에는 현재 Apple 제출 기준을 만족하는 Xcode/iOS SDK로 빌드했는지 확인한다.
 - iOS 제출 기준 증빙은 `xcodebuild -version`과 `xcrun --sdk iphoneos --show-sdk-version` 실행 결과를 릴리즈 기록에 남긴다.
 
-### 2) OTA 배포 (NextPush)
+### 2) 릴리즈 후보 검증
+
+- Mobile Store 배포 전에는 실제 업로드 후보와 같은 commit SHA에서 Android/iOS release candidate를 빌드하고, 준비된 플랫폼별 Maestro smoke 또는 동등한 배포 리허설을 실행한다.
+- Android는 APK/AAB 빌드 산출물, package id, ABI, Maestro run URL, 통과한 flow를 기록한다.
+- iOS는 Xcode/iOS SDK 버전, build scheme, bundle id, Simulator 또는 실기기 검증 결과, Maestro run URL 또는 대체 검증 근거를 기록한다.
+- NextPush-only 배포는 대상 Store binary version, deployment label, 업로드 commit SHA, 핵심 화면 진입 검증을 기록한다.
+- 자동화가 실행 전 차단되거나 특정 플랫폼 자동화가 미구축이면 릴리즈 상태를 `in_progress`로 유지하고, `N/A` 사유와 대체 검증 근거를 남긴다.
+
+### 3) OTA 배포 (NextPush)
 
 Production OTA만 아래 레포 스크립트로 실행한다.
 
@@ -325,12 +336,12 @@ yarn codepush-and-prod
 yarn codepush-ios-prod
 ```
 
-### 3) 태그/릴리즈 남기기
+### 4) 태그/릴리즈 남기기
 
 - 스토어 배포가 끝나고 검증한 커밋에는 모바일 레포 태그를 찍는다.
 - NextPush-only 배포는 기본적으로 모바일 레포 태그를 새로 만들지 않는다.
 - NextPush-only 배포의 기준점은 NextPush app/deployment label, uploaded time, target binary version, rollout/mandatory/disabled 상태, 배포한 git commit SHA로 기록한다.
-- 릴리즈 기록 또는 `docs` 통합 Release Note에는 실제 배포한 NextPush app, `Production` deployment label, 검증 시나리오를 남긴다.
+- 릴리즈 기록 또는 `docs` 통합 Release Note에는 실제 배포한 NextPush app, `Production` deployment label, 검증 시나리오, E2E/대체 검증 근거를 남긴다.
 
 ## 릴리즈 노트 템플릿
 
