@@ -68,13 +68,14 @@
 
 - 평가 범위는 변경 문서와 직접 연결된 규범/참조 문서로 한정한다. 전체 docs 평가는 명시 요청, 릴리즈, 정기 점검 때 수행한다.
 - 구조 검증 통과만으로 안정성 평가를 통과한 것으로 보지 않는다.
-- 안정성 평가는 `Scope Gate -> 기본 6개 관점 -> 조건부 추가 관점 -> Finding 병합 -> Exit Gate` 순서로 수행한다.
+- 안정성 평가는 `Scope Gate -> 기본 문서 관점 -> 조건부 추가 관점 -> Finding 병합 -> Exit Gate` 순서로 수행한다.
 - `Scope Gate`: 변경 유형, 대상 문서, 직접 연결 문서, 제외 범위, 조건부 추가 관점 적용 여부와 `N/A` 근거를 먼저 고정한다.
 - 변경 유형은 `오타/N/A`, `문서-only`, `코드+문서`만 사용한다. 문서-only 변경의 위험도는 별도 변경 유형으로 나누지 않는다.
-- 모든 docs 변경에는 아래 기본 6개 관점을 일괄 적용한다.
+- 모든 docs 변경에는 아래 기본 문서 관점을 일괄 적용한다.
     - **SoT / Policy Editor**: 규범, 우선순위, 충돌, MUST/SHOULD 중복 정의
     - **Change Impact / Sync Auditor**: 관련 문서, 인덱스, nav, 템플릿, 테스트/CI 동기화
     - **First-time Reader**: 신규 진입자가 추측 없이 다음 필수 문서까지 도달 가능한지
+    - **Writing Quality / Style Editor**: 문장 중복, 용어/표현 일관성, 간결성, 작성 기준과 리뷰 기준 일치 여부
     - **Domain Implementer**: API/Mobile/Admin/docs 작업자가 실행 기준으로 사용할 수 있는지
     - **QA / Evidence Reviewer**: 검증 명령, 최신 근거, `N/A` 사유, 로그/출처 증빙
     - **Lifecycle Owner**: `transition`, `임시`, `호환`, `fallback` 제거 조건과 부채/추적 연결
@@ -89,7 +90,7 @@
     - 시간이 지나면 바뀌는 사실에 최신 근거 있음
     - To-Be 또는 임시 구조에 부채/추적 문서 연결 있음
 - 최종 판정은 `No Findings`, `Finding`, `기존 부채`, `N/A`만 사용한다.
-- `Exit Gate`는 마지막 수정 이후 docs 검증을 다시 통과하고, Scope Gate/기본 6개 관점/조건부 추가 관점/필수 확인 항목이 `No Findings`, 근거 있는 `N/A`, 또는 변경 범위 밖 `기존 부채`이며, 열린 Finding이 0건일 때만 `No Findings`로 판정한다.
+- `Exit Gate`는 마지막 수정 이후 docs 검증을 다시 통과하고, Scope Gate/기본 문서 관점/조건부 추가 관점/필수 확인 항목이 `No Findings`, 근거 있는 `N/A`, 또는 변경 범위 밖 `기존 부채`이며, 열린 Finding이 0건일 때만 `No Findings`로 판정한다.
 - Finding이 있으면 `원인 수정 -> docs 검증 -> 재리뷰`를 `No Findings`까지 반복한다.
 - 변경 범위 밖 기존 불일치는 기존 부채로 기록한다. 이번 변경이 만들거나 넓힌 불일치는 Finding으로 본다.
 
