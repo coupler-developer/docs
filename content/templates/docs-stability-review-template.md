@@ -45,6 +45,7 @@
 | SoT / Policy Editor |  |  |
 | Change Impact / Sync Auditor |  |  |
 | First-time Reader |  |  |
+| Writing Quality / Style Editor |  |  |
 | Domain Implementer |  |  |
 | QA / Evidence Reviewer |  |  |
 | Lifecycle Owner |  |  |
