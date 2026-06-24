@@ -468,3 +468,29 @@
 - 사용자 노출 문구에서 `매칭 매니저`, `매칭매니저`, `큐레이터`, `Ritzy`, `ritzy`가 제거됐다.
 - 남아 있는 `manager_*`, `curator_*`, `ritzy_*`는 내부 식별자 또는 외부 식별자 예외로 분류돼 있다.
 - [서비스 용어 정책](../policy/service-terminology-policy.md), Mobile, Admin의 사용자 노출 용어가 같은 결론을 가리킨다.
+
+---
+
+## 20) Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약 `P2` `S`
+
+현상
+
+- `coupler-mobile-app`의 앱 알림 팝업 최초 노출 여부가 전역 `APP_ALARM_POPUP` 키에서 member-scoped `APP_ALARM_ONBOARDING_POPUP_{memberId}` 키로 이관 중이다.
+- `2.2.0` 강제 업데이트 동안 기존 사용자 로컬 `APP_ALARM_POPUP` 값을 새 onboarding 키로 옮기고 legacy key를 삭제하는 1회성 호환 경로가 필요하다.
+- 이 호환 경로가 남아 있으면 `APP_ALARM_POPUP`이 legacy onboarding key인지 daily exposure key인지 오해될 수 있다.
+
+영향
+
+- 제거 시점 없이 legacy read/remove 경로가 계속 남으면 팝업 노출 정책을 다시 수정할 때 키 의미가 혼재될 수 있다.
+- 신규 작업자가 `APP_ALARM_POPUP` legacy migration을 상시 정책 로직으로 오해할 수 있다.
+
+액션 후보
+
+- `2.2.0` 강제 업데이트 이후 1개 릴리즈 동안만 legacy migration 경로를 유지한다.
+- `2.3.0` 릴리즈에서 `APP_ALARM_POPUP` legacy read/remove 경로와 관련 TODO 주석을 제거한다.
+- 제거 시 기존 사용자 onboarding key 이관 회귀 테스트는 현재 정책에 맞게 유지하거나 정리한다.
+
+완료 기준
+
+- `2.3.0`에서 앱 알림 onboarding 판단이 member-scoped `APP_ALARM_ONBOARDING_POPUP_{memberId}` 기준으로만 동작한다.
+- `APP_ALARM_POPUP`은 daily exposure bucket 저장 용도 외 legacy onboarding migration 경로에서 사용되지 않는다.
