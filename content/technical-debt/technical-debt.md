@@ -322,20 +322,25 @@
 현상
 
 - `coupler-mobile-app`은 `postinstall: patch-package`에 의존하고 있다.
-- 현재 기준 patch는 1건이다.
+- 현재 기준 patch는 2건이다.
     - `@react-native-google-signin/google-signin@13.3.1`: `TurboModuleRegistry.getEnforcing` 실패 시 `NativeModules.RNGoogleSignin` fallback으로 우회한다.
+    - `react-native-image-picker@7.2.3`: iOS PHPicker 선택 직후 cropper modal을 여는 앱 흐름에서 PHPicker dismissal 완료 전 JS callback이 실행될 수 있어, dismiss completion 이후 callback이 실행되도록 보정한다.
 - Google Sign-In patch는 필요 조건과 제거 조건이 문서화되어 있지 않아, React Native/라이브러리 업그레이드 시 계속 유지해야 하는지 판단 기준이 불명확하다.
+- Image Picker patch는 upstream issue/PR(`react-native-image-picker` #2390, #2391, #2406)과 관련된 iOS PHPicker callback/dismiss race 계열 방어다. 현재 patch는 presentation dismiss 중복 cancel callback 방어와 PHPicker dismissal completion 이후 성공 callback 보장을 함께 포함한다. 다만 #2406은 single-shot callback 중심이고 PHPicker dismissal completion 대기는 포함하지 않아, 현재 최신 릴리스 기준 업그레이드만으로 제거 가능하다고 보기 어렵다.
 
 영향
 
 - `node_modules` 직접 patch는 업스트림 버전 변경 시 충돌하거나 조용히 무효화될 수 있어 설치/빌드 재현성이 떨어진다.
 - Google Sign-In 연동 장애가 생기면 원인이 "native linking 문제"인지 "patch drift"인지 분리 추적하기 어렵다.
+- Image Picker patch가 drift되면 iOS 갤러리 선택 후 crop 화면 미표시, 선택 결과 미반영, 또는 PHPicker callback 경합 문제가 재발할 수 있다.
 - patch-package 잔존은 React Native/서드파티 의존성 업그레이드 비용을 높이고, 신규 작업자 온보딩 시 암묵 지식을 요구한다.
 
 액션 후보
 
 - `@react-native-google-signin/google-signin` 최신 호환 버전에서 동일 patch가 불필요한지 우선 검증한다.
 - `RNGoogleSignin` 등록 경로(TurboModule, legacy NativeModule, iOS/Android linking, Pod/Gradle 설정)를 점검해 근본 원인을 분리한다.
+- `react-native-image-picker` 업그레이드 시 PHPicker delegate가 dismiss completion 이후 callback을 보장하는지 확인한다.
+- Image Picker patch 제거 전에는 iOS에서 갤러리 선택 → cropper 표시 → crop 완료 → 대상 슬롯 반영을 메인/얼굴/전신 슬롯별로 수동 검증한다.
 - patch 제거가 가능하면 `patch-package`, `postinstall`, `patches/`를 함께 제거하고 회귀 검증 절차를 문서화한다.
 - 즉시 제거가 불가하면 "왜 필요한지", "어떤 버전 범위에서 필요한지", "재검증 시점"을 문서/추적 이슈로 남긴다.
 
