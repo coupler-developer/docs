@@ -499,3 +499,32 @@
 
 - `2.3.0`에서 앱 알림 onboarding 판단이 member-scoped `APP_ALARM_ONBOARDING_POPUP_{memberId}` 기준으로만 동작한다.
 - `APP_ALARM_POPUP`은 daily exposure bucket 저장 용도 외 legacy onboarding migration 경로에서 사용되지 않는다.
+
+---
+
+## 21) Mobile inline style lint 전역 확대 미완료 `P2` `M`
+
+현상
+
+- [엔지니어링 가드레일](../policy/engineering-guardrails.md)은 정적 React Native 스타일을 JSX inline style이 아니라 `StyleSheet.create` 안에 정의하도록 고정한다.
+- `coupler-mobile-app`에는 기존 `style={{...}}` inline style이 넓게 남아 있어 `react-native/no-inline-styles`를 즉시 전역 `error`로 켜면 기존 부채로 lint가 깨진다.
+- 따라서 현재는 inline style을 제거한 작은 컴포넌트/파일부터 ESLint override로 `react-native/no-inline-styles`를 점진 적용해야 한다.
+
+영향
+
+- 전역 룰이 꺼진 상태가 오래 지속되면 신규 inline style이 기존 부채와 섞여 재유입 여부를 구분하기 어렵다.
+- 스타일 선언 위치가 컴포넌트 JSX에 흩어지면 화면 수정 시 재사용/검토 비용이 증가한다.
+- 적용 범위와 완료 기준이 문서화되지 않으면 리뷰어가 전역 적용과 scoped 적용 중 어느 기준을 요구해야 하는지 추측하게 된다.
+
+액션 후보
+
+- `src/components/**`의 작은 presentational component부터 inline style을 `StyleSheet.create`로 옮기고 파일 단위 override를 추가한다.
+- 신규 또는 수정하는 컴포넌트는 가능한 범위에서 inline style 0건으로 정리한 뒤 override 적용 범위에 포함한다.
+- override 적용 파일 목록을 점진적으로 디렉터리 단위(`src/components/items/**` 등)로 넓힌다.
+- 기존 inline style 잔여 수를 주기적으로 측정하고, 잔여 범위가 정리되면 `react-native/no-inline-styles`를 전역 `error`로 전환한다.
+
+완료 기준
+
+- `coupler-mobile-app/src` 1st-party 코드에서 정적 JSX inline style이 0건이다.
+- `.eslintrc.js`에서 `react-native/no-inline-styles`가 전역 `error`로 적용된다.
+- 런타임 계산이 필요한 예외는 코드 주석으로 사유가 명시되어 있고, 가능한 경우 helper 또는 token variant로 승격되어 있다.
