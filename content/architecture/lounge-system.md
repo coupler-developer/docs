@@ -163,6 +163,11 @@ flowchart TD
 | 40   | LOUNGE_BEST              | 베스트 선정 |
 | 41   | LOUNGE_BLAME             | 신고        |
 
+수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.
+요약하면 최상위 댓글(`parent = 0`)은 게시글 작성자에게 `LOUNGE_NEW_COMMENT(38)`을 보내고,
+대댓글(`parent > 0`)은 직접 부모 댓글 작성자에게만 `LOUNGE_NEW_CHILD_COMMENT(39)`을 보낸다.
+대댓글 작성 시 최초 게시글 작성자에게 댓글 알림을 함께 보내지 않는다.
+
 ## 데이터 모델
 
 ### t_lounge
