@@ -127,7 +127,7 @@ sequenceDiagram
   },
   data: {
     type: '12',
-    custom_data: '{"match_id": 123}',
+    custom_data: '{"target": 123}',
     title: '커플러',
     message: '새로운 남성 프로필이 도착했습니다.'
   },
