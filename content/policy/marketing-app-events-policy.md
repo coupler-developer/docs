@@ -27,8 +27,8 @@
 
 | 제품 기준 | 외부 이벤트 | 이벤트 종류 | 기록 시점 | 제외 |
 | --- | --- | --- | --- | --- |
-| 앱 최초 설치 후 첫 실행 | Meta `fb_mobile_first_install` | 커스텀 | 설치 후 첫 앱 실행 시 1회 | 동일 설치 상태의 재실행 |
-| 앱 실행 | Meta `fb_mobile_activate_app` | 표준 | 앱 실행마다 | 없음 |
+| 앱 최초 설치 후 첫 실행 | Meta `fb_mobile_first_install` | 커스텀 | 신규 설치로 강하게 판정되는 첫 앱 실행 시 1회 | 기존 설치자의 업데이트 후 첫 실행, 동일 설치 상태의 재실행, 신규 설치 판정 불가 |
+| 앱 실행 | Meta `fb_mobile_activate_app` | 표준 | 앱 진입 시 | 없음 |
 | 회원가입 완료 | Meta `CompletedRegistration` | 표준 | `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 가입 완료 처리를 수행할 때 | 클라이언트 검증 실패, API 실패, 네트워크 실패 |
 | 가입 중 여성 사진 제출 | Meta `fb_step5_woman_photos_enroll` | 커스텀 | 가입 플로우에서 여성 사용자가 사진 제출을 시도할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패 |
 | 가입 중 남성 사진 제출 | Meta `fb_step5_man_photos_enroll` | 커스텀 | 가입 플로우에서 남성 사용자가 사진 제출을 시도할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패 |
@@ -38,8 +38,10 @@
 
 - Meta 앱 이벤트는 `react-native-fbsdk-next`의 `AppEventsLogger`로 직접 기록한다.
 - Meta 등록 완료 이벤트는 운영 승인 완료가 아니라 회원가입 API가 성공하고 클라이언트가 가입 완료 처리를 수행한 시점이다.
-- 앱 최초 설치 후 첫 실행 이벤트는 로컬 저장소 플래그로 1회만 기록한다.
-- 앱 실행 이벤트는 앱 시작마다 기록하며, 로그인 완료 후 AppsFlyer `af_login`과 의미를 혼용하지 않는다.
+- Meta SDK 자동 앱 이벤트는 중복/오염 방지를 위해 비활성화하고, 본 문서의 이벤트만 명시적으로 기록한다.
+- 앱 최초 설치 후 첫 실행 이벤트는 로컬 저장소 플래그와 설치 시각 기반 보수 게이트를 함께 사용해 1회만 기록한다.
+- 기존 설치자의 업데이트 후 첫 실행을 신규 설치로 기록해서는 안 되며, 신규 설치 여부를 강하게 판단할 수 없으면 기록하지 않는다.
+- 앱 실행 이벤트는 앱 진입 시 기록하며, 로그인 완료 후 AppsFlyer `af_login`과 의미를 혼용하지 않는다.
 - 가입 중 사진 제출 이벤트는 가입 플로우의 사진 제출 시도 이벤트이며, 업로드/심사 승인 완료 이벤트가 아니다.
 - 구매 이벤트는 신규 구매 서버 검증 성공 후에만 기록하고, 복원 구매에서는 기록하지 않는다.
 - ATT 동의 여부는 앱/가입/구매 플로우를 막지 않으며, iOS에서는 ATT 결과를 Meta SDK의 advertiser tracking 설정에 반영한다.
@@ -102,6 +104,7 @@
 ## 검증 체크리스트
 
 - [ ] Meta Events Manager에서 `fb_mobile_first_install`이 신규 설치 후 첫 실행 1회만 수신되는가?
+- [ ] 기존 설치자가 업데이트 후 첫 실행해도 `fb_mobile_first_install`이 수신되지 않는가?
 - [ ] Meta Events Manager에서 `fb_mobile_activate_app`이 앱 실행마다 수신되는가?
 - [ ] 회원가입 성공 후 `CompletedRegistration`이 수신되는가?
 - [ ] 가입 중 여성/남성 사진 제출 시 `fb_step5_woman_photos_enroll`, `fb_step5_man_photos_enroll`이 성별별로 수신되는가?
