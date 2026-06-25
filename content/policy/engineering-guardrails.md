@@ -222,6 +222,9 @@
 - `LinearGradient` 등 색상 배열 props도 `Colors` 토큰만 사용한다.
 - 새 typography/color variant가 필요하면 화면에서 inline override로 덮지 말고 `TextStyles`/`Colors`에 명시적으로 추가한다.
 - 예외는 런타임 계산이 필요한 값만 허용한다. 이 경우 해당 라인 또는 직전 라인에 `design-token-exception: <reason>` 주석을 남기고, 계산 결과를 여러 화면에서 재사용한다면 helper 또는 token variant로 승격한다.
+- 정적 React Native 스타일 객체는 JSX inline style로 직접 작성하지 않고 `StyleSheet.create` 안에 정의한다.
+- `react-native/no-inline-styles`는 레거시 inline style 정리 범위에 맞춰 파일/디렉터리 단위 ESLint override로 점진 적용한다. override 적용 범위에서는 inline style 0건을 유지한다.
+- override 미적용 범위의 기존 inline style은 [기술 부채 정리](../technical-debt/technical-debt.md)에서 추적하고, 정리 완료 후 전역 lint 적용으로 확장한다.
 - 재유입 차단은 리뷰만으로 끝내지 않고 lint/정적 검사로 자동 검증한다.
 
 ### 버그 수정
