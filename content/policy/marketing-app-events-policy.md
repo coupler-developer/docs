@@ -14,8 +14,8 @@
 ## 적용 범위
 
 - `coupler-mobile-app`
-- Meta App Events, AppsFlyer 앱 이벤트
-- 앱 설치 측정, 신규 회원가입 첫 심사 제출 전환 측정
+- Meta SDK 직접 App Events, AppsFlyer 앱 이벤트
+- 앱 설치/실행, 신규 회원가입, 가입 중 사진 제출, 신규 구매 전환 측정
 
 ## 단일 SoT
 
@@ -25,37 +25,94 @@
 
 ## 이벤트 기준
 
-| 제품 기준 | 외부 이벤트 | 기록 시점 | 제외 |
-| --- | --- | --- | --- |
-| 앱 설치 | AppsFlyer/Meta 모바일 측정 파트너 설치 이벤트 | 모바일 측정 파트너 연동 후 Events Manager에서 수신 여부 검증 | 수동 커스텀 설치 이벤트 추가 |
-| 신규 가입 신청 | AppsFlyer `af_complete_registration`, Meta `fb_mobile_complete_registration`(AppsFlyer 포스트백) | `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 서버가 `result_data.marketing_events.complete_registration.track = true`를 내려준 뒤 | 기존 회원/승급 제출, 심사 재제출, 프로필 수정 제출, 버튼 탭만 발생한 경우, 클라이언트 검증 실패, API 실패, 네트워크 실패, 중복 제출 |
+| 제품 기준 | 외부 이벤트 | 이벤트 종류 | 기록 시점 | 제외 |
+| --- | --- | --- | --- | --- |
+| 앱 최초 설치 후 첫 실행 | Meta `fb_mobile_first_install` | 커스텀 | 설치 후 첫 앱 실행 시 1회 | 동일 설치 상태의 재실행 |
+| 앱 실행 | Meta `fb_mobile_activate_app` | 표준 | 앱 실행마다 | 없음 |
+| 회원가입 완료 | Meta `CompletedRegistration` | 표준 | `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 가입 완료 처리를 수행할 때 | 클라이언트 검증 실패, API 실패, 네트워크 실패 |
+| 가입 중 여성 사진 제출 | Meta `fb_step5_woman_photos_enroll` | 커스텀 | 가입 플로우에서 여성 사용자가 사진 제출을 시도할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패 |
+| 가입 중 남성 사진 제출 | Meta `fb_step5_man_photos_enroll` | 커스텀 | 가입 플로우에서 남성 사용자가 사진 제출을 시도할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패 |
+| 신규 구매 완료 | Meta `logPurchase(price, 'KRW')` | 표준 | 신규 구매 요청이 서버에서 성공 확인된 뒤 | 복원 구매, 서버 검증 실패, 네트워크 실패 |
 
 ## 필수 규칙
 
-- Meta 등록 완료 이벤트는 운영 승인 완료가 아니라 신규 가입자의 첫 심사 요청이 서버에 성공 접수된 시점이다.
-- 가입 완료 이벤트 발행 여부의 단일 SoT는 `/app/v1/auth/signup` 성공 응답의 `result_data.marketing_events.complete_registration.track`이다.
-- 서버는 신규 회원 레코드가 생성되는 최초 가입 제출에만 `track = true`를 내려준다.
-- 클라이언트는 로컬 `member.id`, 세션, pending/review 상태 조합으로 첫 제출 여부를 추론하지 않는다.
-- 앱 코드는 AppsFlyer `af_complete_registration`만 기록하고, Meta 전송은 AppsFlyer 인앱 이벤트 포스트백 설정으로 단일화한다.
-- AppsFlyer `af_complete_registration`에는 가능한 경우 `af_registration_method`를 함께 전달한다.
-- AppsFlyer `af_complete_registration`에는 가능한 경우 `af_registration_event_id`를 추적용 값으로 함께 전달한다. 이 값은 첫 제출 판정 기준이 아니다.
+- Meta 앱 이벤트는 `react-native-fbsdk-next`의 `AppEventsLogger`로 직접 기록한다.
+- Meta 등록 완료 이벤트는 운영 승인 완료가 아니라 회원가입 API가 성공하고 클라이언트가 가입 완료 처리를 수행한 시점이다.
+- 앱 최초 설치 후 첫 실행 이벤트는 로컬 저장소 플래그로 1회만 기록한다.
+- 앱 실행 이벤트는 앱 시작마다 기록하며, 로그인 완료 후 AppsFlyer `af_login`과 의미를 혼용하지 않는다.
+- 가입 중 사진 제출 이벤트는 가입 플로우의 사진 제출 시도 이벤트이며, 업로드/심사 승인 완료 이벤트가 아니다.
+- 구매 이벤트는 신규 구매 서버 검증 성공 후에만 기록하고, 복원 구매에서는 기록하지 않는다.
+- ATT 동의 여부는 앱/가입/구매 플로우를 막지 않으며, iOS에서는 ATT 결과를 Meta SDK의 advertiser tracking 설정에 반영한다.
+- AppsFlyer는 설치 어트리뷰션과 별도 AppsFlyer 이벤트 수집 용도로 유지할 수 있으나, Meta 등록 완료 이벤트 전송 경로로 사용하지 않는다.
 - SDK 이벤트 전송 실패는 가입 플로우를 막지 않고 개발 환경 로그로 확인한다.
 - 이벤트 의미를 변경하거나 새 마케팅 이벤트를 추가할 때는 이 문서를 같은 변경 단위에서 갱신한다.
 
+## iOS ATT 기준
+
+- iOS에서 Meta SDK 또는 AppsFlyer를 광고 성과 측정/맞춤 광고 목적으로 사용하면 ATT를 구현한다.
+- ATT 허용 여부는 앱 진입, 회원가입, 심사 제출, 구매 완료를 막는 조건으로 사용하지 않는다.
+- 앱 자체 사전 안내는 선택 사항이며, 최종 허용/거부 선택지는 Apple ATT 시스템 팝업에서만 받는다.
+- 사전 안내를 표시하는 경우 문구는 다음 기준을 따른다.
+
+```text
+더 관련성 높은 광고를 제공하고 광고 성과를 측정하기 위해 권한을 요청합니다.
+
+허용 여부와 관계없이 앱의 주요 기능은 계속 이용하실 수 있습니다.
+```
+
+- `NSUserTrackingUsageDescription`은 다음 문구를 사용한다.
+
+```text
+더 관련성 높은 광고를 제공하고 광고 성과를 측정하기 위해 기기의 광고 식별자를 사용합니다.
+```
+
+- 사전 안내 버튼은 최종 동의처럼 보이는 `허용/거절`이 아니라 `계속`, `나중에`처럼 시스템 팝업 진행 여부만 표현한다.
+- 시스템 ATT 팝업은 iOS가 관리하며, 사용자가 거부한 뒤 앱에서 자체 거절 팝업을 반복 노출하지 않는다.
+- 거부 이후 재설정 안내가 필요하면 설정/개인정보 화면에서 iOS 설정으로 이동하는 안내만 제공한다.
+- ATT 상태가 `notDetermined`일 때만 시스템 팝업 요청을 시도한다.
+
+## Meta SDK 추적 설정 기준
+
+- ATT 허용: Meta SDK advertiser tracking enabled를 `true`로 설정한다.
+- ATT 거부/제한/미결정/불가/에러: Meta SDK advertiser tracking enabled를 `false` 또는 제한 상태로 설정한다.
+- ATT 요청 또는 상태 조회가 실패해도 기본값은 `false`이며, Meta SDK 초기화 전에 제한 상태를 먼저 반영한다.
+- ATT 거부 사용자의 가입/심사/구매 이벤트도 앱 기능 기준으로는 계속 실행되지만, 플랫폼 수신/귀속/리포팅 범위는 Meta SDK, SKAN/AdAttributionKit, AEM 제한을 따른다.
+- ATT 거부를 우회하기 위해 IDFA 외 식별자, 해시된 연락처, 디바이스 신호, fingerprinting을 광고 측정 목적으로 결합하지 않는다.
+
+## SKAN/AEM 해석 기준
+
+- SKAN/AdAttributionKit와 Meta AEM은 ATT 거부 사용자를 포함한 보완 측정 경로로 둔다.
+- SKAN/AdAttributionKit와 AEM은 지연/집계/모델링 리포팅이므로 실기기 smoke test의 즉시 1건 수신 여부를 대체하지 않는다.
+- Meta SDK 직접 이벤트 검증은 Meta Events Manager의 수신 여부로 보고, SKAN/AEM 성과 수치는 캠페인/집계 리포트에서 별도로 해석한다.
+
+## App Store Connect 개인정보 기준
+
+- App Store Connect의 앱 개인정보 답변에서 tracking 사용 여부를 실제 SDK 동작과 일치시킨다.
+- Meta SDK, AppsFlyer, 기타 광고/분석 SDK가 수집하는 데이터는 각 SDK privacy manifest와 실제 이벤트 파라미터 기준으로 신고한다.
+- 현재 마케팅 이벤트 범위에서 최소 점검할 데이터 유형은 `Device ID`, `Product Interaction`, `Purchase History`다.
+- 각 데이터 유형은 실제 사용 목적에 따라 `Third-Party Advertising`, `Analytics`, 필요한 경우 `App Functionality`를 포함해 검토한다.
+- 앱의 개인정보 처리방침에는 Meta SDK/AppsFlyer 사용, 광고 성과 측정 목적, ATT 거부 시 기능이 막히지 않는다는 점, SKAN/AdAttributionKit/AEM 같은 집계 측정 사용 가능성을 반영한다.
+
 ## 서버 저장 범위
 
-- 현재 목적은 AppsFlyer/Meta에서 신규 가입 신청 이벤트 수신 수를 집계하는 것이다.
-- 서버는 이벤트 발행 가능 여부만 응답 계약으로 내려주며, AppsFlyer/Meta 전송 성공 여부를 자체 DB 원장으로 저장하지 않는다.
+- 현재 목적은 Meta SDK 직접 이벤트와 AppsFlyer 어트리뷰션 이벤트 수신 수를 집계하는 것이다.
+- 서버는 외부 마케팅 플랫폼 전송 성공 여부를 자체 DB 원장으로 저장하지 않는다.
 - 별도 마케팅 이벤트 원장은 서버가 외부 마케팅 플랫폼으로 이벤트를 직접 전송하거나, 전송 성공/실패 재시도와 감사 이력을 서버에서 보장해야 할 때 별도 DB 변경으로 검토한다.
 
 ## 검증 체크리스트
 
-- [ ] Meta Events Manager에서 모바일 측정 파트너 앱 설치 또는 앱 실행 이벤트 수신을 확인했는가?
-- [ ] 신규 가입자의 첫 `심사 요청하기` 성공 응답에서 `marketing_events.complete_registration.track = true`를 확인했는가?
-- [ ] `track = true` 응답 후 AppsFlyer `af_complete_registration`과 Meta 등록 완료 이벤트 수신을 확인했는가?
-- [ ] AppsFlyer `af_complete_registration`에서 Meta `fb_mobile_complete_registration`으로 포스트백 매핑되어 있는가?
-- [ ] 기존 회원/승급/재제출/프로필 수정 성공 응답에서 `marketing_events.complete_registration.track = false`를 확인했는가?
-- [ ] 실패/중복 제출 시 가입 신청 이벤트가 기록되지 않는가?
+- [ ] Meta Events Manager에서 `fb_mobile_first_install`이 신규 설치 후 첫 실행 1회만 수신되는가?
+- [ ] Meta Events Manager에서 `fb_mobile_activate_app`이 앱 실행마다 수신되는가?
+- [ ] 회원가입 성공 후 `CompletedRegistration`이 수신되는가?
+- [ ] 가입 중 여성/남성 사진 제출 시 `fb_step5_woman_photos_enroll`, `fb_step5_man_photos_enroll`이 성별별로 수신되는가?
+- [ ] 신규 구매 서버 검증 성공 후 `logPurchase(price, 'KRW')`가 수신되는가?
+- [ ] 복원 구매, API 실패, 네트워크 실패, 클라이언트 검증 실패에서는 전환 이벤트가 기록되지 않는가?
+- [ ] ATT 동의/거부 상태 모두에서 앱 핵심 플로우가 막히지 않고 Meta 이벤트 수신 여부를 확인했는가?
+- [ ] ATT 사전 안내와 Apple 시스템 팝업의 문구/순서가 정책과 일치하는가?
+- [ ] ATT 거부/제한/미결정/에러에서 Meta advertiser tracking이 `false` 또는 제한 상태로 반영되는가?
+- [ ] ATT 거부 후 자체 거절 팝업을 반복 노출하지 않는가?
+- [ ] App Store Connect 앱 개인정보 답변과 `PrivacyInfo.xcprivacy`가 SDK/이벤트 수집 범위와 일치하는가?
+- [ ] SKAN/AdAttributionKit, AEM 수치는 지연 집계 보완 지표로 별도 해석하는가?
 
 ## 관련 문서
 
