@@ -2,6 +2,11 @@
   "name": "docs",
   "private": true,
   "packageManager": "yarn@1.22.22",
+  "resolutions": {
+    "js-yaml": "4.2.0",
+    "markdown-it": "14.2.0",
+    "picomatch": "2.3.2"
+  },
   "devDependencies": {
     "markdownlint-cli2": "0.17.2"
   },
