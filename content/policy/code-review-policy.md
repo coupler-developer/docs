@@ -154,8 +154,8 @@
 - **Senior PM / Product**: 요구사항, 사용자 흐름, 스펙 공백, 기준 변경 여부를 확인한다.
 - **Business / Operations**: 운영 가능성, CS 리스크, 관리자 액션, 심사/결제/푸시 운영 영향을 확인한다.
 - **Senior Security**: 인증/인가, 권한 우회, 민감정보, 로그 마스킹, 임시 권한, 감사 로그를 확인한다.
-- **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, 에러 계약을 확인한다.
-- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 로컬 상태와 서버 상태 혼용, 디자인 토큰을 확인한다.
+- **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
+- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 디자인 토큰을 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, PR별 cutover 필요성/현재 제거 가능 여부를 확인한다.
 
 ### No Findings 최종 리뷰 기록
@@ -183,6 +183,14 @@
 - 요구사항이 "실제 전송 성공 확인", "발송 성공 집계", "보상 지급 기준"이면 SDK 성공값만으로 완료 처리하지 않는다. 서버 콜백/웹훅, 요청 식별자, 인증 검증, 멱등 처리, 상태 전이 근거를 함께 리뷰한다.
 - Kakao Talk Share에서 전송 성공을 서비스 서버가 알아야 하는 경우, Kakao Developers의 카카오톡 공유 웹훅과 SDK `serverCallbackArgs` 전달 여부를 확인한다.
 
+### 에러 계약 리뷰 기준
+
+- API 실패 응답 추가/수정, Mobile/Admin 실패 분기 수정, 운영 로그 상관관계 변경은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 리뷰한다.
+- 서버는 실패 `result_data`를 `ApiErrorData`로 반환하고, 신규 실패 응답은 공통 factory/mapper 경계로 생성해야 한다. 컨트롤러/도메인 로직에서 실패 응답 JSON을 직접 조립하면 finding으로 기록한다.
+- Mobile/Admin은 `result_code`로 성공/실패를 1차 분기하고, 실패 시 `error_action` 우선, `error_code` 보조 기준으로 처리해야 한다. `result_msg` 문자열 파싱, 도메인 상태용 `result_code` 추가, `error_context` 기반 분기는 finding으로 기록한다.
+- 기존 미준수 구현을 건드리지 않는 경우에는 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 미준수 경로를 신규로 추가하거나 확산하면 `정책 위반`으로 분류한다.
+- 전환 Phase 때문에 호환 필드가 필요하면 제거 조건, 목표 시점, 추적 이슈, 검증 근거가 PR/작업 보고에 있어야 한다.
+
 ### 체크 포인트
 
 - [ ] 요구사항을 정확히 구현했는가?
@@ -193,7 +201,7 @@
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 결과와 로그 링크가 PR에 명시되어 있는가? (`N/A` 항목은 미적용 근거 포함)
 - [ ] 코드/기능 변경 시 다중 관점 리뷰 패스의 7개 관점을 확인했고, 무관한 관점은 `N/A` 근거를 남겼는가?
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
-- [ ] 에러 처리가 적절한가?
+- [ ] 에러 처리가 [API 에러 계약 정책](api-error-contract-policy.md)과 [엔지니어링 가드레일](engineering-guardrails.md)의 실패 응답/에러 처리 기준을 따르는가?
 - [ ] 테스트 변경 판정이 충분한가? (`추가`/`갱신`/`미변경` 근거, 중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
