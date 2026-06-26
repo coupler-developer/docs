@@ -89,6 +89,7 @@
 ### Flows
 
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
+- [API 계약 변경 모바일 릴리즈 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - API 명세 변경 시 기존 앱 호환과 다음 버전 cutover 분리 배포 절차
 - [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
 

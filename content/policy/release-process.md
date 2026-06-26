@@ -45,6 +45,7 @@
 - `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
 - 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
 - Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는 OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다.
+- API 명세 변경이 포함된 Mobile Store 또는 Mobile NextPush 배포는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다. 기존 운영 앱을 깨는 cutover는 다음 버전 배포 전 호환 배포에 포함하지 않는다.
 
 ## 릴리즈 운영 모델 (단계별)
 
@@ -310,6 +311,7 @@ git push origin "${TAG}"
 
 - 스토어 배포: 앱 바이너리(iOS/Android) 업데이트
 - OTA 배포: NextPush(CodePush)로 JS 번들 업데이트
+- API 명세 변경이 포함되면 Mobile Store와 Mobile NextPush 배포 모두 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
 - iOS 스토어 업로드 전에는 현재 Apple 제출 기준을 만족하는 Xcode/iOS SDK로 빌드했는지 확인한다.
 - iOS 제출 기준 증빙은 `xcodebuild -version`과 `xcrun --sdk iphoneos --show-sdk-version` 실행 결과를 릴리즈 기록에 남긴다.
 
