@@ -160,9 +160,12 @@ cutover 배포 코드 기준:
 - **스펙 위반은 에러로 드러내기**
     - 조용한 실패 금지 원칙(핵심 원칙 정의)을 그대로 적용한다
     - 사용자에게는 토스트/에러 메시지, 개발 환경에서는 throw/log로 즉시 드러내기
-- **실패 응답 계약은 단일 정책 문서를 따른다**
-    - 실패 `result_data`의 표준 구조(`error_code`, `error_source`, `error_action`, `error_context`), `request_id` 필수 여부, 분기 기준은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT로 따른다
-    - 가드레일은 "실패를 숨기지 말 것"과 책임 경계만 정의하고, 실패 응답 envelope 세부 계약은 별도 정책 문서를 따른다
+- **실패 응답/에러 처리는 API 에러 계약 정책을 따른다**
+    - 실패 envelope, `ApiErrorData`, `request_id`, HTTP Status, 클라이언트 분기는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다
+    - API 서버는 실패 원인을 공통 factory/mapper에서 `ApiErrorData`로 변환한다. 컨트롤러/도메인 로직은 실패 JSON을 직접 조립하지 않는다
+    - Mobile/Admin은 `result_code`로 성공/실패를 나누고, 실패는 `error_action`, 필요 시 `error_code`로 처리한다
+    - `result_msg` 문자열 파싱, `error_context` 분기, 제거 조건 없는 호환 필드는 금지한다
+    - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 에러 계약 정책을 따른다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
     - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
