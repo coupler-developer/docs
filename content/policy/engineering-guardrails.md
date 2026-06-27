@@ -249,7 +249,7 @@ cutover 배포 코드 기준:
 - TypeScript 일반 `property` 이름은 `lowerCamelCase`로 분류한다. `StyleSheet.create`에 새로 추가하는 style key도 일반 `property`로 보고 `lowerCamelCase`로 작성한다.
 - `react-native/no-inline-styles`는 레거시 inline style 정리 범위에 맞춰 파일/디렉터리 단위 ESLint override로 점진 적용한다. override 적용 범위에서는 inline style 0건을 유지한다.
 - override 미적용 범위의 기존 inline style은 [기술 부채 정리](../technical-debt/technical-debt.md)에서 추적하고, 정리 완료 후 전역 lint 적용으로 확장한다.
-- 기존 `snake_case` style key는 [기술 부채 정리](../technical-debt/technical-debt.md)에서 추적하고, 해당 파일을 수정하는 변경부터 `lowerCamelCase`로 점진 전환한다.
+- 기존 `snake_case` style key는 [기술 부채 정리](../technical-debt/technical-debt.md)에서 추적하고, 신규 또는 직접 수정하는 style key부터 `lowerCamelCase`로 점진 전환한다.
 - 재유입 차단은 리뷰만으로 끝내지 않고 lint/정적 검사로 자동 검증한다.
 
 ### 버그 수정

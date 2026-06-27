@@ -547,7 +547,7 @@
 액션 후보
 
 - 신규 `StyleSheet.create` style key는 항상 `lowerCamelCase`로 작성한다.
-- 기존 `snake_case` style key는 해당 파일을 수정하는 변경부터 의미 단위로 `lowerCamelCase` 전환한다.
+- 기존 `snake_case` style key는 신규 또는 직접 수정하는 style key부터 의미 단위로 `lowerCamelCase` 전환한다.
 - 대규모 일괄 변경은 UI 회귀 위험이 있으므로 별도 PR에서 검색 결과, 변경 범위, lint/typecheck 결과를 남긴다.
 
 완료 기준
