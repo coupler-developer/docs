@@ -4,7 +4,7 @@
 
 - 역할: `부채`
 - 문서 종류: `technical-debt`
-- 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md), [테스트/CI 전략](../policy/testing-strategy.md), [배포 태그/릴리즈 프로세스](../policy/release-process.md)
+- 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md), [테스트/CI 전략](../policy/testing-strategy.md), [배포/릴리즈 프로세스](../policy/release-process.md)
 - 기준 성격: `transition`
 
 ## 목적
@@ -163,7 +163,7 @@
 ## 관련 문서
 
 - [푸시알림 시스템](../architecture/push-notification.md)
-- [배포 태그/릴리즈 프로세스](../policy/release-process.md)
+- [배포/릴리즈 프로세스](../policy/release-process.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)
 - [엔지니어링 가드레일](../policy/engineering-guardrails.md)
 - [기술 부채 정리](technical-debt.md)

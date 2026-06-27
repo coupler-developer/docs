@@ -93,4 +93,4 @@
 - [푸시알림 시스템](../architecture/push-notification.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
 - [로그 정책](log-policy.md)
-- [배포 태그/릴리즈 프로세스](release-process.md)
+- [배포/릴리즈 프로세스](release-process.md)

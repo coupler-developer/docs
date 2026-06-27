@@ -4,7 +4,7 @@
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- 충돌 시 우선 문서: [배포/릴리즈 프로세스](../../policy/release-process.md), [배포 태그 정책](../../policy/release-tag-policy.md)
 - 기준 성격: `as-is`
 
 ## 목적
@@ -19,7 +19,8 @@
 
 ## 상위 규범 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
+- [배포 태그 정책](../../policy/release-tag-policy.md)
 - [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
 - [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)
 - [테스트/CI 전략](../../policy/testing-strategy.md)
@@ -42,10 +43,10 @@
 | `DB migration` | 스키마, 데이터, view, 읽기 기준 변경이 운영 DB에 필요함 | [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md) |
 | `coupler-api` | API 코드 또는 서버 런타임 변경을 운영 EC2에 반영함 | 이 문서의 API 절차 |
 | `coupler-admin-web` | Admin 화면 변경을 운영 정적 산출물로 반영함 | [Admin 운영 배포 런북](admin-web-production-deploy-flow.md) |
-| `Mobile Store` | native binary 또는 스토어 제출이 필요함 | [배포 태그/릴리즈 프로세스](../../policy/release-process.md) |
+| `Mobile Store` | native binary 또는 스토어 제출이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 | `Mobile NextPush` | JS-only OTA 배포가 필요함 | 이 문서의 NextPush 절차 |
-| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 |
-| `Tag/Release Record` | 운영 반영 기준점 기록이 필요함 | [배포 태그/릴리즈 프로세스](../../policy/release-process.md) |
+| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 |
+| `Tag/Release Record` | 운영 반영 기준점 기록이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 
 ## 공통 사전 확인
 
@@ -240,9 +241,28 @@ xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version
 ```
 
+스토어 심사 제출 직후에는 운영 출시 완료 전 기준점을 잃지 않도록 [배포 태그 정책](../../policy/release-tag-policy.md)에 따라 제출 마커 태그를 만든다.
+
+```bash
+REPO=coupler-mobile-app
+TAG=submitted/mobile-X.Y.Z-BUILD
+COMMIT=<submitted-commit-sha>
+git -C "${REPO}" tag -a "${TAG}" "${COMMIT}" \
+  -m "Submitted Mobile Store X.Y.Z (BUILD)" \
+  -m "Android artifact: <path>, sha256: <sha256>" \
+  -m "iOS archive: <path>, sha256: <sha256>" \
+  -m "Uploaded/submitted at: <timestamp>" \
+  -m "Bundle/hash evidence: <android-codepush-hash-or-bundle>, <ios-bundle-hash>" \
+  -m "Evidence: <why this commit matches the submitted artifact>"
+git -C "${REPO}" push origin "${TAG}"
+git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
+```
+
+Android/iOS platform별 제출 마커 태그 분리 여부와 `vX.Y.Z` 릴리즈 태그 생성 시점은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
+
 ## Tag 포함 시
 
-태그는 운영 반영과 검증이 완료된 커밋에만 생성한다. 레포별 태그는 서로 독립적이며, 공통 버전 강제는 릴리즈 기록에서 명시한 경우에만 적용한다. 서비스 레포(`coupler-api`, `coupler-admin-web`, `coupler-mobile-app`) 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
+이 절의 `vX.Y.Z` 릴리즈 태그는 [배포 태그 정책](../../policy/release-tag-policy.md)의 운영 반영/검증 완료 기준을 만족한 뒤 생성한다. 레포별 태그는 서로 독립적이며, 공통 버전 강제는 릴리즈 기록에서 명시한 경우에만 적용한다.
 
 ```bash
 REPO=coupler-api
@@ -270,11 +290,11 @@ git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 5. `No Findings`일 때만 `docs` `main`을 push해 Pages 기준 문서를 먼저 배포한다.
 6. `docs` 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
 
-NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다. 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다. 스토어 심사 중인 빌드는 제출 커밋만 기록하고, 스토어 승인 후 운영 출시와 기본 검증이 끝날 때 모바일 태그를 생성한다.
+NextPush-only 모바일 배포, 스토어 심사 중인 빌드, 모바일 릴리즈 태그 생성 기준은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
 ## Docs 포함 시
 
-문서 배포는 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 절차 중 GitHub Pages 배포를 따른다. 이 문서는 docs 배포 명령을 중복 정의하지 않는다.
+문서 배포는 [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 절차 중 GitHub Pages 배포를 따른다. 이 문서는 docs 배포 명령을 중복 정의하지 않는다.
 
 최종 기록에는 최소 아래를 남긴다.
 
@@ -284,7 +304,7 @@ NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 만들지
 
 docs tag/GitHub Release를 만드는 경우에는 이 문서의 `Tag/Release Record` 범위에도 포함한다. 이때 `release.yml` 결과, GitHub Release 링크, `docs-site-vX.Y.Z.tar.gz` 첨부 여부를 함께 남긴다.
 
-docs GitHub Release를 정정 재발행해야 하는 경우에는 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 `docs-only corrective reissue` 조건을 먼저 충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
+docs GitHub Release를 정정 재발행해야 하는 경우에는 [배포/릴리즈 프로세스](../../policy/release-process.md)의 `docs-only corrective reissue` 조건을 먼저 충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
 
 ## 검증 기록
 
@@ -335,7 +355,7 @@ nextpush rollback bluedotstudio.official-gmail.com/coupler-ios Production --targ
 
 ## 관련 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
 - [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
 - [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)
 - [레포지토리 요약](../../architecture/repo-overview.md)

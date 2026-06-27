@@ -20,7 +20,7 @@
 
 - 결제 도메인 구조: [결제 시스템](../architecture/payment-system.md)
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
-- 릴리즈/롤백 절차: [배포 태그/릴리즈 프로세스](release-process.md)
+- 릴리즈/롤백 절차: [배포/릴리즈 프로세스](release-process.md)
 - 리뷰/증빙 기준: [코드 리뷰 정책](code-review-policy.md)
 
 ## 필수 규칙
@@ -81,5 +81,5 @@
 
 - [결제 시스템](../architecture/payment-system.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
-- [배포 태그/릴리즈 프로세스](release-process.md)
+- [배포/릴리즈 프로세스](release-process.md)
 - [로그 정책](log-policy.md)

@@ -4,7 +4,7 @@
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: [배포 태그/릴리즈 프로세스](../../policy/release-process.md), [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
+- 충돌 시 우선 문서: [배포/릴리즈 프로세스](../../policy/release-process.md), [배포 태그 정책](../../policy/release-tag-policy.md), [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - 기준 성격: `transition`
 
 ## 목적
@@ -19,7 +19,8 @@
 
 ## 상위 규범 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
+- [배포 태그 정책](../../policy/release-tag-policy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - [API 에러 계약 정책](../../policy/api-error-contract-policy.md)
 - [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
@@ -92,7 +93,7 @@
 1. Store 배포는 `N+1` 승인, 실제 출시 여부, rollout 범위를 기록한다.
 2. NextPush 배포는 app/deployment label, uploaded time, target binary version, rollout/mandatory/disabled 상태를 기록한다.
 3. 배포 후 운영 API/Admin 로그, 크래시, 도메인 큐/상태, CS 인입을 확인한다.
-4. 모바일 태그는 Store 출시와 기본 검증이 끝난 커밋에만 생성한다. NextPush-only 배포는 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 태그 기준을 따른다.
+4. 모바일 태그와 NextPush-only 태그 생성 여부는 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
 ### 5) Cutover Gate
 
@@ -154,7 +155,8 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 
 ## 관련 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
+- [배포 태그 정책](../../policy/release-tag-policy.md)
 - [운영 배포 명령어 런북](production-deploy-command-runbook.md)
 - [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)

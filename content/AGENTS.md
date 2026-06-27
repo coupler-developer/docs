@@ -68,7 +68,8 @@
 - [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
 - [Git 동기화/Rebase 실행 정책](policy/git-sync-rebase-policy.md) - pull/rebase 기준 및 최신화 검증 규칙
 - [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
-- [배포 태그/릴리즈 프로세스](policy/release-process.md) - 배포 단위 기록(태그), docs GitHub Release, 릴리즈 기록
+- [배포 태그 정책](policy/release-tag-policy.md) - 릴리즈 태그와 스토어 제출 마커 태그 기준
+- [배포/릴리즈 프로세스](policy/release-process.md) - 배포 순서, docs GitHub Release, 릴리즈 기록
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 에러 응답 및 환경 분리 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
