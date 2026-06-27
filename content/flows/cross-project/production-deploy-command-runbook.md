@@ -41,7 +41,7 @@
 | 범위 | 포함 조건 | 단일 기준 |
 | --- | --- | --- |
 | `DB migration` | 스키마, 데이터, view, 읽기 기준 변경이 운영 DB에 필요함 | [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md) |
-| `coupler-api` | API 코드 또는 서버 런타임 변경을 운영 EC2에 반영함 | 이 문서의 API 절차 |
+| `coupler-api` | API 코드 또는 서버 런타임 설정 변경을 운영 EC2에 반영함 | 이 문서의 API 절차 |
 | `coupler-admin-web` | Admin 화면 변경을 운영 정적 산출물로 반영함 | [Admin 운영 배포 런북](admin-web-production-deploy-flow.md) |
 | `Mobile Store` | native binary 또는 스토어 제출이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 | `Mobile NextPush` | JS-only OTA 배포가 필요함 | 이 문서의 NextPush 절차 |
@@ -137,6 +137,8 @@ WHERE <변경 전 실패 조건>;
 
 ## API 포함 시
 
+`coupler-api`의 `config/default*.json`, 운영 `config/production*.json`, `config/production*.json.example`, 운영 환경변수, DB pool, connection timeout, runtime config 로딩 경로가 바뀌면 DB migration이 없어도 API 배포 범위에 포함한다. 이 경우 `pm2 restart coupler-api --update-env`까지 실행해 프로세스 시작 시점 설정을 다시 로드하고, 릴리즈 기록에는 `DB migration: N/A` 사유와 API 재시작 근거를 남긴다.
+
 운영 EC2에서 실행한다.
 
 ```bash
@@ -157,7 +159,7 @@ curl -i http://127.0.0.1:3002/
 curl -i https://api.ritzy.fourhundred.co.kr/
 ```
 
-배포 범위와 관련된 핵심 API도 1개 이상 확인하고, 에러 로그를 확인한다.
+배포 범위와 관련된 핵심 API도 1개 이상 확인하고, 에러 로그를 확인한다. DB pool/timeout 설정 변경이면 DB 연결 오류, queue limit 오류, p95/p99 latency, RDS connection/running thread 지표도 post-deploy 확인 항목에 포함한다.
 
 ```bash
 pm2 logs coupler-api --lines 100 --nostream

@@ -292,6 +292,8 @@ cutover 배포 코드 기준:
 - 컨트롤러는 오케스트레이션에 집중하고 핵심 규칙은 service/usecase 계층으로 고정한다.
 - 다중 엔티티 갱신은 트랜잭션 경계를 명시하고 부분 성공 상태를 남기지 않는다.
 - 클라이언트 임시 정책을 서버에 하드코딩하지 않는다(플랫폼 분기 금지, 계약 기반 처리).
+- DB pool, connection timeout, runtime config 로딩 경로, `config/default*.json`, 운영 `config/production*.json`, `config/production*.json.example`, 운영 환경변수처럼 API 프로세스 시작 시점에 적용되는 설정을 바꾸면 `coupler-api` 재배포/재시작 필요 여부를 PR/작업 보고에 명시한다.
+    - DB 스키마/데이터 변경이 없으면 `DB migration`은 `N/A`로 분류하되, API 런타임 변경이므로 운영 EC2 반영과 post-deploy 로그/지표 확인은 생략하지 않는다.
 
 ### Mobile (coupler-mobile-app)
 
