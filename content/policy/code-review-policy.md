@@ -155,7 +155,7 @@
 - **Business / Operations**: 운영 가능성, CS 리스크, 관리자 액션, 심사/결제/푸시 운영 영향을 확인한다.
 - **Senior Security**: 인증/인가, 권한 우회, 민감정보, 로그 마스킹, 임시 권한, 감사 로그를 확인한다.
 - **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
-- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 디자인 토큰을 확인한다.
+- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, PR별 cutover 필요성/현재 제거 가능 여부를 확인한다.
 
 ### No Findings 최종 리뷰 기록
@@ -206,6 +206,7 @@
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
 - [ ] 기능 회귀 가능성이 있는 변경은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 분류/검증됐는가?
+- [ ] React Native `StyleSheet.create`에 신규 style key를 추가한 경우 `lowerCamelCase`로 작성했는가?
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈가 PR/릴리즈 기록에 남았는가?
 - [ ] 기존 정책 불일치를 회귀로 오판하지 않고, 이번 변경이 새로 만들거나 확산한 문제인지 근거로 구분했는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?

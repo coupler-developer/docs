@@ -528,3 +528,29 @@
 - `coupler-mobile-app/src` 1st-party 코드에서 정적 JSX inline style이 0건이다.
 - `.eslintrc.js`에서 `react-native/no-inline-styles`가 전역 `error`로 적용된다.
 - 런타임 계산이 필요한 예외는 코드 주석으로 사유가 명시되어 있고, 가능한 경우 helper 또는 token variant로 승격되어 있다.
+
+---
+
+## 22) Mobile StyleSheet style key 네이밍 일관성 미완료 `P2` `S`
+
+현상
+
+- [엔지니어링 가드레일](../policy/engineering-guardrails.md)은 `StyleSheet.create` 신규 style key를 일반 `property`로 보고 `lowerCamelCase`로 작성하도록 고정한다.
+- `coupler-mobile-app`의 기존 화면/컴포넌트에는 `empty_box`, `message_style`처럼 `snake_case` style key가 일부 남아 있다.
+- 기존 파일 내부 패턴을 맞추기 위해 신규 style key까지 `snake_case`로 추가하면 새 기준이 확산될 수 있다.
+
+영향
+
+- React Native/TypeScript 코드의 일반 네이밍 규칙과 스타일 키 네이밍이 어긋나 코드 검색과 리뷰 기준이 흔들릴 수 있다.
+- 기존 부채와 신규 변경이 섞이면 어떤 style key를 고쳐야 하는지 판단하기 어렵다.
+
+액션 후보
+
+- 신규 `StyleSheet.create` style key는 항상 `lowerCamelCase`로 작성한다.
+- 기존 `snake_case` style key는 해당 파일을 수정하는 변경부터 의미 단위로 `lowerCamelCase` 전환한다.
+- 대규모 일괄 변경은 UI 회귀 위험이 있으므로 별도 PR에서 검색 결과, 변경 범위, lint/typecheck 결과를 남긴다.
+
+완료 기준
+
+- `coupler-mobile-app/src` 1st-party 코드의 `StyleSheet.create` style key가 `lowerCamelCase`로 통일되어 있다.
+- 코드 리뷰 정책과 엔지니어링 가드레일이 신규 style key의 `lowerCamelCase` 기준을 같은 결론으로 설명한다.
