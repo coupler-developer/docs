@@ -194,6 +194,12 @@
 - 기존 미준수 구현을 건드리지 않는 경우에는 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 미준수 경로를 신규로 추가하거나 확산하면 `정책 위반`으로 분류한다.
 - 전환 Phase 때문에 호환 필드가 필요하면 제거 조건, 목표 시점, 추적 이슈, 검증 근거가 PR/작업 보고에 있어야 한다.
 
+### 런타임 설정 리뷰 기준
+
+- `coupler-api`의 DB pool, connection timeout, runtime config 로딩 경로, `config/default*.json`, 운영 `config/production*.json`, `config/production*.json.example`, 운영 환경변수 변경은 API 런타임 변경으로 리뷰한다.
+- 리뷰 기록에는 배포 범위 `coupler-api`, 재배포/재시작 필요 여부, `DB migration` 적용 여부(`필요` 또는 `N/A`), 운영 config merge 영향, rollback 기준, post-deploy 확인 항목을 남긴다.
+- DB pool/timeout 변경은 정상 동작 테스트만으로 완료하지 않고, 운영 배포 후 확인할 로그/지표를 함께 남긴다. 예: DB 연결 오류, queue limit 오류, p95/p99 latency, RDS connection/running thread 지표.
+
 ### 체크 포인트
 
 - [ ] 요구사항을 정확히 구현했는가?
@@ -209,6 +215,7 @@
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
 - [ ] 기능 회귀 가능성이 있는 변경은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 분류/검증됐는가?
+- [ ] DB/API 런타임 설정 변경 시 `coupler-api` 재배포/재시작 필요 여부와 post-deploy 확인 항목을 기록했는가?
 - [ ] React Native `StyleSheet.create`에 신규 style key를 추가한 경우 `lowerCamelCase`로 작성했는가?
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈가 PR/릴리즈 기록에 남았는가?
 - [ ] 기존 정책 불일치를 회귀로 오판하지 않고, 이번 변경이 새로 만들거나 확산한 문제인지 근거로 구분했는가?
