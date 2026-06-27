@@ -21,7 +21,7 @@
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
 - 로그 처리 기준: [로그 정책](log-policy.md)
 - DB 변경 검증 기준: [DB Migration Gate 정책](db-migration-gate-policy.md)
-- 릴리즈/롤백 기준: [배포 태그/릴리즈 프로세스](release-process.md)
+- 릴리즈/롤백 기준: [배포/릴리즈 프로세스](release-process.md)
 
 ## 필수 규칙
 
@@ -110,4 +110,4 @@
 - [로그 정책](log-policy.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
 - [DB Migration Gate 정책](db-migration-gate-policy.md)
-- [배포 태그/릴리즈 프로세스](release-process.md)
+- [배포/릴리즈 프로세스](release-process.md)

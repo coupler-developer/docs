@@ -4,7 +4,7 @@
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: `policy/release-process.md`
+- 충돌 시 우선 문서: `policy/release-process.md`, 태그 기준은 `policy/release-tag-policy.md`
 - 기준 성격: `as-is`
 
 ## 목적
@@ -19,7 +19,8 @@
 
 ## 상위 규범 문서
 
-- [배포 태그/릴리즈 프로세스](../policy/release-process.md)
+- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [배포 태그 정책](../policy/release-tag-policy.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)
 
 ## 릴리스 상태
@@ -32,6 +33,7 @@
 - `coupler-api` 태그:
 - `coupler-admin-web` 태그:
 - `coupler-mobile-app` 태그:
+- `coupler-mobile-app` 제출 마커 태그:
 
 ## 릴리스 결과
 
@@ -57,4 +59,5 @@
 
 ## 관련 문서
 
-- [배포 태그/릴리즈 프로세스](../policy/release-process.md)
+- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [배포 태그 정책](../policy/release-tag-policy.md)

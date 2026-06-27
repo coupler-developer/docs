@@ -4,7 +4,7 @@
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- 충돌 시 우선 문서: [배포/릴리즈 프로세스](../../policy/release-process.md)
 - 기준 성격: `as-is`
 
 ## 목적
@@ -19,7 +19,7 @@
 
 ## 상위 규범 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 
 ## 액터
@@ -31,7 +31,7 @@
 
 ## 메인 흐름
 
-1. 배포 시작 전 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 `No Findings`와 공통 품질 게이트 기준을 통과했는지 확인한다.
+1. 배포 시작 전 [배포/릴리즈 프로세스](../../policy/release-process.md)의 `No Findings`와 공통 품질 게이트 기준을 통과했는지 확인한다.
 2. 로컬 또는 CI에서 `coupler-admin-web` 루트 기준으로 `yarn install`, `yarn build`를 실행해 `build/` 산출물을 만든다.
 3. 운영 서버에서 최초 1회 또는 서버 재구성 시 아래를 준비한다.
 
@@ -129,7 +129,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 
 - 운영에서 `yarn start`, `react-scripts start`, `pm2 start ./node_modules/react-scripts/scripts/start.js`를 사용하지 않는다.
 - `coupler-admin-web`를 프로세스 앱처럼 `pm2`로 상시 운영하지 않는다.
-- 이 문서를 [배포 태그/릴리즈 프로세스](../../policy/release-process.md)의 규범 기준 대신 사용하지 않는다.
+- 이 문서를 [배포/릴리즈 프로세스](../../policy/release-process.md)의 규범 기준 대신 사용하지 않는다.
 
 ## 롤백 흐름
 
@@ -145,5 +145,5 @@ sudo rsync -a --delete <backup-dir>/ /var/www/coupler-admin-web/
 
 ## 관련 문서
 
-- [배포 태그/릴리즈 프로세스](../../policy/release-process.md)
+- [배포/릴리즈 프로세스](../../policy/release-process.md)
 - [레포지토리 요약](../../architecture/repo-overview.md)

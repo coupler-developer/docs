@@ -1,16 +1,16 @@
-# 배포 태그/릴리즈 프로세스
+# 배포/릴리즈 프로세스
 
 ## 문서 역할
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 이 문서. 단, 태그 이름/시점/증빙 기준은 [배포 태그 정책](release-tag-policy.md)
 - 기준 성격: `as-is`
 
 ## 목적
 
-- Production 배포 단위를 `git tag`로 고정해, "무엇이 언제 배포됐는지"를 추적한다.
-- 문제 발생 시 "어느 버전으로 롤백할지" 기준점을 만든다.
+- 운영 배포 순서와 릴리즈 기록 절차를 고정한다.
+- 태그 이름/시점/증빙 기준은 [배포 태그 정책](release-tag-policy.md)에 위임하고, 이 문서는 태그 전후의 실행 순서를 정의한다.
 - `docs` GitHub Release와 릴리즈 기록 문서로 변경점/주의사항을 한 곳에 모은다.
 
 > 참고: `docs/site/`는 `mkdocs build`가 생성하는 정적 사이트 빌드 산출물이다. 커밋 대상이 아니라 `.gitignore`로 제외한다.
@@ -44,7 +44,10 @@
 - DB 변경이 포함되면 [DB Migration Gate 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
 - `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
 - 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
+- 배포 태그, 스토어 제출 마커 태그, 태그 증빙 기준은 [배포 태그 정책](release-tag-policy.md)을 단일 기준으로 따른다.
 - Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는 OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다.
+- Mobile Store 제출은 운영 출시와 별도 상태다. 릴리즈 기록에서 Mobile Store 승인/운영 출시를 통합 릴리즈 완료 조건으로 잡은 경우, 해당 gate에 묶인 `vX.Y.Z` 릴리즈 태그는 완료 전 생성하지 않는다.
+- Mobile Store gate와 독립적으로 완료되는 범위는 운영 반영/검증 완료 후 [배포 태그 정책](release-tag-policy.md)에 따라 별도 태그를 생성할 수 있다.
 - API 명세 변경이 포함된 Mobile Store 또는 Mobile NextPush 배포는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다. 기존 운영 앱을 깨는 cutover는 다음 버전 배포 전 호환 배포에 포함하지 않는다.
 
 ## 릴리즈 운영 모델 (단계별)
@@ -78,12 +81,8 @@
 
 ## 태그 규칙
 
-- 태그 이름: `vMAJOR.MINOR.PATCH` (예: `v1.2.0`, `v1.2.1`)
-- 태그는 **annotated tag**만 사용: `git tag -a ...`
-- 원칙: **Production 배포가 끝나고 검증까지 완료된 커밋**에 태그를 찍는다.
-- 예외: `docs` 레포는 메이저 릴리즈 제어판을 먼저 열기 위해, `docs/content/releases/vX.Y.Z.md`가 `main`에 포함된 상태라면 서비스 배포 전에 태그를 선행 생성할 수 있다.
-- `docs` 태그가 서비스 레포 태그를 대체하지 않는다. 서비스 레포 태그는 각 레포의 실제 운영 반영/검증 완료 커밋에 별도로 생성한다.
-- 스토어 심사 중인 모바일 빌드는 `submitted` 또는 `in_review`로만 기록한다. `coupler-mobile-app` 태그는 스토어 승인 후 운영 출시와 기본 검증이 끝난 커밋에 생성한다.
+- 태그 이름, 생성 시점, 제출 마커 태그, 증빙 기준은 [배포 태그 정책](release-tag-policy.md)을 따른다.
+- 이 문서는 태그 생성 전후의 배포 순서, 릴리즈 기록 작성, docs GitHub Release 절차만 정의한다.
 - 일부 범위만 완료된 릴리스의 `docs/content/releases/vX.Y.Z.md`는 전체 릴리스 상태를 `released`로 닫지 않고, 완료/대기 범위를 구분해 기록한다.
 
 ## 버전 올리는 기준 (SemVer)
@@ -329,7 +328,8 @@ yarn codepush-ios-prod
 
 ### 3) 태그/릴리즈 남기기
 
-- 스토어 배포가 끝나고 검증한 커밋에는 모바일 레포 태그를 찍는다.
+- 스토어 심사 제출 직후에는 [배포 태그 정책](release-tag-policy.md)에 따라 제출 마커 태그를 만들고 원격에 push한다.
+- 스토어 배포가 끝나고 검증한 커밋에는 [배포 태그 정책](release-tag-policy.md)에 따라 모바일 레포 릴리즈 태그를 찍는다.
 - NextPush-only 배포는 기본적으로 모바일 레포 태그를 새로 만들지 않는다.
 - NextPush-only 배포의 기준점은 NextPush app/deployment label, uploaded time, target binary version, rollout/mandatory/disabled 상태, 배포한 git commit SHA로 기록한다.
 - 릴리즈 기록 또는 `docs` 통합 Release Note에는 실제 배포한 NextPush app, `Production` deployment label, 검증 시나리오를 남긴다.
