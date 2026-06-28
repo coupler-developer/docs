@@ -30,7 +30,7 @@
 ## 용어
 
 - 릴리즈 태그: 운영 반영과 검증이 완료된 기준점을 고정하는 `vMAJOR.MINOR.PATCH` 형식의 annotated tag
-- 제출 마커 태그: Mobile Store 심사 제출 직후 binary provenance를 고정하는 `submitted/*` 형식의 annotated tag
+- 제출 마커 태그: Mobile Store 심사 중 binary provenance를 임시 고정하는 `submitted/*` 형식의 annotated tag
 - platform별 제출 마커 태그: Android와 iOS의 제출 기준이 실제로 갈라진 경우에만 사용하는 예외 태그
 
 ## 필수 규칙
@@ -45,9 +45,11 @@
 - 같은 `vX.Y.Z` 릴리즈 태그를 여러 커밋에 나눠 찍지 않는다.
 - 서비스 레포(`coupler-api`, `coupler-admin-web`, `coupler-mobile-app`) 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
 - 스토어 심사 중인 모바일 빌드는 `submitted` 또는 `in_review`로만 기록한다. `coupler-mobile-app`의 `vX.Y.Z` 릴리즈 태그는 스토어 승인 후 운영 출시와 기본 검증이 끝난 커밋에 생성한다.
-- 스토어 제출 마커 태그는 릴리즈 태그가 아니라 binary provenance 기록이다.
+- 스토어 제출 마커 태그는 릴리즈 태그가 아니라 심사 중 binary provenance를 잃지 않기 위한 임시 기록이다.
 - 기본 제출 마커 태그 이름은 `submitted/mobile-<version>-<build>`로 고정한다(예: `submitted/mobile-2.2.0-97`).
 - Android와 iOS가 서로 다른 커밋 기준으로 빌드됐거나 별도 제출 이벤트로 심사에 들어간 경우에만 예외적으로 `submitted/android-<version>-<build>`, `submitted/ios-<version>-<build>`처럼 platform별 제출 마커 태그를 각각 만든다.
+- Mobile Store 승인, 실제 출시, 기본 smoke 검증, `coupler-mobile-app` `vX.Y.Z` 릴리즈 태그 push, 릴리즈 기록 문서의 제출 증빙 이관이 모두 끝나면 해당 릴리스의 `submitted/*` 태그는 로컬과 원격에서 삭제한다.
+- 릴리즈 기록 문서에 제출 마커 태그 이름, tag commit SHA, artifact/hash 요약, 삭제 여부를 남기기 전에는 `submitted/*` 태그를 삭제하지 않는다.
 - NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 새로 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다.
 - 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다.
 
@@ -69,7 +71,7 @@
 - 태그 커밋 SHA
 - 운영 반영 시각 또는 스토어 제출/승인 시각
 - 검증 결과
-- 제출 마커 태그가 있으면 해당 태그와 증빙 요약
+- 제출 마커 태그가 있으면 해당 태그 이름, tag commit SHA, 증빙 요약, 삭제 여부
 
 ## 체크리스트
 
@@ -80,6 +82,8 @@
 - [ ] Mobile Store gate에 묶인 통합 릴리즈라면 태그 보류/완료 범위를 릴리즈 기록에 구분했는가?
 - [ ] Android/iOS 제출 마커 태그를 분리했다면 커밋 기준 또는 제출 이벤트가 실제로 다른가?
 - [ ] 제출 마커 태그 메시지에 artifact, hash, 제출 시각, 커밋 판단 근거가 남았는가?
+- [ ] Mobile Store 승인/출시/검증 후 `vX.Y.Z` 릴리즈 태그와 릴리즈 기록에 제출 증빙을 이관했는가?
+- [ ] 제출 증빙 이관 후 해당 릴리스의 `submitted/*` 로컬/원격 태그를 삭제했거나, 삭제 보류 사유를 기록했는가?
 - [ ] 릴리즈 기록 문서에 태그/SHA/검증 결과가 남았는가?
 
 ## 관련 문서
