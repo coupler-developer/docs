@@ -101,6 +101,7 @@ nav:
       - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
       - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
   - Releases:
+      - 2.2.0 릴리스 실행 기록: releases/v2.2.0.md
       - 2.1.0 릴리스 실행 기록: releases/v2.1.0.md
       - 2.0.0 릴리스 실행 기록: releases/v2.0.0.md
   - Technical Debt:
