@@ -96,7 +96,7 @@
 
 ### Releases
 
-- [2.2.1 릴리스 실행 기록](releases/v2.2.1.md) - API 삭제 댓글 표시 정체성 hotfix 준비 기록
+- [2.2.1 릴리스 실행 기록](releases/v2.2.1.md) - API 삭제 댓글 표시 정체성 hotfix 운영 배포/태그 완료 기록
 - [2.2.0 릴리스 실행 기록](releases/v2.2.0.md) - API 운영 태그, Mobile Store 승인 기준점, 제출 마커 증빙 이관 기록
 - [2.1.0 릴리스 실행 기록](releases/v2.1.0.md) - API/Admin 운영 태그와 Mobile Store 심사 대기 상태 기록
 - [2.0.0 릴리스 실행 기록](releases/v2.0.0.md) - docs 선행 Release Note 생성부터 RDS contract/drop, 서비스 최종 태그까지
