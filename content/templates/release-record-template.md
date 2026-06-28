@@ -34,6 +34,7 @@
 - `coupler-admin-web` 태그:
 - `coupler-mobile-app` 태그:
 - `coupler-mobile-app` 제출 마커 태그:
+- 제출 마커 증빙 이관/삭제:
 
 ## 릴리스 결과
 

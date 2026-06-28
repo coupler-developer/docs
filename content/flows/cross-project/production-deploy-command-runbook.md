@@ -262,6 +262,19 @@ git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 
 Android/iOS platform별 제출 마커 태그 분리 여부와 `vX.Y.Z` 릴리즈 태그 생성 시점은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
+스토어 승인, 실제 출시, 기본 smoke 검증, `vX.Y.Z` 릴리즈 태그 push, 릴리즈 기록 문서의 제출 증빙 이관이 끝나면 해당 릴리스의 `submitted/*` 태그를 삭제한다.
+
+```bash
+REPO=coupler-mobile-app
+TAG=submitted/mobile-X.Y.Z-BUILD
+
+git -C "${REPO}" tag -d "${TAG}"
+git -C "${REPO}" push origin ":refs/tags/${TAG}"
+git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
+```
+
+Android/iOS 제출 마커를 분리한 경우에는 각 platform 태그를 같은 조건으로 각각 삭제한다. `ls-remote` 결과가 비어 있어야 원격 삭제 완료로 기록한다.
+
 ## Tag 포함 시
 
 이 절의 `vX.Y.Z` 릴리즈 태그는 [배포 태그 정책](../../policy/release-tag-policy.md)의 운영 반영/검증 완료 기준을 만족한 뒤 생성한다. 레포별 태그는 서로 독립적이며, 공통 버전 강제는 릴리즈 기록에서 명시한 경우에만 적용한다.
@@ -329,7 +342,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 - `Mobile NextPush`: Android/iOS app, `Production` deployment label, target binary version, uploaded time
 - `Mobile Store`: native version, build number, 스토어 제출/승인 증빙
 - `docs`: commit SHA, GitHub Pages workflow 결과, GitHub Pages URL 또는 workflow 링크
-- `Tag/Release Record`: 생성한 서비스 레포별 tag, tag commit SHA; docs tag 포함 시 docs GitHub Release 링크와 site artifact 첨부 여부
+- `Tag/Release Record`: 생성한 서비스 레포별 tag, tag commit SHA; 제출 증빙 이관 후 삭제한 `submitted/*` tag; docs tag 포함 시 docs GitHub Release 링크와 site artifact 첨부 여부
 - `N/A`: 제외 범위별 사유와 근거
 
 ## 예외 흐름

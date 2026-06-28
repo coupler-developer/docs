@@ -330,6 +330,7 @@ yarn codepush-ios-prod
 
 - 스토어 심사 제출 직후에는 [배포 태그 정책](release-tag-policy.md)에 따라 제출 마커 태그를 만들고 원격에 push한다.
 - 스토어 배포가 끝나고 검증한 커밋에는 [배포 태그 정책](release-tag-policy.md)에 따라 모바일 레포 릴리즈 태그를 찍는다.
+- 릴리즈 태그와 릴리즈 기록으로 제출 증빙을 이관한 뒤에는 [배포 태그 정책](release-tag-policy.md)에 따라 해당 `submitted/*` 태그를 삭제한다.
 - NextPush-only 배포는 기본적으로 모바일 레포 태그를 새로 만들지 않는다.
 - NextPush-only 배포의 기준점은 NextPush app/deployment label, uploaded time, target binary version, rollout/mandatory/disabled 상태, 배포한 git commit SHA로 기록한다.
 - 릴리즈 기록 또는 `docs` 통합 Release Note에는 실제 배포한 NextPush app, `Production` deployment label, 검증 시나리오를 남긴다.
