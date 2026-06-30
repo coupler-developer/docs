@@ -19,6 +19,7 @@ const allowedStatuses = new Set([
   "in_progress",
   "released",
   "rolled_back",
+  "superseded",
 ]);
 const forbiddenPatterns = [
   /TODO/i,
