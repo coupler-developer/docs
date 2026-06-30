@@ -26,6 +26,7 @@
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
 - 커밋 생성/수정 요청을 받으면 `content/policy/commit-convention.md`를 먼저 열람하고 해당 정책을 따른다
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
+- 사용자가 "관련 워크트리와 브렌치 정리해줘" 또는 같은 의미의 요청을 하면 `content/policy/git-sync-rebase-policy.md`의 `관련 워크트리와 브랜치 정리 절차`를 따른다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
 - 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경은 `content/policy/testing-strategy.md`의 `테스트 변경 판정` 기준을 따른다
     - 사용자 요청 또는 작업 목표가 `테스트 변경 판정` 기준상 테스트 추가/갱신 대상이면 테스트 파일 변경은 사전 승인된 것으로 본다
