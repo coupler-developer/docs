@@ -92,6 +92,8 @@
 - ATT 요청 또는 상태 조회가 실패해도 기본값은 `false`이며, Meta SDK 초기화 전에 제한 상태를 먼저 반영한다.
 - ATT 거부 사용자의 가입/심사/구매 이벤트도 앱 기능 기준으로는 계속 실행되지만, 플랫폼 수신/귀속/리포팅 범위는 Meta SDK, SKAN/AdAttributionKit, AEM 제한을 따른다.
 - ATT 거부를 우회하기 위해 IDFA 외 식별자, 해시된 연락처, 디바이스 신호, fingerprinting을 광고 측정 목적으로 결합하지 않는다.
+- Android는 Meta 광고 귀속 목적이므로 `AD_ID` 권한과 Meta SDK advertiser ID collection enabled를 유지한다.
+- Android `ACCESS_ADSERVICES_*` 권한은 Meta SDK/Appsflyer/Firebase 같은 광고·측정 SDK가 선언한 Android Privacy Sandbox/AdServices 권한이므로 임의 제거하지 않고, Play Console 데이터 보안/광고 ID 신고와 함께 검토한다.
 
 ## SKAN/AEM 해석 기준
 
@@ -116,8 +118,10 @@
 ## 검증 체크리스트
 
 - [ ] Meta Events Manager에서 Android native `activateApp` 기반 앱 설치 이벤트가 수신되는가?
+- [ ] Meta Events Manager에서 iOS native `activateApp` 기반 앱 설치 이벤트가 수신되는가?
 - [ ] Meta Events Manager에서 `fb_mobile_first_install`가 수동 커스텀 이벤트로 수신되지 않는가?
 - [ ] Meta Events Manager에서 Android `fb_mobile_activate_app`이 native `activateApp` 기준으로 수신되는가?
+- [ ] Meta Events Manager에서 iOS `fb_mobile_activate_app`이 native `activateApp` 기준으로 수신되는가?
 - [ ] Android/iOS `activateApp()` 경로에서 의도하지 않은 deactivate/time-spent 이벤트가 수신되는지 별도 확인했는가?
 - [ ] 일반회원 승급심사를 위한 기본정보 제출 API 성공 후 `CompletedRegistration`이 수신되는가?
 - [ ] 인증 심사 승인, 소개글 심사 승인, Admin 운영 승인, 기존 회원 프로필 수정, 심사 재제출에서 `CompletedRegistration`이 수신되지 않는가?
@@ -127,6 +131,8 @@
 - [ ] ATT 동의/거부 상태 모두에서 앱 핵심 플로우가 막히지 않고 Meta 이벤트 수신 여부를 확인했는가?
 - [ ] ATT 사전 안내와 Apple 시스템 팝업의 문구/순서가 정책과 일치하는가?
 - [ ] ATT 거부/제한/미결정/에러에서 Meta advertiser tracking이 `false` 또는 제한 상태로 반영되는가?
+- [ ] Android merged manifest에 `AD_ID` 권한과 `com.facebook.sdk.AdvertiserIDCollectionEnabled=true`가 반영되는가?
+- [ ] iOS native `activateApp()` lifecycle이 JS 초기화/ATT 대기 없이 `AppDelegate` 기준으로 수행되는가?
 - [ ] ATT 거부 후 자체 거절 팝업을 반복 노출하지 않는가?
 - [ ] App Store Connect 앱 개인정보 답변과 `PrivacyInfo.xcprivacy`가 SDK/이벤트 수집 범위와 일치하는가?
 - [ ] SKAN/AdAttributionKit, AEM 수치는 지연 집계 보완 지표로 별도 해석하는가?
