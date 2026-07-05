@@ -229,6 +229,8 @@ if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
   printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
   printf -- '- docs tag commit: `%s`\n\n' "$(git rev-list -n 1 "${CURRENT_TAG}")"
 
+  print_release_record_section "버전 매핑" "버전 매핑" "버전 매핑 문서화 필요" optional
+
   printf '## 릴리스 개요\n'
   print_release_record_items "목적" 3 "릴리스 목적 문서화 필요" bullet
   print_release_record_items "릴리스 상태" 12 "릴리스 상태 문서화 필요" bullet
