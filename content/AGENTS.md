@@ -97,6 +97,7 @@
 
 ### Releases
 
+- [2.2.4 릴리스 실행 기록](releases/v2.2.4.md) - Mobile Store 2.2.1 (100) 배포 진행 기록
 - [2.2.3 릴리스 실행 기록](releases/v2.2.3.md) - Admin/API 운영 배포와 Mobile Store 릴리스 분리 기록
 - [2.2.2 릴리스 실행 기록](releases/v2.2.2.md) - API 프로필 사진 승인 알림 hotfix와 Mobile NextPush 운영 배포 완료 기록
 - [2.2.1 릴리스 실행 기록](releases/v2.2.1.md) - API 삭제 댓글 표시 정체성 hotfix 운영 배포/태그 완료 기록
