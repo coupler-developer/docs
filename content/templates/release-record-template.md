@@ -29,10 +29,13 @@
 - 전체 상태: `planned`
 - 완료 범위:
 - 대기 범위:
-- `docs` 태그: `vX.Y.Z` -> release workflow의 현재 docs tag commit
-- `coupler-api` 태그:
-- `coupler-admin-web` 태그:
-- `coupler-mobile-app` 태그:
+
+## 버전 매핑
+
+- `docs`: 기록 버전 `vX.Y.Z`, 태그 `vX.Y.Z` -> release workflow의 현재 docs tag commit
+- `coupler-api`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
+- `coupler-admin-web`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
+- `coupler-mobile-app`: Store `version (build) 또는 N/A`, 릴리스 태그 `vX.Y.Z 또는 N/A`, NextPush `label 또는 N/A`
 - `coupler-mobile-app` 제출 마커 태그:
 - 제출 마커 증빙 이관/삭제:
 

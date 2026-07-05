@@ -63,12 +63,15 @@
 
 ### 2단계 (확장)
 
-- `docs` 버전을 워크스페이스 통합 버전으로 간주한다.
-- 같은 버전(`vX.Y.Z`)에 대해 아래 3개 레포의 반영 기준점을 함께 기록한다.
-- `coupler-mobile-app` 태그/커밋
+- `docs` 버전은 릴리스 기록 번호로 사용하고, 서비스 레포의 실제 배포 버전은 `버전 매핑`으로 별도 고정한다.
+- 이미 `released` 또는 `superseded` 상태로 배포된 릴리스 실행 기록은 새 형식 적용만을 목적으로 사후 구조 변경하지 않는다.
+- `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
+- `버전 매핑`에는 아래 기준점을 함께 기록한다.
+- `docs` 기록 버전/태그
+- `coupler-mobile-app` Store version/build, 릴리스 태그/커밋, NextPush label과 대상 Store binary
 - `coupler-api` 태그/커밋
 - `coupler-admin-web` 태그/커밋
-- 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 한다.
+- 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
 - 메이저 릴리즈에서는 `docs`가 릴리즈 제어판 역할을 한다. 즉, `docs/content/releases/vX.Y.Z.md`를 `main`에 먼저 반영하고 `docs` 태그를 선행 push해 초기 Release Note를 생성할 수 있다.
 - 단, 이 예외는 `docs`에만 적용한다. `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그는 여전히 실제 운영 배포와 검증 완료 후에만 생성한다.
 - `docs` 선행 태그로 생성된 Release Note는 "초기 배포 계획 + 체크리스트" 상태로 간주한다. 실배포가 끝나면 GitHub Release 본문을 최종 상태로 갱신한다.
@@ -251,9 +254,11 @@ git ls-remote --tags origin "${TAG}"
 - `v*.*.*` 태그가 push되면 `release.yml`이 동작해 GitHub Release를 자동 생성한다.
 - Release에는 `mkdocs build --strict` 결과물(`docs-site-vX.Y.Z.tar.gz`)이 첨부된다.
 - Release 노트는 이전 기준점(이전 태그, 첫 릴리스면 초기 커밋) 대비 변경을 자동 생성한다.
+- 이미 생성된 Release 노트와 릴리스 실행 기록은 사실 오류 정정 또는 증빙 보강 외 사후 재작성하지 않는다.
 - `content/releases/vX.Y.Z.md`가 있으면 Release 노트는 해당 릴리스 기록을 1차 원본으로 사용한다.
 - 이전 기준점 대비 git log는 보조적인 "문서 레포 변경 이력"으로만 사용한다.
 - 태그 시점에 `content/releases/vX.Y.Z.md`가 포함돼 있으면 Release 노트에 해당 문서 링크가 자동 포함된다.
+- `content/releases/vX.Y.Z.md`에 `버전 매핑` 섹션이 있으면 Release 노트 상단에 함께 노출한다.
 - `content/releases/vX.Y.Z.md`가 있으면 Release 노트 상단에 `목적`, `릴리스 상태`, `메인 흐름` 요약을 먼저 노출한다.
 - 첫 릴리스처럼 이전 태그가 없으면 전체 문서 히스토리가 비교 범위에 포함될 수 있으므로, 실제 배포 판단은 `content/releases/vX.Y.Z.md`를 우선 기준으로 확인한다.
 
@@ -261,10 +266,11 @@ git ls-remote --tags origin "${TAG}"
 
 - `docs/content/releases/vX.Y.Z.md` 문서를 먼저 작성하고 `main`에 반영한다.
 - 메이저 릴리즈에서는 이 문서를 배포 전 체크리스트로 먼저 작성하고, `docs` 태그 push 후 생성된 Release Note의 기준 문서로 사용한다.
-- 각 레포 반영 버전
-- `coupler-mobile-app`: `vX.Y.Z` 또는 commit SHA
-- `coupler-api`: `vX.Y.Z` 또는 commit SHA
-- `coupler-admin-web`: `vX.Y.Z` 또는 commit SHA
+- 신규 릴리스 기록은 `버전 매핑` 섹션을 포함한다.
+- `버전 매핑`: `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 기준점
+- `coupler-mobile-app`: Store version/build, 릴리스 태그/커밋, 제출 마커 태그, NextPush label과 대상 Store binary
+- `coupler-api`: 태그/커밋 또는 `N/A`
+- `coupler-admin-web`: 태그/커밋 또는 `N/A`
 - 릴리즈 검증 결과(핵심 시나리오, 롤백 기준)
 - 이 문서가 태그 커밋에 포함되어야 릴리즈 기준점과 동일 스냅샷으로 추적할 수 있다.
 - `content/releases/vX.Y.Z.md` 작성 후에는 로컬 docs tag로 Release Note preview를 생성하고, [문서 거버넌스 정책](document-governance-policy.md)의 문서 안정성 평가가 `No Findings`일 때만 원격 tag를 push한다.

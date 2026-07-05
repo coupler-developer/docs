@@ -27,6 +27,16 @@ const forbiddenPatterns = [
   /추후 작성/,
   /이 문서가 포함된/,
 ];
+// Published release records remain immutable unless factual evidence changes.
+const legacyRecordsWithoutVersionMapping = new Set([
+  path.join("content", "releases", "v2.0.0.md"),
+  path.join("content", "releases", "v2.1.0.md"),
+  path.join("content", "releases", "v2.2.0.md"),
+  path.join("content", "releases", "v2.2.1.md"),
+  path.join("content", "releases", "v2.2.2.md"),
+  path.join("content", "releases", "v2.2.3.md"),
+  path.join("content", "releases", "v2.2.4.md"),
+]);
 
 const errors = [];
 
@@ -90,10 +100,55 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
 
   validateListSection(relativePath, source, "목적", /^- /, errors);
   validateListSection(relativePath, source, "릴리스 상태", /^- /, errors);
+  validateVersionMappingSectionIfRequired(relativePath, source, errors);
   validateListSection(relativePath, source, "릴리스 결과", /^- /, errors);
   validateListSection(relativePath, source, "메인 흐름", /^[0-9]+\.\s+/, errors);
   validateListSection(relativePath, source, "검증 근거", /^- /, errors);
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
+}
+
+function validateVersionMappingSectionIfRequired(relativePath, source, errors) {
+  const section = extractSection(source, "버전 매핑");
+  if (!section.trim() && legacyRecordsWithoutVersionMapping.has(relativePath)) {
+    return;
+  }
+
+  if (!section.trim()) {
+    errors.push(`${relativePath}: 필수 섹션이 없거나 비어 있습니다: 버전 매핑`);
+    return;
+  }
+
+  const lines = section
+    .split("\n")
+    .map((line) => line.trimStart())
+    .filter((line) => line.startsWith("- "));
+  const requiredEntries = [
+    "`docs`",
+    "`coupler-api`",
+    "`coupler-admin-web`",
+    "`coupler-mobile-app`",
+  ];
+
+  for (const entry of requiredEntries) {
+    if (!lines.some((line) => line.startsWith(`- ${entry}:`))) {
+      errors.push(`${relativePath}: 버전 매핑 섹션에 ${entry} 항목이 없습니다.`);
+    }
+  }
+
+  const mobileLine = lines.find((line) => line.startsWith("- `coupler-mobile-app`:"));
+  if (!mobileLine) {
+    return;
+  }
+
+  if (!/Store/.test(mobileLine)) {
+    errors.push(`${relativePath}: coupler-mobile-app 버전 매핑에는 Store 기준을 기록해야 합니다.`);
+  }
+
+  if (!/(N\/A|기록 없음|\d+\.\d+\.\d+\s+\(\d+\))/.test(mobileLine)) {
+    errors.push(
+      `${relativePath}: coupler-mobile-app Store 기준은 "X.Y.Z (build)", "N/A", 또는 "기록 없음"으로 기록해야 합니다.`,
+    );
+  }
 }
 
 function validateListSection(relativePath, source, sectionTitle, itemPattern, errors) {
