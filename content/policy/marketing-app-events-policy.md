@@ -32,8 +32,8 @@
 
 | 제품 기준 | 외부 이벤트 | 이벤트 종류 | 기록 시점 | 제외 |
 | --- | --- | --- | --- | --- |
-| 앱 최초 설치 후 첫 실행 | Meta `fb_mobile_first_install` | 커스텀 | 신규 설치로 강하게 판정되는 첫 앱 실행 시 1회 | 기존 설치자의 업데이트 후 첫 실행, 동일 설치 상태의 재실행, 신규 설치 판정 불가 |
-| 앱 실행 | Meta `fb_mobile_activate_app` | 표준 | 앱 진입 시 | 없음 |
+| 앱 설치 | Meta SDK 앱 설치 이벤트 | 표준/native | Android/iOS native `activateApp`의 install publish 경로가 수행될 때 | 클라이언트에서 `fb_mobile_first_install`를 수동 기록하지 않음 |
+| 앱 실행 | Meta `fb_mobile_activate_app` | 표준/native | Android/iOS native `activateApp` 세션 규칙이 기록할 때 | 클라이언트에서 `fb_mobile_activate_app`를 수동 기록하지 않음 |
 | 일반회원 승급심사 기본정보 제출 | Meta `CompletedRegistration` | 표준 | 일반회원 승급심사를 위한 기본정보 최종 제출 후 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 인증 심사 승인, 소개글 심사 승인, 운영 승인, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
 | 가입 중 여성 사진 제출 | Meta `fb_step5_woman_photos_enroll` | 커스텀 | 가입 플로우에서 여성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
 | 가입 중 남성 사진 제출 | Meta `fb_step5_man_photos_enroll` | 커스텀 | 가입 플로우에서 남성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
@@ -41,16 +41,19 @@
 
 ## 필수 규칙
 
-- Meta 앱 이벤트는 `react-native-fbsdk-next`의 `AppEventsLogger`로 직접 기록한다.
+- 수동 Meta 앱 이벤트는 `react-native-fbsdk-next`의 `AppEventsLogger`로 직접 기록한다.
 - Meta `CompletedRegistration`은 일반회원 승급심사를 위한 기본정보 제출 API 성공 시점에만 기록한다.
 - 같은 API 성공 처리의 재렌더, 라우팅, 토스트, 후속 심사 승인으로 중복 기록하지 않는다.
-- Meta SDK 자동 앱 이벤트는 중복/오염 방지를 위해 비활성화하고, 본 문서의 이벤트만 명시적으로 기록한다.
-- 앱 최초 설치 후 첫 실행 이벤트는 로컬 저장소 플래그와 설치 시각 기반 보수 게이트를 함께 사용해 1회만 기록한다.
-- 기존 설치자의 업데이트 후 첫 실행을 신규 설치로 기록해서는 안 되며, 신규 설치 여부를 강하게 판단할 수 없으면 기록하지 않는다.
-- 앱 실행 이벤트는 앱 진입 시 기록하며, 로그인 완료 후 AppsFlyer `af_login`과 의미를 혼용하지 않는다.
+- Meta SDK 자동 앱 이벤트는 잡다한 자동 이벤트 유입을 막기 위해 비활성화한다.
+- Android 앱 설치/실행 표준 이벤트는 `MainApplication`의 native `AppEventsLogger.activateApp(this)` 경로로 기록한다.
+- iOS 앱 설치/실행 표준 이벤트는 `AppDelegate`의 native `AppEvents.shared.activateApp()` 경로로 기록한다.
+- Android/iOS `activateApp()`는 SDK 공개 install 전환 경로이지만 deactivate/time-spent 이벤트를 함께 기록할 수 있으므로 strict allowlist로 간주하지 않는다.
+- Android/iOS까지 strict allowlist로 전환할 때는 앱 설치 전환 수집 손실 또는 SDK 내부 API 사용 위험을 별도 변경 단위에서 결정한다.
+- 클라이언트 코드에서 `fb_mobile_first_install` 또는 `fb_mobile_activate_app`를 수동 `logEvent`로 중복 기록하지 않는다.
+- 앱 실행 이벤트는 native 앱 실행 기준으로 수집하며, 로그인 완료 후 AppsFlyer `af_login`과 의미를 혼용하지 않는다.
 - 가입 중 사진 제출 이벤트는 사진을 포함한 가입 기본정보 제출 API 성공 이벤트이며, 사진 선택/버튼 클릭/심사 승인 완료 이벤트가 아니다.
 - `fb_step5_woman_photos_enroll`, `fb_step5_man_photos_enroll`의 성별 분기는 앱 내부 `gender` 문자열 `F`/`M`을 기준으로 하며, 숫자 변환이나 `unknown` 값 정규화로 판단하지 않는다.
-- 신규 설치, 가입 제출, 구매 같은 전환 이벤트는 SDK 기록 직후 Meta SDK `flush()`를 호출해 테스트 수신 지연을 줄인다. 단, Events Manager UI의 즉시 표시까지 보장하지는 않는다.
+- 가입 제출, 구매 같은 수동 전환 이벤트는 SDK 기록 직후 Meta SDK `flush()`를 호출해 테스트 수신 지연을 줄인다. 단, Events Manager UI의 즉시 표시까지 보장하지는 않는다.
 - 인증 심사 승인, 소개글 심사 승인, Admin 운영 승인, 기존 회원 프로필 수정, 심사 재제출은 `CompletedRegistration` 기록 시점이 아니다.
 - 구매 이벤트는 신규 구매 서버 검증 성공 후에만 기록하고, 복원 구매에서는 기록하지 않는다.
 - ATT 동의 여부는 앱/가입/구매 플로우를 막지 않으며, iOS에서는 ATT 결과를 Meta SDK의 advertiser tracking 설정에 반영한다.
@@ -106,15 +109,16 @@
 
 ## 서버 저장 범위
 
-- 현재 목적은 Meta SDK 직접 이벤트와 AppsFlyer 어트리뷰션 이벤트 수신 수를 집계하는 것이다.
+- 현재 목적은 Meta SDK 자동/직접 이벤트와 AppsFlyer 어트리뷰션 이벤트 수신 수를 집계하는 것이다.
 - 서버는 외부 마케팅 플랫폼 전송 성공 여부를 자체 DB 원장으로 저장하지 않는다.
 - 별도 마케팅 이벤트 원장은 서버가 외부 마케팅 플랫폼으로 이벤트를 직접 전송하거나, 전송 성공/실패 재시도와 감사 이력을 서버에서 보장해야 할 때 별도 DB 변경으로 검토한다.
 
 ## 검증 체크리스트
 
-- [ ] Meta Events Manager에서 `fb_mobile_first_install`이 신규 설치 후 첫 실행 1회만 수신되는가?
-- [ ] 기존 설치자가 업데이트 후 첫 실행해도 `fb_mobile_first_install`이 수신되지 않는가?
-- [ ] Meta Events Manager에서 `fb_mobile_activate_app`이 앱 실행마다 수신되는가?
+- [ ] Meta Events Manager에서 Android native `activateApp` 기반 앱 설치 이벤트가 수신되는가?
+- [ ] Meta Events Manager에서 `fb_mobile_first_install`가 수동 커스텀 이벤트로 수신되지 않는가?
+- [ ] Meta Events Manager에서 Android `fb_mobile_activate_app`이 native `activateApp` 기준으로 수신되는가?
+- [ ] Android/iOS `activateApp()` 경로에서 의도하지 않은 deactivate/time-spent 이벤트가 수신되는지 별도 확인했는가?
 - [ ] 일반회원 승급심사를 위한 기본정보 제출 API 성공 후 `CompletedRegistration`이 수신되는가?
 - [ ] 인증 심사 승인, 소개글 심사 승인, Admin 운영 승인, 기존 회원 프로필 수정, 심사 재제출에서 `CompletedRegistration`이 수신되지 않는가?
 - [ ] 사진을 포함한 가입 기본정보 제출 API 성공 후 `fb_step5_woman_photos_enroll`, `fb_step5_man_photos_enroll`이 성별별로 수신되는가?
