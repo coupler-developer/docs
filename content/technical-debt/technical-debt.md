@@ -561,8 +561,8 @@
 
 - [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope 기준의 단일 SoT이고, [API 에러 계약 정책](../policy/api-error-contract-policy.md)은 실패 `ErrorData`와 descriptor-first catalog 기준의 단일 SoT다.
 - API/Mobile/Admin 코드의 공통 JSON API 응답 계약은 성공 `{ ok: true, data }`, 실패 `{ ok: false, error: ErrorData }` 구조로 수렴했으며, 구현 세부 규칙은 공통 응답 정책에서, 실패 taxonomy는 에러 정책에서 관리한다.
-- API 서버 코드 계약은 response writer, `ErrorDescriptor` catalog, Swagger(OpenAPI) 실패 예시, generated client contract, freshness CI gate 기준으로 정리됐다.
-- Mobile/Admin 소비 경계는 generated contract와 request boundary 기준으로 정리됐고, `ok`로 성공/실패를 나눈 뒤 실패 동작은 `error_action -> error_code` 순서로 판정한다. `error_action`은 기본 처리 방향이며, 공통 request wrapper가 전역 UX를 완료할 수 없는 경우 operation/screen handler에서 처리할 수 있다.
+- API 서버 코드 계약은 response writer, `ErrorDescriptor` catalog, Swagger(OpenAPI) 실패 예시, generated contract/package artifact, freshness CI gate 기준으로 정리됐다.
+- Mobile/Admin 소비 경계는 generated contract와 request boundary 기준으로 정리됐고, package dependency 전환 후에는 같은 산출물을 `@coupler/contracts` alias로 소비한다. `ok`로 성공/실패를 나눈 뒤 실패 동작은 `error_action -> error_code` 순서로 판정한다. `error_action`은 기본 처리 방향이며, 공통 request wrapper가 전역 UX를 완료할 수 없는 경우 operation/screen handler에서 처리할 수 있다.
 - 남은 cutover 완료 차단 조건은 API/Admin/Mobile 동시 cutover 릴리즈 기록, 배포 순서/전환 시점, 강제 업데이트 차단 근거를 릴리즈 기록에 연결하는 작업이다.
 
 잔여 범위
@@ -570,7 +570,7 @@
 - API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거를 API 계약 cutover Gate와 연결하는 작업.
 - Admin/Mobile/Shared 영향 범위 판정은 descriptor `surfaces`와 Swagger(OpenAPI) operation 소비 근거를 사용한다.
 - 강제 업데이트 메커니즘은 `coupler-api/model/app_info.ts`의 `version_code/min_version -> force_update` 판정과 `coupler-mobile-app/src/screens/MainScreen.tsx`의 `force_update === 2` UI 경로로 존재한다.
-- 릴리즈 기록 템플릿은 API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거와 Mobile/Admin generated contract copy exact match 검증 근거 기록을 요구한다. CI는 문구 추론이 아니라 릴리즈 기록의 일반 구조와 코드/계약 구조 검증을 담당한다.
+- 릴리즈 기록 템플릿은 API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거와 contracts package publish/Mobile/Admin 소비 경로 검증 근거 기록을 요구한다. CI는 문구 추론이 아니라 릴리즈 기록의 일반 구조와 코드/계약 구조 검증을 담당한다.
 - `Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약`의 `2.2.0` 강제 업데이트 문구는 로컬 storage key 이관 조건이다. API ErrorData cutover Gate의 강제 업데이트 차단 근거로 사용하지 않는다.
 
 관리 원칙
@@ -601,7 +601,7 @@
 현상
 
 - [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope의 단일 SoT이고, operation별 성공 `data` schema는 Swagger/OpenAPI와 각 도메인 정책이 SoT다.
-- `coupler-api/contracts/generated/apiContract.ts`는 Swagger success schema를 그대로 투영하므로, Swagger schema가 없거나 느슨한 endpoint의 generated success data type은 `unknown` 또는 loose object가 될 수 있다.
+- `coupler-api/packages/contracts/src/generated/apiContract.ts`는 Swagger success schema를 그대로 투영하므로, Swagger schema가 없거나 느슨한 endpoint의 generated success data type은 `unknown` 또는 loose object가 될 수 있다.
 - API 응답 공통 계약 cutover 인덱스는 성공 `{ ok: true, data }` / 실패 `{ ok: false, error: ErrorData }` envelope과 실패 taxonomy 수렴을 추적한다. 전체 endpoint의 success DTO schema 완성 여부는 별도 후속 부채로 관리한다.
 
 영향
@@ -612,9 +612,9 @@
 
 액션 후보
 
-- `coupler-api/contracts/generated/apiContract.ts`의 success data type 중 `unknown` 또는 loose object로 생성되는 endpoint를 목록화하고, Mobile/Admin 소비 여부와 사용자 영향도로 우선순위를 정한다.
+- `coupler-api/packages/contracts/src/generated/apiContract.ts`의 success data type 중 `unknown` 또는 loose object로 생성되는 endpoint를 목록화하고, Mobile/Admin 소비 여부와 사용자 영향도로 우선순위를 정한다.
 - 우선순위가 높은 endpoint부터 API 응답 DTO를 명시하고, controller의 `response_success(res, data)` payload, Swagger/OpenAPI success schema/example, 도메인 정책 문서를 같은 필드명과 `null` 기준으로 맞춘다.
-- API generated contract를 재생성한 뒤 Mobile/Admin copied generated contract와 request boundary가 해당 DTO를 직접 소비하도록 갱신한다. client 쪽 alias fallback, shape repair normalize, `as unknown as` 보정은 추가하지 않는다.
+- API contracts package를 재생성/publish한 뒤 Mobile/Admin generated copy 또는 dependency version과 request boundary가 해당 DTO를 직접 소비하도록 갱신한다. client 쪽 alias fallback, shape repair normalize, `as unknown as` 보정은 추가하지 않는다.
 - 잔여 `unknown`/loose success data는 allowlist로 관리하되 endpoint, 소비 제품면, owner, 제거 조건을 함께 기록하고 신규 증가를 CI 또는 review checklist에서 차단한다.
 
 완료 기준

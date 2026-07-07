@@ -21,8 +21,9 @@
     - `coupler-mobile-app`: `yarn lint && yarn typecheck && yarn format && yarn test:ci`
     - `coupler-admin-web`: `yarn lint && yarn typecheck && yarn format && CI=true yarn test:ci`
     - `docs`: `yarn validate:docs`
-- API 공통 응답/에러 계약 또는 generated contract 변경이 포함되면 `coupler-api` 표준 검증에 `pnpm check:error-client-contract`, `pnpm check:api-client-contract`, `pnpm check:generated-client-contract-copies -- --consumer-root <mobile-root> --consumer-root <admin-root>`를 추가한다.
-- `check:generated-client-contract-copies`는 비교 대상 Mobile/Admin worktree 또는 CI checkout 경로를 `--consumer-root`로 명시한다. 로컬 sibling default 통과만으로 PR 검증 증빙을 대체하지 않는다.
+- API 공통 응답/에러 계약 또는 generated contract 변경이 포함되면 `coupler-api` 표준 검증에 `pnpm check:contracts`, `pnpm pack:contracts`를 추가한다.
+- Admin/Mobile이 아직 generated copy를 소비하는 동안에는 `pnpm check:generated-client-contract-copies -- --consumer-root <mobile-root> --consumer-root <admin-root>`도 함께 실행한다. 비교 대상 Mobile/Admin worktree 또는 CI checkout 경로를 `--consumer-root`로 명시하고, 로컬 sibling default 통과만으로 PR 검증 증빙을 대체하지 않는다.
+- Admin/Mobile이 계약 패키지 버전을 갱신하는 PR은 해당 소비자 레포의 표준 품질 게이트를 통과해야 한다. 이때 `package.json`과 lockfile의 `@coupler/contracts` alias가 같은 `@coupler-developer/contracts` 버전을 가리키는지 확인한다.
 
 ### 모바일 Storybook PR 게이트
 
