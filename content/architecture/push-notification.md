@@ -21,7 +21,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 3 | SIGNUP_OK | 가입심사 승인 |
 | 4 | SIGNUP_FAVOR_INFO | 추가정보 입력 안내 |
 
-### 설정 관련 (5-11, 73-74)
+### 설정 관련 (5-11, 73-74, 76)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
@@ -31,6 +31,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 8-11 | SETTING_RECOMMEND_* | 추천 관련 |
 | 73 | SETTING_MEMBER_REVIEW_DENY | 준회원/정회원 승급 심사 반려(즉시) |
 | 74 | SETTING_MEMBER_REVIEW_DENY_AGAIN | 준회원/정회원 반려 후 미재제출 리마인드 |
+| 76 | SETTING_AUTH_DENY | 설정 인증정보 반려 |
 
 ### 1:1 매칭 관련 (12-30)
 
@@ -140,15 +141,15 @@ sequenceDiagram
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | member | INT | 수신자 ID |
-| type | INT | FCM_TYPE (1-75) |
+| type | INT | FCM_TYPE (1-76) |
 | content | VARCHAR | 알림 메시지 |
 | target | INT | 관련 ID (매칭/미팅/라운지) |
 | create_date | DATETIME | 발송 시간 |
 
 운영 집계 호환 규칙:
 
-- 반려 알림 전체 지표는 `type IN (7,73,74)` 기준으로 조회한다.
-- `type = 7` 단독 필터는 신규 반려 알림(73/74)을 누락한다.
+- 반려 알림 전체 지표는 `type IN (7,73,74,76)` 기준으로 조회한다.
+- `type = 7` 단독 필터는 신규 반려 알림(73/74/76)을 누락한다.
 
 ## 주요 발송 지점
 
