@@ -39,7 +39,7 @@
 ## 배포 범위 선택 원칙
 
 - 운영 배포는 항상 모든 구성요소를 포함하지 않는다.
-- 배포 시작 시 포함 범위를 먼저 고정한다: `DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`.
+- 배포 시작 시 포함 범위를 먼저 고정한다: `DB migration`, `contracts package`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`.
 - 선택되지 않은 범위는 `N/A` 사유와 근거를 릴리즈 기록에 남긴다.
 - DB 변경이 포함되면 [DB Migration Gate 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
 - `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
@@ -49,6 +49,19 @@
 - Mobile Store 제출은 운영 출시와 별도 상태다. 릴리즈 기록에서 Mobile Store 승인/운영 출시를 통합 릴리즈 완료 조건으로 잡은 경우, 해당 gate에 묶인 `vX.Y.Z` 릴리즈 태그는 완료 전 생성하지 않는다.
 - Mobile Store gate와 독립적으로 완료되는 범위는 운영 반영/검증 완료 후 [배포 태그 정책](release-tag-policy.md)에 따라 별도 태그를 생성할 수 있다.
 - API 명세 변경이 포함된 Mobile Store 또는 Mobile NextPush 배포는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다. 기존 운영 앱을 깨는 cutover는 다음 버전 배포 전 호환 배포에 포함하지 않는다.
+
+## Contracts Package Release
+
+대상: `coupler-api/packages/contracts`
+
+- API 공통 응답/에러 계약 또는 Swagger success contract 변경이 있으면 `contracts package` 범위를 포함한다.
+- 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 publish된 package version을 lockfile로 고정한다.
+- GitHub Packages publish name은 `@coupler-developer/contracts`다. Admin/Mobile 코드 import는 dependency alias인 `@coupler/contracts`를 사용한다.
+- 첫 package publish와 소비자 dependency 전환 사이에는 `coupler-api`가 package source와 기존 `contracts/generated`를 함께 생성한다. Admin/Mobile이 generated copy를 소비하는 동안에는 기존 copy exact match 검증을 유지한다.
+- API main에 계약 package 변경이 merge되면 `Release Contracts` workflow가 `pnpm check:contracts`, `pnpm pack:contracts`를 실행한 뒤 아직 publish되지 않은 package version만 publish한다.
+- 같은 version이 이미 publish된 경우 workflow는 재시도/문서 수정 상황으로 보고 publish를 skip한다. 계약 내용이 바뀌면 package version을 새로 올려야 한다.
+- API 운영 배포에 계약 변경이 포함되면 `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 API/Admin/Mobile 배포를 진행한다.
+- Admin/Mobile package 반영은 publish 이후 별도 PR에서 `@coupler/contracts` dependency alias와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다. 두 소비자가 package dependency로 전환된 뒤에만 generated copy 검증 제거를 별도 정리 PR로 다룬다.
 
 ## 릴리즈 운영 모델 (단계별)
 

@@ -53,7 +53,7 @@
 
 - 검증 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 기록한다.
 - API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거를 기록한다.
-- API contract cutover 포함 시 Mobile/Admin generated contract copy exact match 검증 근거를 기록한다.
+- API contract cutover 포함 시 contracts package publish version과 Mobile/Admin 소비 경로 검증 근거를 기록한다. Admin/Mobile이 generated copy를 소비하는 동안에는 exact match 검증 근거를, package dependency 전환 후에는 dependency version 검증 근거를 기록한다.
 
 ### API contract cutover Gate
 
@@ -65,9 +65,11 @@ API/Admin/Mobile 공통 응답 또는 ErrorData contract cutover가 포함되면
     - `coupler-api`:
     - `coupler-mobile-app`:
     - `coupler-admin-web`:
-- Generated contract exact match:
+- Contract artifact sync:
     - 명령:
     - 결과:
+    - published package:
+    - Mobile/Admin consumer path:
 - N+1 배포 근거:
     - Store version/build 또는 NextPush app/deployment/label:
     - 운영 출시/적용 시각:
