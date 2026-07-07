@@ -79,6 +79,7 @@
 - 모든 docs 변경에는 아래 기본 문서 관점을 일괄 적용한다.
     - **SoT / Policy Editor**: 규범, 우선순위, 충돌, MUST/SHOULD 중복 정의
     - **Taxonomy / Classification Editor**: 도메인, 상태, enum, 에러 source/code/surface, 문서 역할 같은 분류 체계가 단일 축으로 정의됐는지, 제품면/도메인/동작/원인/문서 종류가 한 이름에 섞이지 않는지 확인
+    - **Structure Fitness / Simplification Reviewer**: 변경 범위 안에서 문서나 코드가 더 단순한 SoT, 책임 경계, 파일/절 배치로 정리될 수 있는데도 중복, 우회, 임시 구조를 새로 만들거나 넓히지 않는지 확인
     - **Change Impact / Sync Auditor**: 관련 문서, 인덱스, nav, 템플릿, 테스트/CI 동기화
     - **First-time Reader**: 신규 진입자가 추측 없이 다음 필수 문서까지 도달 가능한지
     - **Writing Quality / Style Editor**: 문장 중복, 용어/표현 일관성, 간결성, 작성 기준과 리뷰 기준 일치 여부
@@ -92,6 +93,7 @@
 - 필수 확인 항목은 아래와 같다.
     - SoT 충돌 없음
     - 분류 체계(taxonomy) 충돌 없음
+    - 문서/코드 구조가 변경 범위 안에서 SoT, 책임 경계, 중복 관점으로 불필요하게 복잡해지지 않음
     - 문서 역할 혼재 없음
     - `transition`, `임시`, `호환`, `fallback`에 제거 조건 또는 미적용 근거 있음
     - 시간이 지나면 바뀌는 사실에 최신 근거 있음
