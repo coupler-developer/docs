@@ -24,7 +24,14 @@
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람 외 명령 실행/코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
-- 커밋 생성/수정 요청을 받으면 `content/policy/commit-convention.md`를 먼저 열람하고 해당 정책을 따른다
+- 커밋 생성/수정 요청을 받으면 staging 또는 commit 전에 `content/policy/code-review-policy.md`, `content/policy/git-branch-strategy.md`, `content/policy/commit-convention.md`를 함께 확인한다
+    - 현재 세션에서 마지막 파일 변경 이후 같은 변경 범위를 리뷰한 기록이 없거나 최종 판정이 `No Findings`가 아니면 즉시 멈추고 사용자에게 계속 진행 여부를 물어본다
+    - 사용자가 진행을 승인하더라도 커밋 전에는 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 다시 보고한다
+    - 현재 브랜치가 `main` 또는 `develop`이면 커밋하지 않고 사용자에게 작업 브랜치 생성을 먼저 확인한다
+    - 커밋 전 브랜치 적합성은 `content/policy/git-branch-strategy.md`를 함께 확인한다
+    - `git status`와 diff를 확인해 사용자 변경, 생성물, 무관 파일이 섞였는지 분리한다
+    - staging은 작업 단위별로 수행하며, 한 파일에 무관 변경이 섞이면 `git add -p` 또는 동등한 hunk 단위 staging을 사용한다
+    - staging 후 `git diff --cached`로 커밋 범위가 의도한 작업 단위와 일치하는지 재확인한다
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
 - 사용자가 "관련 워크트리와 브렌치 정리해줘" 또는 같은 의미의 요청을 하면 `content/policy/git-sync-rebase-policy.md`의 `관련 워크트리와 브랜치 정리 절차`를 따른다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
@@ -73,12 +80,13 @@
 - [배포 태그 정책](policy/release-tag-policy.md) - 릴리즈 태그와 스토어 제출 마커 태그 기준
 - [배포/릴리즈 프로세스](policy/release-process.md) - 배포 순서, docs GitHub Release, 릴리즈 기록
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
-- [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 에러 응답 및 환경 분리 기준
+- [API 공통 응답 계약 정책](policy/api-response-contract-policy.md) - API/Admin/Mobile 공통 JSON 응답 envelope 기준
+- [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 실패 ErrorData 및 taxonomy 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
 - [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정 기준 단일화
 - [회원 심사 단일 정책](policy/member-review-policy.md) - 가입/설정/Admin/Mobile 심사 기준 단일화
-- [회원가입 응답 계약](policy/signup-response-contract.md) - result_code/result_data 역할 분리 최종안
+- [회원가입 응답 계약](policy/signup-response-contract.md) - Envelope `ok`/`data` 역할 분리 최종안
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
 - [마케팅 앱 이벤트 정책](policy/marketing-app-events-policy.md) - Meta/Appsflyer 앱 이벤트 기록 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
@@ -98,6 +106,7 @@
 
 ### Releases
 
+- [2.2.5 릴리스 실행 기록](releases/v2.2.5.md) - API/Admin/Mobile 공통 응답 contract cutover 진행 기록
 - [2.2.4 릴리스 실행 기록](releases/v2.2.4.md) - Mobile Store 2.2.1 (100) 배포 진행 기록
 - [2.2.3 릴리스 실행 기록](releases/v2.2.3.md) - Admin/API 운영 배포와 Mobile Store 릴리스 분리 기록
 - [2.2.2 릴리스 실행 기록](releases/v2.2.2.md) - API 프로필 사진 승인 알림 hotfix와 Mobile NextPush 운영 배포 완료 기록

@@ -225,4 +225,4 @@ MatchingScreen
 - [matching-fsm.md](../../architecture/matching-fsm.md) - 상태 머신
 - [matching-key-system.md](../../architecture/matching-key-system.md) - 키 시스템
 - [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md) - 일정 알고리즘
-- [api-error-contract-policy.md](../../policy/api-error-contract-policy.md) - 공통 에러 응답 계약
+- [api-error-contract-policy.md](../../policy/api-error-contract-policy.md) - 공통 실패 ErrorData 계약

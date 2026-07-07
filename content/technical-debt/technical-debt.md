@@ -554,3 +554,73 @@
 
 - `coupler-mobile-app/src` 1st-party 코드의 `StyleSheet.create` style key가 `lowerCamelCase`로 통일되어 있다.
 - 코드 리뷰 정책과 엔지니어링 가드레일이 신규 style key의 `lowerCamelCase` 기준을 같은 결론으로 설명한다.
+
+## 23) API 응답 공통 계약 cutover 인덱스 `P1` `M`
+
+현상
+
+- [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope 기준의 단일 SoT이고, [API 에러 계약 정책](../policy/api-error-contract-policy.md)은 실패 `ErrorData`와 descriptor-first catalog 기준의 단일 SoT다.
+- API/Mobile/Admin 코드의 공통 JSON API 응답 계약은 성공 `{ ok: true, data }`, 실패 `{ ok: false, error: ErrorData }` 구조로 수렴했으며, 구현 세부 규칙은 공통 응답 정책에서, 실패 taxonomy는 에러 정책에서 관리한다.
+- API 서버 코드 계약은 response writer, `ErrorDescriptor` catalog, Swagger(OpenAPI) 실패 예시, generated client contract, freshness CI gate 기준으로 정리됐다.
+- Mobile/Admin 소비 경계는 generated contract와 request boundary 기준으로 정리됐고, `ok`로 성공/실패를 나눈 뒤 실패 동작은 `error_action -> error_code` 순서로 판정한다. `error_action`은 기본 처리 방향이며, 공통 request wrapper가 전역 UX를 완료할 수 없는 경우 operation/screen handler에서 처리할 수 있다.
+- 남은 cutover 완료 차단 조건은 API/Admin/Mobile 동시 cutover 릴리즈 기록, 배포 순서/전환 시점, 강제 업데이트 차단 근거를 릴리즈 기록에 연결하는 작업이다.
+
+잔여 범위
+
+- API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거를 API 계약 cutover Gate와 연결하는 작업.
+- Admin/Mobile/Shared 영향 범위 판정은 descriptor `surfaces`와 Swagger(OpenAPI) operation 소비 근거를 사용한다.
+- 강제 업데이트 메커니즘은 `coupler-api/model/app_info.ts`의 `version_code/min_version -> force_update` 판정과 `coupler-mobile-app/src/screens/MainScreen.tsx`의 `force_update === 2` UI 경로로 존재한다.
+- 릴리즈 기록 템플릿은 API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거와 Mobile/Admin generated contract copy exact match 검증 근거 기록을 요구한다. CI는 문구 추론이 아니라 릴리즈 기록의 일반 구조와 코드/계약 구조 검증을 담당한다.
+- `Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약`의 `2.2.0` 강제 업데이트 문구는 로컬 storage key 이관 조건이다. API ErrorData cutover Gate의 강제 업데이트 차단 근거로 사용하지 않는다.
+
+관리 원칙
+
+- 공통 envelope 필드/분기 기준은 [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md), 실패 응답 필드/taxonomy 기준은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)만 수정한다.
+- 이 항목은 cutover 부채 인덱스로만 사용하고, 정책 본문이나 도메인별 에러 규칙을 복제하지 않는다.
+- 기존 Admin jQuery DataTables endpoint의 success body 예외는 공통 응답 정책의 allowlist 범위로만 유지하며, 실패 응답은 예외 없이 `{ ok: false, error: ErrorData }`를 사용한다.
+- legacy envelope field, 숫자 wire code, public server `ERROR_CODE`, prebuilt `ErrorData`, raw 실패 JSON, transition helper 입력은 최종 구조에 재도입하지 않는다.
+- 회귀 검증은 현재 계약의 구조적 금지 조건을 확인해야 하며, 과거 구현명이나 임시 helper 이름 자체에 묶지 않는다.
+- 서버 표시 메시지는 응답 body의 공통 필드가 아니며 Mobile/Admin 동작 분기 기준으로 사용하지 않는다.
+- cutover PR은 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의 Cutover Gate를 통과한 뒤 별도 변경으로 진행한다.
+
+후속 운영성 부채
+
+- 로그 export 또는 CS 대응에서 `request_id` 목록만으로 생성 시각 추론이나 시간순 정렬이 필요해지면 UUID v7 전환을 검토한다. 이 항목은 현재 API ErrorData cutover 완료 조건이 아니다.
+
+완료 기준
+
+- [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)과 [API 에러 계약 정책](../policy/api-error-contract-policy.md)의 최종 구조와 리뷰 체크리스트를 만족한다.
+- 위 `잔여 범위`가 모두 0건이거나, 제거 조건을 충족한 별도 cutover PR/릴리즈 기록으로 닫혀 있다.
+- 공통 응답 contract helper, Swagger(OpenAPI 문서), 정책 문서, 코드 타입, 테스트가 같은 성공/실패 envelope 계약을 가리킨다.
+- 임시/cutover 전용 타입명, transition helper, legacy 실패 호환 경로가 운영 코드에 남아 있지 않다.
+
+---
+
+## 24) API success DTO schema 정리 미완료 `P2` `L`
+
+현상
+
+- [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope의 단일 SoT이고, operation별 성공 `data` schema는 Swagger/OpenAPI와 각 도메인 정책이 SoT다.
+- `coupler-api/contracts/generated/apiContract.ts`는 Swagger success schema를 그대로 투영하므로, Swagger schema가 없거나 느슨한 endpoint의 generated success data type은 `unknown` 또는 loose object가 될 수 있다.
+- API 응답 공통 계약 cutover 인덱스는 성공 `{ ok: true, data }` / 실패 `{ ok: false, error: ErrorData }` envelope과 실패 taxonomy 수렴을 추적한다. 전체 endpoint의 success DTO schema 완성 여부는 별도 후속 부채로 관리한다.
+
+영향
+
+- Mobile/Admin이 generated contract만으로 성공 `data` shape를 신뢰하지 못하면 화면/도메인 코드에서 local cast, 별도 타입, normalize/fallback이 다시 생길 수 있다.
+- API가 성공 응답 필드를 변경해도 Swagger/OpenAPI schema와 generated contract가 느슨하면 client compile/test 단계에서 drift가 드러나지 않을 수 있다.
+- 공통 응답 계약 cutover 완료가 success DTO 전 endpoint 정리 완료로 오해되면 release/cutover 판단 범위가 과대 해석될 수 있다.
+
+액션 후보
+
+- `coupler-api/contracts/generated/apiContract.ts`의 success data type 중 `unknown` 또는 loose object로 생성되는 endpoint를 목록화하고, Mobile/Admin 소비 여부와 사용자 영향도로 우선순위를 정한다.
+- 우선순위가 높은 endpoint부터 API 응답 DTO를 명시하고, controller의 `response_success(res, data)` payload, Swagger/OpenAPI success schema/example, 도메인 정책 문서를 같은 필드명과 `null` 기준으로 맞춘다.
+- API generated contract를 재생성한 뒤 Mobile/Admin copied generated contract와 request boundary가 해당 DTO를 직접 소비하도록 갱신한다. client 쪽 alias fallback, shape repair normalize, `as unknown as` 보정은 추가하지 않는다.
+- 잔여 `unknown`/loose success data는 allowlist로 관리하되 endpoint, 소비 제품면, owner, 제거 조건을 함께 기록하고 신규 증가를 CI 또는 review checklist에서 차단한다.
+
+완료 기준
+
+- Mobile/Admin이 소비하는 JSON API success `data`가 Swagger/OpenAPI와 generated contract에서 endpoint별 명시 타입으로 표현되어 있다.
+- API controller가 내려주는 성공 payload와 문서화된 success DTO schema가 일치하며, 외부 JSON 계약의 값 없음은 `undefined` 대신 `null`로 고정되어 있다.
+- Mobile/Admin feature code가 API 성공 응답 shape를 local cast, alias fallback, normalize로 보정하지 않고 generated DTO 또는 명시 ViewModel mapping만 사용한다.
+- 잔여 `unknown`/loose success data가 0건이거나, 예외 endpoint가 owner/제거 조건이 있는 별도 부채로 분리되어 있다.
+- 공통 envelope/error cutover 완료 판단과 success DTO 정리 완료 판단이 릴리즈 기록에서 분리되어 있다.

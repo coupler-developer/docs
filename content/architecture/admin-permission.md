@@ -113,22 +113,30 @@ const getFilteredRouteList = (isSuper) => {
 
 아래 코드는 현행 권한 검증 위치 예시다.
 권한 실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
+예시의 `response_error` 세 번째 인자는 내부 진단 로그 context이며, public `error_context`에는 descriptor의 `messageArgContextKeys` allowlist 값만 남긴다.
 
 ### Super Admin 전용 작업
 
-```javascript
+```typescript
 // Super Admin 전용 API 검증 예시
 if (req.admin.super < 1) {
-  return common.response_error(res, res.__('forbidden'));
+  return common.response_error(res, ERROR_CATALOG.MANAGER_SUPER_ADMIN_REQUIRED, {
+    source: 'admin_manager_save_super_required',
+    admin_id: req.admin.id,
+  });
 }
 ```
 
 ### Super Admin + 담당자
 
-```javascript
+```typescript
 // Super Admin 또는 담당 매니저 검증 예시
 if (req.admin.super < 1 && isChargeManager < 1) {
-  return common.response_error(res, res.__('forbidden'));
+  return common.response_error(res, ERROR_CATALOG.MEMBER_ACTION_FORBIDDEN, {
+    source: 'admin_member_save_forbidden',
+    admin_id: req.admin.id,
+    member_id: memberId,
+  });
 }
 ```
 
