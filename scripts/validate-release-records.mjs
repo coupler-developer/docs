@@ -21,11 +21,40 @@ const allowedStatuses = new Set([
   "rolled_back",
   "superseded",
 ]);
+const allowedApiContractCutoverStatuses = new Set([
+  "pending",
+  "ready",
+  "released",
+  "rollback",
+]);
 const forbiddenPatterns = [
   /TODO/i,
   /TBD/i,
   /추후 작성/,
   /이 문서가 포함된/,
+];
+const apiContractCutoverSignals = [
+  /API contract cutover/i,
+  /ErrorData contract cutover/i,
+  /공통 응답.*cutover/i,
+];
+const apiContractCutoverRequiredValueLabels = [
+  "`coupler-api`",
+  "`coupler-mobile-app`",
+  "`coupler-admin-web`",
+  "명령",
+  "결과",
+  "Store version/build 또는 NextPush app/deployment/label",
+  "운영 출시/적용 시각",
+  "확인 URL 또는 콘솔 증빙",
+  "기존 N version/build",
+  "강제 업데이트 설정 위치",
+  "`version_code < min_version` 요청 결과",
+  "앱 버전 설정 화면 저장 검증",
+  "변경 데이터 조회/운영자 액션 smoke",
+  "직전 호환 API/Admin/Mobile SHA 또는 tag",
+  "DB 백업/복구 기준",
+  "되돌림 금지/주의 사항",
 ];
 // Published release records remain immutable unless factual evidence changes.
 const legacyRecordsWithoutVersionMapping = new Set([
@@ -104,7 +133,50 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
   validateListSection(relativePath, source, "릴리스 결과", /^- /, errors);
   validateListSection(relativePath, source, "메인 흐름", /^[0-9]+\.\s+/, errors);
   validateListSection(relativePath, source, "검증 근거", /^- /, errors);
+  validateApiContractCutoverGate(relativePath, source, statusMatch?.[1], errors);
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
+}
+
+function validateApiContractCutoverGate(relativePath, source, releaseStatus, errors) {
+  const hasCutoverSignal = apiContractCutoverSignals.some((pattern) => pattern.test(source));
+  const section = extractHeadingSection(source, 3, "API contract cutover Gate");
+
+  if (!hasCutoverSignal && !section.trim()) {
+    return;
+  }
+
+  if (!section.trim()) {
+    errors.push(
+      `${relativePath}: API contract cutover가 포함된 릴리스 기록에는 API contract cutover Gate 섹션이 필요합니다.`,
+    );
+    return;
+  }
+
+  const cutoverStatusMatch = section.match(/- Cutover 상태: `([^`]+)`/);
+  if (!cutoverStatusMatch) {
+    errors.push(`${relativePath}: API contract cutover Gate에 Cutover 상태를 backtick 값으로 기록해야 합니다.`);
+  } else if (!allowedApiContractCutoverStatuses.has(cutoverStatusMatch[1])) {
+    errors.push(
+      `${relativePath}: 허용되지 않은 API contract cutover 상태입니다: ${cutoverStatusMatch[1]}`,
+    );
+  } else if (releaseStatus === "released" && cutoverStatusMatch[1] !== "released") {
+    errors.push(
+      `${relativePath}: released 릴리스의 API contract cutover Gate는 released 상태여야 합니다.`,
+    );
+  }
+
+  for (const label of apiContractCutoverRequiredValueLabels) {
+    const labelPattern = new RegExp(
+      `^\\s*- ${escapeRegExp(label)}:\\s*(.+)$`,
+      "m",
+    );
+    const valueMatch = section.match(labelPattern);
+    if (!valueMatch || !valueMatch[1].trim()) {
+      errors.push(
+        `${relativePath}: API contract cutover Gate 항목 값을 기록해야 합니다: ${label}`,
+      );
+    }
+  }
 }
 
 function validateVersionMappingSectionIfRequired(relativePath, source, errors) {
@@ -183,4 +255,35 @@ function extractSection(source, sectionTitle) {
   }
 
   return result.join("\n");
+}
+
+function extractHeadingSection(source, level, sectionTitle) {
+  const marker = `${"#".repeat(level)} ${sectionTitle}`;
+  const lines = source.split("\n");
+  const result = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    if (line === marker) {
+      inSection = true;
+      continue;
+    }
+
+    if (inSection && /^#{1,6}\s+/.test(line)) {
+      const headingLevel = line.match(/^#+/)?.[0].length ?? 0;
+      if (headingLevel <= level) {
+        break;
+      }
+    }
+
+    if (inSection) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

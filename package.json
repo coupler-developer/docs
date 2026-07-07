@@ -13,8 +13,9 @@
   "scripts": {
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
     "validate:release-records": "node scripts/validate-release-records.mjs",
+    "validate:api-error-docs": "node scripts/validate-api-error-docs.mjs",
     "build:docs": "node scripts/run-mkdocs-build.mjs",
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
-    "validate:docs": "yarn validate:docs-structure && yarn validate:release-records && yarn lint:md && yarn build:docs"
+    "validate:docs": "yarn validate:docs-structure && yarn validate:release-records && yarn validate:api-error-docs && yarn lint:md && yarn build:docs"
   }
 }
