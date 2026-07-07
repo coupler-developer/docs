@@ -44,6 +44,7 @@
 | Scope Gate |  |  |
 | SoT / Policy Editor |  |  |
 | Taxonomy / Classification Editor |  |  |
+| Structure Fitness / Simplification Reviewer |  |  |
 | Change Impact / Sync Auditor |  |  |
 | First-time Reader |  |  |
 | Writing Quality / Style Editor |  |  |
@@ -58,6 +59,7 @@
 | --- | --- | --- |
 | SoT 충돌 없음 |  |  |
 | 분류 체계(taxonomy) 충돌 없음 |  |  |
+| 문서/코드 구조가 변경 범위 안에서 SoT, 책임 경계, 중복 관점으로 불필요하게 복잡해지지 않음 |  |  |
 | 문서 역할 혼재 없음 |  |  |
 | `transition`/`임시`/`호환`/`fallback` 제거 조건 또는 미적용 근거 있음 |  |  |
 | 시간 의존 사실 최신 근거 있음 |  |  |
