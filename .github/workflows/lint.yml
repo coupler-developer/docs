@@ -35,6 +35,9 @@ jobs:
       - name: Validate release records
         run: yarn validate:release-records
 
+      - name: Validate API error docs
+        run: yarn validate:api-error-docs
+
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
