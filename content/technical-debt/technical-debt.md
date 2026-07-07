@@ -562,7 +562,7 @@
 - [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope 기준의 단일 SoT이고, [API 에러 계약 정책](../policy/api-error-contract-policy.md)은 실패 `ErrorData`와 descriptor-first catalog 기준의 단일 SoT다.
 - API/Mobile/Admin 코드의 공통 JSON API 응답 계약은 성공 `{ ok: true, data }`, 실패 `{ ok: false, error: ErrorData }` 구조로 수렴했으며, 구현 세부 규칙은 공통 응답 정책에서, 실패 taxonomy는 에러 정책에서 관리한다.
 - API 서버 코드 계약은 response writer, `ErrorDescriptor` catalog, Swagger(OpenAPI) 실패 예시, generated contract/package artifact, freshness CI gate 기준으로 정리됐다.
-- Mobile/Admin 소비 경계는 generated contract와 request boundary 기준으로 정리됐고, package dependency 전환 후에는 같은 산출물을 `@coupler/contracts` alias로 소비한다. `ok`로 성공/실패를 나눈 뒤 실패 동작은 `error_action -> error_code` 순서로 판정한다. `error_action`은 기본 처리 방향이며, 공통 request wrapper가 전역 UX를 완료할 수 없는 경우 operation/screen handler에서 처리할 수 있다.
+- Mobile/Admin 소비 경계는 generated contract와 request boundary 기준으로 정리됐고, package dependency 전환 후에는 같은 산출물을 `@coupler-developer/coupler-api-contracts`로 소비한다. `ok`로 성공/실패를 나눈 뒤 실패 동작은 `error_action -> error_code` 순서로 판정한다. `error_action`은 기본 처리 방향이며, 공통 request wrapper가 전역 UX를 완료할 수 없는 경우 operation/screen handler에서 처리할 수 있다.
 - 남은 cutover 완료 차단 조건은 API/Admin/Mobile 동시 cutover 릴리즈 기록, 배포 순서/전환 시점, 강제 업데이트 차단 근거를 릴리즈 기록에 연결하는 작업이다.
 
 잔여 범위
@@ -577,6 +577,8 @@
 
 - 공통 envelope 필드/분기 기준은 [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md), 실패 응답 필드/taxonomy 기준은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)만 수정한다.
 - 이 항목은 cutover 부채 인덱스로만 사용하고, 정책 본문이나 도메인별 에러 규칙을 복제하지 않는다.
+- 응답계약 package 발행/소비/수정 기준은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)을 따른다. package 소비 전환 완료 전까지 Mobile/Admin generated contract copy exact match 검증은 유지한다.
+- Public envelope 타입의 실패 기본 타입이 runtime `ErrorData`보다 느슨하게 남은 경우, package infra 완료 근거로 보지 않고 별도 타입 정리 PR에서 다룬다.
 - 기존 Admin jQuery DataTables endpoint의 success body 예외는 공통 응답 정책의 allowlist 범위로만 유지하며, 실패 응답은 예외 없이 `{ ok: false, error: ErrorData }`를 사용한다.
 - legacy envelope field, 숫자 wire code, public server `ERROR_CODE`, prebuilt `ErrorData`, raw 실패 JSON, transition helper 입력은 최종 구조에 재도입하지 않는다.
 - 회귀 검증은 현재 계약의 구조적 금지 조건을 확인해야 하며, 과거 구현명이나 임시 helper 이름 자체에 묶지 않는다.

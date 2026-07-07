@@ -82,6 +82,7 @@
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [API 공통 응답 계약 정책](policy/api-response-contract-policy.md) - API/Admin/Mobile 공통 JSON 응답 envelope 기준
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 실패 ErrorData 및 taxonomy 기준
+- [API 클라이언트 계약 패키지 정책](policy/api-client-contract-package-policy.md) - `@coupler-developer/coupler-api-contracts` 발행과 Admin/Mobile 소비 전환 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
 - [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정 기준 단일화

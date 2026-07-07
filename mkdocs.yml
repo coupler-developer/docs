@@ -83,6 +83,7 @@ nav:
       - 로그 정책: policy/log-policy.md
       - API 공통 응답 계약 정책: policy/api-response-contract-policy.md
       - API 에러 계약 정책: policy/api-error-contract-policy.md
+      - API 클라이언트 계약 패키지 정책: policy/api-client-contract-package-policy.md
       - 보안/접근통제 정책: policy/security-access-control-policy.md
       - 결제 운영 정책: policy/payment-ops-policy.md
       - 매칭 운영 정책: policy/matching-ops-policy.md
