@@ -81,6 +81,7 @@ nav:
       - 배포 태그 정책: policy/release-tag-policy.md
       - 배포/릴리즈 프로세스: policy/release-process.md
       - 로그 정책: policy/log-policy.md
+      - API 공통 응답 계약 정책: policy/api-response-contract-policy.md
       - API 에러 계약 정책: policy/api-error-contract-policy.md
       - 보안/접근통제 정책: policy/security-access-control-policy.md
       - 결제 운영 정책: policy/payment-ops-policy.md
@@ -102,6 +103,7 @@ nav:
       - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
       - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
   - Releases:
+      - 2.2.5 릴리스 실행 기록: releases/v2.2.5.md
       - 2.2.4 릴리스 실행 기록: releases/v2.2.4.md
       - 2.2.3 릴리스 실행 기록: releases/v2.2.3.md
       - 2.2.2 릴리스 실행 기록: releases/v2.2.2.md

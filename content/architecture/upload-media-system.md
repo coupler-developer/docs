@@ -75,7 +75,7 @@ uploads/
 | 오디오                 | 원본 → MP3 변환 후 원본 삭제                                                         | FFmpeg              |                                                                                           |
 | 파일                   | 없음                                                                                 | -                   |                                                                                           |
 
-썸네일/변환 실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)의 `ApiErrorData`를 사용한다.
+썸네일/변환 실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)의 `ErrorData`를 사용한다.
 
 ## Mobile 사전 선택/Crop 경계
 
@@ -136,8 +136,8 @@ Mobile의 갤러리/카메라 선택과 Crop 여부는 업로드 API 호출 전 
 
 ```json
 {
-  "result_code": 0,
-  "result_data": {
+  "ok": true,
+  "data": {
     "image": "uploads/image/profile/2024/1/15/image_1700000000000.jpg"
   }
 }
@@ -202,6 +202,7 @@ flowchart TD
 - `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 Dev EC2(`3.36.66.178:3002`)로 프록시된다
 - 로컬 디스크에 파일이 저장되지 않는다 → **EC2 의존**
 - Dev EC2 접근 불가 시 업로드/파일 서빙 불가 (502 응답)
+- media proxy 502 실패 응답은 API ErrorData taxonomy 밖의 transport/proxy 실패로 처리하며, HTTP 502와 proxy 실패 로그만 사용한다
 - 긴 manager 상세 이미지는 전체 `master.webp`를 만들지 않고 원본에서 직접 slice를 생성해야 GM dimension limit에 걸리지 않는다
 - 긴 manager 상세 이미지는 request thread에서 동기 후처리를 끝내면 dev EC2 worker를 묶어 timeout이 나므로, 업로드는 즉시 응답하고 slice 생성은 background worker로 분리해야 한다
 - 이 구조는 개발 환경에서 파일 저장소를 공유하기 위한 임시 방편이다

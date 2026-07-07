@@ -22,6 +22,7 @@
 - **추측 금지**: 코드 및 링크로 근거를 제시한다
 - **결정론적 실행**: 도메인 판정, 상태 전이, 계약 검증은 동일한 입력, 동일한 저장 상태, 동일한 외부 응답에서 동일한 결과를 내야 한다. 시간/랜덤/외부 I/O 의존은 숨기지 않고 호출 경계에서 주입하거나 명시해 테스트와 검증에서 재현 가능하게 한다
 - **일관성**: 같은 문제는 같은 방식으로 해결한다. 코드, 파일, 문서에서 중복을 만들지 않는다
+- **분류 체계(taxonomy) 일관성**: 도메인, 상태, enum, error source/code/surface, 문서 종류처럼 대상을 분류하는 축은 한 책임만 가져야 한다. 제품면(Admin/Mobile), 도메인, 동작, 원인, 문서 역할을 한 이름에 섞지 않는다
 - **구조 단순화 우선**: 단기 우회보다 근본 원인 해결과 구조 단순화를 우선한다
 
 ## API/Mobile/Admin 코드 작업 공통 패턴
@@ -29,6 +30,7 @@
 ### 1) 목표
 
 - API, Mobile, Admin 코드가 단일 계약(스키마/enum/상태전이)으로 동작하도록 고정한다.
+- 도메인/상태/에러/문서 역할 분류 체계가 단일 기준으로 설명되고, 코드와 문서에서 같은 축을 사용한다.
 - 레거시 호환/파생 fallback/이중 경로를 남기지 않는다.
 - DB/API/Admin/Mobile 책임 경계가 코드에서 즉시 드러나게 유지한다.
 - `No Findings` 상태가 확인될 때까지 점검-수정-재검증 루프를 반복한다.
@@ -38,6 +40,7 @@
 - 스펙 단일화: 요청/응답 필드명, enum, nullable 규칙은 한 가지 표현만 허용한다.
 - 책임 분리: 상세 기준은 본 문서 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 따른다.
 - 호환 장치 통제: 임시 호환 로직은 기본 금지이며, 불가피할 때만 Shadow Cutover 규칙(제거 조건/목표 시점/추적 이슈 포함)으로 제한한다.
+- 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시 호환/중간 산출물 계층)을 둘 수 없다. 호환이 필요하면 별도 호환 배포 작업으로 분리한다.
 - 명세 가시성: 코드만 읽어도 의도가 파악되도록 네이밍/타입/에러 처리를 명시한다.
 
 ### 2-1) API 계약 변경과 Cutover 분리
@@ -57,7 +60,7 @@
 cutover 배포 코드 기준:
 
 - cutover PR은 호환 경로 제거, contract/drop, 단일 계약 수렴만 포함한다.
-- cutover PR은 다음 모바일 버전의 운영 배포/적용(Mobile Store 출시 또는 Mobile NextPush 적용)과 기존 버전 legacy read/write 0건 또는 강제 업데이트 차단이 확인된 뒤 merge한다.
+- cutover PR은 다음 모바일 버전의 운영 배포/적용(Mobile Store 출시 또는 Mobile NextPush 적용)과 기존 버전 강제 업데이트 차단이 확인된 뒤 merge한다.
 - cutover 후에는 남은 호환 helper, dual-write, version branch가 0건이어야 한다.
 - cutover가 기존 보호 동작을 바꾸면 회귀 안전성 게이트의 `기준 변경`으로 분류하고 기준 문서와 검증 결과를 같은 변경 단위에 포함한다.
 
@@ -65,8 +68,10 @@ cutover 배포 코드 기준:
 
 - `No Findings`의 판정 범위는 "리뷰 대상"으로 한정한다(로컬 변경사항, 특정 커밋 집합, 또는 PR diff).
 - 계약 검증: 요청/응답 스키마 불일치, 중복 키, alias fallback 0건
+- 분류 검증: 도메인/상태/에러/문서 역할의 분류 축이 중복되거나 서로 다른 책임을 섞는 명명 0건
 - 책임 검증: 서버 판단 로직의 클라이언트 중복 구현 0건
 - 레거시 검증: 제거 조건 없는 호환 분기/파생 normalize 0건
+- 최종 구조 검증: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover 범위 안의 transition 계층(임시 호환/중간 산출물 계층) 0건
 - 안전성 검증: 조용한 실패(핵심 원칙 정의) 0건
 - 추적성 검증: 변경 근거 문서/이슈/로그 링크 누락 0건
 
@@ -140,6 +145,7 @@ cutover 배포 코드 기준:
 ### 4) 완료 정의 (Definition of Done)
 
 - 단일 계약만으로 API/Mobile/Admin 기능이 동작한다.
+- 분류 체계가 단일 축으로 설명된다. 같은 이름이 도메인, 제품면, 상태, 동작을 동시에 뜻하지 않는다.
 - fallback/normalize/compat 우회 없이 실패가 명시적으로 드러난다.
 - 레거시/호환 경로는 필수 요구사항의 호환 장치 통제 원칙을 충족한다.
 - 회귀 안전성 게이트 기준으로 회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백을 분류하고 필요한 검증 증빙을 남긴다.
@@ -160,12 +166,15 @@ cutover 배포 코드 기준:
 - **스펙 위반은 에러로 드러내기**
     - 조용한 실패 금지 원칙(핵심 원칙 정의)을 그대로 적용한다
     - 사용자에게는 토스트/에러 메시지, 개발 환경에서는 throw/log로 즉시 드러내기
-- **실패 응답/에러 처리는 API 에러 계약 정책을 따른다**
-    - 실패 envelope, `ApiErrorData`, `request_id`, HTTP Status, 클라이언트 분기는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다
-    - API 서버는 실패 원인을 공통 factory/mapper에서 `ApiErrorData`로 변환한다. 컨트롤러/도메인 로직은 실패 JSON을 직접 조립하지 않는다
-    - Mobile/Admin은 `result_code`로 성공/실패를 나누고, 실패는 `error_action`, 필요 시 `error_code`로 처리한다
-    - `result_msg` 문자열 파싱, `error_context` 분기, 제거 조건 없는 호환 필드는 금지한다
-    - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 에러 계약 정책을 따른다
+- **공통 응답/에러 처리는 API 공통 응답 계약과 API 에러 계약 정책을 따른다**
+    - 성공/실패 envelope(`{ ok: true, data }`, `{ ok: false, error: ErrorData }`)과 `ok` 1차 분기는 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 따른다
+    - 실패 `ErrorData`, `request_id`, `error_action/error_code` 분기는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다
+    - API 서버는 실패 원인을 공통 factory/mapper에서 `ErrorData`로 변환한다. 컨트롤러/도메인 로직은 실패 JSON을 직접 조립하지 않는다
+    - 계약된 JSON API 실패는 HTTP 200 envelope로 반환하고, HTTP non-2xx는 `ErrorData` taxonomy 밖의 transport/protocol/proxy 실패로만 둔다
+    - Mobile/Admin은 `ok`로 성공/실패를 나누고, 실패는 `error.error_action`, 필요 시 `error.error_code`로 처리한다
+    - `result_msg` 문자열 파싱, `error_context` 분기, 제거 조건 없는 호환 필드와 top-level 도메인 상태 `result_code`는 금지한다
+    - 최종 계약 밖에 남은 legacy/cutover 부채는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`에서 추적한다
+    - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 공통 응답 계약 정책과 API 에러 계약 정책을 따른다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
     - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
@@ -324,6 +333,16 @@ cutover 배포 코드 기준:
 - 기존 패턴과 충돌하는 새 구조/유틸/상태 모델을 추가하기 전에는 재사용 가능한 기존 기준을 먼저 확인한다
 - lint/CI 통과를 merge 조건으로 둔다.
     - docs 검증과 문서 동기화 기준은 [테스트/CI 전략](testing-strategy.md)과 [문서 거버넌스 정책](document-governance-policy.md)을 따른다.
+
+### 신중/안전 지시 처리
+
+- 사용자가 `신중`, `안전`, `궁극`, `최종`, `No Findings`, `cutover`, `제거`, `배포 영향`처럼 위험 통제 의도를 명시하면 이 절을 적용한다.
+- 적용 대상은 계획, 설계, 코드 구현/수정/제거, 리뷰, 문서 작성/수정이다.
+- 실행 전에 먼저 목표, 제외 범위, 기준 문서, 영향 범위, 검증 방법, rollback/cutover 여부를 고정한다.
+- 계획 또는 수정 방향 자체를 리뷰 대상처럼 점검하고, finding이 있으면 계획을 고친 뒤 같은 범위로 재리뷰한다.
+- 계획 재리뷰가 `No Findings`일 때만 구현이나 문서 수정을 시작한다.
+- 실행은 검증 가능한 작은 단계로 나누고, 각 단계 후 변경 범위와 검증 결과를 확인한 뒤 다음 단계로 진행한다.
+- 삭제/제거/cutover는 삭제 대상, 제거 조건, 되돌림 기준, 검증 근거가 문서나 PR에 없으면 진행하지 않는다.
 
 ### DB Migration Gate 인덱스
 

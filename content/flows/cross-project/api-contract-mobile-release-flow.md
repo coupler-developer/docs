@@ -106,7 +106,8 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 | Gate | 조건 | 근거 |
 | --- | --- | --- |
 | Deployment | `N+1` Store 승인/운영 출시 또는 NextPush `Production` 배포/적용 확인 완료 | 스토어 콘솔, NextPush 이력, 릴리즈 기록 |
-| Legacy traffic | `N` 앱의 변경 도메인 legacy read/write 0건 또는 강제 업데이트로 차단 완료 | API 로그, 앱 버전 지표, 강제 업데이트 설정 |
+| Legacy traffic | `N` 앱의 변경 도메인 legacy 요청이 강제 업데이트로 차단 완료 | 강제 업데이트 설정, min_version/force_update 검증 |
+| Generated contract sync | API canonical generated contract와 Mobile/Admin generated copy exact match 확인 완료 | `pnpm check:generated-client-contract-copies -- --consumer-root <mobile-root> --consumer-root <admin-root>` |
 | Admin | 변경 도메인 데이터 처리와 운영자 액션 검증 완료 | Admin 수동 검증, 운영 로그 |
 | DB | contract/drop 대상의 의존성 0건과 DBM Gate 통과 | DB Migration Gate 로그 |
 | Rollback | cutover 실패 시 호환 배포로 되돌릴 기준점 확보 | 서비스 태그, 배포 SHA, DB 백업/복구 기준 |
@@ -135,6 +136,7 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 - `N+1` 앱: 변경된 요청/응답 계약을 사용하는 핵심 흐름이 정상 동작한다.
 - Admin: 변경 데이터 조회와 운영자 액션이 정상 동작한다.
 - API: 배포 범위의 핵심 app/admin API 1개 이상과 에러 로그를 확인한다.
+- Generated contract: `coupler-api`에서 `pnpm check:error-client-contract`, `pnpm check:api-client-contract`, `pnpm check:generated-client-contract-copies -- --consumer-root <mobile-root> --consumer-root <admin-root>`를 실행하고 Mobile/Admin generated copy exact match 결과를 기록한다. Cutover 증빙에는 비교한 API/Mobile/Admin ref를 함께 기록한다. 같은 이름 원격 브랜치가 있으면 그 ref를 사용하고, 일부 repo가 이미 main에 병합되어 브랜치가 삭제된 경우에는 해당 repo의 `main`을 비교 기준으로 기록한다. 단순 `main` fallback 통과만으로 cutover 증빙을 대체하지 않는다.
 - DB: expand/backfill과 contract/drop의 Gate, ledger, postcheck를 분리해 기록한다.
 - 릴리즈 기록: 호환 배포 SHA, Store/NextPush 배포 대상, 배포 상태, cutover Gate 결과를 기록한다.
 

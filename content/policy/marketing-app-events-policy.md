@@ -34,9 +34,9 @@
 | --- | --- | --- | --- | --- |
 | 앱 설치 | Meta SDK 앱 설치 이벤트 | 표준/native | Android/iOS native `activateApp`의 install publish 경로가 수행될 때 | 클라이언트에서 `fb_mobile_first_install`를 수동 기록하지 않음 |
 | 앱 실행 | Meta `fb_mobile_activate_app` | 표준/native | Android/iOS native `activateApp` 세션 규칙이 기록할 때 | 클라이언트에서 `fb_mobile_activate_app`를 수동 기록하지 않음 |
-| 일반회원 승급심사 기본정보 제출 | Meta `CompletedRegistration` | 표준 | 일반회원 승급심사를 위한 기본정보 최종 제출 후 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 인증 심사 승인, 소개글 심사 승인, 운영 승인, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
-| 가입 중 여성 사진 제출 | Meta `fb_step5_woman_photos_enroll` | 커스텀 | 가입 플로우에서 여성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
-| 가입 중 남성 사진 제출 | Meta `fb_step5_man_photos_enroll` | 커스텀 | 가입 플로우에서 남성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `result_code = 0`을 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
+| 일반회원 승급심사 기본정보 제출 | Meta `CompletedRegistration` | 표준 | 일반회원 승급심사를 위한 기본정보 최종 제출 후 `/app/v1/auth/signup`가 `{ ok: true, data }`를 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 인증 심사 승인, 소개글 심사 승인, 운영 승인, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
+| 가입 중 여성 사진 제출 | Meta `fb_step5_woman_photos_enroll` | 커스텀 | 가입 플로우에서 여성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `{ ok: true, data }`를 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
+| 가입 중 남성 사진 제출 | Meta `fb_step5_man_photos_enroll` | 커스텀 | 가입 플로우에서 남성 사용자가 사진을 포함한 기본정보를 최종 제출한 뒤 `/app/v1/auth/signup`가 `{ ok: true, data }`를 반환하고 클라이언트가 제출 완료 처리를 수행할 때 | 기존 회원 프로필 수정, 심사 재제출, 클라이언트 검증 실패, API 실패, 네트워크 실패 |
 | 신규 구매 완료 | Meta `logPurchase(price, 'KRW')` | 표준 | 신규 구매 요청이 서버에서 성공 확인된 뒤 | 복원 구매, 서버 검증 실패, 네트워크 실패 |
 
 ## 필수 규칙

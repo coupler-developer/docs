@@ -47,7 +47,7 @@
 
 - 권한 정보 누락/불일치/미정의 상태는 기본 허용이 아니라 즉시 거부한다.
 - 예외 분기(`if (...) return;`)로 조용히 통과시키는 코드를 금지한다.
-- 권한 실패 응답은 [API 에러 계약 정책](api-error-contract-policy.md)의 `ApiErrorData`로 반환하고 서버 로그를 남긴다.
+- 권한 실패 응답은 [API 에러 계약 정책](api-error-contract-policy.md)의 `ErrorData`로 반환하고 서버 로그를 남긴다.
 
 ### 5) 예외/임시 권한 규칙
 

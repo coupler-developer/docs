@@ -75,6 +75,7 @@
 
 - 영향 범위: 변경된 정책/계약/상태 머신(FSM)/API/UI/DB/권한/배포 범위
 - 보호 동작: 보존해야 하는 기존 동작 또는 의도적으로 바꾸는 동작
+- 분류 체계(taxonomy): 도메인/상태/enum/error source/code/surface/문서 역할의 축이 섞이지 않는지, 변경 또는 N/A 근거
 - 검증 방법: 테스트/검증 스크립트/로그/수동 시나리오
 - 상태 분류: 없음/회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백
 - N/A 사유: 회귀 영향이 없다고 판단한 근거
@@ -109,6 +110,7 @@
 - [ ] 자체 테스트 완료
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
+- [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
@@ -153,13 +155,14 @@
 - 7개 관점은 점검 기준이며, 최종 보고나 세션 출력에 관점별 표를 항상 펼쳐 쓰는 요구사항이 아니다.
 - 단, 코드/기능 변경에서는 7개 관점 점검 완료 여부와 `N/A` 근거를 최종 판정에 남긴다.
 - 최종 보고는 리뷰 범위, 적용 기준, 열린 Finding, 마지막 수정 이후 검증, 문서 동기화, 최종 판정을 간결하게 기록한다.
+- 최종 보고는 같은 판단, 같은 근거, 같은 해결안을 반복하지 않는다. 새 근거가 없는 반복 설명, transition 구조 재소개, 이미 폐기한 대안 재서술은 간결성 위반으로 본다.
 - Finding이 있으면 문제, 근거, 필요 조치와 대표 발견 관점을 함께 기록한다.
 - **Review Lead / Policy Gatekeeper**: 리뷰 코멘트의 근거, 등급(MUST/SHOULD/SUGGEST/QUESTION), 중복 여부, 정책 충돌 여부를 확인한다.
 - **Senior PM / Product**: 요구사항, 사용자 흐름, 스펙 공백, 기준 변경 여부를 확인한다.
 - **Business / Operations**: 운영 가능성, CS 리스크, 관리자 액션, 심사/결제/푸시 운영 영향을 확인한다.
 - **Senior Security**: 인증/인가, 권한 우회, 민감정보, 로그 마스킹, 임시 권한, 감사 로그를 확인한다.
-- **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
-- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
+- **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy), [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
+- **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 클라이언트 로컬 subset과 서버 분류 체계(taxonomy)의 충돌 여부, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, 태그/제출 마커 정책 준수, PR별 cutover 필요성/현재 제거 가능 여부를 확인한다.
 
 ### No Findings 최종 리뷰 기록
@@ -187,13 +190,27 @@
 - 요구사항이 "실제 전송 성공 확인", "발송 성공 집계", "보상 지급 기준"이면 SDK 성공값만으로 완료 처리하지 않는다. 서버 콜백/웹훅, 요청 식별자, 인증 검증, 멱등 처리, 상태 전이 근거를 함께 리뷰한다.
 - Kakao Talk Share에서 전송 성공을 서비스 서버가 알아야 하는 경우, Kakao Developers의 카카오톡 공유 웹훅과 SDK `serverCallbackArgs` 전달 여부를 확인한다.
 
-### 에러 계약 리뷰 기준
+### 공통 응답/에러 계약 리뷰 기준
 
+- JSON API 성공/실패 envelope 추가/수정, Mobile/Admin 응답 boundary 수정은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 리뷰한다.
 - API 실패 응답 추가/수정, Mobile/Admin 실패 분기 수정, 운영 로그 상관관계 변경은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 리뷰한다.
-- 서버는 실패 `result_data`를 `ApiErrorData`로 반환하고, 신규 실패 응답은 공통 factory/mapper 경계로 생성해야 한다. 컨트롤러/도메인 로직에서 실패 응답 JSON을 직접 조립하면 finding으로 기록한다.
-- Mobile/Admin은 `result_code`로 성공/실패를 1차 분기하고, 실패 시 `error_action` 우선, `error_code` 보조 기준으로 처리해야 한다. `result_msg` 문자열 파싱, 도메인 상태용 `result_code` 추가, `error_context` 기반 분기는 finding으로 기록한다.
+- 서버는 계약된 JSON API 성공을 `{ ok: true, data }`, 실패를 `{ ok: false, error: ErrorData }` envelope로 반환하고, 신규 실패 응답은 공통 factory/mapper 경계로 생성해야 한다. 컨트롤러/도메인 로직에서 실패 응답 JSON을 직접 조립하면 finding으로 기록한다.
+- HTTP non-2xx는 API error taxonomy 밖의 transport/protocol/proxy 실패로만 사용해야 한다. 서버가 `ErrorData`를 HTTP 4xx/5xx와 함께 반환하거나, Mobile/Admin이 HTTP status를 `error_action`/`error_code`로 변환하면 finding으로 기록한다.
+- Mobile/Admin은 `ok`로 성공/실패를 1차 분기하고, 실패 시 `error.error_action` 우선, `error.error_code` 보조 기준으로 처리해야 한다. 이 기준은 클라이언트가 display message, legacy numeric code, `error_context` 같은 진단값에 기대지 않는다는 뜻이며, 모든 `error_action`을 공통 request wrapper가 전역 처리해야 한다는 뜻이 아니다. 공통 wrapper가 전역 UX를 결정적으로 완료할 수 없는 경우 operation/screen handler가 generated runtime 또는 semantic failure helper로 처리할 수 있다. `result_msg` 문자열 파싱, 도메인 상태용 top-level `result_code` 추가, `error_context` 기반 분기는 finding으로 기록한다.
+- 토큰 누락/무효/만료처럼 로그인 또는 재인증 경로로 이동해야 하는 실패가 `LOGIN_REQUIRED`가 아니라 `FIX_REQUEST`로 분류되거나, Mobile/Admin consumer-local `ERROR_ACTION` subset에서 `LOGIN_REQUIRED`가 누락되면 finding으로 기록한다. 해당 action을 공통 boundary에서 전역 처리할지 operation/screen handler에서 처리할지는 클라이언트 navigation 책임 경계로 판정하되, 로그인/재인증이 필요한 UX에서 generic message 표시만 하고 흐름을 끝내면 finding으로 기록한다.
+- API/Admin/Mobile 동시 cutover 작업에서 구버전 클라이언트 호환을 이유로 token code fallback, dual parser, legacy envelope branch, shim helper를 추가하거나 유지하면 finding으로 기록한다.
+- 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover 변경에 transition 계층이 포함되면 finding으로 기록한다. 호환이 필요하면 별도 호환 배포 작업으로 분리해야 한다.
+- `ERROR_CATALOG`/`ERROR_SOURCE`/`ERROR_SURFACE`/generated client runtime contract 변경은 분류 체계(taxonomy) 변경으로 리뷰한다. `error_source`는 상위 서버 도메인 또는 안정적인 모듈 축, `error_surfaces`는 소비 제품면/영향 범위 metadata, `error_action`은 클라이언트 권장 동작, `error_code`는 descriptor의 stable wire value로 분리되어야 한다.
+- 서버 production callsite가 `ErrorDescriptor` 대신 raw `error_code` 문자열이나 public `ERROR_CODE` alias를 전달하면 finding으로 기록한다. `ERROR_CODE` 문자열 목록이 필요하면 generator/test 내부 파생값으로만 둔다.
+- `ErrorDescriptor` authoring field는 `code`, `source`, `surfaces`, `action`, `messageKey`, `messageArgContextKeys`로 제한한다. `path`, `group`, `name`, `codePrefix`, singular `error_surface`를 canonical 분류 축으로 설명하거나 사용하는 변경은 finding으로 기록한다.
+- 신규 error code에 `ADMIN_`/`APP_`/`MOBILE_` 제품면, `RETRY`/`LOGIN_REQUIRED` 동작, domain-specific `*_ACCESS` 같은 일반 분류어를 source/top-level 축으로 추가하면 finding으로 기록한다. 제품면은 `error_surfaces`, 접근/권한 의미는 도메인 source와 `error_code` reason segment로 표현해야 한다.
+- `AUTH_ACCOUNT`, `AUTH_LOGIN`, `AUTH_SIGNUP`, `AUTH_TOKEN`, `LOUNGE_CONTENT`, `MATCH_REVIEW`, `MEMBER_AUTH_REVIEW`, `MEMBER_PROFILE_EDIT`, `MEMBER_MANAGER_SELECTION`, `MEMBER_REVIEW`, `REVIEW_STATUS`처럼 operation/flow/화면/판정 상태를 나타내는 세부 namespace를 `error_source`로 추가하거나 유지하는 변경은 finding으로 기록한다. 세부 기능명은 `error_code` segment로 표현해야 한다.
 - 기존 미준수 구현을 건드리지 않는 경우에는 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 미준수 경로를 신규로 추가하거나 확산하면 `정책 위반`으로 분류한다.
-- 전환 Phase 때문에 호환 필드가 필요하면 제거 조건, 목표 시점, 추적 이슈, 검증 근거가 PR/작업 보고에 있어야 한다.
+- 구버전 클라이언트 호환 필드가 필요하면 최종 구조/cutover 변경에 섞지 않고 별도 호환 배포 작업으로 분리한다. 호환 작업에는 제거 조건, 목표 시점, 추적 이슈, 검증 근거가 있어야 한다.
+- `error_context`는 중앙 실패 로그에 남는 값이므로 key와 값 모두 민감정보를 담지 않아야 한다. `password`/`pwd`/`token`/`email`/`phone`/`card_number`/`resident_registration_number`/`secret` 계열 key나 이메일/전화번호/토큰/카드번호/주민등록번호로 판정 가능한 value가 통과하면 finding으로 기록한다.
+- 서버와 클라이언트 코드가 최종 envelope 형태여도 API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거가 없으면 cutover 완료로 판정하지 않는다.
+- 기존 부채나 호환 예외로 분류한 API 응답/에러 계약 경로는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`를 참조한다. PR diff 안에서 새로 추가/수정/사용한 경로가 이 인덱스나 PR 기록 없이 남으면 finding으로 기록한다.
+- `No Findings` 판정은 리뷰 범위 기준이다. 서버 catalog 정리나 client runtime contract 생성만으로 전체 API cutover 완료를 의미하지 않는다. 전체 완료는 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), 기술부채 cutover 인덱스 완료 기준을 함께 만족해야 한다.
 
 ### 런타임 설정 리뷰 기준
 
@@ -210,8 +227,11 @@
 - [ ] 같은 도메인에 문서가 여러 개면 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 규범 문서가 1개로 고정돼 있고, 각 문서 상단에 역할/문서 종류/우선순위/as-is-to-be 기준이 명시돼 있는가?
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 결과와 로그 링크가 PR에 명시되어 있는가? (`N/A` 항목은 미적용 근거 포함)
 - [ ] 코드/기능 변경 시 다중 관점 리뷰 패스의 7개 관점을 확인했고, 무관한 관점은 `N/A` 근거를 남겼는가?
+- [ ] 최종 리뷰가 같은 판단/근거/해결안을 반복하지 않고, finding 중심으로 간결하게 작성됐는가?
+- [ ] 변경이 도메인/상태/enum/error source/code/surface/문서 역할을 추가·이동·개명한다면 분류 체계(taxonomy)가 단일 책임 기준으로 유지되는가?
+- [ ] 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover로 설명한 변경 범위에 transition 계층이 0건인가?
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
-- [ ] 에러 처리가 [API 에러 계약 정책](api-error-contract-policy.md)과 [엔지니어링 가드레일](engineering-guardrails.md)의 실패 응답/에러 처리 기준을 따르는가?
+- [ ] 응답/에러 처리가 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), [엔지니어링 가드레일](engineering-guardrails.md)의 응답/에러 처리 기준을 따르는가?
 - [ ] 테스트 변경 판정이 충분한가? (`추가`/`갱신`/`미변경` 근거, 중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?

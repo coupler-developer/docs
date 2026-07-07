@@ -4,299 +4,412 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
-- 기준 성격: `transition`
-
-## 목적
-
-- 전사 API 실패 응답 계약을 단일 SoT로 고정한다.
-- 개발/운영 응답 구조를 동일하게 유지한다.
-- API/Admin/Mobile 에러 분기 기준을 하나로 고정한다.
-- 도메인 문서는 실패 응답 계약을 재정의하지 않고 이 문서를 참조한다.
-
-## 용어
-
-- API: 서버와 클라이언트가 주고받는 호출 계약
-- JSON: API 응답 본문 형식
-- HTTP Status: HTTP 응답 상태 코드
-- TypeScript: 서버와 클라이언트 코드 언어
-- SoT: `Single Source of Truth`, 단일 기준
-- DTO: `Data Transfer Object`, 요청/응답 데이터 객체
-- Phase: 점진 이전 단계
-- to-be: 목표 기준
-- envelope: 공통 응답 바깥 구조
-- factory/mapper: 생성/변환 함수
-- Swagger(OpenAPI 문서): API 경로, 응답, 샘플을 적는 문서
-
-## 작성 기준
-
-- 표준 개발 용어는 사용할 수 있다.
-- 첫 등장이나 용어 섹션에서 뜻을 밝힌다.
-- 코드 식별자와 응답 필드는 원문 그대로 쓴다.
-- 문장은 필수 단어로 짧게 쓴다.
-
-## 문서 상태
-
-- 이 문서는 최종 목표 계약과 점진 이전 Phase를 함께 정의한다.
-- 신규 실패 응답은 이 문서의 최종 계약을 기준으로 작성한다.
-- 기존 미준수 구현은 Phase, 제거 조건, 담당자, 목표 시점, 검증 증빙을 남기고 이전한다.
-- "현재 구현" 설명과 이 문서가 충돌하면 이 문서를 to-be 기준으로 사용한다.
+- 충돌 시 우선 문서: 실패 `ErrorData`/taxonomy는 이 문서, 공통 JSON API 응답 envelope은 `api-response-contract-policy.md`
+- 기준 성격: `as-is`
 
 ## 적용 범위
 
-- 저장소: `coupler-api`, `coupler-mobile-app`, `coupler-admin-web`
-- 환경: local, dev, staging, prod
-- 대상: HTTP API 실패 응답, 클라이언트 에러 분기, 운영 로그 상관관계
-- 제외: 외부 서드파티 원본 응답
-    - 단, 내부 API 경계에서는 이 문서의 `ApiErrorData`로 변환한다.
+- coupler-api
+- coupler-admin-web
+- coupler-mobile-app
 
-## 우선순위
+## 목적
 
-1. 실패 응답 envelope, `ApiErrorData`, `error_action`, `request_id`, HTTP Status 기준은 이 문서가 우선한다.
-2. Fail-closed, 조용한 실패 금지, 레이어 책임은 [엔지니어링 가드레일](engineering-guardrails.md)을 따른다.
-3. 로그 레벨, 민감정보 제외, 저장/전송 방식은 [로그 정책](log-policy.md)을 따른다.
-4. 도메인 문서는 성공 DTO, 도메인 상태, 도메인별 적용 Phase만 정의한다.
-5. 도메인 문서는 실패 응답 필드, 분기 기준, `request_id` 필수 여부를 재정의하지 않는다.
+이 문서는 API 실패 응답의 `ErrorData`와 error taxonomy 최종 계약을 정의한다. 공통 JSON API 응답 envelope은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 따른다.
 
-## 아키텍처
+- 서버는 하나의 canonical `ERROR_CATALOG`를 실패 원인 SoT로 둔다.
+- 서버 production callsite는 `ErrorDescriptor`를 전달한다.
+- `error_code`는 descriptor 안의 wire field이며, 서버 callsite API가 아니다.
+- Mobile/Admin은 서버 catalog에서 생성된 runtime contract만 사용한다.
+- 계약된 JSON API 실패는 공통 응답 envelope의 `{ ok: false, error: ErrorData }`로 반환한다.
+- HTTP non-2xx는 API error taxonomy 밖의 transport/protocol/proxy 실패로만 사용한다.
+- transition 계층, 중간 산출물, raw `error_code` helper는 최종 구조에 둘 수 없다.
 
-- API 서버는 실패 원인을 표준 `ApiErrorData`로 매핑한다.
-- API 서버는 실패 응답을 공통 생성 경로로 만든다.
-- API 서버는 Phase 기준에 따라 `request_id`, `error_code`, `error_source`를 같은 로그에 남긴다.
-- Mobile/Admin은 `result_code`로 성공/실패를 1차 분기한다.
-- Mobile/Admin은 실패 시 `error_action`과 `error_code`로 동작을 결정한다.
-- Mobile/Admin은 `result_msg` 문자열을 파싱하지 않는다.
-- 운영 추적은 `request_id -> error_source -> error_code` 순서로 좁힌다.
+잔여 부채와 배포 순서는 기술부채 문서에서 관리한다. 이 문서는 최종 상태만 판정한다.
 
-## TypeScript/JSON 네이밍 경계
+## 용어
 
-- API 응답 JSON 필드는 기존 envelope와 같은 `snake_case`를 사용한다.
-- TypeScript 내부 도메인 모델, 함수 인자, factory 입력은 `camelCase`를 사용한다.
-- `camelCase` 내부 값은 공통 factory/mapper 경계에서만 `snake_case` 응답 DTO로 변환한다.
-- 컨트롤러와 도메인 로직은 신규 실패 응답 JSON을 직접 조립하지 않고 공통 생성 경로를 사용한다.
-- `error_context`의 API 응답 key도 `snake_case`를 사용한다.
-- 클라이언트가 내부 모델을 `camelCase`로 정규화하더라도 API 분기 계약은 이 문서의 `snake_case` API 응답 필드를 기준으로 한다.
-- 같은 API 응답 안에서 `errorCode`와 `error_code`처럼 동일 의미의 camel/snake 필드를 병행하지 않는다.
+- `ErrorDescriptor`: 하나의 실패 원인을 나타내는 catalog entry. 최종 authoring field는 `code`, `source`, `surfaces`, `action`, `messageKey`, `messageArgContextKeys`뿐이다.
+- `ERROR_CATALOG`: 서버의 canonical descriptor map. API 에러 계약의 단일 SoT다.
+- `ErrorData`: 실패 envelope의 `error` 객체. `error_code`, `error_source`, `error_action`, `error_context`, `request_id`를 포함한다.
+- `error_code`: `ErrorData.error_code`로 노출되는 wire failure cause. descriptor의 `code` 값이다.
+- `error_source`: `ErrorData.error_source`로 노출되는 실패 원인의 상위 서버 도메인 또는 안정적인 모듈. 세부 기능, operation, 화면, flow, 판정 상태가 아니다.
+- `error_surfaces`: 해당 실패가 영향을 주는 클라이언트 surface 목록. 응답 JSON 필드가 아니라 계약 metadata다.
+- `error_action`: 클라이언트가 취해야 할 기본 처리 방식.
+- `error_context`: client 표시 메시지 인자에 필요한 공개 보조 정보. descriptor의 `messageArgContextKeys` allowlist에 포함된 값만 wire 응답에 남기고, 내부 진단값은 서버 로그로만 남긴다.
+- `request_id`: 요청 추적용 식별자.
 
-## 응답 Envelope
+## 최종 아키텍처
 
-성공과 실패는 같은 envelope를 사용한다.
-
-```json
-{
-  "result_code": 0,
-  "result_msg": "OK",
-  "result_data": {}
-}
+```mermaid
+flowchart LR
+  A["API domain code"] --> B["response_error(res, descriptor, context?)"]
+  B --> C["buildErrorData(descriptor, context?)"]
+  C --> D["HTTP 200 JSON: ok=false, error: ErrorData"]
+  E["ERROR_CATALOG"] --> B
+  E --> F["Generated Mobile/Admin runtime contract"]
+  F --> G["Client operation handling"]
 ```
 
-실패 시 `result_data`는 이 문서의 Phase별 `ApiErrorData`를 사용한다.
+- API 서버는 실패 응답 경계에 `ErrorDescriptor`와 필요한 `ErrorContext`만 전달한다.
+- 실패 응답 생성은 `response_error`/`buildErrorData` 경계로 수렴한다.
+- Mobile/Admin은 생성된 runtime contract로 `error_code`를 검증하고, operation 소비 근거가 있는 경우에만 분기한다.
+- Swagger/OpenAPI 문서는 같은 catalog 기준으로 작성/검증된 실패 계약을 노출한다.
+
+## 서버 코드 배치
+
+### Canonical catalog
+
+`coupler-api/lib/error/catalog/registry.ts`에서 조립되는 `ERROR_CATALOG`는 API 에러 계약의 canonical SoT다. Descriptor entry는 `coupler-api/lib/error/catalog/entries/*`에 둘 수 있지만, 최종 계약은 조립된 `ERROR_CATALOG` 하나로 판정한다.
+
+```ts
+export const ERROR_CATALOG = {
+  MEMBER_AUTH_REVIEW_LIMIT_EXCEEDED: {
+    code: "MEMBER_AUTH_REVIEW_LIMIT_EXCEEDED",
+    source: "MEMBER",
+    surfaces: ["MOBILE_APP"],
+    action: "CONTACT_SUPPORT",
+    messageKey: "api.error.member.auth_review_limit_exceeded",
+    messageArgContextKeys: ["limit"],
+  },
+} as const satisfies Record<string, ErrorDescriptor>;
+```
+
+허용 field:
+
+- `code`: stable wire `error_code`
+- `source`: 상위 서버 도메인 또는 안정적인 모듈
+- `surfaces`: 영향 받는 클라이언트 surface 목록
+- `action`: 클라이언트 기본 처리 방식
+- `messageKey`: 문서와 번역 연결용 key
+- `messageArgContextKeys`: 메시지 인자에 사용할 수 있는 context key allowlist
+
+`messageKey`는 빈 문자열을 허용하지 않는다. 사용자에게 표시할 메시지가 없는 것처럼 보이는 legacy 실패도 안정적인 locale key를 지정해야 한다.
+`messageArgContextKeys`에 선언한 key는 해당 실패 응답의 `error_context`에 문자열 또는 숫자로 반드시 있어야 한다.
+`messageArgContextKeys`에 없는 key는 public `error_context`에 남기지 않는다. 공개 메시지 인자가 없는 descriptor의 `error_context`는 빈 객체다.
+
+금지 field:
+
+- `path`
+- `group`
+- `name`
+- `codePrefix`
+- singular `error_surface`
+- display message 문자열
+- legacy numeric result code
+- client-only routing state
+
+### Response boundary
+
+최종 서버 경계는 descriptor-first다.
+
+```ts
+return response_error(res, ERROR_CATALOG.MEMBER_AUTH_REVIEW_LIMIT_EXCEEDED, {
+  limit,
+});
+```
+
+금지한다:
+
+- `response_error`의 두 번째 인자로 raw string을 전달하는 방식
+- `response_error`의 두 번째 인자로 public `ERROR_CODE` alias를 전달하는 방식
+- callsite에서 `error_code` 문자열을 직접 조합하거나 전달하는 방식
+- callsite에서 `{ error: { error_code, error_action, error_context } }` payload를 직접 구성하는 방식
+
+`ERROR_CODE`라는 public server alias는 최종 구조에 두지 않는다. `error_code` 문자열 목록이 필요하면 generator/test 내부 파생값으로만 둔다.
+
+## 실패 ErrorData
+
+API 실패 응답은 [API 공통 응답 계약 정책](api-response-contract-policy.md)의 JSON envelope을 따른다. 이 문서는 실패 envelope 안의 `ErrorData` 필드와 taxonomy를 정의한다.
 
 ```json
 {
-  "result_code": -10,
-  "result_msg": "요청을 처리할 수 없습니다.",
-  "result_data": {
-    "error_code": "MEMBER_AUTH_DELETE_FORBIDDEN",
-    "error_source": "MEMBER_AUTH_REVIEW",
-    "error_action": "FIX_REQUEST",
+  "ok": false,
+  "error": {
+    "error_code": "MEMBER_AUTH_REVIEW_LIMIT_EXCEEDED",
+    "error_source": "MEMBER",
+    "error_action": "CONTACT_SUPPORT",
     "error_context": {
-      "member_id": 77
+      "limit": 3
     },
-    "request_id": "req_20260603_000001"
+    "request_id": "req_123e4567-e89b-42d3-a456-426614174000"
   }
 }
 ```
 
-## 필드 의미
+기본 규칙:
 
-| 필드 | 의미 | 분기 사용 |
-| --- | --- | --- |
-| HTTP Status | 프로토콜, 인증, 권한, 서버 장애 레벨 | 가능 |
-| `result_code` | 앱 공통 성공/실패 1차 게이트 | 가능 |
-| `result_msg` | 사용자 표시 문구 | 금지 |
-| `result_data` 성공형 | 엔드포인트별 성공 DTO | 가능 |
-| `result_data` 실패형 | `ApiErrorData` | 가능 |
-| `error_code` | 도메인 원인 코드 | 가능 |
-| `error_source` | 오류 도메인/모듈 | 가능 |
-| `error_action` | 클라이언트 권장 동작 | 가능 |
-| `error_context` | 원인 분석용 구조화 데이터 | 금지 |
-| `request_id` | 서버 로그 상관관계 ID | 가능 |
+- 실패 응답은 `ok: false`와 `error: ErrorData`를 포함한다.
+- 공통 응답 envelope, HTTP 200 실패 envelope, transport/protocol 예외는 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 따른다.
+- HTTP 4xx/5xx를 `error_action`/`error_code`로 변환하지 않는다.
+- `error.error_code`는 descriptor의 stable `code`에서 온다.
+- `error.error_source`는 descriptor의 `source`에서 온다.
+- `error.error_action`은 descriptor의 `action`에서 온다.
+- `error.error_context`는 descriptor의 `messageArgContextKeys`가 요구하는 공개 메시지 인자만 포함한다.
+- `error.error_context`는 descriptor의 `messageArgContextKeys`가 요구하는 문자열/숫자 값을 빠짐없이 포함해야 한다.
+- `error.request_id`는 `req_` + UUID v4 형식이며, 서버 로그와 클라이언트 문의를 연결할 수 있어야 한다.
+- `ErrorData`에는 `messageKey`를 넣지 않는다. 클라이언트 표시는 generated runtime contract에서 `error_code`로 descriptor의 `messageKey`를 조회한 뒤 번역 리소스로 처리한다.
 
-## `ApiErrorData` 최종형
+범위 예외:
 
-최종 계약(Phase 2 이후)의 필수 필드는 아래 5개다.
+- 기존 Admin jQuery DataTables success body, 파일 스트리밍, proxy pass-through, 네트워크/protocol 실패는 [API 공통 응답 계약 정책](api-response-contract-policy.md)의 예외 기준을 따른다.
+- DataTables endpoint의 실패 응답은 예외 없이 `ok: false`와 `error: ErrorData`를 반환한다.
+- JSON API 계약 밖의 응답 경로는 `ErrorData`, `error_code`, `error_action`을 만들거나 client product flow 분기 기준으로 쓰지 않는다.
 
-- `error_code`: 대문자 스네이크 원인 코드
-- `error_source`: 대문자 스네이크 도메인/모듈 코드
-- `error_action`: 클라이언트 권장 동작 값
-- `error_context`: 민감정보 없는 객체
-- `request_id`: 서버 로그 상관관계 ID
+응답에 넣지 않는다:
 
-`error_context`는 로직 분기 기준이 아니다.
-클라이언트 분기는 `error_action`을 우선하고, 필요 시 `error_code`를 보조 기준으로 사용한다.
+- 권한/개인정보를 노출하는 내부 식별자, 내부 파일 경로, stack trace
+- 개인정보 또는 인증 토큰
+- 서버 내부 enum 이름
+- 사용자가 바로 볼 문장형 메시지
+- free-form parameter hint, field hint, operation source 같은 내부 진단 문자열
+- migration/transition 판정값
 
-## 코드 체계
-
-### `result_code`
-
-- `result_code` 값 기준은 서버 공통 상수다.
-- 성공은 `0`만 사용한다.
-- 실패는 공통 실패 코드만 사용한다.
-- 도메인 상태값을 `result_code`로 재사용하지 않는다.
-- 신규 `result_code` 추가는 원칙적으로 금지한다.
+## Taxonomy
 
 ### `error_source`
 
-- 형식: 대문자 스네이크
-- 의미: 오류가 발생한 도메인/모듈
-- 예: `MEMBER_AUTH_REVIEW`, `SIGNUP_REVIEW`, `SECURITY_ACCESS_CONTROL`
+`error_source`는 실패 원인의 상위 서버 도메인 또는 안정적인 모듈이다. 세부 기능, operation, 화면, flow, 판정 상태를 source로 승격하지 않는다.
+
+허용 기준:
+
+- 도메인 경계를 나타낸다.
+- UI surface나 operation 이름을 source로 쓰지 않는다.
+- login, signup, token, review, profile edit처럼 operation 또는 flow를 나타내는 세부 명칭을 source로 쓰지 않는다.
+- 너무 세분화된 임시 상태나 판정 단계를 source로 승격하지 않는다.
+- 같은 서버 모듈에서 처리와 소유가 함께 이루어지는 단위로 둔다.
+- 세부 기능명은 `error_code` segment로 표현한다.
+
+예시:
+
+- `REQUEST_PARAM`
+- `AUTH`
+- `ACCESS_CONTROL`
+- `MEMBER`
+- `MANAGER`
+- `MATCH`
+- `MATCHING`
+- `MEETING`
+- `REVIEW`
+
+현재 source ownership:
+
+| Source | Ownership |
+| --- | --- |
+| `ACCESS_CONTROL` | 공통 user/admin 접근 guard |
+| `AUTH` | 인증, 로그인, 토큰, 회원가입, 계정 인증 flow의 서버 실패 |
+| `CRON` | 배치/cron 작업의 서버 실패 |
+| `LOUNGE` | 라운지 도메인과 라운지 content/member moderation 실패 |
+| `MANAGER` | 관리자 계정, 권한, 관리자 상세 프로필 처리 실패 |
+| `MATCH` | 매치 entity, 매치 사용자 상태, 매치 리뷰/신고/직접 요청 실패 |
+| `MATCHING` | 매칭 가능 여부, 매칭 일정 제안/변경/횟수/날짜 제한 실패 |
+| `MEETING` | 미팅 entity, 참가/허용, 일정 충돌, 정원, 채팅방 준비 실패 |
+| `MEMBER` | 회원 프로필, 인증 심사, 프로필 심사, 추천, 휴면/수면, 매니저 선택 실패 |
+| `PAYMENT` | 결제/IAP 서버 실패 |
+| `REQUEST_PARAM` | 공통 request parameter 검증 실패 |
+| `REVIEW` | 여러 도메인에 걸친 심사 상태 contract/sync invariant 실패 |
+| `SETTING` | 운영 설정, 공지, 별칭, 가입 메시지, 고객지원 설정 실패 |
+| `UPLOAD` | 업로드 입력, 이미지/동영상/오디오 변환 실패 |
+| `USER` | 로그인 이후 사용자 계정 상태와 접근 제한 실패 |
+
+경계 규칙:
+
+- `MATCH`는 이미 존재하는 match entity와 그 상호작용을 소유한다. 매칭 일정/자격/제안 제한은 `MATCHING`이 소유한다.
+- `REVIEW`는 cross-domain review status contract나 sync invariant에만 쓴다. 특정 회원 심사 기능은 `MEMBER_REVIEW` source가 아니라 `MEMBER` source의 `MEMBER_REVIEW_*` code segment로 표현한다.
+- `AUTH_TOKEN`, `AUTH_LOGIN`, `AUTH_SIGNUP`, `MEMBER_AUTH_REVIEW`, `MEMBER_PROFILE_EDIT`, `MATCH_REVIEW`, `LOUNGE_CONTENT` 같은 operation namespace는 source가 아니라 code segment다.
+
+금지 예시:
+
+- `AUTH_ACCOUNT`
+- `AUTH_LOGIN`
+- `AUTH_SIGNUP`
+- `AUTH_TOKEN`
+- `LOUNGE_CONTENT`
+- `MATCH_REVIEW`
+- `MEMBER_AUTH_REVIEW`
+- `MEMBER_PROFILE_EDIT`
+- `MEMBER_MANAGER_SELECTION`
+- `MEMBER_REVIEW`
+- `REVIEW_STATUS`
 
 ### `error_code`
 
-- 형식: 대문자 스네이크
-- 의미: 안정적인 도메인 원인
-- 권장 형식: `{DOMAIN}_{REASON}_{DETAIL}`
-- 값 기준: API 서버 도메인 상수
-- Swagger(OpenAPI 문서)는 API 서버 도메인 상수와 같은 작업 단위에서 동기화한다.
-- 문서 역할: 형식, 변경 절차, 분기 책임 고정
+`error_code`는 실패 원인을 나타내는 stable wire value다.
+
+규칙:
+
+- 대문자 snake case를 사용한다.
+- `${source}_`로 시작한다.
+- `source` 뒤에 원인과 판정 기준을 드러내는 segment를 붙인다.
+- 세부 기능명은 source가 아니라 code segment에 둔다. 예: `source: "MEMBER"`, `code: "MEMBER_AUTH_REVIEW_LIMIT_EXCEEDED"`.
+- product prefix, client prefix, 화면 prefix를 붙이지 않는다.
+- 같은 의미의 실패 원인을 여러 code로 쪼개지 않는다.
+- 서로 다른 복구 행동이나 표시 정책이 필요하면 별도 code로 분리한다.
+
+### `error_surfaces`
+
+`error_surfaces`는 영향 범위 metadata다.
+
+현재 허용 surface:
+
+- `ADMIN_WEB`
+- `MOBILE_APP`
+- `SHARED_API`
+
+규칙:
+
+- 응답 JSON에 노출하지 않는다.
+- Mobile/Admin runtime contract와 Swagger 문서 생성에 사용한다.
+- operation 소비 근거 없이 surface를 추가하지 않는다.
+- 하나의 실패가 여러 surface에 영향을 주면 `surfaces` 배열에 모두 명시한다.
 
 ### `error_action`
 
-`error_action`은 클라이언트 권장 동작이다.
+`error_action`은 클라이언트 기본 처리 방식이다.
 
-- 값 기준: `coupler-api/lib/api-error.ts`의 `API_ERROR_ACTION` 상수
-- 이 문서는 `error_action` 값 목록을 직접 소유하지 않는다.
-- 정책 문서에 후보 값을 미리 예약하지 않는다.
-- API 서버 상수에 없는 `error_action`은 응답에 사용하지 않는다.
-- 신규 `error_action`은 API 서버 상수, Swagger(OpenAPI 문서), Mobile/Admin 분기, 테스트, 관련 문서를 같은 작업 단위에서 갱신한 뒤 사용한다.
-- 장기 목표는 API 서버, Swagger(OpenAPI 문서), Mobile/Admin 타입을 같은 계약 파일에서 생성하거나 검증하는 구조다.
+현재 허용 action:
 
-## HTTP Status
+- `RETRY`
+- `FIX_REQUEST`
+- `LOGIN_REQUIRED`
+- `CONTACT_SUPPORT`
 
-- `2xx`: 요청 처리 성공
-- `400`: 요청 형식/검증 실패
-- `401`: 인증 실패
-- `403`: 권한 실패
-- `404`: 리소스 없음
-- `409`: 상태 충돌
-- `422`: 도메인 검증 실패
-- `5xx`: 서버 장애
+규칙:
 
-HTTP Status와 `result_code`는 같은 의미를 중복 표현하지 않는다.
-HTTP Status는 프로토콜 레벨, `error_code`는 도메인 원인이다.
+- operation별 UI copy를 action에 넣지 않는다.
+- 같은 code의 기본 action은 하나다.
+- operation별 예외 처리는 operation handler에서 명시한다.
 
-## 환경 규칙
+## Client Runtime Contract
 
-- 모든 환경은 같은 응답 필드, 타입, 의미를 사용한다.
-- 개발계 전용 상세 로그는 허용한다.
-- 개발계 전용 응답 필드는 금지한다.
-- 운영계 전용 fallback 응답은 금지한다.
-- 같은 입력은 모든 환경에서 같은 `error_code`를 반환한다.
+Mobile/Admin은 서버 catalog에서 생성된 runtime contract만 사용한다.
 
-## Phase
+권장 산출물:
 
-### Phase 0: Legacy
+- `errorContract.ts`: `API_ERROR_CODE`, `API_ERROR_DEFINITION`, context pattern 상수
+- `errorMessages.ts`: locale-backed client message map
+- `errorRuntime.ts`: `ErrorData` 타입, 외부 JSON guard, message argument helper
 
-- 표준 `ApiErrorData`가 없는 기존 상태다.
-- 신규 실패 케이스에 Phase 0 추가는 금지한다.
-- 잔존 Phase 0은 도메인 문서나 PR에 이전 대상을 명시한다.
+이 산출물은 client boundary/runtime validation용이다. 서버 production callsite API가 아니다.
 
-### Phase 1: Server DTO
+금지한다:
 
-- 기존 envelope는 유지한다.
-- 실패 `result_data`에 `error_code`, `error_source`, `error_action`, `error_context`를 항상 포함한다.
-- Phase 1 `ApiErrorData`는 최종형에서 `request_id`만 선택 허용한 전환 DTO다.
-- `request_id`는 인프라 준비 전까지 선택 허용한다.
-- `request_id` 미적용 시 담당자, 목표 시점, 추적 이슈를 남긴다.
-- `error_context` 밖의 호환 필드는 제거 조건이 있을 때만 임시 허용한다.
+- Mobile/Admin feature code에 raw string 비교를 흩뿌리는 방식
+- `getErrorCode`, `getApiErrorCode`, `hasApiErrorCode` 같은 generic raw helper
+- legacy numeric result code 기반 신규 분기
+- token fallback, dual parser, shim, 임시 wrapper 추가
+- display message 문자열 기반 분기
 
-### Phase 2: Client Branch
+허용한다:
 
-- 실패 `result_data.request_id`를 항상 포함한다.
-- Mobile/Admin 분기는 `error_action`과 `error_code`만 사용한다.
-- `result_msg` 문자열 분기를 제거한다.
-- 서버 로그는 `request_id`, `error_source`, `error_code`로 검색 가능해야 한다.
+- `api/apiError.ts` 같은 API boundary facade가 generated runtime의 상수, 타입, guard를 재노출하는 방식
+- semantic failure helper module 내부의 non-exported `hasFailureErrorCode` 같은 작은 구현 helper. 단, feature code에는 `isAuthTokenExpiredFailure`, `isMatchingScheduleAlreadySentFailure`처럼 의미가 드러나는 함수만 노출한다.
+- generator/test 내부에서 generated `API_ERROR_CODE`와 raw wire value를 검증하는 방식
 
-### Phase 3: Final
+클라이언트 표시 메시지는 generated `messageKey`와 `messageArgContextKeys`로 만든다. `messageArgContextKeys`가 요구하는 context 값이 없으면 `%s` 같은 placeholder를 그대로 노출하지 않고 surface별 fallback 처리를 해야 한다.
 
-- HTTP Status를 이 문서 기준으로 정렬한다.
-- 도메인 숫자 코드 재사용을 제거한다.
-- `error_context` 밖의 호환 필드를 제거한다.
-- Swagger(OpenAPI 문서), 문서, 테스트가 같은 실패 계약을 가리킨다.
+`error_action` 처리 기준:
 
-## 완료 판정
+- `error_action`은 실패의 기본 처리 방향이다. operation handler는 먼저 `error_action`으로 전역/공통 UX 여부를 판단하고, 필요한 경우에만 `error_code` semantic helper로 세부 복구 경로를 고른다.
+- 공통 request wrapper는 본인이 완료할 수 있는 전역 UX만 client-local handled result로 바꾼다. navigation 컨텍스트가 screen-local인 Mobile 흐름처럼 공통 wrapper가 로그인/재인증 UX를 결정적으로 완료할 수 없으면 operation/screen handler가 `LOGIN_REQUIRED`를 처리할 수 있다.
+- `LOGIN_REQUIRED` 실패를 generic message 표시만으로 끝내면 안 된다. 단, 로그인/재인증 이동 방식은 공통 boundary 또는 operation/screen handler 중 클라이언트 책임 경계가 더 명확한 곳에 둔다.
 
-### Phase 1 완료
+Mobile/Admin request wrapper가 전역 UX를 이미 완료한 경우에는 API `ErrorData` 성공/실패와 섞지 않고 client-local handled result로 분리한다.
 
-- 실패 응답에 `error_code`, `error_source`, `error_action`, `error_context`가 항상 있다.
-- 환경별 응답 구조 차이가 없다.
-- Swagger(OpenAPI 문서)/샘플 응답이 실제 구현과 같다.
-- 남은 호환 필드에는 제거 조건, 담당자, 목표 시점, 추적 이슈가 있다.
+- handled result는 `type: "handled"` 같은 명시 discriminator를 가져야 한다.
+- handled result는 `undefined`, `null`, raw `error_code`, legacy numeric result code로 표현하지 않는다.
+- handled result는 서버 실패 원인을 대체하지 않는다. 서버가 envelope를 반환한 실패는 먼저 generated runtime contract로 검증한다.
+- operation handler는 handled result를 success/failure 처리 전에 종료해야 한다.
 
-### Phase 2 완료
+필요한 helper는 operation 의미를 드러내야 한다.
 
-- 실패 응답에 `request_id`가 항상 있다.
-- Mobile/Admin이 `result_msg`로 분기하지 않는다.
-- 운영 로그에서 `request_id`, `error_source`, `error_code`를 함께 조회할 수 있다.
-
-### 최종 완료
-
-- Phase 3 조건을 만족한다.
-- 신규/기존 실패 응답이 모두 `ApiErrorData`를 사용한다.
-- 코드, Swagger(OpenAPI 문서), 도메인 문서, 테스트가 같은 계약을 가리킨다.
-
-## 도메인 문서 규칙
-
-도메인 문서의 에러 섹션은 아래 문장을 포함한다.
-
-```markdown
-실패 응답 계약은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
-이 문서는 도메인 적용 Phase(전환 단계)와 도메인별 `error_code` 예시만 기록한다.
+```ts
+isMemberAuthReviewLimitExceeded(error)
 ```
 
-도메인 문서는 아래 항목만 기록할 수 있다.
+위와 같은 helper는 다음 조건을 만족할 때만 허용한다.
 
-- 적용 엔드포인트
-- 현재 Phase
-- `error_source`
-- 도메인별 `error_code` 예시
-- `error_action` 매핑
-- `error_context` 필드 예시
-- 남은 호환 필드와 제거 조건
+- 특정 operation 소비 근거가 있다.
+- 내부에서 runtime contract validation을 사용한다.
+- raw `error_code` 접근을 외부로 노출하지 않는다.
+- helper 이름이 클라이언트 복구 행동 또는 도메인 의미를 드러낸다.
 
-도메인 문서는 아래 항목을 재정의하지 않는다.
+## Swagger/OpenAPI
 
-- envelope 구조
-- `ApiErrorData` 필수 필드
-- `request_id` 필수 여부
-- HTTP Status 기준
-- `result_code` 의미
-- `result_msg` 분기 금지
+Swagger/OpenAPI는 `ERROR_CATALOG` 기준으로 실패 응답 계약을 작성하고 검증한다. 자동 생성 산출물이 아닌 수동 YAML은 Swagger ErrorData contract test가 catalog와 대조해 drift를 차단해야 한다.
+
+각 operation 문서에는 다음을 포함한다.
+
+- 가능한 `error_code`
+- `error_action`
+- `error_context` schema. 단, wire 응답 schema는 descriptor `messageArgContextKeys`에 공개하기로 한 메시지 인자만 포함한다.
+- operation별 표시/복구 책임
+- `request_id` 추적 규칙
+
+문서에 넣지 않는다:
+
+- 서버 내부 stack trace
+- DB schema 세부사항
+- transition 상태
+- client-only 임시 helper
+
+`coupler-api/contracts/generated/apiContract.ts`는 Swagger success schema를 그대로 투영한 generated artifact다. Swagger에 success schema가 없거나 느슨하면 generated success data type은 `unknown` 또는 loose object가 될 수 있으므로, 이 산출물을 전체 success DTO 완성 증거로 해석하지 않는다. release/cutover 판단에서 이 artifact는 [API 공통 응답 계약 정책](api-response-contract-policy.md)의 envelope/error boundary와 documented success schema freshness 근거로 사용한다.
+
+## Transition 계층 금지
+
+최종 구조와 cutover PR의 완료 조건은 transition 계층 0건이다.
+
+transition 계층으로 본다:
+
+- bridge/adapter/shim
+- dual parser
+- legacy alias
+- temporary wrapper
+- intermediate manifest
+- generic raw error-code helper
+- 서버 public `ERROR_CODE` alias
+- `path`/`group`/`name`/`codePrefix` 기반 taxonomy DSL
+
+구버전 클라이언트 호환이 필요하면 최종 구조 PR에 섞지 않고 별도 호환 배포 작업으로 분리한다.
 
 ## 변경 절차
 
-1. `error_code` 또는 `error_action` 변경 필요를 제안한다.
-2. API/Mobile/Admin 영향 범위를 확인한다.
-3. 서버 상수, Swagger(OpenAPI 문서), 클라이언트 분기, 도메인 문서 적용 Phase를 같은 작업 단위에서 갱신한다.
-4. [테스트/CI 전략](testing-strategy.md)의 품질 게이트와 계약 테스트를 통과한다.
-5. PR에 샘플 성공/실패 응답, 테스트 로그, 문서 동기화 근거를 남긴다.
+API 에러 계약을 변경할 때는 다음 순서를 지킨다.
 
-## 체크리스트
+1. `ERROR_CATALOG`에 descriptor를 추가하거나 수정한다.
+2. `source`, `surfaces`, `action`, `messageKey`, `messageArgContextKeys`가 위 taxonomy와 맞는지 검증한다. 특히 operation/flow/화면/판정 상태가 `source`로 들어가지 않았는지 확인한다.
+3. 실패 응답 callsite가 descriptor를 직접 전달하는지 확인한다.
+4. generated Mobile/Admin runtime contract를 갱신한다.
+5. Swagger/OpenAPI 문서를 갱신하고 catalog 정합성 검증을 통과시킨다.
+6. operation별 client handler가 raw helper 없이 의미 기반으로 처리하는지 확인한다.
+7. lint, typecheck, docs validation을 통과시킨다.
 
-- [ ] 실패 응답 계약은 이 문서를 참조하는가
-- [ ] `result_msg` 문자열 분기가 없는가
-- [ ] 실패 `result_data`가 `ApiErrorData`인가
-- [ ] `error_action`이 API 서버 상수에 있는 값인가
-- [ ] 환경별 응답 구조 차이가 없는가
-- [ ] `request_id` 누락 시 Phase 1 추적 정보가 있는가
-- [ ] 호환 필드가 있다면 제거 조건이 있는가
-- [ ] Swagger(OpenAPI 문서)/문서/테스트가 같은 계약을 가리키는가
+## 리뷰 체크리스트
+
+- [ ] 서버 실패 응답 callsite가 `ErrorDescriptor`를 전달하는가?
+- [ ] 서버 production code에 public `ERROR_CODE` alias 또는 raw `error_code` 문자열 전달이 없는가?
+- [ ] `ERROR_CATALOG`가 유일한 API 에러 계약 SoT인가?
+- [ ] descriptor field가 `code`, `source`, `surfaces`, `action`, `messageKey`, `messageArgContextKeys`로 제한되는가?
+- [ ] `path`, `group`, `name`, `codePrefix`, singular `error_surface`가 없는가?
+- [ ] `error_code`가 stable wire value이고 product/client/surface prefix를 포함하지 않는가?
+- [ ] `error_source`가 UI surface, operation, flow, 화면, 판정 상태가 아니라 상위 서버 도메인 또는 안정적인 모듈인가?
+- [ ] `AUTH_ACCOUNT`, `AUTH_LOGIN`, `AUTH_SIGNUP`, `AUTH_TOKEN`, `LOUNGE_CONTENT`, `MATCH_REVIEW`, `MEMBER_AUTH_REVIEW`, `MEMBER_PROFILE_EDIT`, `MEMBER_MANAGER_SELECTION`, `MEMBER_REVIEW`, `REVIEW_STATUS` 같은 세부 namespace가 `source`로 승격되지 않았는가?
+- [ ] `error_surfaces`가 응답 JSON이 아니라 영향 범위 metadata로만 쓰이는가?
+- [ ] `error_action`이 UI copy나 operation 이름을 담지 않는가?
+- [ ] `error_context`에 민감정보, display message, 내부 구현값이 없는가?
+- [ ] 계약된 JSON API 실패가 공통 응답 envelope로 반환되고, HTTP non-2xx가 `ErrorData` taxonomy와 섞이지 않는가?
+- [ ] `messageKey`가 비어 있지 않고, `messageArgContextKeys`가 요구하는 값이 `error_context`에서 문자열/숫자로 보장되는가?
+- [ ] Mobile/Admin이 generated runtime contract로 JSON boundary를 검증하는가?
+- [ ] Mobile/Admin feature code에 generic raw error-code helper가 없는가?
+- [ ] non-envelope success body가 있다면 기존 Admin DataTables allowlist에 한정되는가?
+- [ ] DataTables endpoint의 실패 응답은 `ErrorData`를 쓰고, file/proxy transport 실패는 `ErrorData` 밖에서 처리되는가?
+- [ ] Swagger/OpenAPI가 같은 catalog 기준으로 검증되는가?
+- [ ] final structure/cutover 범위에 transition 계층이 0건인가?
 
 ## 관련 문서
 
-- [엔지니어링 가드레일](engineering-guardrails.md)
-- [로그 정책](log-policy.md)
-- [테스트/CI 전략](testing-strategy.md)
-- [회원가입 응답 계약](signup-response-contract.md)
-- [회원 심사 단일 정책](member-review-policy.md)
+- `content/policy/engineering-guardrails.md`
+- `content/policy/code-review-policy.md`
+- `content/policy/testing-strategy.md`
+- `content/flows/cross-project/api-contract-mobile-release-flow.md`
+- `content/technical-debt/technical-debt.md`
