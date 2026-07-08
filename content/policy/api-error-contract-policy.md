@@ -282,7 +282,7 @@ API 실패 응답은 [API 공통 응답 계약 정책](api-response-contract-pol
 
 ## Client Runtime Contract
 
-Mobile/Admin은 서버 catalog에서 생성된 runtime contract만 사용한다. 현재 generated copy를 소비하는 레포는 copy exact match를 유지하고, package dependency 전환 후 코드 import는 `@coupler-developer/coupler-api-contracts`를 사용한다. package 발행/소비 절차는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따른다.
+Mobile/Admin은 서버 catalog에서 생성된 runtime contract만 사용한다. 현재 generated copy를 소비하는 레포는 copy exact match를 유지하고, package dependency 전환 후 코드 import는 `@coupler-developer/coupler-api-contracts`를 사용한다. package public response/envelope 타입도 이 runtime contract의 strict `ErrorData`를 실패 기본 타입으로 사용한다. package 발행/소비 절차는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따른다.
 
 권장 산출물:
 
