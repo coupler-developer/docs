@@ -58,11 +58,11 @@
 - API 공통 응답/에러 계약 또는 Swagger success contract 변경이 있으면 `contracts package` 범위를 포함한다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 publish된 package version을 lockfile로 고정한다.
 - GitHub Packages publish name과 Admin/Mobile 코드 import name은 `@coupler-developer/coupler-api-contracts`다.
-- 첫 package publish와 소비자 dependency 전환 사이에는 `coupler-api`가 package source와 기존 `contracts/generated`를 함께 생성한다. Admin/Mobile이 generated copy를 소비하는 동안에는 기존 copy exact match 검증을 유지한다.
+- package source는 `coupler-api/packages/contracts/src/generated/`에서 생성하고, Admin/Mobile은 publish된 package dependency와 lockfile로만 소비한다.
 - API main에 계약 package 변경이 merge되면 `Release Contracts` workflow가 `pnpm check:contracts`, `pnpm pack:contracts`를 실행한 뒤 아직 publish되지 않은 package version만 publish한다.
 - 같은 version이 이미 publish된 경우 workflow는 재시도/문서 수정 상황으로 보고 publish를 skip한다. 계약 내용이 바뀌면 package version을 새로 올려야 한다.
 - API 운영 배포에 계약 변경이 포함되면 `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 API/Admin/Mobile 배포를 진행한다.
-- Admin/Mobile package 반영은 publish 이후 별도 PR에서 `@coupler-developer/coupler-api-contracts` dependency와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다. 두 소비자가 package dependency로 전환된 뒤에만 generated copy 검증 제거를 별도 정리 PR로 다룬다.
+- Admin/Mobile package 반영은 publish 이후 `@coupler-developer/coupler-api-contracts` dependency와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다.
 
 ## 릴리즈 운영 모델 (단계별)
 

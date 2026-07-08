@@ -577,7 +577,7 @@
 
 - 공통 envelope 필드/분기 기준은 [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md), 실패 응답 필드/taxonomy 기준은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)만 수정한다.
 - 이 항목은 cutover 부채 인덱스로만 사용하고, 정책 본문이나 도메인별 에러 규칙을 복제하지 않는다.
-- 응답계약 package 발행/소비/수정 기준은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)을 따른다. package 소비 전환 완료 전까지 Mobile/Admin generated contract copy exact match 검증은 유지한다.
+- 응답계약 package 발행/소비/수정 기준은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)을 따른다. package 소비 전환 PR에서는 Mobile/Admin generated contract copy와 exact match 검증 CI를 함께 제거한다.
 - Package public response/envelope 타입은 runtime `ErrorData`를 실패 기본 타입으로 사용한다. Swagger success map 생성을 위해 generated 내부에 남는 느슨한 helper 타입은 package public 계약 완료 근거로 보지 않는다.
 - 기존 Admin jQuery DataTables endpoint의 success body 예외는 공통 응답 정책의 allowlist 범위로만 유지하며, 실패 응답은 예외 없이 `{ ok: false, error: ErrorData }`를 사용한다.
 - legacy envelope field, 숫자 wire code, public server `ERROR_CODE`, prebuilt `ErrorData`, raw 실패 JSON, transition helper 입력은 최종 구조에 재도입하지 않는다.
