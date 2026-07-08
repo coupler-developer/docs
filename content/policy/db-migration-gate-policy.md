@@ -61,6 +61,21 @@
 - `부분 적용`이거나 이미 한 공유 DB에라도 성공 적용된 SQL이면 기존 SQL 파일을 수정하지 않고 새 번호의 복구/재개 SQL 파일을 추가한다. 새 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
 - `성공 후 ledger 누락`이면 적용 당시 checksum, 성공 postcheck 로그, 실제 DB 식별값을 확인한 뒤 이력 테이블 복구 절차로 처리한다.
 
+### SQL 산출물 위치
+
+- 서비스 레포에 합의된 영구 migration 경로 또는 tool이 있을 때만 그 경로에 SQL을 추가한다. 적용 완료 SQL은 제거하지 않는다.
+- 합의된 영구 경로가 없으면 DB 변경을 이유로 feature PR에서 새 migration 디렉터리를 만들지 않는다.
+- 수동 SQL은 운영 실행 산출물로 관리하고, PR/릴리즈에는 SQL 원문 또는 승인된 산출물 경로, SHA-256 checksum, Gate 로그, `schema_migrations` row를 남긴다.
+- 새 영구 경로가 필요하면 feature 변경과 분리해 레포 구조 결정으로 먼저 합의한다.
+
+### DB와 애플리케이션 배포 순서
+
+- DB 변경은 `Expand`, `Backfill`, `Cutover`, `Contract` 중 하나로 분류하고 그에 맞춰 배포 순서를 정한다.
+- backward-compatible `Expand`는 같은 배포 윈도우에서 애플리케이션보다 먼저 반영할 수 있다.
+- DB-only 선반영이 기존 코드의 허용 범위를 넓히면 허용 범위, 기간, 후속 API/Admin/Mobile 배포 범위를 PR/릴리즈에 남긴다.
+- `Contract`/`drop`/호환 제거는 호환 애플리케이션 배포와 운영 검증 후 별도 단계로 진행한다.
+- Mobile/Admin/API 영향은 DB 직접 접속 여부가 아니라 API 계약, 서버 동작, 배포 버전 기준으로 판단한다.
+
 ## 적용 이력 테이블
 
 - `schema_migrations`는 각 DB 안에 존재하는 DB-local 적용 완료 이력이다.
