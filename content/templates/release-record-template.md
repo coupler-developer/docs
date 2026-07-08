@@ -53,7 +53,7 @@
 
 - 검증 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 기록한다.
 - API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거를 기록한다.
-- API contract cutover 포함 시 contracts package publish version과 Mobile/Admin 소비 경로 검증 근거를 기록한다. Admin/Mobile이 generated copy를 소비하는 동안에는 exact match 검증 근거를, package dependency 전환 후에는 dependency version 검증 근거를 기록한다.
+- API contract cutover 포함 시 contracts package publish version, Mobile/Admin `package.json`/lockfile dependency version, consumer import path, 각 소비자 레포 품질 게이트 결과를 기록한다.
 
 ### API contract cutover Gate
 
