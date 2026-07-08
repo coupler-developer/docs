@@ -29,11 +29,42 @@
 - `nginx`: `build/` 정적 파일을 내부 `8000` 포트에서 서빙한다.
 - `pm2`: `coupler-api`만 관리한다. `coupler-admin-web`는 관리 대상이 아니다.
 
+## 환경별 주의사항
+
+- 개발계 Admin 배포는 운영 전 검증 목적이다. 개발계 반영 성공을 운영 배포 완료, 운영 npm auth 검증, 운영 태그 생성 근거로 사용하지 않는다.
+- 운영계 Admin 배포는 실사용자 대상이다. `main` 배포 커밋, `No Findings`, 품질 게이트, 롤백 기준, 외부 응답 기준선을 먼저 고정한다.
+- 개발계와 운영계는 host, 도메인, API base URL, 배포 사용자, `nginx` root, GitHub Packages npm auth를 각각 확인한다.
+- EC2에서 직접 `yarn install`/`yarn build`를 실행하면 설치 실행 OS 사용자 예: `ubuntu`, `deploy`, `root`의 user-level npm auth가 필요하다. `Manage Actions access`는 GitHub Actions 전용이며 SSH shell에는 적용되지 않는다.
+- `yarn build`는 CRA production build이므로 `.env.development`가 아니라 build 시점의 production-mode 환경값이 번들에 고정된다. 개발계 빌드는 개발 API URL, 운영계 빌드는 운영 API URL을 바라보는지 업로드 전에 확인한다.
+- 운영계에서는 `react-scripts start`, `yarn start`, `pm2` 기반 CRA 개발 서버 서빙을 금지한다. 개발계에서 임시로 개발 서버를 띄운 경우에도 운영 절차로 간주하지 않는다.
+
 ## 메인 흐름
 
 1. 배포 시작 전 [배포/릴리즈 프로세스](../../policy/release-process.md)의 `No Findings`와 공통 품질 게이트 기준을 통과했는지 확인한다.
 2. 로컬 또는 CI에서 `coupler-admin-web` 루트 기준으로 `yarn install`, `yarn build`를 실행해 `build/` 산출물을 만든다.
-3. 운영 서버에서 최초 1회 또는 서버 재구성 시 아래를 준비한다.
+3. 운영 서버에서 직접 `yarn install` 또는 `yarn build`를 실행하는 임시/수동 배포라면, 먼저 설치를 실행하는 OS 사용자 예: `ubuntu`, `deploy`, `root`의 user-level npm 설정에 GitHub Packages 인증을 준비한다. GitHub Packages `Manage Actions access`는 GitHub Actions 전용이며 EC2 SSH shell에는 적용되지 않는다.
+
+```bash
+cd ~/coupler-admin-web
+gh auth status -h github.com
+gh auth refresh -h github.com -s read:packages
+npm config set --location=user @coupler-developer:registry https://npm.pkg.github.com
+npm config set --location=user //npm.pkg.github.com/:_authToken "$(gh auth token)"
+yarn install --frozen-lockfile
+```
+
+`gh`를 사용할 수 없는 호스트에서는 승인된 GitHub 계정 또는 머신 계정의 `read:packages` token을 해당 사용자 홈의 npm 설정에만 저장한다. token 값을 repo `.npmrc`, shell history, 배포 로그에 남기지 않는다.
+
+```bash
+cd ~/coupler-admin-web
+read -s GH_PACKAGES_TOKEN
+npm config set --location=user @coupler-developer:registry https://npm.pkg.github.com
+npm config set --location=user //npm.pkg.github.com/:_authToken "$GH_PACKAGES_TOKEN"
+unset GH_PACKAGES_TOKEN
+yarn install --frozen-lockfile
+```
+
+1. 운영 서버에서 최초 1회 또는 서버 재구성 시 아래를 준비한다.
 
 ```bash
 sudo apt-get update
@@ -121,6 +152,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 ## 예외 흐름
 
 - `rsync: mkdir ... Permission denied`가 발생하면 `/var/www/coupler-admin-web`가 없거나 소유권이 배포 사용자에게 없다는 뜻이다. `sudo mkdir -p /var/www/coupler-admin-web`와 `sudo chown -R <deploy-user>:<deploy-user> /var/www/coupler-admin-web`를 먼저 실행한다.
+- `yarn install`이 `npm.pkg.github.com`에서 `401 Unauthorized`로 실패하면 설치를 실행한 OS 사용자의 user-level npm auth가 없거나 `read:packages` 권한이 없는 상태다. `sudo yarn install`은 `root`의 npm 설정을 사용하므로, 실제 설치 사용자와 인증 설정 사용자를 일치시킨다.
 - `pm2 list`에 `coupler-admin-web`가 보이지 않는데 `8000` 포트에 Node 프로세스가 떠 있으면 다른 사용자(`root`)의 PM2일 수 있다. 이 경우 `sudo /usr/bin/pm2 list`와 `sudo /usr/bin/pm2 delete coupler-admin-web`를 사용한다.
 - `nginx -t`가 실패하면 사이트 설정 수정 전까지 재시작하지 않는다.
 - 외부 `https://cms.ritzy.fourhundred.co.kr` 응답이 `nginx`가 아니면 상위 프록시 또는 로드밸런서 구성을 먼저 확인한다.

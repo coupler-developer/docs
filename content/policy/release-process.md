@@ -36,6 +36,16 @@
 - 모바일 배포 대상: `coupler-mobile-app` (EC2 배포 없음, 스토어/OTA로 배포)
 - 문서 배포 대상: `docs` (GitHub Pages + docs GitHub Release)
 
+## 환경별 배포 주의사항
+
+- 개발계 배포는 운영 배포 전 검증 목적이며, 운영 반영/검증 완료 증빙이나 서비스 릴리즈 태그 생성 근거로 사용하지 않는다.
+- 운영계 배포는 실사용자 대상 반영이다. 배포 전 `main` 기준 커밋 확정, `No Findings`, 표준 품질 게이트, 롤백 기준, post-deploy 검증 시나리오를 먼저 고정한다.
+- 개발계와 운영계는 `EC2` host, 도메인, API base URL, DB/RDS, 환경변수, package registry auth를 각각 확인한다. 한 환경의 성공을 다른 환경의 인증/설정 성공으로 간주하지 않는다.
+- `coupler-admin-web` 정적 빌드는 `yarn build` 시점의 환경변수가 번들에 고정된다. CRA build는 `.env.development`를 사용하지 않으므로, 개발계/운영계 각각 빌드 산출물이 어느 API base URL을 바라보는지 배포 전에 확인한다.
+- EC2 또는 배포 호스트에서 직접 `yarn install`/`yarn build`를 실행하면 해당 OS 사용자의 GitHub Packages user-level auth가 필요하다. GitHub Packages `Manage Actions access`는 GitHub Actions에만 적용되며 SSH shell에는 적용되지 않는다.
+- 운영 DB write, 운영 API restart, 운영 Admin artifact 교체, NextPush `Production` label 배포는 모두 사용자 영향 작업이다. 개발계 확인 목적으로 운영 대상 명령을 실행하지 않는다.
+- 개발계 배포 후에는 개발계 host/domain/API/DB 기준으로만 검증 결과를 기록한다. 운영계 배포 후에는 운영 host/domain/API/DB 기준으로 별도 검증 결과를 기록한다.
+
 ## 배포 범위 선택 원칙
 
 - 운영 배포는 항상 모든 구성요소를 포함하지 않는다.
@@ -214,6 +224,7 @@ git status
 - 배포 전 기술 판정은 [엔지니어링 가드레일](engineering-guardrails.md)의 `No Findings 게이트`를 단일 기준으로 따른다.
 - 리뷰 대상 범위에서 finding이 1건이라도 있으면 배포를 진행하지 않고, `원인 분석 -> 수정 -> 테스트/CI 전략의 공통 품질 게이트 및 필수 정책 검사 재검증 -> 재리뷰`를 `No Findings`까지 반복한다.
 - 레포/플랫폼별 배포 가이드를 따른다.
+- 개발계와 운영계의 EC2, API URL, DB/RDS, npm user-level auth는 분리해서 확인한다. 개발계에서 `yarn install`이 성공해도 운영계 OS 사용자 인증이 검증된 것이 아니다.
 - `coupler-api`와 `coupler-admin-web`의 운영 반영 방식은 다르다.
     - `coupler-api`: 프로세스 앱으로 배포하고 `pm2`로 관리한다.
     - `coupler-admin-web`: `yarn build` 결과물(`build/`)만 EC2에 업로드하고 `nginx`가 정적 서빙한다.
