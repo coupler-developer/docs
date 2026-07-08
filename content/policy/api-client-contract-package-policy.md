@@ -48,6 +48,8 @@
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
 - package 이름은 `@coupler-developer/coupler-api-contracts`로 고정한다. 별도 import alias를 두지 않는다.
 - API repo의 package 발행/검증 명령은 API repo의 `packageManager`와 lockfile 기준을 따른다. 현재 기준은 `pnpm`/`pnpm-lock.yaml`이다.
+- API repo의 `Release Contracts` publish 권한은 GitHub Actions 기본 `github.token`과 workflow `packages: write` 권한으로 고정한다. 이 package 발행만을 위해 별도 PAT secret을 만들거나 fallback으로 두지 않는다.
+- Admin/Mobile 소비자 설치 인증은 package 발행 권한과 분리한다. 소비자 레포는 GitHub Packages read 권한이 있는 registry/auth 설정을 별도로 둔다.
 - GitHub Packages에 발행하더라도 API repo에 `npm install` 또는 `package-lock.json` 생성을 섞지 않는다.
 - 실제 발행 전 소비자 전환 PR에는 `file:`, local tarball, git dependency 같은 임시 dependency를 커밋하지 않는다.
 - `@coupler-developer/coupler-api-contracts` 첫 발행 전에는 Admin/Mobile legacy generated copy와 copy exact match 검증을 유지한다.
