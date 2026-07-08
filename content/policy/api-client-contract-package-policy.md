@@ -53,6 +53,8 @@
 - `@coupler-developer/coupler-api-contracts` 첫 발행 전에는 Admin/Mobile legacy generated copy와 copy exact match 검증을 유지한다.
 - Admin/Mobile이 package dependency로 전환된 뒤에도 legacy generated copy 검증 제거는 별도 PR에서 수행한다.
 - 발행된 package version은 재사용하지 않는다. 계약 산출물이 바뀌면 새 version을 발행하고 소비자 lockfile에 반영한다.
+- package의 public response/envelope 타입은 generated error runtime의 strict `ErrorData`를 실패 기본 타입으로 사용한다.
+- `generated/apiContract.ts`는 Swagger success operation map 산출물이며, 그 안의 느슨한 실패 helper 타입을 package public response 기준으로 삼지 않는다.
 - 소비자 코드는 package contract 또는 명시 ViewModel mapping을 사용하고, API 응답 shape를 local cast, alias fallback, normalize로 보정하지 않는다.
 
 ## 운영 절차
@@ -62,7 +64,8 @@
 1. API repo에 package source, export, pack/publish 검증 경로를 추가한다.
 2. Canonical generated contract와 기존 Admin/Mobile generated copy 검증은 유지한다.
 3. `pnpm pack:contracts`로 발행 산출물에 필요한 파일만 포함되는지 확인한다.
-4. PR과 릴리즈 기록에 package infra가 wire 응답 변경, 소비자 전환 완료, success DTO 완료를 의미하지 않는다고 기록한다.
+4. Package public entrypoint가 strict `ErrorData` 기반 response/envelope 타입을 노출하는지 확인한다.
+5. PR과 릴리즈 기록에 package infra가 wire 응답 변경, 소비자 전환 완료, success DTO 완료를 의미하지 않는다고 기록한다.
 
 ### 첫 발행
 
@@ -99,6 +102,8 @@
 
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
+- [ ] public response/envelope 타입이 generated error runtime의 strict `ErrorData`를 실패 기본 타입으로 쓰는가?
+- [ ] `generated/apiContract.ts`의 느슨한 실패 helper 타입을 package public response 기준으로 노출하지 않는가?
 - [ ] API repo에서 `pnpm`/`pnpm-lock.yaml` 기준을 지키고 `package-lock.json`을 만들지 않았는가?
 - [ ] 첫 발행 전 legacy generated copy 검증을 유지했는가?
 - [ ] 소비자 전환은 GitHub Packages registry/auth 설정, 발행된 package version, lockfile을 기준으로 하는가?
