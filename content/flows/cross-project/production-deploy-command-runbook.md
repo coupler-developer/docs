@@ -16,6 +16,7 @@
 - 시작 조건: 배포 대상 커밋, 배포 범위, 운영 접근 권한, 검증 시나리오가 확정된 상태
 - 종료 조건: 포함된 범위의 운영 반영, 외부 응답 확인, 태그/NextPush/docs Pages/DB ledger 기록 확인이 완료된 상태
 - 제외 범위: 신규 SQL 작성, 스토어 심사 정책 해석, docs GitHub Release 본문 상세 작성
+- 개발계 배포 명령을 실행할 때도 이 문서의 `환경별 사전 확인`을 적용한다. 단, 운영 태그/릴리즈 기록 완료 조건은 운영계 반영에만 적용한다.
 
 ## 상위 규범 문서
 
@@ -65,6 +66,28 @@ git -C docs status --short --branch
 curl -i https://api.ritzy.fourhundred.co.kr/
 curl -I https://cms.ritzy.fourhundred.co.kr
 ```
+
+## 환경별 사전 확인
+
+개발계와 운영계 중 어느 환경에 반영하는지 먼저 고정하고, 결과 기록에 남긴다.
+
+| 항목 | 개발계 배포 | 운영계 배포 |
+| --- | --- | --- |
+| 목적 | 운영 전 검증, 내부 확인 | 실사용자 대상 반영 |
+| 기준 커밋 | 검증 대상 커밋 또는 `main` 병합 후보 | `main`에 병합된 배포 커밋 |
+| 태그/릴리즈 | 생성하지 않음 | post-deploy 검증 완료 후 생성 |
+| DB/RDS | 개발 DB 식별값 확인 | 운영 DB 식별값과 Gate 확인 |
+| Admin API URL | 개발 API를 바라보는지 확인 | 운영 API를 바라보는지 확인 |
+| GitHub Packages auth | 설치 실행 OS 사용자 기준 user-level auth | 설치 실행 OS 사용자 기준 user-level auth |
+
+환경별 공통 주의:
+
+- `Manage Actions access`는 GitHub Actions 전용이다. EC2에서 SSH로 접속해 실행하는 `yarn install`은 `ubuntu`, `deploy`, `root` 등 실제 실행 사용자 홈의 npm auth를 사용한다.
+- `sudo yarn install`은 `root`의 npm 설정을 사용한다. install/build 실행 사용자와 npm auth 설정 사용자를 일치시킨다.
+- `coupler-admin-web`의 `yarn build`는 `.env.development`를 읽지 않는다. 개발계 정적 빌드도 `build/` 산출물을 만들면 build 시점의 production-mode 환경값이 번들에 고정된다.
+- 개발계 Admin 빌드는 개발 API URL을, 운영계 Admin 빌드는 운영 API URL을 바라보는지 배포 전에 확인한다. 잘못된 API URL로 빌드된 산출물은 업로드하지 않는다.
+- 개발계 검증 성공은 운영 EC2, 운영 npm auth, 운영 RDS, 운영 도메인 검증을 대체하지 않는다.
+- 운영 배포 전에는 운영 외부 응답 기준선과 롤백 기준을 먼저 남긴다. 개발계 배포에서는 운영 태그를 만들지 않는다.
 
 ## DB Migration 포함 시
 
@@ -168,6 +191,12 @@ pm2 logs coupler-api --lines 100 --nostream
 ## Admin 포함 시
 
 상세 실행은 [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)을 따른다. 이 문서는 Admin 배포 명령을 중복 정의하지 않는다.
+
+Admin 배포 전에는 아래를 반드시 확인한다.
+
+- 개발계 배포: build 산출물이 개발 API URL을 바라보는지 확인하고, 운영 태그/릴리즈를 만들지 않는다.
+- 운영계 배포: build 산출물이 운영 API URL을 바라보는지 확인하고, 운영 반영 후 로그인/핵심 화면/주요 액션/브라우저 콘솔을 별도로 검증한다.
+- EC2에서 직접 install/build하면 설치 실행 OS 사용자 기준 GitHub Packages auth가 있어야 한다.
 
 ```bash
 # Admin 운영 배포 런북 실행 후 최소 검증

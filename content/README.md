@@ -43,6 +43,11 @@
    SSH는 Git clone/fetch/push 인증만 처리한다. `npm.pkg.github.com` package 설치에는
    별도의 `read:packages` npm registry 인증이 계속 필요하다.
 
+   EC2 또는 배포 호스트에서 직접 `yarn install`을 실행하는 경우도 동일하다. GitHub
+   Packages의 `Manage Actions access`는 GitHub Actions 전용 권한이며, SSH로 접속한
+   `ubuntu`/`deploy`/`root` shell에는 적용되지 않는다. 설치를 실행하는 OS 사용자의
+   user-level npm 설정에 registry와 `read:packages` token을 저장해야 한다.
+
 4. 워크스페이스 루트에 `AGENTS.md`를 만들고 아래 내용을 넣는다.
 5. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
 6. 첫 작업 전에는 반드시 `docs/content/AGENTS.md`를 열고 Core 4 문서 선열람, 첫 응답 `ACK/EVIDENCE` 형식, 선열람 전 명령 실행 금지 규칙까지 확인한다.

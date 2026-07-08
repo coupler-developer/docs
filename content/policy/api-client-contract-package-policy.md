@@ -55,6 +55,8 @@
 - GitHub Packages에 발행하더라도 API repo에 `npm install` 또는 `package-lock.json` 생성을 섞지 않는다.
 - 소비자 repo의 `.npmrc`는 scope registry 설정만 커밋한다. token 값이나 `${NODE_AUTH_TOKEN}` placeholder를 `.npmrc`에 커밋하지 않는다.
 - GitHub Packages npm package는 로컬 개발자 설치에도 인증이 필요하다. 각 개발자는 개인 GitHub 계정 기준으로 `read:packages` 권한이 있는 user-level npm auth를 설정한다.
+- GitHub Packages `Manage Actions access`는 GitHub Actions의 `github.token` 설치 권한만 부여한다. EC2, 배포 호스트, 개인 노트북, 수동 SSH shell에서 실행하는 `yarn install`에는 적용되지 않는다.
+- EC2 또는 배포 호스트에서 직접 `yarn install`/`yarn build`를 실행하면 해당 OS 사용자도 package 소비자다. 설치를 실행하는 사용자 예: `ubuntu`, `deploy`, `root`의 user-level npm auth에 `read:packages` 권한이 있어야 한다.
 - 로컬 개발자 인증은 `~/.npmrc` 같은 사용자 홈 설정에만 저장하고, repo `.npmrc`, lockfile, 문서 예시, CI 로그에 token 값을 남기지 않는다.
 - Git 작업 인증은 SSH를 기본으로 사용할 수 있지만, SSH는 `npm.pkg.github.com` package 설치 인증을 대체하지 않는다.
 - 로컬 인증 절차 문서는 `gh auth status`, 필요 시 `gh auth login -p ssh`, `gh auth refresh -s read:packages`, `npm config set --location=user ...` 순서를 포함한다.
@@ -91,10 +93,11 @@
 3. CI install step은 workflow `packages: read` 권한과 `NODE_AUTH_TOKEN: ${{ github.token }}` 기준으로 구성한다.
 4. 새 token secret이 필요하다고 판단되면 필수 규칙의 token 생성 예외 절차를 먼저 통과한다.
 5. README 또는 개발자 문서에 로컬 GitHub Packages 인증 절차를 추가한다.
-6. 발행된 `@coupler-developer/coupler-api-contracts` version을 consumer package manager로 lockfile에 고정한다.
-7. `src/api/generated/*` import를 package import로 교체한다.
-8. 소비자 repo의 `src/api/generated/*` legacy copy와 generated copy exact match CI를 제거한다.
-9. request boundary가 기존과 같은 `{ ok: true, data }` / `{ ok: false, error }` 분기 기준을 유지하는지 검증한다.
+6. 배포 호스트에서 직접 install/build를 실행하는 운영 방식이 있으면 배포 런북에 해당 OS 사용자 기준 GitHub Packages 인증 절차를 추가한다.
+7. 발행된 `@coupler-developer/coupler-api-contracts` version을 consumer package manager로 lockfile에 고정한다.
+8. `src/api/generated/*` import를 package import로 교체한다.
+9. 소비자 repo의 `src/api/generated/*` legacy copy와 generated copy exact match CI를 제거한다.
+10. request boundary가 기존과 같은 `{ ok: true, data }` / `{ ok: false, error }` 분기 기준을 유지하는지 검증한다.
 
 ### 계약 수정과 version bump
 
@@ -123,6 +126,7 @@
 - [ ] 소비자 CI package install은 GitHub Packages `Manage Actions access`의 consumer repo `Read` 권한, workflow `packages: read`, `NODE_AUTH_TOKEN: ${{ github.token }}` 기준으로 구성되어 있는가?
 - [ ] 새 token secret 예외가 있다면 기존 권한 조사, 대체 불가 사유, 권한 범위, 만료/회수 계획, 명시 승인이 기록되어 있는가?
 - [ ] 로컬 개발자 `yarn install`을 위한 GitHub Packages 인증 절차가 README 또는 개발자 문서에 기록되어 있는가?
+- [ ] EC2 또는 배포 호스트에서 직접 `yarn install`/`yarn build`를 실행하는 경우, 설치를 실행하는 OS 사용자 기준 GitHub Packages 인증 절차가 배포 런북에 기록되어 있는가?
 - [ ] repo `.npmrc`에는 registry scope만 있고 token 값이나 `${NODE_AUTH_TOKEN}` placeholder가 없는가?
 - [ ] 소비자 코드가 package contract를 우회하는 local cast, alias fallback, normalize를 추가하지 않았는가?
 - [ ] package dependency와 lockfile 전환 PR에서 legacy generated copy와 copy exact match CI를 제거했는가?
