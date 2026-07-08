@@ -33,6 +33,10 @@
     - staging은 작업 단위별로 수행하며, 한 파일에 무관 변경이 섞이면 `git add -p` 또는 동등한 hunk 단위 staging을 사용한다
     - staging 후 `git diff --cached`로 커밋 범위가 의도한 작업 단위와 일치하는지 재확인한다
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
+- 원격 push, PR 생성, 기존 PR 브랜치 갱신, 태그 push 요청을 받으면 push 전에 `content/policy/code-review-policy.md`의 `Push 전 자체 리뷰 게이트`를 적용한다
+    - 마지막 파일 변경 이후 push 대상 범위의 최종 판정이 `No Findings`가 아니거나 열린 Finding이 있으면 push하지 않고 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 먼저 보고한다
+    - 사용자 승인으로 계속 진행하더라도 push 직전에는 `git status`, push 대상 커밋/태그 범위, 문서 동기화 여부, 적용 품질 게이트 결과를 다시 확인하고 보고한다
+    - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 별도 명시 승인 없이는 실행하지 않는다
 - 사용자가 "관련 워크트리와 브렌치 정리해줘" 또는 같은 의미의 요청을 하면 `content/policy/git-sync-rebase-policy.md`의 `관련 워크트리와 브랜치 정리 절차`를 따른다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
 - 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경은 `content/policy/testing-strategy.md`의 `테스트 변경 판정` 기준을 따른다

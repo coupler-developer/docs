@@ -181,6 +181,16 @@
 - Finding이 있으면 `원인 수정 -> 적용 품질 게이트 재실행 -> 동일 범위 재리뷰 -> 최종 기록 갱신`을 `No Findings`까지 반복한다.
 - 근거 없는 관점 판정, 마지막 수정 이전 검증 결과, 미해결 Finding이 하나라도 있으면 `No Findings`로 판정하지 않는다.
 
+### Push 전 자체 리뷰 게이트
+
+- 원격 `git push`, PR 생성, 기존 PR 브랜치 갱신, 태그 push 전에는 마지막 파일 변경 이후 push 대상 범위를 고정하고 자체 리뷰를 수행한다.
+- branch push 범위는 `git status`, `git diff`, `git diff --cached`, upstream 대비 미push 커밋 목록(`git log @{u}..HEAD` 또는 base branch 비교)으로 확인한다.
+- tag push 범위는 태그 대상 커밋, 릴리즈/제출 마커 의미, 관련 릴리즈 기록과 preview 검증 결과로 확인한다.
+- push 전 보고에는 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증, 문서 동기화, 최종 판정을 포함한다.
+- 열린 Finding이 있거나 최종 판정이 `No Findings`가 아니면 push하지 않는다. 예외가 필요하면 위험, 미검증 범위, 되돌림 기준을 먼저 기록하고 사용자 승인을 받아야 한다.
+- CI, GitHub Actions, secret, package registry, 권한, 배포, 릴리즈 자동화 변경은 외부 영향 범위와 비코드 설정 필요 여부를 함께 리뷰한다.
+- force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 일반 push 게이트와 별개로 명시 승인을 받아야 한다.
+
 ### 외부 공유/메시지 SDK 리뷰 기준
 
 - Kakao Talk Share, OS Share, 외부 메시지 SDK를 사용하는 변경은 아래 상태를 구분해 리뷰한다.
