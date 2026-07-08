@@ -95,6 +95,8 @@ DB 변경은 이 문서의 명령어만으로 승인하지 않는다. [DB Migrat
 
 운영 write 전에 read-only preflight를 남긴다. preflight는 `공통 식별값 + ledger + 변경 대상 객체/카운터` 3종이 모두 있어야 완료다.
 
+합의된 영구 migration 경로가 없는 서비스 레포에는 feature PR에서 새 migration 디렉터리를 만들지 않는다. 수동 SQL과 배포 순서는 DB Migration Gate 정책의 `SQL 산출물 위치`, `DB와 애플리케이션 배포 순서` 기준을 따른다.
+
 공통 preflight:
 
 ```sql
