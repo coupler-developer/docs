@@ -14,15 +14,38 @@
 ## 개발환경 구성
 
 1. 공용 워크스페이스 폴더를 만든다.
-2. org에 있는 아래 4개 레포를 워크스페이스 하위 폴더로 `git clone` 한다.
-   - coupler-api: <https://github.com/coupler-developer/coupler-api>
-   - coupler-admin-web: <https://github.com/coupler-developer/coupler-admin-web>
-   - coupler-mobile-app: <https://github.com/coupler-developer/coupler-mobile-app>
-   - docs: <https://github.com/coupler-developer/docs>
+2. Git 작업은 SSH를 기본으로 설정한 뒤, org에 있는 아래 4개 레포를 워크스페이스 하위
+   폴더로 `git clone` 한다.
 
-3. 워크스페이스 루트에 `AGENTS.md`를 만들고 아래 내용을 넣는다.
-4. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
-5. 첫 작업 전에는 반드시 `docs/content/AGENTS.md`를 열고 Core 4 문서 선열람, 첫 응답 `ACK/EVIDENCE` 형식, 선열람 전 명령 실행 금지 규칙까지 확인한다.
+   ```bash
+   gh auth login -h github.com -p ssh
+   gh auth setup-git
+   ssh -T git@github.com
+   ```
+
+   - coupler-api: `git@github.com:coupler-developer/coupler-api.git`
+   - coupler-admin-web: `git@github.com:coupler-developer/coupler-admin-web.git`
+   - coupler-mobile-app: `git@github.com:coupler-developer/coupler-mobile-app.git`
+   - docs: `git@github.com:coupler-developer/docs.git`
+
+3. GitHub Packages private npm package를 설치하는 repo에서는 개발자 개인 계정의
+   user-level 인증을 설정한다. repo `.npmrc`에는 token 값이나 `${NODE_AUTH_TOKEN}`
+   placeholder를 커밋하지 않는다.
+
+   ```bash
+   gh auth status -h github.com
+   gh auth login -h github.com -p ssh
+   gh auth refresh -h github.com -s read:packages
+   npm config set --location=user @coupler-developer:registry https://npm.pkg.github.com
+   npm config set --location=user //npm.pkg.github.com/:_authToken "$(gh auth token)"
+   ```
+
+   SSH는 Git clone/fetch/push 인증만 처리한다. `npm.pkg.github.com` package 설치에는
+   별도의 `read:packages` npm registry 인증이 계속 필요하다.
+
+4. 워크스페이스 루트에 `AGENTS.md`를 만들고 아래 내용을 넣는다.
+5. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
+6. 첫 작업 전에는 반드시 `docs/content/AGENTS.md`를 열고 Core 4 문서 선열람, 첫 응답 `ACK/EVIDENCE` 형식, 선열람 전 명령 실행 금지 규칙까지 확인한다.
 
 ## 문서 검증
 
