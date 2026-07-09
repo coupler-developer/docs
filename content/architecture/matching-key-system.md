@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | 남성 패스 시 여성 환불 | `pass` 흐름 | `key_log.male_pass` |
 | 여성 최종컨펌 취소 시 남성 환불 | `confirm` 흐름 | `key_log.confirm_cancel` |
-| 일정 불합의 시 50% 환불 | 매칭 취소 흐름 | `key_log.match_cancel` |
+| 일정 불합의 환불 | 매칭 취소 흐름 | `key_log.match_cancel` |
 
 구체적인 환불 금액과 상태 조건은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 기준으로 본다.
 

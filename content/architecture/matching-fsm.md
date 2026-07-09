@@ -8,6 +8,7 @@
 - 기준 성격: `as-is`
 
 매칭의 전체 상태 흐름을 정리한 문서이다.
+상태 값과 환불 기준의 원문 SoT는 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
 ## 매칭 상태 (MATCH_STATUS)
 
@@ -30,22 +31,22 @@
 
 ### 취소 상태
 
-| 값   | 상수                       | 의미               | 환불      |
+| 값   | 상수                       | 의미               | 정산 기준 |
 | ---- | -------------------------- | ------------------ | --------- |
-| -1   | `FEMALE_PASS`              | 여성 패스          | 없음      |
-| -2   | `MALE_PASS`                | 남성 패스          | 여성 전액 |
-| -10  | `CANCELED`                 | 무응답 취소        | 조건부    |
-| -100 | `FINAL_CONFIRM_CANCEL`     | 여성 최종컨펌 취소 | 남성 전액 |
-| -101 | `CONFIRM_NO_REPLY`         | 최종컨펌 무응답    | 조건부    |
-| -102 | `FAVOR_INFO_NO_REPLY`      | 선호정보 무응답    | 조건부    |
-| -103 | `SCHEDULE_NO_REPLY`        | 일정제안 무응답    | 조건부    |
-| -104 | `SCHEDULE_ACCEPT_NO_REPLY` | 일정수락 무응답    | 조건부    |
-| -105 | `SCHEDULE_NOT_SELECTED`    | 일정 불합의        | 양쪽 50%  |
-| -106 | `LOCATION_NO_REPLY`        | 장소결정 무응답    | 조건부    |
-| -107 | `CHAT_ROOM_LEAVE`          | 채팅방 나가기      | 없음      |
-| -108 | `USER_BLAME`               | 회원 신고          | 없음      |
-| -109 | `CHAT_SCHEDULE_CANCEL`     | 일정변경 취소      | 없음      |
-| -110 | `CHAT_3_DAYS_OVER`         | 3일 채팅 종료      | 없음      |
+| -1   | `FEMALE_PASS`              | 여성 패스          | 정책 참조 |
+| -2   | `MALE_PASS`                | 남성 패스          | 정책 참조 |
+| -10  | `CANCELED`                 | 무응답 취소        | 정책 참조 |
+| -100 | `FINAL_CONFIRM_CANCEL`     | 여성 최종컨펌 취소 | 정책 참조 |
+| -101 | `CONFIRM_NO_REPLY`         | 최종컨펌 무응답    | 정책 참조 |
+| -102 | `FAVOR_INFO_NO_REPLY`      | 선호정보 무응답    | 정책 참조 |
+| -103 | `SCHEDULE_NO_REPLY`        | 일정제안 무응답    | 정책 참조 |
+| -104 | `SCHEDULE_ACCEPT_NO_REPLY` | 일정수락 무응답    | 정책 참조 |
+| -105 | `SCHEDULE_NOT_SELECTED`    | 일정 불합의        | 정책 참조 |
+| -106 | `LOCATION_NO_REPLY`        | 장소결정 무응답    | 정책 참조 |
+| -107 | `CHAT_ROOM_LEAVE`          | 채팅방 나가기      | 정책 참조 |
+| -108 | `USER_BLAME`               | 회원 신고          | 정책 참조 |
+| -109 | `CHAT_SCHEDULE_CANCEL`     | 일정변경 취소      | 정책 참조 |
+| -110 | `CHAT_3_DAYS_OVER`         | 3일 채팅 종료      | 정책 참조 |
 
 ## 상태 전환 FSM
 
@@ -112,12 +113,12 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    PENDING --> CHAT_OPEN : 3일 채팅 선택 (키 -5)
+    PENDING --> CHAT_OPEN : 3일 채팅 선택
     CHAT_OPEN --> CHAT_3_DAYS_OVER : 3일 후
 ```
 
 - 정규 매칭 과정을 건너뛰고 바로 채팅
-- 별도 키 소진 (-5)
+- 별도 키 소진 기준은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
 ### 직진만남
 
@@ -127,13 +128,13 @@ stateDiagram-v2
 ```
 
 - 후기 작성 후에만 가능
-- 별도 키 소진 (-77)
+- 별도 키 소진 기준은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
 ### 채팅방 재활성화
 
 ```mermaid
 stateDiagram-v2
-    CHAT_3_DAYS_OVER --> CHAT_OPEN : 재활성화 요청 + 수락 (키 -60)
+    CHAT_3_DAYS_OVER --> CHAT_OPEN : 재활성화 요청 + 수락
 ```
 
 ## 큐레이터 제안 상태 (CURATOR_STATUS)
