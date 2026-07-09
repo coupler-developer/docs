@@ -33,6 +33,7 @@
     - staging은 작업 단위별로 수행하며, 한 파일에 무관 변경이 섞이면 `git add -p` 또는 동등한 hunk 단위 staging을 사용한다
     - staging 후 `git diff --cached`로 커밋 범위가 의도한 작업 단위와 일치하는지 재확인한다
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
+- 브랜치 생성/이름 변경이 필요하면 실행 전에 `content/policy/git-branch-strategy.md`를 확인하고, 브랜치 이름이 해당 규칙을 따르는지 점검한다
 - 원격 push, PR 생성, 기존 PR 브랜치 갱신, 태그 push 요청을 받으면 push 전에 `content/policy/code-review-policy.md`의 `Push 전 자체 리뷰 게이트`를 적용한다
     - 마지막 파일 변경 이후 push 대상 범위의 최종 판정이 `No Findings`가 아니거나 열린 Finding이 있으면 push하지 않고 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 먼저 보고한다
     - 사용자 승인으로 계속 진행하더라도 push 직전에는 `git status`, push 대상 커밋/태그 범위, 문서 동기화 여부, 적용 품질 게이트 결과를 다시 확인하고 보고한다
