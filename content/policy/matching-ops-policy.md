@@ -107,6 +107,9 @@
 - 일정 제안은 최대 4회까지 가능하다.
 - 각 제안은 `4~7개` 날짜만 허용한다.
 - 모든 날짜는 중복 없이 미래 날짜여야 한다.
+- 일정 후보 입력 형식은 `YYYY-MM-DD` 또는 `YYYY-MM-DD HH:mm:ss`만 허용한다.
+- 허용 범위 안의 `YYYY-MM-DD` 기준 같은 날짜가 2개 이상 들어오면 서버는 중복 날짜로 보고 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답을 반환한다.
+- 채팅방 내 일정 변경도 같은 날짜 입력 형식 검증을 사용하며, 허용 범위 밖 또는 계약 밖 형식은 `MATCHING_SCHEDULE_CHAT_INVALID_DATE` 실패 응답을 반환한다.
 - 제안 횟수별 허용 범위는 아래를 기준으로 사용한다.
 
 | 제안 횟수 | 허용 범위 |
@@ -116,7 +119,7 @@
 | 3차 | 내일 ~ 1차 제안일 + 14일 |
 | 4차 | 1차 제안일 + 15일 ~ 1차 제안일 + 25일 |
 
-- 허용 횟수, 날짜 개수, 범위 조건을 하나라도 위반하면 즉시 실패시킨다.
+- 허용 횟수, 날짜 개수, 중복, 범위 조건을 하나라도 위반하면 즉시 실패시킨다.
 - 4차 제안까지 합의되지 않으면 상태를 `SCHEDULE_NOT_SELECTED`로 종료하고 양측에 50% 환불을 적용한다.
 - 각 제안 이후 다음날 자정까지 응답이 없으면 `SCHEDULE_NO_REPLY` 또는 `SCHEDULE_ACCEPT_NO_REPLY`로 종료한다.
 - 예시 범위와 시퀀스 설명은 [매칭 일정 제안 알고리즘](../architecture/matching-schedule-algorithm.md)에 두되, 충돌 시 이 문서가 우선한다.
@@ -128,8 +131,10 @@
 
 ## 전환 기준
 
-- 상세 문서는 예시, 시퀀스, 구조 설명만 유지한다.
-- 상태 값, 환불 규칙, 일정 판정의 원문 SoT는 이 문서에만 둔다.
+- 전환 목표: 상세 문서는 예시, 시퀀스, 구조 설명만 유지하고 상태 값, 환불 규칙, 일정 판정의 원문 SoT는 이 문서에만 둔다.
+- 일정 검증 drift 제거 조건: `coupler-api/lib/matching-schedule-parser.ts`가 허용 범위와 계약 형식을 벗어난 날짜 후보, 허용 범위 안의 `YYYY-MM-DD` 기준 중복 날짜를 감지하고, `coupler-api/controller/app/v1/match.ts`의 `addSchedule`이 저장 전에 `MATCHING_SCHEDULE_INVALID_DATE` 또는 `MATCHING_SCHEDULE_DUPLICATE_DATE`로 실패시키며, parser/controller 테스트가 같은 결론을 검증한다.
+- 상세 문서 정리 완료 조건: [매칭 FSM](../architecture/matching-fsm.md), [매칭 키 시스템](../architecture/matching-key-system.md), [매칭 일정 제안 알고리즘](../architecture/matching-schedule-algorithm.md), [채팅 시스템](../architecture/chat-system.md), [매칭 플로우](../flows/cross-project/matching-flow.md)가 상태/키/환불/일정 값 또는 API 요청 field를 새 규범으로 정의하지 않고 이 문서, Swagger, 코드 경계 링크 또는 예시/시각화 역할로만 설명한다.
+- 전환 추적: 본 절의 완료 조건과 해당 변경 PR/릴리즈 기록을 기준으로 추적한다. 완료 전 상세 문서의 값 표현이 이 문서와 충돌하면 이 문서를 우선한다.
 
 ## 관련 문서
 

@@ -4,7 +4,7 @@
 
 - 역할: `설명`
 - 문서 종류: `architecture`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 작업 목록/실행 주기/트리거 방식은 이 문서, 도메인별 상태 전이/환불/삭제/알림 판정은 각 정책 문서
 - 기준 성격: `as-is`
 
 주기적으로 실행되는 자동화 작업을 정리한 문서이다.
@@ -23,10 +23,10 @@
 | checkMatch                | 매일            | 만료 매칭 자동 취소           |
 | checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
 | checkMatchCall            | 30분 간격       | 만남 15분 전 보이스콜 활성화  |
-| autoDeleteMember          | 매일            | 탈퇴/차단 30일 후 데이터 삭제 |
+| autoDeleteMember          | 매일            | 정책 기준 경과 후 데이터 삭제 |
 | remindMatchCard           | 매일            | 카드 만료 3시간 전 알림       |
 | sendAutoMatching          | 매일            | 예약 매칭 자동 발송           |
-| cleanupOldProfileVersions | 매일            | 90일 이상 프로필 버전 정리    |
+| cleanupOldProfileVersions | 매일            | 정책 기준 프로필 버전 정리    |
 
 ## 매칭 자동 상태 변경
 
@@ -71,7 +71,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 | 조건                     | 변경          |
 | ------------------------ | ------------- |
 | 마지막 로그인 6개월 경과 | status → HOLD |
-| 탈퇴/차단 30일 경과      | 개인정보 삭제 |
+| 탈퇴/차단 정책 기준 경과 | 개인정보 삭제 |
 
 ## FCM 알림 발송
 
@@ -91,7 +91,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 ### autoDeleteMember
 
-탈퇴/차단 30일 경과 시:
+탈퇴/차단 회원이 정책 기준 자동 정리 조건에 도달하면:
 
 - 개인정보 삭제 (이름, 직업, 위치 등)
 - 키 = 0 초기화
@@ -101,11 +101,12 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 ### cleanupOldProfileVersions
 
-90일 이상 오래된 프로필:
+프로필 버전이 정책 기준 자동 정리 조건에 도달하면:
 
 - finalize된 이전 버전 삭제
 - 관련 이미지 파일 삭제
 - 현재 버전은 유지
+- 보관 기한과 삭제 예외는 [데이터 거버넌스 정책](../policy/data-governance-policy.md)을 따른다.
 
 ## API 엔드포인트
 

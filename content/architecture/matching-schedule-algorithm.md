@@ -24,7 +24,9 @@
 | 함수 | 역할 |
 | --- | --- |
 | `getMatchingScheduleSelectableDateRange` | 제안 횟수별 허용 날짜 범위 산출 |
-| `parseMatchingScheduleCandidates` | 입력된 날짜 후보를 허용 범위 기준으로 필터링 |
+| `getMatchingScheduleCandidateValidation` | 입력 날짜 후보를 허용 범위 기준으로 유효/무효 분리 |
+| `parseMatchingScheduleCandidates` | 입력된 날짜 후보 중 유효 후보만 반환 |
+| `getMatchingScheduleDuplicateDates` | 허용 범위 안 후보에서 `YYYY-MM-DD` 기준 중복 날짜 산출 |
 | `getMatchingScheduleDayCountErrorCode` | 필터링된 후보가 허용 개수인지 판정 |
 
 ## 입력 검증 경계
@@ -32,9 +34,9 @@
 컨트롤러 경계는 `coupler-api/controller/app/v1/match.ts`의 `addSchedule` 흐름이다.
 실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
 
-- `addSchedule`은 parser 결과를 기준으로 허용 날짜 개수를 판정한다.
-- 범위 밖 날짜는 후보에서 제외되며, 제외 후 개수가 허용 최소보다 작으면 실패한다.
-- 중복 없는 날짜 요구사항은 [매칭 운영 정책](../policy/matching-ops-policy.md)의 규범이지만, 현행 parser/controller 경계는 중복 제거/거부를 별도로 수행하지 않는다.
+- `addSchedule`은 parser 결과를 기준으로 중복 날짜와 허용 날짜 개수를 판정한다.
+- 범위 밖 날짜나 계약 밖 날짜 형식(`YYYY-MM-DD`, `YYYY-MM-DD HH:mm:ss` 외)이 하나라도 있으면 `MATCHING_SCHEDULE_INVALID_DATE` 실패 응답으로 거부한다.
+- 허용 범위 안의 중복 날짜는 제거하지 않고 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답으로 거부한다.
 - 실제 최소/최대 허용 개수와 상태 전이 결과는 정책 문서를 따른다.
 
 ## 역제안 흐름
@@ -44,33 +46,33 @@ sequenceDiagram
     participant M as 남성
     participant F as 여성
 
-    M->>F: 1차 제안 (4~7개 날짜)
-    Note over M,F: 범위: 내일 ~ +14일
+    M->>F: 1차 제안 (정책 기준 날짜 후보)
+    Note over M,F: 범위: 정책 기준 1차 허용 범위
 
     alt 수락
         F->>M: 날짜 선택
         Note over M,F: OK_SCHEDULE (6)
     else 역제안
-        F->>M: 2차 제안 (4~7개 날짜)
-        Note over M,F: 범위: 내일 ~ 1차+14일
+        F->>M: 2차 제안 (정책 기준 날짜 후보)
+        Note over M,F: 범위: 정책 기준 2차 허용 범위
 
         alt 수락
             M->>F: 날짜 선택
         else 역제안
             M->>F: 3차 제안
-            Note over M,F: 범위: 내일 ~ 1차+14일
+            Note over M,F: 범위: 정책 기준 3차 허용 범위
 
             alt 수락
                 F->>M: 날짜 선택
             else 역제안
                 F->>M: 4차 제안 (마지막)
-                Note over M,F: 범위: 1차+15일 ~ 1차+25일
+                Note over M,F: 범위: 정책 기준 4차 허용 범위
 
                 alt 수락
                     M->>F: 날짜 선택
                 else 불합의
                     Note over M,F: SCHEDULE_NOT_SELECTED (-105)
-                    Note over M,F: 양쪽 50% 환불
+                    Note over M,F: 정책 기준 환불
                 end
             end
         end

@@ -21,7 +21,7 @@
 ## 적용 우선순위
 
 - 신규 구현, 리뷰, 전환 완료 판정의 규범 SoT는 이 문서를 사용한다.
-- 현재 운영 상태를 읽고 설명할 때는 as-is 문서인 [회원 심사 FSM](../architecture/member-review-fsm.md), [회원 생명주기](../architecture/member-lifecycle.md)를 함께 확인한다.
+- 현재 운영 상태를 읽고 설명할 때는 as-is 문서인 [회원 심사 FSM](../architecture/member-review-fsm.md), [회원 라이프사이클](../architecture/member-lifecycle.md)를 함께 확인한다.
 - as-is 문서와 transition 목표 사이에 차이가 있으면, 목표 기준을 따르되 현재 운영 차이와 전환 범위를 PR/작업 보고에 명시한다.
 
 ## 기준 분리
@@ -34,6 +34,12 @@
     - 프로필 미디어: `t_member_profile_set.request_origin`
 - 인증 요청의 현재 활성 건 판정은 `t_member_auth_review_request.active_request_slot = 1`을 기준으로 한다.
 - `request_origin`은 출처/큐 라우팅용 원천 데이터이며, 심사 상태 판정 SoT를 대체하지 않는다.
+
+## 회원 생애주기 보조 기준
+
+- `t_member.status`의 값과 상태 흐름 설명은 [회원 라이프사이클](../architecture/member-lifecycle.md)에 두되, 신규 구현/리뷰에서 생애주기 상태를 해석할 때는 이 문서의 기준 분리를 우선한다.
+- 재가입 대기 기준은 `HOLD` 대기 없음, `BLOCK` 30일, `LEAVE` 14일이다.
+- 탈퇴/차단 회원의 개인정보 자동 파기와 프로필 버전 보관 기한은 [데이터 거버넌스 정책](data-governance-policy.md)을 따른다.
 
 ## 필수 인증 표시 기준
 

@@ -9,6 +9,7 @@
 
 사용자가 매칭 카드를 받고 만남까지 진행하는 전체 플로우를 정리한 문서이다.
 상태값, 키 차감/환불, 일정 검증의 원문 SoT는 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
+요청 예시는 흐름 이해용이며, 실제 wire field는 `coupler-api/swagger/app/v1/match.yaml`과 `coupler-api/controller/app/v1/match.ts`를 기준으로 본다.
 
 ## 참여 시스템
 
@@ -105,9 +106,9 @@ flowchart LR
 ```javascript
 // 요청 바디
 {
-  match_id: Number,
+  match: Number,
   location: String,  // 선호 지역
-  food: String,      // 선호 음식
+  meal: String,      // 선호 음식
 }
 ```
 
@@ -119,14 +120,14 @@ flowchart LR
 
 ```javascript
 // 요청 바디
-  {
-  match_id: Number,
-  schedule_list: ['YYYY-MM-DD', 'YYYY-MM-DD', ...],
-  }
+{
+  match: Number,
+  schedule: 'YYYY-MM-DD,YYYY-MM-DD,...',
+}
 ```
 
 - API: `POST /match/addSchedule`
-- 허용 개수/범위/응답 만료 기준: [매칭 운영 정책](../../policy/matching-ops-policy.md)
+- 허용 개수/중복/범위/응답 만료 기준: [매칭 운영 정책](../../policy/matching-ops-policy.md)
 - 시퀀스 상세: [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md)
 
 #### 일정 수락
@@ -134,8 +135,7 @@ flowchart LR
 ```javascript
 // 요청 바디
 {
-  match_id: Number,
-  schedule_id: Number,  // 선택한 일정 ID
+  id: Number,  // 선택한 일정 ID
 }
 ```
 
@@ -148,11 +148,9 @@ flowchart LR
 ```javascript
 // 요청 바디
 {
-  match_id: Number,
-  location_name: String,
-  location_address: String,
-  location_lat: Number,
-  location_lng: Number,
+  match: Number,
+  location: String,
+  address: String,
 }
 ```
 
@@ -176,11 +174,12 @@ flowchart LR
 ```javascript
 // 요청 바디
 {
-  match_id: Number,
-  rating: Number,       // 평점
-  content: String,      // 후기 내용
-  // 남성: 실물 비교
-  // 여성: 만족도
+  match: Number,
+  meet: 'Y' | 'N',
+  look: Number,
+  difficult: 'Y' | 'N',
+  happy: 'Y' | 'N',
+  comment: String,
 }
 ```
 

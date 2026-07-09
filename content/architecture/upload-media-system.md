@@ -4,7 +4,7 @@
 
 - 역할: `설명`
 - 문서 종류: `architecture`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 업로드/미디어 구조는 이 문서, 실패 응답은 [API 에러 계약 정책](../policy/api-error-contract-policy.md), 회원 심사 미디어 선택/Crop 기준은 [회원 심사 단일 정책](../policy/member-review-policy.md)
 - 기준 성격: `as-is`
 
 파일 업로드, 저장, 서빙의 전체 아키텍처와 로컬 개발 환경의 media_proxy 동작을 정리한 문서이다.
