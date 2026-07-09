@@ -74,13 +74,21 @@ sudo chown -R <deploy-user>:<deploy-user> /var/www/coupler-admin-web
 ```
 
 1. 운영 서버가 외부 `https://cms.ritzy.fourhundred.co.kr`를 내부 `8000`으로 전달받는 현재 인프라 기준인지 확인한다. 이 가정이 바뀌면 아래 `nginx` 포트와 검증 절차도 함께 갱신한다.
-2. 기존 정적 산출물 롤백 지점을 남기려면 업로드 전에 서버에서 현재 파일을 백업한다.
+2. 기존 정적 산출물 롤백 지점을 남기려면 업로드 전에 서버에서 현재 파일을 백업한다. 이 백업 명령은 운영 서버 shell에서 아래 블록을 그대로 실행한다. 로컬에서 `ssh '<command>'` 형태의 one-liner로 재작성해 로컬/remote shell 경계에서 변수 확장과 quote 처리가 달라지는 상황을 만들지 않는다.
 
 ```bash
 BACKUP_DIR="/var/www/coupler-admin-web-backup-$(date +%Y%m%d%H%M%S)"
+printf 'BACKUP_DIR=%s\n' "${BACKUP_DIR}"
+test -n "${BACKUP_DIR}"
+case "${BACKUP_DIR}" in
+  /var/www/coupler-admin-web-backup-*) ;;
+  *) echo "invalid BACKUP_DIR: ${BACKUP_DIR}" >&2; exit 1 ;;
+esac
 sudo mkdir -p "${BACKUP_DIR}"
 sudo rsync -a /var/www/coupler-admin-web/ "${BACKUP_DIR}/"
 ```
+
+`BACKUP_DIR` 출력값이 `/var/www/coupler-admin-web-backup-YYYYMMDDHHMMSS` 형식이 아니거나 빈 값이면 업로드를 진행하지 않는다. 특히 `rsync` 대상 경로가 `/`로 해석될 수 있는 상태에서는 즉시 중단한다.
 
 1. 로컬 또는 CI에서 `build/` 산출물을 운영 서버 `/var/www/coupler-admin-web/`로 업로드한다.
 
@@ -156,6 +164,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 - `pm2 list`에 `coupler-admin-web`가 보이지 않는데 `8000` 포트에 Node 프로세스가 떠 있으면 다른 사용자(`root`)의 PM2일 수 있다. 이 경우 `sudo /usr/bin/pm2 list`와 `sudo /usr/bin/pm2 delete coupler-admin-web`를 사용한다.
 - `nginx -t`가 실패하면 사이트 설정 수정 전까지 재시작하지 않는다.
 - 외부 `https://cms.ritzy.fourhundred.co.kr` 응답이 `nginx`가 아니면 상위 프록시 또는 로드밸런서 구성을 먼저 확인한다.
+- Admin 백업 명령을 로컬 SSH one-liner로 압축해야 하는 상황이면 실행하지 말고 운영 서버에 접속해 백업 단계를 그대로 실행한다. remote 변수와 quote 처리가 불명확한 명령은 운영 배포 절차로 인정하지 않는다.
 
 ## 비포함 / 금지
 
