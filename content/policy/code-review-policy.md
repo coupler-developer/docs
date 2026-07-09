@@ -113,6 +113,13 @@
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
+- [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
+- [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
+- [ ] 릴리즈 자동화 metadata 필드가 추가되면 같은 질문을 두 필드가 독립적으로 답하지 않는지 확인한다. 포함 범위/required repo/scope별 결과/terminal evidence 완료 조건은 `releaseScopes` descriptor와 `scopeResults.<scope>`에서 파생하고, 비-ref 증적은 기존 scope-keyed namespace에 둔다.
+- [ ] 릴리즈 자동화 hard gate가 추가되면 terminal 상태의 거짓 완료를 막는 조건인지 확인한다. `planned`/`in_progress` placeholder, 제외 scope, 참고용 본문 형식을 막는 변경은 finding으로 기록하고, 누락 실패/정상 통과/제외 scope 미차단 테스트가 함께 있는지 확인한다.
+- [ ] 릴리즈 자동화 hard gate가 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 그 액션의 사전 조건으로 요구하지 않는지 확인한다. 이런 항목은 precheck와 postcheck/corrective reissue로 분리한다.
+- [ ] 릴리즈 자동화 terminal evidence 검증을 바꾸면 `releaseScopeDescriptors`/cutover required path/release tag descriptor 전체를 순회하는 `N/A - <사유>`, `pending`, 비-SHA ref, 서로 다른 SQL/checksum false-pass fixture가 실패 테스트로 고정되어 있는지 확인한다.
+- [ ] 릴리즈 자동화 metadata object 구조를 바꾸면 완전한 정상 metadata의 모든 object path에 unknown key를 주입하는 fail-closed 테스트가 유지되는지 확인한다.
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
 - [ ] 문서(docs) 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트 통과 + 실행 명령/결과 링크 첨부
 - [ ] 문서 추가/이동/개명 시 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
@@ -165,6 +172,9 @@
 - **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy), [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
 - **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 클라이언트 로컬 subset과 서버 분류 체계(taxonomy)의 충돌 여부, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, 태그/제출 마커 정책 준수, PR별 cutover 필요성/현재 제거 가능 여부를 확인한다.
+- 릴리즈 기록/자동화 변경 리뷰에서는 `release-metadata`를 기계 판정 SoT로 둔다. 본문 자유 문장 검색, validator별 중복 상수, metadata와 Markdown mirror의 불일치, cutover 없는 `N/A` 설명을 Gate 포함 신호로 처리하는 변경은 finding으로 기록한다.
+- 릴리즈 자동화 hard gate 변경 리뷰에서는 “이 조건이 없으면 완료되지 않은 릴리즈가 terminal 상태로 닫히는가”를 먼저 확인한다. 답이 아니면 hard gate가 아니라 작성 기준 또는 checklist로 낮춘다.
+- 릴리즈 자동화 리뷰는 자유 문장의 진위 전체를 validator로 증명하라고 요구하지 않는다. 차단 finding은 descriptor, schema, ref 조회, placeholder 판정처럼 결정적으로 검증 가능한 계약 불일치나 실제로 통과하는 잘못된 fixture가 있을 때만 남긴다.
 
 ### No Findings 최종 리뷰 기록
 

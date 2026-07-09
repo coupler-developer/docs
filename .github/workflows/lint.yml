@@ -38,6 +38,9 @@ jobs:
       - name: Validate API error docs
         run: yarn validate:api-error-docs
 
+      - name: Test release preflight
+        run: yarn test:release-preflight
+
   markdown-lint:
     runs-on: ubuntu-latest
     steps:

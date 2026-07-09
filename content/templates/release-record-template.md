@@ -1,5 +1,45 @@
 # X.Y.Z 릴리스 실행 기록
 
+```release-metadata
+{
+  "schema": "release-metadata/v1",
+  "version": "vX.Y.Z",
+  "status": "planned",
+  "releaseScopes": [
+    "docs"
+  ],
+  "extraRepoRefs": [],
+  "versionMapping": {
+    "docs": {
+      "tag": null,
+      "commit": null
+    },
+    "coupler-api": {
+      "tag": null,
+      "commit": null
+    },
+    "coupler-admin-web": {
+      "tag": null,
+      "commit": null
+    },
+    "coupler-mobile-app": {
+      "store": null,
+      "releaseTag": null,
+      "commit": null,
+      "nextPush": null
+    }
+  },
+  "scopeResults": {
+    "docs": {
+      "status": "planned",
+      "summary": "릴리스 기록과 docs tag를 준비한다.",
+      "evidence": {}
+    }
+  },
+  "apiContractCutover": null
+}
+```
+
 ## 문서 역할
 
 - 역할: `시나리오`
@@ -32,12 +72,63 @@
 
 ## 버전 매핑
 
-- `docs`: 기록 버전 `vX.Y.Z`, 태그 `vX.Y.Z` -> release workflow의 현재 docs tag commit
+- `docs`: 기록 버전 `vX.Y.Z`, 태그 `vX.Y.Z 또는 N/A`, 커밋 `pending 또는 N/A`
 - `coupler-api`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
 - `coupler-admin-web`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
-- `coupler-mobile-app`: Store `version (build) 또는 N/A`, 릴리스 태그 `vX.Y.Z 또는 N/A`, NextPush `label 또는 N/A`
+- `coupler-mobile-app`: Store `version (build) 또는 N/A`, 릴리스 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`, NextPush `label 또는 N/A`
 - `coupler-mobile-app` 제출 마커 태그:
 - 제출 마커 증빙 이관/삭제:
+
+## 작성 기준
+
+- `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
+- `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는 `release-metadata/v1`로 둔다.
+- `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 `v2`, `v3`, `v4`처럼 올리지 않는다.
+- 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
+- `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
+- `releaseScopes`는 실제 릴리즈 surface의 단일 SoT다. 값은 `db-migration`, `contracts-package`, `coupler-api`, `coupler-admin-web`, `mobile-store`, `mobile-nextpush`, `docs` 중에서 고르고, 항상 `docs`를 포함한다.
+- repo 검증 범위는 사람이 직접 쓰지 않고 `releaseScopes` descriptor에서 파생한다.
+- `scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. 각 key는 `releaseScopes`와 정확히 일치해야 하며, scope별 `status`는 `planned`, `in_progress`, `released`, `rolled_back`, `superseded` 중 하나다.
+- 문서 전체 `status`는 `scopeResults`에서 파생되는 상태와 일치해야 한다. 일부 scope가 완료되고 일부 scope가 대기 중이면 전체 상태는 `in_progress`다. 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 전체 상태는 `superseded`다.
+- `docs` scope의 `released`는 릴리즈 기록이 docs tag 기준점에 포함되고 docs tag가 생성됐다는 뜻이다. GitHub Release 생성과 `docs-site-vX.Y.Z.tar.gz` artifact 첨부는 tag push 이후 postcheck로 확인하고, 실패 시 `docs-only corrective reissue`로 정정한다.
+- `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `coupler-api`, `coupler-admin-web`, `mobile-store`, `docs` scope에서 파생한다. `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
+- `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 대체 릴리스, 완료하지 않은 범위, 태그 생성 여부를 기록한다.
+- `coupler-api`를 `released`로 닫을 때는 `scopeResults.coupler-api.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-api.tag`를 concrete 값으로 채운다.
+- `coupler-admin-web`를 `released`로 닫을 때는 `scopeResults.coupler-admin-web.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-admin-web.tag`를 concrete 값으로 채운다.
+- `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`, `workflow`, `sourceRef`를 concrete 값으로 채운다.
+- `db-migration`을 `released`로 닫을 때는 `scopeResults.db-migration.evidence.sqlRefs`, `gateResults`, `preflightLog`, `ledger.dev`, `ledger.prod`, `postcheckLog`, `rollbackPlan`을 구조화해 채운다. SQL은 `coupler-api` PR에 포함된 repo-relative `.sql` 파일 경로와 SHA-256 checksum을 참조해야 한다.
+- `mobile-store`를 `released`로 닫을 때는 `scopeResults.mobile-store.evidence.submission`, `approval`, `release`, `smoke`, `artifact`, `submittedMarkers`와 `versionMapping.coupler-mobile-app.releaseTag`를 concrete 값으로 채운다.
+- `mobile-nextpush`를 `released`로 닫을 때는 `scopeResults.mobile-nextpush.evidence.app`, `productionLabel`, `targetBinary`, `uploadedAt`, `rollout`, `mandatory`, `disabled`를 concrete 값으로 채운다.
+- 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `extraRepoRefs`에 `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 중 canonical name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
+- `포함 범위`와 `제외 범위`는 사람이 읽는 실행 계약이다. 배포 범위(`DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`)별로 완료/제외를 구분한다.
+- 제외한 범위와 완료 판정에 직접 쓰이지 않는 `N/A` 항목은 미적용 사유와 근거를 함께 적는다.
+- `released` 또는 `rolled_back` scope의 완료/rollback 증적은 실제 workflow, Gate, smoke, artifact, rollback 기준 같은 concrete 증빙으로 채우며 `N/A - <사유>`로 대체하지 않는다.
+- `preflightRepoNames`는 `docs + releaseScopes.requiredRepoRefs + extraRepoRefs`로 계산한다.
+- `preflightRepoNames`가 `docs`뿐인 릴리스 기록은 서비스 repo workspace 없이 docs-only preflight를 실행할 수 있다.
+- 서비스 레포가 `preflightRepoNames`에 포함되면 preflight 실행 시 해당 repo가 있는 workspace root가 필요하다.
+- preflight 검증 대상 릴리즈 기록에서 `preflightRepoNames`에 포함된 서비스 레포의 `versionMapping` ref는 릴리스 상태와 무관하게 실행 시점의 현재 `origin/main` 기준점과 같아야 한다.
+- `docs`의 릴리즈 기준점은 `versionMapping.docs.tag`와 실제 docs tag commit으로 확인한다. 릴리즈 기록 문서 안의 `versionMapping.docs.commit`에는 자기 자신을 안정적으로 가리키는 concrete SHA를 적지 않는다.
+- `docs` scope가 `released`이면 `versionMapping.docs.tag`는 목표 버전과 같아야 하고 origin에서 확인 가능한 annotated tag여야 한다. docs tag commit은 `origin/main` 계보에 있어야 하지만 현재 `origin/main`과 같을 필요는 없다.
+- `preflightRepoNames`에 포함된 서비스 레포는 `versionMapping`에 확인 가능한 `tag`/`releaseTag` 또는 `commit` SHA를 적는다. 태그가 아직 없으면 `tag: null`과 현재 `origin/main` 기준 `commit` SHA를 함께 적는다.
+- 서비스 레포 태그를 적으면 origin에서 확인 가능한 annotated tag여야 하며, 태그와 커밋 SHA를 함께 적을 때는 둘이 같은 커밋을 가리켜야 한다.
+- `docs` 태그는 릴리스 기록과 Release Note 기준점이고, 서비스 레포 태그를 대체하지 않는다.
+- Mobile Store 제출, Mobile Store 출시, Mobile NextPush 배포는 각각 별도 상태와 증빙으로 적는다.
+- `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label 문자열 또는 `null`만 쓴다. NextPush가 없으면 `null`로 두고 Markdown mirror에는 `N/A` 사유를 적는다.
+- Store 심사 중이거나 NextPush 적용 전이면 해당 scope와 전체 상태를 `released`로 닫지 않는다.
+- Store 심사/승인/출시처럼 외부 대기가 있는 범위는 제출 마커와 대기 범위를 남기고 `planned` 또는 `in_progress`로 유지한다. Store 승인, 운영 출시, 기본 smoke, 모바일 릴리스 태그, 제출 마커 증빙 이관/삭제가 끝난 뒤에만 `mobile-store` scope를 `released`로 닫는다.
+- 후속 릴리스가 대기 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
+- 전체 `released` 상태에는 `대기 범위` 값을 비우거나 `N/A`로 적는다.
+- `planned`/`in_progress` 상태에서는 아직 확인 전인 값에 `pending`, `미생성` 같은 placeholder를 쓸 수 있다.
+- `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
+- `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
+- `버전 매핑` 섹션은 사람이 읽는 mirror다. 자동화 기준은 `release-metadata.versionMapping`이며, 둘이 서로 다른 기준점을 가리키지 않게 같이 갱신한다.
+- API contract cutover가 포함되면 `release-metadata.apiContractCutover`를 cutover 상태/비교 기준/운영 cutover 증적의 기계 판정 SoT로 채우고, contracts package publish 증적은 `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만 `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을 `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
+- API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다. `검증 근거`에는 `N/A - API 계약 변경 없음`처럼 사유만 남긴다.
+- 이 기본 템플릿은 non-cutover 기본형이다. API contract cutover가 포함된 릴리스에서만 `content/templates/api-contract-cutover-gate-template.md`의 cutover Gate 항목을 별도로 삽입한다.
+- 검증 근거에는 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 남긴다.
+- 개인 사용자명, 로컬 home/tmp 절대 경로, 비공개 secret은 릴리스 기록에 남기지 않는다.
+- 운영 반영 시각, Store 상태, NextPush 상태처럼 변할 수 있는 값은 확인 시각과 timezone을 같이 적는다.
+- 롤백 기준은 포함 범위별로 적고, 제외 범위는 `N/A` 사유를 적는다.
 
 ## 릴리스 결과
 
@@ -53,7 +144,8 @@
 
 - 검증 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 기록한다.
 - API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거를 기록한다.
-- API contract cutover 포함 시 contracts package publish version, Mobile/Admin `package.json`/lockfile dependency version, consumer import path, 각 소비자 레포 품질 게이트 결과를 기록한다.
+- API contract cutover 포함 시 contracts package publish version과 Mobile/Admin 소비 경로 검증 근거를 기록한다. Admin/Mobile이 generated copy를 소비하는 동안에는 `Release Contracts` workflow가 발행한 `@coupler-developer/coupler-api-contracts@x.y.z` version을 `scopeResults.contracts-package.evidence.publishedPackage`에 기록하고 exact match 검증 근거를 함께 남긴다. package dependency 전환 후에는 Mobile/Admin `package.json`/lockfile dependency version, consumer import path, 각 소비자 레포 품질 게이트 결과를 기록한다.
+- API contract cutover가 없으면 `N/A - API 계약 변경 없음`처럼 사유만 남기고 `API contract cutover Gate` 섹션은 만들지 않는다.
 
 ### Mobile 개발계 QA 빌드 기록
 
@@ -64,38 +156,6 @@
 - iOS TestFlight QA 빌드:
 - Android QA APK:
 - 운영 릴리즈 전 확인:
-
-### API contract cutover Gate
-
-API/Admin/Mobile 공통 응답 또는 ErrorData contract cutover가 포함되면 아래 항목을 모두 채운다.
-값을 확인하지 못한 항목은 `N/A`가 아니라 `pending`으로 남기고 cutover 완료로 판정하지 않는다.
-
-- Cutover 상태: `pending | ready | released | rollback`
-- 비교 기준 ref:
-    - `coupler-api`:
-    - `coupler-mobile-app`:
-    - `coupler-admin-web`:
-- Contract artifact sync:
-    - 명령:
-    - 결과:
-    - published package:
-    - Mobile/Admin consumer path:
-- N+1 배포 근거:
-    - Store version/build 또는 NextPush app/deployment/label:
-    - 운영 출시/적용 시각:
-    - 확인 URL 또는 콘솔 증빙:
-- Legacy traffic 차단 근거:
-    - 기존 N version/build:
-    - 강제 업데이트 설정 위치:
-    - `version_code < min_version` 요청 결과:
-    - 기대값: `/auth/getSettingList?os=<google|apple>&version_code=<N build>` 응답의 `app_info.force_update === 2`
-- Admin 검증:
-    - 앱 버전 설정 화면 저장 검증:
-    - 변경 데이터 조회/운영자 액션 smoke:
-- Rollback 기준:
-    - 직전 호환 API/Admin/Mobile SHA 또는 tag:
-    - DB 백업/복구 기준:
-    - 되돌림 금지/주의 사항:
 
 ## 롤백 기준
 

@@ -53,6 +53,7 @@
 - 선택되지 않은 범위는 `N/A` 사유와 근거를 릴리즈 기록에 남긴다.
 - DB 변경이 포함되면 [DB Migration Gate 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
 - `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
+- 릴리즈 자동화 gate 순서는 [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)을 따르되, 충돌 시 이 문서와 각 policy를 우선한다.
 - 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
 - 배포 태그, 스토어 제출 마커 태그, 태그 증빙 기준은 [배포 태그 정책](release-tag-policy.md)을 단일 기준으로 따른다.
 - Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는 OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다.
@@ -74,37 +75,44 @@
 - API 운영 배포에 계약 변경이 포함되면 `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 API/Admin/Mobile 배포를 진행한다.
 - Admin/Mobile package 반영은 publish 이후 `@coupler-developer/coupler-api-contracts` dependency와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다.
 
-## 릴리즈 운영 모델 (단계별)
+## 릴리즈 운영 모델
 
-> 이 섹션은 과도기 운영 규칙이다. 3단계(자동 검증)까지 정착되면 1~2단계 설명은 제거하고, 최종 통합 릴리즈 규칙만 남긴다.
-
-### 1단계 (현재)
-
-- 문서 레포(`docs`) 단독으로 Release를 운영한다.
-- `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
+- 문서 레포(`docs`) 단독으로 GitHub Release를 운영한다.
+- `docs` `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
 - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
-- 이 단계의 목적은 release 파이프라인 안정화다.
-
-### 2단계 (확장)
-
 - `docs` 버전은 릴리스 기록 번호로 사용하고, 서비스 레포의 실제 배포 버전은 `버전 매핑`으로 별도 고정한다.
 - 이미 `released` 또는 `superseded` 상태로 배포된 릴리스 실행 기록은 새 형식 적용만을 목적으로 사후 구조 변경하지 않는다.
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
 - `버전 매핑`에는 아래 기준점을 함께 기록한다.
-- `docs` 기록 버전/태그
-- `coupler-mobile-app` Store version/build, 릴리스 태그/커밋, NextPush label과 대상 Store binary
-- `coupler-api` 태그/커밋
-- `coupler-admin-web` 태그/커밋
+    - `docs` 기록 버전/태그
+    - `coupler-mobile-app` Store version/build, 릴리스 태그/커밋, 제출 마커 태그, NextPush label과 대상 Store binary
+    - `coupler-api` 태그/커밋 또는 `N/A` 사유
+    - `coupler-admin-web` 태그/커밋 또는 `N/A` 사유
+- 신규 릴리스 기록의 작성 계약은 `release-metadata` block 하나다. 자동화의 기계 판정 SoT는 여기서 한 번 계산한 derived model이며, `버전 매핑`과 Gate 섹션은 사람이 읽는 mirror다. 자동화가 본문 자유 문장을 포함 신호로 해석하지 않게 작성한다.
+- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v1`이다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 새 버전을 선언하지 않는다.
+- `release-metadata`의 모든 하위 object는 작성 계약에 정의된 key만 허용한다. 새 nested key가 필요하면 descriptor 또는 cutover required path에 연결하고 unknown key fail-closed 테스트를 함께 갱신한다.
+- `release-metadata.releaseScopes`는 실제 릴리즈 surface의 단일 SoT이며 항상 `docs`를 포함한다.
+- repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
+- `release-metadata.scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. key는 `releaseScopes`와 정확히 일치해야 하며, 각 scope의 `status`와 `evidence`만 보고 완료/rollback/대체 여부를 판단한다.
+- 문서 전체 `release-metadata.status`는 `scopeResults`에서 파생한 상태와 일치해야 한다. 일부 scope가 끝나고 일부 scope가 남아 있으면 전체 상태는 `in_progress`이며, 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 전체 상태는 `superseded`다.
+- `docs` scope의 `released` 판정은 릴리즈 기록이 docs tag 기준점에 포함되고, origin에서 확인 가능한 docs tag가 생성됐다는 뜻이다. GitHub Release 생성과 `docs-site-vX.Y.Z.tar.gz` artifact 첨부는 tag push 이후 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
+- `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
+- `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
+- `db-migration`을 `released`로 닫을 때는 `scopeResults.db-migration.evidence.sqlRefs`, `gateResults`, `preflightLog`, `ledger.dev`, `ledger.prod`, `postcheckLog`, `rollbackPlan`을 구조화해 채운다. SQL은 `coupler-api` PR에 포함된 repo-relative `.sql` 파일 경로와 SHA-256 checksum으로 참조해야 하며, 콘솔 수동 실행문이나 채팅에 붙인 SQL만으로는 완료 증빙이 아니다.
+- `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
+- 릴리즈 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
+- SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리즈 자동화 변경과 함께 기록한다.
+- 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `release-metadata.extraRepoRefs`에 canonical repo name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
+- API contract cutover 포함 여부는 `release-metadata.apiContractCutover`가 `null`인지 object인지로만 판정한다. API 계약 변경이 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않으며, `검증 근거`에 `N/A - <사유>`만 남긴다. API 계약 변경이 있으면 `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package 줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
+- `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
+- 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
+- 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck와 필요 시 corrective reissue로 막는다.
+- 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
+- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와 `requiresServiceWorkspace`를 계산한다. `preflightRepoNames`가 `docs`뿐이면 서비스 repo workspace 없이 docs repo와 릴리즈 기록만 검사하고, 서비스 레포가 포함되면 해당 repo의 `origin/main`을 fetch하고 `release-metadata.versionMapping` tag를 origin에서 조회해 clean `main`, `origin/main` 일치, 릴리즈 기록 상태, metadata 기본 구조, annotated tag 여부, tag/commit 기준점 일치, DB migration SQL 파일 존재와 SHA-256 checksum 일치를 확인한다.
 - 메이저 릴리즈에서는 `docs`가 릴리즈 제어판 역할을 한다. 즉, `docs/content/releases/vX.Y.Z.md`를 `main`에 먼저 반영하고 `docs` 태그를 선행 push해 초기 Release Note를 생성할 수 있다.
 - 단, 이 예외는 `docs`에만 적용한다. `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그는 여전히 실제 운영 배포와 검증 완료 후에만 생성한다.
 - `docs` 선행 태그로 생성된 Release Note는 "초기 배포 계획 + 체크리스트" 상태로 간주한다. 실배포가 끝나면 GitHub Release 본문을 최종 상태로 갱신한다.
-
-### 3단계 (자동 검증)
-
-- docs release 워크플로우에서 통합 버전 메타데이터를 검증한다.
-- 참조한 레포/태그/커밋이 실제 존재하지 않으면 release를 실패 처리한다.
-- 누락 없는 버전 스냅샷만 배포 기록으로 남긴다.
 
 ## 태그 규칙
 
@@ -120,6 +128,14 @@
 - `rolled_back`: 운영 반영 후 문제로 해당 릴리즈 기준점에서 되돌린 상태
 - `superseded`: 일부 대기 범위를 완료하지 않은 채 후속 릴리즈가 동일 또는 상위 범위를 대체해, 더 이상 해당 릴리즈를 완료 대상으로 추적하지 않는 상태
 - `superseded`로 닫을 때는 대체한 후속 릴리즈, 완료하지 않은 범위, 태그 생성 여부, 후속 추적 불필요 사유를 릴리즈 기록에 남긴다.
+
+## 운영 상태 전이 기준
+
+- 릴리즈 기록은 `planned` 초안, `in_progress` 진행 기록, `released` 완료 기록, `superseded` 종료 기록으로 여러 번 갱신될 수 있다.
+- Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
+- Store 승인, 운영 출시, 기본 smoke, 모바일 릴리즈 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
+- 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
+- `docs` GitHub Release와 site artifact는 docs tag push 이후 생성되므로, 매 릴리즈마다 artifact URL을 릴리즈 기록에 되채우기 위해 재발행하지 않는다. Release workflow 실패, Release 본문 누락, artifact 누락, 사실 오류 정정이 있을 때만 `docs-only corrective reissue`를 사용한다.
 
 ## 버전 올리는 기준 (SemVer)
 
@@ -325,6 +341,8 @@ git push origin "${TAG}"
 - GitHub Actions에서 `Release Docs` 워크플로우 성공 여부를 확인한다.
 - GitHub Releases에서 동일 태그(`v1.0.0`)가 생성됐는지 확인한다.
 - Release 본문에 `content/releases/v1.0.0.md` 링크가 포함됐는지 확인한다(2단계부터).
+- Release에 `docs-site-v1.0.0.tar.gz` artifact가 첨부됐는지 확인한다.
+- 위 항목은 tag push 이후 postcheck다. tag push 전에는 Release Note preview, `yarn validate:docs`, 문서 안정성 평가로 차단하고, postcheck 실패 시 corrective reissue로 정정한다.
 - 메이저 릴리즈에서 `docs` 태그를 선행 push한 경우, 서비스 반영 완료 후 GitHub Release 본문을 수동으로 최종 상태로 갱신한다.
 
 ### 4) 예외 처리 (2단계부터)
