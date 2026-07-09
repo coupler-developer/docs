@@ -53,6 +53,14 @@
 
 워크스페이스 루트에서 실행한다.
 
+릴리즈 전체 gate 판정은 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)을 먼저 따른다.
+이 문서는 preflight 실패 원인 확인, 실제 배포 명령, 운영 확인, 롤백 명령을 제공한다.
+
+```bash
+cd docs
+yarn release:preflight --version vX.Y.Z --workspace-root .. --include docs,coupler-api
+```
+
 ```bash
 git -C coupler-api status --short --branch
 git -C coupler-admin-web status --short --branch

@@ -101,6 +101,7 @@ nav:
   - Flows:
       - 매칭 플로우: flows/cross-project/matching-flow.md
       - API 계약 변경 모바일 릴리즈 플로우: flows/cross-project/api-contract-mobile-release-flow.md
+      - 릴리즈 자동화 파이프라인: flows/cross-project/release-automation-pipeline.md
       - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
       - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
   - Releases:
