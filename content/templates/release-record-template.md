@@ -55,6 +55,16 @@
 - API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거를 기록한다.
 - API contract cutover 포함 시 contracts package publish version, Mobile/Admin `package.json`/lockfile dependency version, consumer import path, 각 소비자 레포 품질 게이트 결과를 기록한다.
 
+### Mobile 개발계 QA 빌드 기록
+
+개발계 API 확인용 QA 빌드가 있으면 기록한다. 이 기록은 운영 Store 출시, Mobile NextPush 적용, 서비스 태그 생성 근거로 사용하지 않는다.
+
+- 기록일:
+- API 대상:
+- iOS TestFlight QA 빌드:
+- Android QA APK:
+- 운영 릴리즈 전 확인:
+
 ### API contract cutover Gate
 
 API/Admin/Mobile 공통 응답 또는 ErrorData contract cutover가 포함되면 아래 항목을 모두 채운다.
@@ -94,8 +104,3 @@ API/Admin/Mobile 공통 응답 또는 ErrorData contract cutover가 포함되면
 ## 후속 작업
 
 - 남은 대기 범위와 완료 조건을 기록한다.
-
-## 관련 문서
-
-- [배포/릴리즈 프로세스](../policy/release-process.md)
-- [배포 태그 정책](../policy/release-tag-policy.md)
