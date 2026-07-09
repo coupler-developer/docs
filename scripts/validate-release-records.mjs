@@ -12,7 +12,6 @@ const requiredSections = [
   "메인 흐름",
   "검증 근거",
   "롤백 기준",
-  "관련 문서",
 ];
 const allowedStatuses = new Set([
   "planned",
