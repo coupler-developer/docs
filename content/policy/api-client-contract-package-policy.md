@@ -5,8 +5,7 @@
 - 역할: `규범`
 - 문서 종류: `policy`
 - 충돌 시 우선 문서: 계약 패키지의 목적, 발행, 소비, 수정 절차는 이 문서. JSON 응답 envelope은 `api-response-contract-policy.md`, 실패 `ErrorData`/taxonomy는 `api-error-contract-policy.md`, 운영 배포 순서는 `release-process.md`
-- 기준 성격: `transition`
-- 전환 완료 조건: `@coupler-developer/coupler-api-contracts` 첫 발행을 확인하고, Admin/Mobile이 lockfile에 고정된 package dependency로 계약을 소비하며, legacy generated copy와 generated copy 검증 CI가 제거된 상태
+- 기준 성격: `as-is`
 
 ## 목적
 
@@ -38,6 +37,8 @@
 - Canonical generated contract: `coupler-api/packages/contracts/src/generated/*`에서 generator가 만든 API contract artifact. Publish된 package의 source artifact다.
 - Package source target: `coupler-api/packages/contracts`
 - Published package: GitHub Packages에 발행하는 `@coupler-developer/coupler-api-contracts`
+- Published latest stable version: API `main`의 canonical generated contract를 반영해 GitHub Packages에 가장 최근 발행한 prerelease가 아닌 version
+- Active consumer: 계약 package를 dependency로 사용하는 `coupler-admin-web`와 `coupler-mobile-app`
 - Legacy generated copy: Admin/Mobile의 `src/api/generated/*` 복사본
 
 ## 필수 규칙
@@ -45,6 +46,10 @@
 - 계약 package는 배포 경로와 version pinning 장치이며, 응답 envelope 변경이나 success DTO 완성 증거로 해석하지 않는다.
 - package infra PR은 wire 응답 구조를 바꾸지 않는다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
+- 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에 exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는 완료가 아니다.
+- 변경된 계약 symbol을 특정 consumer가 직접 import하지 않더라도 version 갱신 대상에서 제외하지 않는다. 계약 package는 active consumer가 함께 고정하는 공용 계약 스냅샷이다.
+- 새 stable version을 발행하면 같은 릴리즈 작업 단위에서 Admin/Mobile dependency와 lockfile 갱신 PR을 모두 준비하고 품질 게이트를 통과시킨다. 두 PR이 `main`에 병합되기 전에는 계약 package 소비 정렬을 완료로 기록하지 않는다.
+- 소비자 version 지연은 별도 호환 릴리즈로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer, 현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 cutover 완료로 판정하지 않는다.
 - package 이름은 `@coupler-developer/coupler-api-contracts`로 고정한다. 별도 import alias를 두지 않는다.
 - API repo의 package 발행/검증 명령은 API repo의 `packageManager`와 lockfile 기준을 따른다. 현재 기준은 `pnpm`/`pnpm-lock.yaml`이다.
 - API repo의 `Release Contracts` publish 권한은 GitHub Actions 기본 `github.token`과 workflow `packages: write` 권한으로 고정한다. 이 package 발행만을 위해 별도 PAT secret을 만들거나 fallback으로 두지 않는다.
@@ -103,8 +108,9 @@
 1. Swagger/OpenAPI, error catalog, 도메인 정책 중 해당 SoT를 먼저 수정한다.
 2. API repo에서 generated contract를 재생성하고 freshness 검증을 통과시킨다.
 3. 계약 산출물이 바뀌면 package version을 올리고 새 version을 발행한다.
-4. Admin/Mobile 소비면은 발행된 version으로 dependency와 lockfile을 갱신한다.
-5. breaking 또는 cutover 성격의 변경은 API 계약 변경 모바일 릴리즈 플로우의 gate를 통과한 뒤 진행한다.
+4. Admin/Mobile은 직접 사용하는 계약 symbol 변경 여부와 무관하게 published latest stable version으로 dependency와 lockfile을 함께 갱신한다.
+5. 각 소비자 표준 품질 게이트와 package version/lockfile 일치를 확인한 뒤 두 소비자 PR을 `main`에 병합한다.
+6. breaking 또는 cutover 성격의 변경은 두 active consumer의 version 정렬을 포함해 API 계약 변경 모바일 릴리즈 플로우의 gate를 통과한 뒤 진행한다.
 
 ## 증빙/추적
 
@@ -130,6 +136,9 @@
 - [ ] 소비자 코드가 package contract를 우회하는 local cast, alias fallback, normalize를 추가하지 않았는가?
 - [ ] package dependency와 lockfile 전환 PR에서 legacy generated copy와 copy exact match CI를 제거했는가?
 - [ ] 계약 산출물 변경마다 새 package version과 릴리즈 증빙이 남았는가?
+- [ ] API `main`의 published latest stable version과 Admin/Mobile `package.json` 및 lockfile의 exact version이 모두 같은가?
+- [ ] 직접 import하지 않는 계약 symbol을 이유로 active consumer의 version 갱신을 생략하지 않았는가?
+- [ ] 소비자 version 지연 예외가 있다면 별도 호환 릴리즈의 owner, 사유, 목표 version, 제거 조건과 목표 시점이 기록되어 있고 cutover를 미완료로 유지했는가?
 
 ## 관련 문서
 

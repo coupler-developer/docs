@@ -543,7 +543,7 @@
 
 잔여 범위
 
-- Admin 목록 계약 변경을 반영한 contracts package `0.1.3` 발행과 Admin dependency/lockfile `0.1.3` 갱신.
+- 발행 완료된 contracts package `0.1.3`에 맞춘 Admin/Mobile dependency와 lockfile 갱신 PR 병합 및 각 소비자 표준 품질 게이트 증빙.
 - API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거를 API 계약 cutover Gate와 연결하는 작업.
 - Admin/Mobile/Shared 영향 범위 판정은 descriptor `surfaces`와 Swagger(OpenAPI) operation 소비 근거를 사용한다.
 - 강제 업데이트 메커니즘은 `coupler-api/model/app_info.ts`의 `version_code/min_version -> force_update` 판정과 `coupler-mobile-app/src/screens/MainScreen.tsx`의 `force_update === 2` UI 경로로 존재한다.
