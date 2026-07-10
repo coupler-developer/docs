@@ -13,11 +13,13 @@
   "scripts": {
     "release:preflight": "node scripts/release-preflight.mjs",
     "test:release-preflight": "node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-preflight.test.mjs",
+    "test:technical-debt": "node --test scripts/validate-technical-debt.test.mjs",
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
+    "validate:technical-debt": "node scripts/validate-technical-debt.mjs",
     "validate:release-records": "node scripts/validate-release-records.mjs",
     "validate:api-error-docs": "node scripts/validate-api-error-docs.mjs",
     "build:docs": "node scripts/run-mkdocs-build.mjs",
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
-    "validate:docs": "yarn validate:docs-structure && yarn validate:release-records && yarn validate:api-error-docs && yarn test:release-preflight && yarn lint:md && yarn build:docs"
+    "validate:docs": "yarn validate:docs-structure && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:technical-debt && yarn test:release-preflight && yarn lint:md && yarn build:docs"
   }
 }
