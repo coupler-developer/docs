@@ -231,7 +231,7 @@
 
 진행 상태 (2026-07-11)
 
-- Admin 구현 브랜치에서 39개 목록 endpoint의 jQuery DataTables 렌더 경로를 React `state + props + ref`와 공통 `requestAdminList` 호출로 전환했다.
+- Admin `main`에서 39개 목록 endpoint의 jQuery DataTables 렌더 경로를 React `state + props + ref`와 공통 `requestAdminList` 호출로 전환했다.
 - Admin 실행 코드의 `jquery`, `datatables.net*` import와 package 의존성을 제거했고, 재유입 방지 테스트를 추가했다.
 - API `main`에서 39개 목록 endpoint를 `offset`, `limit`, 선택 `sort_column`, `sort_direction` 요청과 `{ ok: true, data: { cnt, list } }` envelope으로 전환했다.
 - API와 Admin에서 DataTables compatibility adapter, protocol 구분 헤더, legacy success body를 두지 않는 최종 계약으로 정리했다.
@@ -244,14 +244,14 @@
 
 구현 완료 근거
 
-- Admin 표준 품질 게이트와 목록 client/재유입 방지 테스트가 통과했다.
+- Admin 표준 품질 게이트와 목록 client/재유입 방지 테스트가 통과했고 최종 Admin 변경이 `main`에 병합됐다.
 - API 표준 품질 게이트, 39개 endpoint 계약 테스트, contracts check/pack이 통과했고 최종 API 변경이 `main`에 병합됐다.
 - API 목록 endpoint inventory와 공통 envelope은 Swagger/generated contract에 반영됐다. operation별 row DTO 구체화는 이 항목의 완료 조건이 아니라 `API success DTO schema 정리 미완료` 항목에서 추적한다.
 
 ### 남은 완료 조건
 
 - API contracts package `0.1.3`을 발행하고 Admin dependency와 lockfile을 `0.1.3`으로 갱신한다.
-- Admin 최종 브랜치를 `main`에 병합하고, API 배포 후 Admin을 같은 cutover 단위로 배포해 양쪽 배포 SHA를 기록한다.
+- API 배포 후 Admin을 같은 cutover 단위로 배포해 양쪽 배포 SHA를 기록한다.
 - 각 도메인 목록의 페이지 이동·검색·정렬·운영 액션을 수동 검증한다.
 - 장애가 나면 API와 Admin을 함께 직전 릴리스로 되돌린다. 한쪽만 롤백해 서로 다른 목록 계약을 운영하지 않는다.
 - 위 조건과 품질 게이트가 모두 완료되면 이 기술부채 항목을 완료 처리한다.
