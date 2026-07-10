@@ -13,6 +13,8 @@
 - 한글로 작성
 - 제목은 한 줄 요약 (50자 이내 권장)
 - 본문은 타입별 템플릿 활용
+- 본문에는 변경 이유(`Reason`, `Cause`, `Rationale` 중 해당 항목)와 적용 방식(`Fix`, `Changes`, `How` 중 해당 항목)이 드러나야 한다
+- 운영 사고, 장애, 배포 시행착오를 계기로 한 변경은 `Background`에 발생 상황을 남기고, `Reason`, `Cause`, `Rationale` 중 해당 항목에 재발 가능 원인을 남긴다
 - 템플릿 이용시 지나친 개행 주의
 - 커밋 메시지에 `\n` 문자열(이스케이프 리터럴) 직접 입력 금지
 
@@ -30,6 +32,8 @@ git commit -m "refactor: 한줄 요약" \
   -m "Changes:
 - 항목 1
 - 항목 2" \
+  -m "Rationale:
+- 변경 이유와 개선 효과" \
   -m "Tests:
 - not run: 사유"
 ```
@@ -100,6 +104,9 @@ feat: 한줄 요약
 Background:
 - (선택) 기능 추가 배경, 요구사항
 
+Reason:
+- (필수) 기능이 필요한 이유
+
 Changes:
 - (필수) 주요 변경 사항
 
@@ -119,6 +126,9 @@ feat: 프로필 이미지 버전 관리 시스템
 Background:
 - 프로필 이미지 심사 이력 관리 필요
 - 반려 시 개별 이미지 사유 표시 요구
+
+Reason:
+- 프로필 이미지별 심사 이력을 보존하고 반려 사유를 구분해야 함
 
 Changes:
 - t_member_profile_set 테이블 추가
@@ -184,8 +194,17 @@ Tests:
 ```text
 docs: 한줄 요약
 
+Background:
+- (선택) 문서 보강 배경, 운영 사고, 반복 질문, 혼선
+
+Reason:
+- (필수) 왜 문서 변경이 필요한지
+
 Changes:
 - (필수) 변경 내용
+
+How:
+- (필수) 어떤 기준과 범위로 반영했는지
 
 Tests:
 - yarn validate:docs 통과
@@ -196,9 +215,15 @@ Tests:
 ```text
 docs: 커밋 컨벤션 템플릿 추가
 
+Reason:
+- 커밋 본문에 변경 이유와 적용 방식이 남지 않아 리뷰와 추적 비용이 증가함
+
 Changes:
 - fix/feat/refactor/docs/test 타입별 템플릿 정의
 - 예시 추가
+
+How:
+- 타입별 필수 항목을 템플릿에 고정
 
 Tests:
 - yarn validate:docs 통과
@@ -208,6 +233,9 @@ Tests:
 
 ```text
 test: 한줄 요약
+
+Reason:
+- (필수) 테스트 추가/수정이 필요한 이유
 
 Coverage:
 - (필수) 테스트 대상, 시나리오
@@ -223,6 +251,9 @@ Tests:
 
 ```text
 test: 프로필 이미지 업로드 API 테스트 추가
+
+Reason:
+- 업로드 계약의 정상·실패 동작을 자동 검증해 회귀를 차단해야 함
 
 Coverage:
 - POST /app/upload/image/profile
@@ -240,6 +271,9 @@ Tests:
 ```text
 chore: 한줄 요약
 
+Reason:
+- (필수) 설정 또는 도구 변경이 필요한 이유
+
 Changes:
 - (필수) 변경 내용
 
@@ -252,6 +286,9 @@ Tests:
 
 ```text
 chore: Node.js 버전 업그레이드 (18 -> 20)
+
+Reason:
+- 지원 중인 Node.js 런타임으로 빌드 환경을 통일해야 함
 
 Changes:
 - .nvmrc 업데이트
