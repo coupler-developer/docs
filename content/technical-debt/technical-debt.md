@@ -249,6 +249,16 @@
 - 프로토타입 확장 로직을 순수 유틸 함수로 분리한다.
 - 화면 단위 전환 완료 후 `jquery`, `datatables.net*` 의존성을 제거한다.
 
+### 전환/제거 계획 (2026-07-10)
+
+- 추적 기준은 이 항목이며, 현재 작업 범위는 Admin 목록 39개 endpoint의 DataTables protocol 제거다.
+- 호환 배포에서는 API가 새 React 목록 요청(`x-coupler-admin-list-protocol: react-v1`, `offset`, `limit`, 선택 `sort_column`, `sort_direction`)과 기존 DataTables 요청(`draw`, `start`, `length`, `order`, `columns`)을 명시적으로 구분한다.
+- 호환 adapter는 기존 DataTables 목록 39개 GET endpoint에만 적용한다. 새 요청은 `{ ok: true, data: { cnt, list } }`를 받고, 기존 요청만 `{ draw, recordsTotal, recordsFiltered, data }` success body를 받는다. 실패 응답은 두 경우 모두 `{ ok: false, error: ErrorData }`를 유지한다.
+- 배포 순서는 `API 호환 배포 → Admin React 목록 배포 → 기존 protocol 관찰 → API 최종 cutover`로 고정한다. API 또는 Admin을 단독으로 최종 계약으로 먼저 배포하지 않는다.
+- 제거 조건은 새 Admin build의 운영 반영 SHA 기록, 39개 endpoint에서 legacy DataTables 요청 7일 연속 0건, 각 도메인 목록의 페이지 이동·검색·정렬·운영 액션 수동 검증, API/Admin 품질 게이트와 계약 산출물 검증 통과다. 변경된 API contract package는 새 version으로 발행하고, 발행 뒤 Admin dependency와 lockfile을 그 version으로 갱신해야 한다.
+- 목표 시점은 위 제거 조건을 충족한 뒤의 첫 Admin jQuery removal cutover release다. 조건 충족 전에는 compatibility adapter를 유지하고 최종 API branch에 섞지 않는다.
+- 호환 기간의 rollback은 이전 Admin 정적 build로만 되돌리고 API compatibility release는 유지한다. 최종 cutover 뒤 장애가 나면 API와 Admin을 함께 직전 compatibility release로 되돌린다.
+
 ---
 
 ## 12) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
