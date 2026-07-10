@@ -229,35 +229,32 @@
 
 ## 11) Admin jQuery 의존성 제거 (React 단일 렌더 경로 전환) `P1` `L`
 
-현상
+진행 상태 (2026-07-11)
 
-- `coupler-admin-web`에 `jquery` import가 다수 잔존한다(현재 기준 47개).
-- `DataTables`와 `$.fn.*` 확장(`image_lightbox`, `nickname_label`, `user_status` 등)에 의존하는 화면이 넓게 분포한다.
-- React 상태/렌더링과 jQuery 직접 DOM 조작이 혼재되어 단일 렌더 경로가 깨져 있다.
+- Admin 구현 브랜치에서 39개 목록 endpoint의 jQuery DataTables 렌더 경로를 React `state + props + ref`와 공통 `requestAdminList` 호출로 전환했다.
+- Admin 실행 코드의 `jquery`, `datatables.net*` import와 package 의존성을 제거했고, 재유입 방지 테스트를 추가했다.
+- API `main`에서 39개 목록 endpoint를 `offset`, `limit`, 선택 `sort_column`, `sort_direction` 요청과 `{ ok: true, data: { cnt, list } }` envelope으로 전환했다.
+- API와 Admin에서 DataTables compatibility adapter, protocol 구분 헤더, legacy success body를 두지 않는 최종 계약으로 정리했다.
 
-영향
+잔여 영향
 
-- TypeScript 타입 안정성이 저하되고 전환 품질 판정이 어려워진다.
-- React 렌더링과 jQuery DOM 조작 간 상태 불일치로 회귀 리스크가 증가한다.
-- 테스트/디버깅/리팩터링 비용이 상승한다.
+- API와 Admin 중 한쪽만 새 계약으로 운영하면 목록 요청/응답 계약이 어긋나므로 같은 cutover 단위로 배포해야 한다.
+- API contracts package `0.1.3` 발행과 Admin dependency/lockfile 갱신 전에는 교차 저장소 계약 정렬이 끝난 것으로 볼 수 없다.
+- Color Admin의 사전 빌드 vendor 산출물 `app.min.css` 내부에는 미사용 jQuery UI CSS가 포함되어 있다. 이는 jQuery 런타임 의존성이나 직접 수정 대상이 아니며, vendor 테마 번들 교체·분해 범위에서 별도로 정리한다.
 
-액션 후보
+구현 완료 근거
 
-- 테이블 계층을 React 기반(`TanStack Table` 또는 `AG Grid`)으로 단계 전환한다.
-- `$.fn.*` 커스텀 확장을 React 컴포넌트/유틸 함수로 치환한다.
-- DOM 직접 접근(`$()`) 로직을 `state + props + ref` 패턴으로 이전한다.
-- 프로토타입 확장 로직을 순수 유틸 함수로 분리한다.
-- 화면 단위 전환 완료 후 `jquery`, `datatables.net*` 의존성을 제거한다.
+- Admin 표준 품질 게이트와 목록 client/재유입 방지 테스트가 통과했다.
+- API 표준 품질 게이트, 39개 endpoint 계약 테스트, contracts check/pack이 통과했고 최종 API 변경이 `main`에 병합됐다.
+- API 목록 endpoint inventory와 공통 envelope은 Swagger/generated contract에 반영됐다. operation별 row DTO 구체화는 이 항목의 완료 조건이 아니라 `API success DTO schema 정리 미완료` 항목에서 추적한다.
 
-### 전환/제거 계획 (2026-07-10)
+### 남은 완료 조건
 
-- 추적 기준은 이 항목이며, 현재 작업 범위는 Admin 목록 39개 endpoint의 DataTables protocol 제거다.
-- 호환 배포에서는 API가 새 React 목록 요청(`x-coupler-admin-list-protocol: react-v1`, `offset`, `limit`, 선택 `sort_column`, `sort_direction`)과 기존 DataTables 요청(`draw`, `start`, `length`, `order`, `columns`)을 명시적으로 구분한다.
-- 호환 adapter는 기존 DataTables 목록 39개 GET endpoint에만 적용한다. 새 요청은 `{ ok: true, data: { cnt, list } }`를 받고, 기존 요청만 `{ draw, recordsTotal, recordsFiltered, data }` success body를 받는다. 실패 응답은 두 경우 모두 `{ ok: false, error: ErrorData }`를 유지한다.
-- 배포 순서는 `API 호환 배포 → Admin React 목록 배포 → 기존 protocol 관찰 → API 최종 cutover`로 고정한다. API 또는 Admin을 단독으로 최종 계약으로 먼저 배포하지 않는다.
-- 제거 조건은 새 Admin build의 운영 반영 SHA 기록, 39개 endpoint에서 legacy DataTables 요청 7일 연속 0건, 각 도메인 목록의 페이지 이동·검색·정렬·운영 액션 수동 검증, API/Admin 품질 게이트와 계약 산출물 검증 통과다. 변경된 API contract package는 새 version으로 발행하고, 발행 뒤 Admin dependency와 lockfile을 그 version으로 갱신해야 한다.
-- 목표 시점은 위 제거 조건을 충족한 뒤의 첫 Admin jQuery removal cutover release다. 조건 충족 전에는 compatibility adapter를 유지하고 최종 API branch에 섞지 않는다.
-- 호환 기간의 rollback은 이전 Admin 정적 build로만 되돌리고 API compatibility release는 유지한다. 최종 cutover 뒤 장애가 나면 API와 Admin을 함께 직전 compatibility release로 되돌린다.
+- API contracts package `0.1.3`을 발행하고 Admin dependency와 lockfile을 `0.1.3`으로 갱신한다.
+- Admin 최종 브랜치를 `main`에 병합하고, API 배포 후 Admin을 같은 cutover 단위로 배포해 양쪽 배포 SHA를 기록한다.
+- 각 도메인 목록의 페이지 이동·검색·정렬·운영 액션을 수동 검증한다.
+- 장애가 나면 API와 Admin을 함께 직전 릴리스로 되돌린다. 한쪽만 롤백해 서로 다른 목록 계약을 운영하지 않는다.
+- 위 조건과 품질 게이트가 모두 완료되면 이 기술부채 항목을 완료 처리한다.
 
 ---
 
@@ -266,7 +263,7 @@
 현상
 
 - `coupler-admin-web`에 브랜드 컬러 가이드와 별개인 레거시 테마 변수(blue/teal 중심)가 기본값으로 남아 있다.
-- SCSS/TSX/jQuery 렌더 경로에 하드코딩 HEX 및 inline color 지정이 혼재되어 색상 SoT가 없다.
+- SCSS/TSX 렌더 경로에 하드코딩 HEX 및 inline color 지정이 혼재되어 색상 SoT가 없다.
 - 동일 의미(Primary, Status, Text muted)를 화면마다 다른 색으로 표현하는 구간이 존재한다.
 
 영향
@@ -589,7 +586,7 @@
 - 이 항목은 cutover 부채 인덱스로만 사용하고, 정책 본문이나 도메인별 에러 규칙을 복제하지 않는다.
 - 응답계약 package 발행/소비/수정 기준은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)을 따른다. package 소비 전환 PR에서는 Mobile/Admin generated contract copy와 exact match 검증 CI를 함께 제거한다.
 - Package public response/envelope 타입은 runtime `ErrorData`를 실패 기본 타입으로 사용한다. Swagger success map 생성을 위해 generated 내부에 남는 느슨한 helper 타입은 package public 계약 완료 근거로 보지 않는다.
-- 기존 Admin jQuery DataTables endpoint의 success body 예외는 공통 응답 정책의 allowlist 범위로만 유지하며, 실패 응답은 예외 없이 `{ ok: false, error: ErrorData }`를 사용한다.
+- Admin 목록 endpoint는 success/failure 모두 공통 envelope을 사용하며 DataTables success body 예외를 두지 않는다.
 - legacy envelope field, 숫자 wire code, public server `ERROR_CODE`, prebuilt `ErrorData`, raw 실패 JSON, transition helper 입력은 최종 구조에 재도입하지 않는다.
 - 회귀 검증은 현재 계약의 구조적 금지 조건을 확인해야 하며, 과거 구현명이나 임시 helper 이름 자체에 묶지 않는다.
 - 서버 표시 메시지는 응답 body의 공통 필드가 아니며 Mobile/Admin 동작 분기 기준으로 사용하지 않는다.
@@ -615,6 +612,7 @@
 - [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope의 단일 SoT이고, operation별 성공 `data` schema는 Swagger/OpenAPI와 각 도메인 정책이 SoT다.
 - `coupler-api/packages/contracts/src/generated/apiContract.ts`는 Swagger success schema를 그대로 투영하므로, Swagger schema가 없거나 느슨한 endpoint의 generated success data type은 `unknown` 또는 loose object가 될 수 있다.
 - API 응답 공통 계약 cutover 인덱스는 성공 `{ ok: true, data }` / 실패 `{ ok: false, error: ErrorData }` envelope과 실패 taxonomy 수렴을 추적한다. 전체 endpoint의 success DTO schema 완성 여부는 별도 후속 부채로 관리한다.
+- Admin 목록 38개 endpoint의 Swagger `list` item이 공통 `additionalProperties: true`로 정의되어 generated contract가 `Record<string, unknown>[]`이고, `/admin/manager/all`의 `data.cnt`와 `data.list`도 generated contract에서 optional이다.
 
 영향
 
@@ -625,6 +623,7 @@
 액션 후보
 
 - `coupler-api/packages/contracts/src/generated/apiContract.ts`의 success data type 중 `unknown` 또는 loose object로 생성되는 endpoint를 목록화하고, Mobile/Admin 소비 여부와 사용자 영향도로 우선순위를 정한다.
+- Admin 목록 38개 endpoint의 operation별 row DTO schema를 Swagger에 정의하고, `/admin/manager/all` 성공 `data.cnt`와 `data.list`를 required로 고정한다.
 - 우선순위가 높은 endpoint부터 API 응답 DTO를 명시하고, controller의 `response_success(res, data)` payload, Swagger/OpenAPI success schema/example, 도메인 정책 문서를 같은 필드명과 `null` 기준으로 맞춘다.
 - API contracts package를 재생성/publish한 뒤 Mobile/Admin generated copy 또는 dependency version과 request boundary가 해당 DTO를 직접 소비하도록 갱신한다. client 쪽 alias fallback, shape repair normalize, `as unknown as` 보정은 추가하지 않는다.
 - 잔여 `unknown`/loose success data는 allowlist로 관리하되 endpoint, 소비 제품면, owner, 제거 조건을 함께 기록하고 신규 증가를 CI 또는 review checklist에서 차단한다.

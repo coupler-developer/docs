@@ -23,7 +23,6 @@
 - JSON API 응답 envelope 자체의 wire 구조 변경
 - operation별 success DTO schema 작성 기준
 - 실패 `ErrorData` taxonomy 작성 기준
-- 기존 Admin jQuery DataTables success protocol 동작 변경
 
 ## 단일 SoT
 
