@@ -97,7 +97,8 @@
     3. MobX 스토어 상태 변경 테스트
 
 - 외부 통신: axios mock 또는 MSW 도입 고려(현재 의존성 없음).
-- Chart.js / DataTables: “렌더링 성공 + 주요 props 처리” 수준의 얕은 테스트부터 시작.
+- Chart.js는 “렌더링 성공 + 주요 props 처리” 수준의 얕은 테스트부터 시작한다.
+- React 목록은 공통 client의 요청/응답 계약, 페이지 이동, 검색, 정렬, 최신 요청 우선 반영과 row parser 실패 차단을 우선 검증한다.
 
 ### coupler-api (Express)
 

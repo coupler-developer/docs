@@ -152,8 +152,7 @@ API 실패 응답은 [API 공통 응답 계약 정책](api-response-contract-pol
 
 범위 예외:
 
-- 기존 Admin jQuery DataTables success body, 파일 스트리밍, proxy pass-through, 네트워크/protocol 실패는 [API 공통 응답 계약 정책](api-response-contract-policy.md)의 예외 기준을 따른다.
-- DataTables endpoint의 실패 응답은 예외 없이 `ok: false`와 `error: ErrorData`를 반환한다.
+- 파일 스트리밍, proxy pass-through, 네트워크/protocol 실패는 [API 공통 응답 계약 정책](api-response-contract-policy.md)의 예외 기준을 따른다.
 - JSON API 계약 밖의 응답 경로는 `ErrorData`, `error_code`, `error_action`을 만들거나 client product flow 분기 기준으로 쓰지 않는다.
 
 응답에 넣지 않는다:
@@ -401,8 +400,8 @@ API 에러 계약을 변경할 때는 다음 순서를 지킨다.
 - [ ] `messageKey`가 비어 있지 않고, `messageArgContextKeys`가 요구하는 값이 `error_context`에서 문자열/숫자로 보장되는가?
 - [ ] Mobile/Admin이 generated runtime contract로 JSON boundary를 검증하는가?
 - [ ] Mobile/Admin feature code에 generic raw error-code helper가 없는가?
-- [ ] non-envelope success body가 있다면 기존 Admin DataTables allowlist에 한정되는가?
-- [ ] DataTables endpoint의 실패 응답은 `ErrorData`를 쓰고, file/proxy transport 실패는 `ErrorData` 밖에서 처리되는가?
+- [ ] Admin 목록 endpoint가 success/failure 모두 공통 envelope을 사용하는가?
+- [ ] file/proxy transport 실패는 `ErrorData` 밖에서 처리되는가?
 - [ ] Swagger/OpenAPI가 같은 catalog 기준으로 검증되는가?
 - [ ] final structure/cutover 범위에 transition 계층이 0건인가?
 
