@@ -22,7 +22,7 @@
     - `coupler-admin-web`: `yarn lint && yarn typecheck && yarn format && CI=true yarn test:ci`
     - `docs`: `yarn validate:docs`
 - API 공통 응답/에러 계약 또는 generated contract 변경이 포함되면 `coupler-api` 표준 검증에 `pnpm check:contracts`, `pnpm pack:contracts`를 추가한다.
-- Admin/Mobile 계약 소비 검증은 GitHub Packages registry/auth 설정, `package.json`, lockfile의 `@coupler-developer/coupler-api-contracts` version, 각 소비자 레포 표준 품질 게이트를 기준으로 한다.
+- Admin/Mobile 계약 소비 검증은 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 published latest stable version을 목표로 삼고, GitHub Packages registry/auth 설정, `package.json`, lockfile의 `@coupler-developer/coupler-api-contracts` exact version, 각 소비자 레포 표준 품질 게이트를 기준으로 한다.
 - Admin/Mobile이 계약 패키지 버전을 갱신하는 PR은 해당 소비자 레포의 표준 품질 게이트를 통과해야 한다. 이때 GitHub Packages registry/auth 설정과 `package.json`/lockfile의 `@coupler-developer/coupler-api-contracts` version이 일치하는지 확인한다.
 
 ### 모바일 Storybook PR 게이트
