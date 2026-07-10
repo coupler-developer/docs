@@ -9,24 +9,25 @@
 
 ## 목적
 
-`@coupler-developer/coupler-api-contracts`는 `coupler-api`에서 생성한 API/Admin/Mobile 공통 계약의 version pinning 장치다. 응답 wire 구조를 바꾸지 않고, generated contract와 소비자 코드 사이의 drift를 package version, dependency diff, lockfile diff에서 드러나게 한다.
+`@coupler-developer/coupler-api-contracts`는 `coupler-api`에서 생성한 API/Admin/Mobile 공통 계약의 version pinning 및 runtime validation 장치다. 실제 Express route에서 operation의 method/path/request media type을 생성하고, 공통 응답 envelope/ErrorData runtime과 함께 배포해 서버 route와 소비자 request/response boundary의 drift를 즉시 드러낸다.
 
 ## 적용 범위
 
-- `coupler-api`의 계약 package source, generated contract, pack/publish 설정
+- `coupler-api`의 Express mount/route, 계약 package source, generated contract, pack/publish 설정
 - `coupler-admin-web`와 `coupler-mobile-app`의 계약 dependency, import, lockfile
 - GitHub Packages registry/auth 설정과 API 계약 변경 릴리즈 기록
 
 제외 범위:
 
 - JSON API 응답 envelope 자체의 wire 구조 변경
-- operation별 success DTO schema 작성 기준
+- operation별 request/response DTO field schema 작성 기준
 - 실패 `ErrorData` taxonomy 작성 기준
 
 ## 단일 SoT
 
 - JSON API 성공/실패 envelope: [API 공통 응답 계약 정책](api-response-contract-policy.md)
 - 실패 `ErrorData`와 error taxonomy: [API 에러 계약 정책](api-error-contract-policy.md)
+- operation method/path/request media type: `coupler-api/app.ts`의 mount와 `coupler-api/routes/**`의 Express route registration
 - operation별 성공 `data` schema: Swagger/OpenAPI와 각 도메인 정책
 - package publish와 운영 배포 순서: [배포/릴리즈 프로세스](release-process.md)의 `Contracts Package Release`
 - API 계약 변경 cutover gate: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
@@ -34,7 +35,7 @@
 
 ## 용어
 
-- Canonical generated contract: `coupler-api/packages/contracts/src/generated/*`에서 generator가 만든 API contract artifact. Publish된 package의 source artifact다.
+- Canonical generated contract: `coupler-api/packages/contracts/src/generated/*`에서 generator가 실제 Express route와 Swagger/Error catalog를 결합해 만든 API contract artifact. Publish된 package의 source artifact다.
 - Package source target: `coupler-api/packages/contracts`
 - Published package: GitHub Packages에 발행하는 `@coupler-developer/coupler-api-contracts`
 - Published latest stable version: API `main`의 canonical generated contract를 반영해 GitHub Packages에 가장 최근 발행한 prerelease가 아닌 version
@@ -43,7 +44,7 @@
 
 ## 필수 규칙
 
-- 계약 package는 배포 경로와 version pinning 장치이며, 응답 envelope 변경이나 success DTO 완성 증거로 해석하지 않는다.
+- 계약 package는 배포 경로, version pinning, operation/envelope runtime validation 장치이며 DTO field schema 완성 증거로 해석하지 않는다.
 - package infra PR은 wire 응답 구조를 바꾸지 않는다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
 - 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에 exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는 완료가 아니다.
@@ -69,18 +70,21 @@
 - Admin/Mobile은 legacy generated copy를 재도입하지 않는다.
 - Admin/Mobile이 package dependency와 lockfile로 전환되는 cutover PR에서는 legacy generated copy와 copy exact match 검증 CI를 함께 제거한다.
 - 발행된 package version은 재사용하지 않는다. 계약 산출물이 바뀌면 새 version을 발행하고 소비자 lockfile에 반영한다.
-- package의 public response/envelope 타입은 generated error runtime의 strict `ErrorData`를 실패 기본 타입으로 사용한다.
-- `generated/apiContract.ts`는 Swagger success operation map 산출물이며, 그 안의 느슨한 실패 helper 타입을 package public response 기준으로 삼지 않는다.
-- 소비자 코드는 package contract 또는 명시 ViewModel mapping을 사용하고, API 응답 shape를 local cast, alias fallback, normalize로 보정하지 않는다.
+- package의 public response/envelope 타입과 runtime guard는 strict `ErrorData` 실패 branch 하나만 사용하며 failure generic override를 노출하지 않는다.
+- `generated/apiContract.ts`는 Express-derived operation method/path/request media type과 Swagger success data map만 포함한다. 별도 envelope/error helper 타입을 두지 않는다.
+- request media type은 body 없는 `GET`/`DELETE`, JSON write request, upload multipart 세 가지로 폐쇄한다. URL-encoded는 canonical client request contract에 포함하지 않는다.
+- Admin/Mobile request boundary는 package operation runtime으로 method/path/request media type을 fail-fast 검증한다. 플랫폼별 base URL, 인증 header, fetch/axios 실행만 소비자에 둔다.
+- Admin/Mobile response boundary는 package의 envelope runtime guard를 사용하며 같은 key/discriminator 검증을 로컬에 복제하지 않는다.
+- 소비자 코드는 package contract 또는 명시 ViewModel mapping을 사용하고, API 요청/응답 shape를 local cast, alias fallback, normalize로 보정하지 않는다.
 
 ## 운영 절차
 
 ### Package infra 추가
 
-1. API repo에 package source, export, pack/publish 검증 경로를 추가한다.
+1. API repo에 package source, export, Express route 기반 generator, pack/publish 검증 경로를 추가한다.
 2. Canonical generated contract는 package source target에 생성하고, Admin/Mobile generated copy를 만들지 않는다.
 3. `pnpm pack:contracts`로 발행 산출물에 필요한 파일만 포함되는지 확인한다.
-4. Package public entrypoint가 strict `ErrorData` 기반 response/envelope 타입을 노출하는지 확인한다.
+4. Package public entrypoint가 operation request runtime과 strict `ErrorData` 기반 response/envelope runtime을 노출하는지 확인한다.
 5. PR과 릴리즈 기록에 package infra가 wire 응답 변경, 소비자 전환 완료, success DTO 완료를 의미하지 않는다고 기록한다.
 
 ### 첫 발행
@@ -101,11 +105,11 @@
 7. 발행된 `@coupler-developer/coupler-api-contracts` version을 consumer package manager로 lockfile에 고정한다.
 8. `src/api/generated/*` import를 package import로 교체한다.
 9. 소비자 repo의 `src/api/generated/*` legacy copy와 generated copy exact match CI를 제거한다.
-10. request boundary가 기존과 같은 `{ ok: true, data }` / `{ ok: false, error }` 분기 기준을 유지하는지 검증한다.
+10. request boundary가 package operation의 method/path/media type을 검증하고 response boundary가 package envelope runtime으로 `{ ok: true, data }` / `{ ok: false, error }`를 분기하는지 확인한다.
 
 ### 계약 수정과 version bump
 
-1. Swagger/OpenAPI, error catalog, 도메인 정책 중 해당 SoT를 먼저 수정한다.
+1. Express route, Swagger/OpenAPI, error catalog, 도메인 정책 중 해당 SoT를 먼저 수정한다.
 2. API repo에서 generated contract를 재생성하고 freshness 검증을 통과시킨다.
 3. 계약 산출물이 바뀌면 package version을 올리고 새 version을 발행한다.
 4. Admin/Mobile은 직접 사용하는 계약 symbol 변경 여부와 무관하게 published latest stable version으로 dependency와 lockfile을 함께 갱신한다.
@@ -114,7 +118,7 @@
 
 ## 증빙/추적
 
-- API PR: generated contract freshness 검증, pack 결과, 발행 대상 파일 목록
+- API PR: Express route/generated contract freshness 검증, pack 결과, 발행 대상 파일 목록
 - Publish 기록: package name, version, registry URL 또는 package manager 출력, API ref
 - Admin/Mobile PR: registry 설정, CI secret 이름/권한 범위, dependency diff, lockfile diff, import 전환 diff, legacy generated copy 제거 diff, request boundary 검증
 - Cutover PR: 비교한 API/Admin/Mobile ref, 릴리즈 기록 링크
@@ -123,8 +127,10 @@
 
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
-- [ ] public response/envelope 타입이 generated error runtime의 strict `ErrorData`를 실패 기본 타입으로 쓰는가?
-- [ ] `generated/apiContract.ts`의 느슨한 실패 helper 타입을 package public response 기준으로 노출하지 않는가?
+- [ ] public response/envelope 타입과 runtime이 strict `ErrorData` 실패 branch 하나만 쓰는가?
+- [ ] `generated/apiContract.ts`가 Express-derived method/path/request media type과 success data map만 포함하는가?
+- [ ] Admin/Mobile request boundary가 package operation runtime으로 method/path/media type을 검증하는가?
+- [ ] Admin/Mobile response boundary가 package envelope runtime을 사용하고 로컬 key/discriminator guard를 복제하지 않는가?
 - [ ] API repo에서 `pnpm`/`pnpm-lock.yaml` 기준을 지키고 `package-lock.json`을 만들지 않았는가?
 - [ ] Admin/Mobile legacy generated copy를 재도입하지 않았는가?
 - [ ] 소비자 전환은 GitHub Packages registry/auth 설정, 발행된 package version, lockfile을 기준으로 하는가?
