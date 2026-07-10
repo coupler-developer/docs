@@ -227,38 +227,7 @@
 
 ---
 
-## 11) Admin jQuery 의존성 제거 (React 단일 렌더 경로 전환) `P1` `L`
-
-진행 상태 (2026-07-11)
-
-- Admin `main`에서 39개 목록 endpoint의 jQuery DataTables 렌더 경로를 React `state + props + ref`와 공통 `requestAdminList` 호출로 전환했다.
-- Admin 실행 코드의 `jquery`, `datatables.net*` import와 package 의존성을 제거했고, 재유입 방지 테스트를 추가했다.
-- API `main`에서 39개 목록 endpoint를 `offset`, `limit`, 선택 `sort_column`, `sort_direction` 요청과 `{ ok: true, data: { cnt, list } }` envelope으로 전환했다.
-- API와 Admin에서 DataTables compatibility adapter, protocol 구분 헤더, legacy success body를 두지 않는 최종 계약으로 정리했다.
-
-잔여 영향
-
-- API와 Admin 중 한쪽만 새 계약으로 운영하면 목록 요청/응답 계약이 어긋나므로 같은 cutover 단위로 배포해야 한다.
-- API contracts package `0.1.3` 발행과 Admin dependency/lockfile 갱신 전에는 교차 저장소 계약 정렬이 끝난 것으로 볼 수 없다.
-- Color Admin의 사전 빌드 vendor 산출물 `app.min.css` 내부에는 미사용 jQuery UI CSS가 포함되어 있다. 이는 jQuery 런타임 의존성이나 직접 수정 대상이 아니며, vendor 테마 번들 교체·분해 범위에서 별도로 정리한다.
-
-구현 완료 근거
-
-- Admin 표준 품질 게이트와 목록 client/재유입 방지 테스트가 통과했고 최종 Admin 변경이 `main`에 병합됐다.
-- API 표준 품질 게이트, 39개 endpoint 계약 테스트, contracts check/pack이 통과했고 최종 API 변경이 `main`에 병합됐다.
-- API 목록 endpoint inventory와 공통 envelope은 Swagger/generated contract에 반영됐다. operation별 row DTO 구체화는 이 항목의 완료 조건이 아니라 `API success DTO schema 정리 미완료` 항목에서 추적한다.
-
-### 남은 완료 조건
-
-- API contracts package `0.1.3`을 발행하고 Admin dependency와 lockfile을 `0.1.3`으로 갱신한다.
-- API 배포 후 Admin을 같은 cutover 단위로 배포해 양쪽 배포 SHA를 기록한다.
-- 각 도메인 목록의 페이지 이동·검색·정렬·운영 액션을 수동 검증한다.
-- 장애가 나면 API와 Admin을 함께 직전 릴리스로 되돌린다. 한쪽만 롤백해 서로 다른 목록 계약을 운영하지 않는다.
-- 위 조건과 품질 게이트가 모두 완료되면 이 기술부채 항목을 완료 처리한다.
-
----
-
-## 12) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
+## 11) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
 
 현상
 
@@ -288,7 +257,7 @@
 
 ---
 
-## 13) ritzy -> coupler 네이밍/운영 잔존 정리 `P3` `M`
+## 12) ritzy -> coupler 네이밍/운영 잔존 정리 `P3` `M`
 
 현상
 
@@ -324,7 +293,7 @@
 
 ---
 
-## 14) Mobile patch-package 의존 제거 가능성 검증 `P2` `S`
+## 13) Mobile patch-package 의존 제거 가능성 검증 `P2` `S`
 
 현상
 
@@ -353,7 +322,7 @@
 
 ---
 
-## 15) iOS SDK / Xcode 업로드 기준 선제 업그레이드 필요 `P1` `M`
+## 14) iOS SDK / Xcode 업로드 기준 선제 업그레이드 필요 `P1` `M`
 
 현상
 
@@ -377,7 +346,7 @@
 
 ---
 
-## 16) 라운지 댓글 수 레거시 집계 의미 분리 미완료 `P2` `M`
+## 15) 라운지 댓글 수 레거시 집계 의미 분리 미완료 `P2` `M`
 
 현상
 
@@ -401,7 +370,7 @@
 
 ---
 
-## 17) 미팅 회비 `0=미정` 계약 불일치 `P2` `S`
+## 16) 미팅 회비 `0=미정` 계약 불일치 `P2` `S`
 
 현상
 
@@ -423,7 +392,7 @@
 
 ---
 
-## 18) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
+## 17) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
 
 현상
 
@@ -454,7 +423,7 @@
 
 ---
 
-## 19) 클럽/클럽매니저 UI 용어 통일 미완료 `P2` `M`
+## 18) 클럽/클럽매니저 UI 용어 통일 미완료 `P2` `M`
 
 현상
 
@@ -483,7 +452,7 @@
 
 ---
 
-## 20) Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약 `P2` `S`
+## 19) Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약 `P2` `S`
 
 현상
 
@@ -509,7 +478,7 @@
 
 ---
 
-## 21) Mobile inline style lint 전역 확대 미완료 `P2` `M`
+## 20) Mobile inline style lint 전역 확대 미완료 `P2` `M`
 
 현상
 
@@ -538,7 +507,7 @@
 
 ---
 
-## 22) Mobile StyleSheet style key 네이밍 일관성 미완료 `P2` `S`
+## 21) Mobile StyleSheet style key 네이밍 일관성 미완료 `P2` `S`
 
 현상
 
@@ -562,7 +531,7 @@
 - `coupler-mobile-app/src` 1st-party 코드의 `StyleSheet.create` style key가 `lowerCamelCase`로 통일되어 있다.
 - 코드 리뷰 정책과 엔지니어링 가드레일이 신규 style key의 `lowerCamelCase` 기준을 같은 결론으로 설명한다.
 
-## 23) API 응답 공통 계약 cutover 인덱스 `P1` `M`
+## 22) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
 현상
 
@@ -574,6 +543,7 @@
 
 잔여 범위
 
+- Admin 목록 계약 변경을 반영한 contracts package `0.1.3` 발행과 Admin dependency/lockfile `0.1.3` 갱신.
 - API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거를 API 계약 cutover Gate와 연결하는 작업.
 - Admin/Mobile/Shared 영향 범위 판정은 descriptor `surfaces`와 Swagger(OpenAPI) operation 소비 근거를 사용한다.
 - 강제 업데이트 메커니즘은 `coupler-api/model/app_info.ts`의 `version_code/min_version -> force_update` 판정과 `coupler-mobile-app/src/screens/MainScreen.tsx`의 `force_update === 2` UI 경로로 존재한다.
@@ -605,7 +575,7 @@
 
 ---
 
-## 24) API success DTO schema 정리 미완료 `P2` `L`
+## 23) API success DTO schema 정리 미완료 `P2` `L`
 
 현상
 
