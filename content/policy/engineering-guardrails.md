@@ -64,6 +64,15 @@ cutover 배포 코드 기준:
 - cutover 후에는 남은 호환 helper, dual-write, version branch가 0건이어야 한다.
 - cutover가 기존 보호 동작을 바꾸면 회귀 안전성 게이트의 `기준 변경`으로 분류하고 기준 문서와 검증 결과를 같은 변경 단위에 포함한다.
 
+### 2-2) 최종 계약 동시 배포 묶음과 운영 legacy cutover 분리
+
+- API/Admin/Mobile 최종 구조 리뷰는 세 레포를 하나의 동시 배포 묶음으로 보고, API package source version과 Admin/Mobile의 dependency/lockfile version, 실제 소비 runtime 공개 표면, 요청/응답 wire 계약이 모두 같은 최종 계약을 가리키는지 판정한다.
+- 동시 배포 묶음 안에서 package version이 다르면 현재 사용하는 symbol이 우연히 호환되더라도 최종 계약 정렬 미완료로 판정한다.
+- 최종 구조의 코드 호환성 판정에는 Store/NextPush 배포 이력, `min_version`/`force_update`, legacy traffic 로그, 운영 릴리즈 기록을 요구하지 않는다. 세 레포가 같은 최종 계약에 연결된 상태에서 함께 배포되는 것을 전제로 한다.
+- 운영 legacy cutover 증빙은 이미 배포된 구버전 소비자와의 호환 경로, URL-encoded parser, dual-write, DB contract/drop처럼 기존 운영 경로를 실제로 제거하는 작업에만 적용한다.
+- 브랜치 이름이나 커밋 메시지에 `cutover`가 포함된 사실만으로 운영 legacy cutover 범위를 추론하지 않는다. 리뷰 요청과 실제 diff에서 호환 경로 제거 여부를 확인해 판정 범위를 고정한다.
+- 최종 리뷰에는 `동시 배포 계약 묶음`과 `운영 legacy cutover` 중 적용한 판정 범위를 명시하고, 적용하지 않은 운영 증빙은 Finding으로 요구하지 않는다.
+
 ### 3) 검증 기준 (No Findings 게이트)
 
 - `No Findings`의 판정 범위는 "리뷰 대상"으로 한정한다(로컬 변경사항, 특정 커밋 집합, 또는 PR diff).

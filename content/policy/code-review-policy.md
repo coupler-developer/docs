@@ -80,6 +80,9 @@
 - 상태 분류: 없음/회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백
 - N/A 사유: 회귀 영향이 없다고 판단한 근거
 - API 계약 변경/Cutover: 필요/불필요, 신규/기존 호환 경로 여부, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거
+- API 계약 판정 범위: `동시 배포 계약 묶음` / `운영 legacy cutover` / `N/A`
+- 동시 배포 계약 묶음: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면, 요청·응답 wire 계약 정렬 결과
+- 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store/NextPush, `min_version`/`force_update`, traffic 로그, 릴리즈 기록 적용/N/A 근거
 
 ## 문서 동기화
 
@@ -112,6 +115,7 @@
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
+- [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
 - [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
