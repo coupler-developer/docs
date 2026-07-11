@@ -76,6 +76,37 @@
 - API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package contract 또는 명시 ViewModel mapping을 사용하고, API 응답 shape를 local cast, alias fallback, normalize로 보정하지 않는다.
 
+## 공개 표면 폐쇄 원칙
+
+계약 package와 소비자 response boundary는 확장 가능한 utility library가 아니라 폐쇄형 계약 경계다. 아래 allowlist에 없는 public runtime symbol과 entrypoint는 필요해 보인다는 이유만으로 추가하지 않는다.
+
+허용 public 표면:
+
+- `api`: generator가 만든 contract version, operation metadata와 operation별 success data 타입
+- `error`: generator가 만든 strict `ErrorData`, error catalog, message와 그 검증/조회 runtime
+- `response`: `ApiSuccessEnvelope`, `ApiFailureEnvelope`, `ApiEnvelope`, `ApiErrorData` 타입과 runtime guard `isApiEnvelope` 하나
+- Admin/Mobile facade: package의 `isApiEnvelope`를 로직 없이 연결하는 `isEnvelope` 하나
+- Mobile의 `ApiResult` 변환, 상태 판정과 사용자 메시지 helper는 package 계약이 아닌 앱 내부 response boundary로만 유지하며, 현재 runtime export allowlist 밖으로 확장하지 않는다.
+
+금지 파생:
+
+- `isApiSuccessEnvelope`, `isApiFailureEnvelope`처럼 `ok` 분기를 다시 감싼 branch helper
+- 검증하지 않은 success DTO를 보장하는 generic guard, assertion, decoder 또는 parser
+- request method/path/media type/body DTO validator, serializer, URL encoder 또는 operation dispatcher
+- package 결과를 재해석하는 local envelope validator, normalize, fallback, alias 호환 계층
+- 제거 Gate와 기술 부채 기록이 없는 legacy/dual/transition runtime
+- 기존 entrypoint의 편의 alias, 동일 계약의 중복 package, consumer 전용 public export
+
+Allowlist 확장은 기본적으로 금지한다. 불가피한 변경은 구현과 같은 PR에 끼워 넣지 않고 별도 계약 변경으로 다루며, 다음 근거를 모두 남겨야 한다.
+
+1. 기존 허용 표면으로 해결할 수 없는 구체적 실패 사례
+2. API/Admin/Mobile 영향과 대안 비교
+3. wire compatibility, 보안, bundle/runtime 비용 평가
+4. 새 symbol의 owner, 제거 가능성, version bump와 consumer 정렬 계획
+5. API/Admin/Mobile/Docs 리뷰 승인과 public export allowlist CI 갱신
+
+근거가 하나라도 없으면 public 표면을 확장하지 않고 호출부의 도메인 로직 또는 명시 ViewModel mapping으로 해결한다.
+
 ## 운영 절차
 
 ### Package infra 추가
@@ -84,7 +115,8 @@
 2. Canonical generated contract는 package source target에 생성하고, Admin/Mobile generated copy를 만들지 않는다.
 3. `pnpm pack:contracts`로 발행 산출물에 필요한 파일만 포함되는지 확인한다.
 4. Package public entrypoint가 strict `ErrorData` 기반 response/envelope 타입과 runtime guard를 노출하는지 확인한다.
-5. PR과 릴리즈 기록에 package infra가 wire 응답 변경, 소비자 전환 완료, success DTO 완료를 의미하지 않는다고 기록한다.
+5. Package와 Admin/Mobile response facade의 public runtime symbol이 각각의 정확한 allowlist를 벗어나지 않는지 CI로 확인한다.
+6. PR과 릴리즈 기록에 package infra가 wire 응답 변경, 소비자 전환 완료, success DTO 완료를 의미하지 않는다고 기록한다.
 
 ### 첫 발행
 
@@ -127,6 +159,8 @@
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
 - [ ] public response/envelope 타입과 runtime guard가 generated error runtime의 strict `ErrorData`를 실패 계약으로 쓰는가?
+- [ ] `response` public runtime이 `isApiEnvelope` 하나이고 소비자 facade가 `isEnvelope` 외의 파생 envelope guard를 추가하지 않았는가?
+- [ ] 새 public entrypoint/runtime symbol이 폐쇄형 allowlist를 벗어나지 않으며, 확장 시 별도 계약 변경 근거와 승인이 있는가?
 - [ ] `generated/apiContract.ts`의 느슨한 실패 helper 타입을 package public response 기준으로 노출하지 않는가?
 - [ ] API repo에서 `pnpm`/`pnpm-lock.yaml` 기준을 지키고 `package-lock.json`을 만들지 않았는가?
 - [ ] Admin/Mobile legacy generated copy를 재도입하지 않았는가?
