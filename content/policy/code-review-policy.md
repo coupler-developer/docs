@@ -120,6 +120,7 @@
 - [ ] 릴리즈 자동화 hard gate가 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 그 액션의 사전 조건으로 요구하지 않는지 확인한다. 이런 항목은 precheck와 postcheck/corrective reissue로 분리한다.
 - [ ] 릴리즈 자동화 terminal evidence 검증을 바꾸면 `releaseScopeDescriptors`/cutover required path/release tag descriptor 전체를 순회하는 `N/A - <사유>`, `pending`, 비-SHA ref, 서로 다른 SQL/checksum false-pass fixture가 실패 테스트로 고정되어 있는지 확인한다.
 - [ ] 릴리즈 자동화 metadata object 구조를 바꾸면 완전한 정상 metadata의 모든 object path에 unknown key를 주입하는 fail-closed 테스트가 유지되는지 확인한다.
+- [ ] GitHub 원격 상태 또는 `gh` 인증을 확인했다면 아래 `GitHub 원격 상태 확인과 gh 인증 판정` 기준을 적용했는지 확인한다.
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
 - [ ] 문서(docs) 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트 통과 + 실행 명령/결과 링크 첨부
 - [ ] 문서 추가/이동/개명 시 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav` 동기화 여부 확인
@@ -200,6 +201,14 @@
 - 열린 Finding이 있거나 최종 판정이 `No Findings`가 아니면 push하지 않는다. 예외가 필요하면 위험, 미검증 범위, 되돌림 기준을 먼저 기록하고 사용자 승인을 받아야 한다.
 - CI, GitHub Actions, secret, package registry, 권한, 배포, 릴리즈 자동화 변경은 외부 영향 범위와 비코드 설정 필요 여부를 함께 리뷰한다.
 - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 일반 push 게이트와 별개로 명시 승인을 받아야 한다.
+
+### GitHub 원격 상태 확인과 gh 인증 판정
+
+- PR, check, workflow, release, 원격 branch처럼 GitHub 웹 상태를 확인할 때는 브라우저 화면 추측보다 `gh` CLI/API 결과를 우선한다.
+- sandbox 안의 `gh` 실패나 `gh auth status`의 invalid 결과는 인증 만료의 최종 근거가 아니다. 같은 명령을 sandbox 밖에서 재실행한 결과로만 인증 상태를 판정한다.
+- `EPERM`, keyring 접근 실패, 네트워크 차단은 `sandbox 실행 실패`로 보고하고, sandbox 밖 `gh auth status` 실패 또는 GitHub API의 `401`/명시적 credential 거부가 확인된 경우에만 `gh 인증 실패`로 보고한다.
+- `git fetch/push`와 `gh`는 서로 다른 credential을 사용할 수 있으므로 한쪽 성공/실패로 다른 쪽 인증 상태를 추정하지 않는다.
+- sandbox 밖 `gh` 재검증 전에는 브라우저 로그인이나 재인증을 사용자에게 요구하지 않는다.
 
 ### 외부 공유/메시지 SDK 리뷰 기준
 
