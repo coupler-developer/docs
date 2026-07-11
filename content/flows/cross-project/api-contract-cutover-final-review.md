@@ -16,9 +16,9 @@
 - 리뷰일: `2026-07-11`
 - 변경 유형: `코드+문서`
 - 판정 범위: `동시 배포 계약 묶음`
-- API: `coupler-api` PR [#107](https://github.com/coupler-developer/coupler-api/pull/107), commit `56f7a45`
-- Admin: `coupler-admin-web` PR [#54](https://github.com/coupler-developer/coupler-admin-web/pull/54), commit `d38f3c3`
-- Mobile: `coupler-mobile-app` PR [#156](https://github.com/coupler-developer/coupler-mobile-app/pull/156), commit `eda1a42`
+- API: `coupler-api` PR [#107](https://github.com/coupler-developer/coupler-api/pull/107), source commit `56f7a45`, merge commit `c872927`
+- Admin: `coupler-admin-web` PR [#54](https://github.com/coupler-developer/coupler-admin-web/pull/54), commit `04163e4`
+- Mobile: `coupler-mobile-app` PR [#156](https://github.com/coupler-developer/coupler-mobile-app/pull/156), commit `f3672b6`
 - Docs: `docs` PR [#53](https://github.com/coupler-developer/docs/pull/53), 이 문서와 직접 연결된 정책 변경
 - 직접 연결 문서:
     - [API 공통 응답 계약 정책](../../policy/api-response-contract-policy.md)
@@ -43,7 +43,7 @@
 | Mobile 요청 transport | `No Findings` | GET/DELETE query, POST/PUT JSON, upload multipart 및 관련 테스트 |
 | Admin 요청 transport | `No Findings` | GET/DELETE query, 일반 POST JSON, FormData boundary 자동 생성 |
 | Admin 일반 응답 경계 | `No Findings` | commit `d38f3c3`, `unknown -> isEnvelope -> data as T` 순서 |
-| Package 공개 runtime | `Finding` | API source `0.1.5`, Admin/Mobile 설치 version `0.1.4` 불일치 |
+| Package 공개 runtime | `No Findings` | 발행 및 소비 version `0.1.5` 정렬, 설치 runtime 실제 export gate 통과 |
 | URL-encoded client body | `No Findings` | Mobile serializer 제거, Swagger App write request JSON 수렴 |
 
 ## 검증
@@ -51,8 +51,8 @@
 | 레포 | 명령 | 결과 |
 | --- | --- | --- |
 | API | `pnpm lint && pnpm typecheck && pnpm format && pnpm check:contracts && pnpm pack:contracts && pnpm test:ci` | 통과, 102 suites / 851 tests |
-| Admin | `yarn lint && yarn typecheck && yarn format && CI=true yarn test:ci` | lint/typecheck/format 통과, 69 tests 통과 / package 공개 표면 gate 1건 실패 |
-| Mobile | `yarn lint && yarn typecheck && yarn format && yarn test:ci` | lint/typecheck/format 통과, 366 tests와 10 snapshots 통과 / package 공개 표면 gate 1건 실패 |
+| Admin | `yarn lint && yarn typecheck && yarn format && yarn test:ci` | 통과, 9 suites / 70 tests |
+| Mobile | `yarn lint && yarn typecheck && yarn format && yarn test:ci` | 통과, 51 suites / 367 tests / 10 snapshots |
 | Docs | `yarn validate:docs` | 통과 |
 
 ## 수정-리뷰 반복
@@ -62,6 +62,7 @@
 | 1 | Response runtime과 request transport 책임 분리 | 네 레포 표준 품질 게이트 | `Finding` | Package source/consumer version 불일치 |
 | 2 | 운영 legacy cutover와 동시 배포 계약 묶음 판정 분리 | `yarn validate:docs` | `Finding` | 운영 증빙은 제외됐으나 package 정렬 미완료 |
 | 3 | Admin 응답을 검증 전 `unknown`으로 유지하고 실제 package runtime export gate 추가 | API 통과, Admin/Mobile gate 의도적 실패 | `Finding` | `0.1.5` 미발행 및 소비자 `0.1.4` 고정 |
+| 4 | API #107 병합·`0.1.5` 발행 확인 후 Admin/Mobile exact dependency와 lockfile 정렬 | Admin/Mobile 전체 품질 게이트 | `No Findings` | 두 소비자의 설치 runtime export와 API package source 일치 |
 
 ## 판정
 
@@ -75,17 +76,17 @@
 | First-time Reader | `No Findings` | 대상 PR, commit, 제외 범위, merge 조건을 한 문서에서 확인 가능 |
 | Writing Quality / Style Editor | `No Findings` | 판정과 근거 중심으로 중복 제거 |
 | Domain Implementer | `No Findings` | API/Admin/Mobile별 실행 기준 명시 |
-| QA / Evidence Reviewer | `Finding` | 소비자 package 공개 표면 gate 실패 |
+| QA / Evidence Reviewer | `No Findings` | API와 두 소비자 전체 품질 게이트 통과 |
 | Lifecycle Owner | `No Findings` | URL-encoded parser 제거는 별도 기술 부채로 유지 |
-| 조건부 추가 관점 | `Finding` | 다중 레포 package version 정렬 미완료 |
-| Finding 병합 | `Finding` | 소비자 테스트 실패와 version 불일치를 `ACR-001` 하나로 병합 |
-| Exit Gate | `Finding` | 열린 Finding 1건 |
+| 조건부 추가 관점 | `No Findings` | 세 레포 package version과 실제 공개 runtime 정렬 완료 |
+| Finding 병합 | `No Findings` | `ACR-001` 해소, 새 Finding 없음 |
+| Exit Gate | `No Findings` | 열린 Finding 없음 |
 
 ## Findings
 
 | ID | 상태 | 관점 | 내용 | 근거 | 조치 |
 | --- | --- | --- | --- | --- | --- |
-| `ACR-001` | `열림` | QA / Evidence Reviewer, API 계약 | API package source는 `0.1.5`지만 Admin/Mobile dependency와 lockfile은 `0.1.4`이며 설치 runtime에 제거 대상 request validator와 branch helper가 남아 있다. | `coupler-api/packages/contracts/package.json`, 소비자 `package.json`/`yarn.lock`, Admin/Mobile package 공개 표면 gate | API #107 병합 후 `0.1.5` 발행을 확인하고 Admin/Mobile dependency와 lockfile을 갱신한 뒤 전체 품질 게이트와 동일 범위 재리뷰 수행 |
+| `ACR-001` | `닫힘` | QA / Evidence Reviewer, API 계약 | API package source와 Admin/Mobile dependency·lockfile을 `0.1.5`로 정렬하고 제거 대상 runtime export가 설치 package에서 사라진 것을 확인했다. | API #107 merge commit `c872927`, `0.1.5` tarball `a673c3d`, Admin `04163e4`, Mobile `f3672b6`, 두 소비자 전체 품질 게이트 | 완료 |
 
 ## 비차단 판정
 
@@ -102,13 +103,14 @@
 
 ## 결론
 
-- 마지막 수정 이후 검증: API와 Docs 통과, Admin/Mobile은 `ACR-001`을 정확히 차단하는 테스트 1건씩 실패
-- 열린 Finding: `ACR-001` 1건
-- Exit Gate: `Finding`
-- 최종 판정: `Finding`
-- merge 조건:
+- 마지막 수정 이후 검증: API와 Docs 통과, Admin/Mobile `0.1.5` 설치 상태 전체 품질 게이트 통과
+- 열린 Finding: 없음
+- Exit Gate: `No Findings`
+- 최종 판정: `No Findings`
+- 완료한 소비자 merge 전제조건:
     1. API #107 병합 및 `@coupler-developer/coupler-api-contracts@0.1.5` 발행 확인
     2. Admin/Mobile `package.json`과 `yarn.lock` exact version `0.1.5` 정렬
     3. Admin/Mobile 전체 품질 게이트 통과
-    4. 최종 비교 ref로 동일 범위 재리뷰 후 `No Findings` 갱신
-- 남은 위험: `0.1.4` 소비 상태에서 세 PR을 하나의 최종 계약 묶음으로 병합하면 package 공개 표면이 API source와 다르다.
+    4. 최종 비교 ref로 동일 범위 재리뷰 완료
+- 소비자 PR 상태: 코드와 계약 검증 기준 merge 전제조건 완료. 이 문서는 실제 merge 완료를 주장하지 않는다.
+- 남은 위험: 이번 동시 배포 계약 묶음 범위에서 확인된 위험 없음.
