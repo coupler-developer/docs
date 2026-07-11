@@ -175,6 +175,12 @@ cutover 배포 코드 기준:
     - `result_msg` 문자열 파싱, `error_context` 분기, 제거 조건 없는 호환 필드와 top-level 도메인 상태 `result_code`는 금지한다
     - 최종 계약 밖에 남은 legacy/cutover 부채는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`에서 추적한다
     - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 공통 응답 계약 정책과 API 에러 계약 정책을 따른다
+- **요청 transport는 JSON/multipart 단일 계약으로 수렴한다**
+    - Mobile/Admin의 body 없는 `GET`/`DELETE`는 query string, 일반 `POST`/`PUT` body는 JSON, upload body는 `multipart/form-data`로 고정한다
+    - `FormData`의 multipart boundary는 fetch/axios runtime이 생성하게 하고 `Content-Type` boundary를 수동 조립하지 않는다
+    - request method/path/media type 검증을 contracts package public runtime이나 request DTO로 승격하지 않는다
+    - Swagger request body, Mobile/Admin request boundary, API parser가 같은 JSON/multipart 계약을 가리켜야 한다
+    - API URL-encoded parser는 구버전 Mobile 운영 트래픽을 위한 호환 입력 경로로만 허용한다. 제거는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의 Legacy traffic Gate 충족 후 별도 cutover PR에서 수행한다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
     - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다

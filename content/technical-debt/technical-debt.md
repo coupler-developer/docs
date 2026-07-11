@@ -19,24 +19,41 @@
 
 ---
 
-## 1) API 전송 포맷 일관성 부족 `P1` `M`
+## 1) API URL-encoded 호환 parser 제거 대기 `P1` `S`
 
 현상
 
-- 일부 요청이 URL-encoded 기반으로 전송됨.
-- 배열/리스트는 문자열 포맷에 의존하는 구간이 존재함.
-- 일부 API 스펙은 배열 전송을 전제로 정의됨.
-- 이미지/리스트 데이터는 배열/문자열을 모두 처리하는 방어 로직이 일부 존재함.
+- Mobile canonical request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload multipart로 전환 중이다.
+- Admin canonical request와 Swagger app request body도 JSON/multipart 기준으로 수렴한다.
+- contracts package는 response/error runtime만 배포하고 request method/path/media type runtime 또는 request DTO를 노출하지 않는다.
+- API 프로세스에는 현재 운영 Mobile build `100`의 URL-encoded 요청을 수용하기 위한 `bodyParser.urlencoded(...)` parser가 남아 있다.
+- [2.2.5 릴리스 기록](../releases/v2.2.5.md)의 `min_version=100` 근거는 build `100` 자체를 차단하지 않으므로 parser 제거 조건으로 사용할 수 없다.
 
 영향
 
-- 클라/서버 포맷 불일치 위험.
-- 확장/디버깅 비용 증가.
+- canonical 계약 밖 URL-encoded 요청도 한시적으로 수용하므로 API 입력 경계가 완전히 폐쇄되지 않는다.
+- 운영 legacy traffic 근거 없이 parser를 제거하면 build `100` 사용자의 write API가 파싱되지 않을 수 있다.
 
 액션 후보
 
-- JSON 전송으로 통일.
-- 또는 URL-encoded에서 배열 인코딩 규칙을 명확히 정의.
+- Mobile JSON transport 변경을 Store 또는 NextPush Production에 배포한다.
+- 마지막 URL-encoded build보다 높은 `min_version`을 적용하고 `force_update=2`를 확인한다.
+- URL-encoded 요청 0건의 검증 기간, 로그 위치, 비교 ref를 릴리즈 기록에 남긴다.
+- 위 조건 충족 후 별도 API cutover PR에서 `bodyParser.urlencoded(...)`를 제거하고 JSON/multipart 핵심 요청을 재검증한다.
+
+호환 예외
+
+- owner: API/Mobile release owner
+- 제거 조건: Mobile JSON transport 운영 배포 + 마지막 URL-encoded build 강제 차단 + URL-encoded 요청 0건 확인
+- 목표 시점: 위 제거 조건 충족 직후 별도 API cutover PR
+- 추적 위치: 이 기술 부채 항목과 해당 API contract cutover 릴리즈 기록
+- 검증 근거: Mobile request transport 테스트, API Swagger 계약 테스트, 운영 `min_version/force_update` 및 request content-type 로그
+
+완료 기준
+
+- 운영 URL-encoded 요청 0건이 검증 범위/기간/로그와 함께 확인된다.
+- `coupler-api/app.ts`에서 URL-encoded parser가 제거된다.
+- Mobile JSON/multipart request와 API 핵심 write/upload 요청 검증이 통과한다.
 
 ---
 
