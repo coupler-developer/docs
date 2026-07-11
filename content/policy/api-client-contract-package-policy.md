@@ -9,7 +9,7 @@
 
 ## 목적
 
-`@coupler-developer/coupler-api-contracts`는 `coupler-api`에서 생성한 API/Admin/Mobile 공통 계약의 version pinning 및 runtime validation 장치다. 실제 Express route에서 operation의 method/path/request media type을 생성하고, 공통 응답 envelope/ErrorData runtime과 함께 배포해 서버 route와 소비자 request/response boundary의 drift를 즉시 드러낸다.
+`@coupler-developer/coupler-api-contracts`는 `coupler-api`에서 생성한 API/Admin/Mobile 공통 계약의 version pinning 및 runtime validation 장치다. 실제 Express route의 method/path와 body parser/multipart middleware 등록에서 request media type을 생성하고, 공통 응답 envelope/ErrorData runtime과 함께 배포해 서버 route와 소비자 request/response boundary의 drift를 즉시 드러낸다.
 
 ## 적용 범위
 
@@ -27,7 +27,7 @@
 
 - JSON API 성공/실패 envelope: [API 공통 응답 계약 정책](api-response-contract-policy.md)
 - 실패 `ErrorData`와 error taxonomy: [API 에러 계약 정책](api-error-contract-policy.md)
-- operation method/path/request media type: `coupler-api/app.ts`의 mount와 `coupler-api/routes/**`의 Express route registration
+- operation method/path/request media type: `coupler-api/app.ts`의 mount, JSON body parser, `coupler-api/routes/**`의 Express route와 multipart middleware registration
 - operation별 성공 `data` schema: Swagger/OpenAPI와 각 도메인 정책
 - package publish와 운영 배포 순서: [배포/릴리즈 프로세스](release-process.md)의 `Contracts Package Release`
 - API 계약 변경 cutover gate: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
@@ -71,7 +71,8 @@
 - Admin/Mobile이 package dependency와 lockfile로 전환되는 cutover PR에서는 legacy generated copy와 copy exact match 검증 CI를 함께 제거한다.
 - 발행된 package version은 재사용하지 않는다. 계약 산출물이 바뀌면 새 version을 발행하고 소비자 lockfile에 반영한다.
 - package의 public response/envelope 타입과 runtime guard는 strict `ErrorData` 실패 branch 하나만 사용하며 failure generic override를 노출하지 않는다.
-- `generated/apiContract.ts`는 Express-derived operation method/path/request media type과 Swagger success data map만 포함한다. 별도 envelope/error helper 타입을 두지 않는다.
+- `generated/apiContract.ts`는 Express-derived operation method/path, JSON parser/multipart middleware에서 파생한 request media type, Swagger success data map만 포함한다. URL 이름으로 media type을 추측하거나 별도 envelope/error helper 타입을 두지 않는다.
+- operation path는 실제 wire path인 `/app/**` 또는 `/admin/**` mount prefix를 포함한다. 소비자는 base URL 길이를 잘라 상대 path를 만들지 않고 최종 request URL의 pathname을 그대로 검증한다.
 - request media type은 body 없는 `GET`/`DELETE`, JSON write request, upload multipart 세 가지로 폐쇄한다. URL-encoded는 canonical client request contract에 포함하지 않는다.
 - Admin/Mobile request boundary는 package operation runtime으로 method/path/request media type을 fail-fast 검증한다. 플랫폼별 base URL, 인증 header, fetch/axios 실행만 소비자에 둔다.
 - Admin/Mobile response boundary는 package의 envelope runtime guard를 사용하며 같은 key/discriminator 검증을 로컬에 복제하지 않는다.
@@ -128,7 +129,7 @@
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
 - [ ] public response/envelope 타입과 runtime이 strict `ErrorData` 실패 branch 하나만 쓰는가?
-- [ ] `generated/apiContract.ts`가 Express-derived method/path/request media type과 success data map만 포함하는가?
+- [ ] `generated/apiContract.ts`가 Express-derived method/path, parser/middleware-derived request media type, success data map만 포함하는가?
 - [ ] Admin/Mobile request boundary가 package operation runtime으로 method/path/media type을 검증하는가?
 - [ ] Admin/Mobile response boundary가 package envelope runtime을 사용하고 로컬 key/discriminator guard를 복제하지 않는가?
 - [ ] API repo에서 `pnpm`/`pnpm-lock.yaml` 기준을 지키고 `package-lock.json`을 만들지 않았는가?
