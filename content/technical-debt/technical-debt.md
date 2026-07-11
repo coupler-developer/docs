@@ -604,3 +604,26 @@
 - Mobile/Admin feature code가 API 성공 응답 shape를 local cast, alias fallback, normalize로 보정하지 않고 generated DTO 또는 명시 ViewModel mapping만 사용한다.
 - 잔여 `unknown`/loose success data가 0건이거나, 예외 endpoint가 owner/제거 조건이 있는 별도 부채로 분리되어 있다.
 - 공통 envelope/error cutover 완료 판단과 success DTO 정리 완료 판단이 릴리즈 기록에서 분리되어 있다.
+
+---
+
+## 24) 로테이션 소개팅 1차 구현 미착수 `P1` `L`
+
+현상
+
+- [n대n 로테이션 소개팅 시스템](../architecture/rotation-meeting-system.md)에 1차 DB/API 기준은 확정했지만,
+  서비스 DB와 API/Admin/Mobile에는 아직 구현되지 않았다.
+- 13개 신규 테이블과 1개 VIEW의 additive migration SQL, dev/prod DB Migration Gate 증빙이 없다.
+- 로테이션 API 계약, Admin 운영 화면, Mobile 행사·채팅·후기 흐름과 통합 테스트가 없다.
+
+영향
+
+- architecture 문서만으로는 로테이션 소개팅 기능이 실행되지 않는다.
+- migration, 서버 권한·상태 전이, 클라이언트 계약을 서로 다른 기준으로 구현하면 중복 알림·중복 과금·
+  정원 초과와 개인정보 접근 회귀가 생길 수 있다.
+
+액션 후보
+
+- architecture의 13개 테이블과 1개 VIEW를 additive migration SQL로 작성하고 DB Migration Gate를 통과한다.
+- API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한 뒤 Admin과 Mobile을 연결한다.
+- 로테이션 전체 검증이 완료되면 이 항목을 삭제하고 구현·검증 근거는 PR과 릴리스 기록에 남긴다.

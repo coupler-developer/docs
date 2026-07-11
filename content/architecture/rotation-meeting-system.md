@@ -7,529 +7,765 @@
 - 충돌 시 우선 문서: [보안/접근통제 정책](../policy/security-access-control-policy.md), [결제 운영 정책](../policy/payment-ops-policy.md), [푸시알림 운영 정책](../policy/push-notification-policy.md), [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - 기준 성격: `to-be`
 
-이 문서는 2:2 그룹 미팅과 별도 도메인으로 구축할 n대n 로테이션 소개팅의 목표 구조를 정리한다.
-현재 구현은 없으며, 기존 2:2 미팅의 레이아웃과 운영 트리거를 참고하되 저장 구조와 API는 분리한다.
+제공된 화면 기획과 2026-07-08 기준 API/Admin/Mobile/DB를 대조한 1차 구현 기준이다.
+기존 2:2 그룹 미팅의 UI와 처리 패턴만 참고하고 `rotation` 도메인의 DB/API는 분리한다.
 
-## 목적
+## 확정 범위
 
-- 호스트가 행사 단위로 n대n 로테이션 소개팅을 생성하고, 회원 신청부터 승인, 체크인, 라운드 배정, 결과 공개까지 운영할 수 있는 별도 시스템을 정의한다.
+1차 범위는 `행사 생성 -> 모집 -> 신청 -> Admin 승인/거절 -> 참가 확정 -> 그룹 채팅 -> 종료 -> 후기`다.
 
-## 범위
+- 포함: 행사 목록/상세/내 모임, 긴 상세 이미지, 성별 정원, 신청/승인/거절, 미니프로필 열람,
+  그룹 채팅/unread, 행사·회원 신고, 후기와 Key 보상, 푸시, 운영 감사
+- 제외: 현장 체크인, 좌석/회전 라운드, 라운드별 호감 선택, 전역 회원 패널티, 외부 결제/정산
+- 호스트는 참가 정원에서 제외한다.
+- 남녀 정원은 각각 2명 이상 20명 이하로 고정한다.
+- 신청 자체에는 Key를 차감하지 않는다. 화면의 입금 확인은 외부 확인 후 Admin 승인으로 표현한다.
+- 사진 미공개 행사의 미니프로필은 기존 설정 `t_setting.id=16`, 사진 공개 행사의 사진프로필은
+  `t_setting.id=18`, 후기 보상은 `t_setting.id=20`의 서버 값을 사용한다. 거래 row에는 실제 적용한
+  값을 `t_member_key_log.key/key_total`로 남기며 클라이언트가 보낸 Key 값은 사용하지 않는다.
+- 참가 확정은 남녀 승인 인원이 각각 2명 이상이고 모든 대기 신청을 처리한 뒤 Admin이 수행한다.
+  확정 transaction에서 채팅방을 연다.
+- Admin CMS의 운영 목적 프로필 조회는 무료이며 감사 로그를 남긴다. Mobile에서는 호스트와 승인
+  참가자 모두 다른 회원의 프로필을 최초 열람할 때 Key를 차감한다.
 
-- 포함 범위:
-    - 호스트 Admin 계정과 모바일 회원 계정의 연결
-    - 행사 생성, 신청, 승인, 대기, 취소, 체크인, 라운드 배정, 결과 공개
-    - Admin 운영 화면, Mobile 사용자 화면, API, DB, 푸시 알림
-    - 참가 신청과 승인 흐름의 키 과금 기준
-- 제외 범위:
-    - 2:2 그룹 미팅의 기존 DB/API 상태 변경
-    - 오프라인 현장 결제, 외부 티켓팅 연동, 좌석 QR 시스템
-    - 호스트 정산, 매출 쉐어, 외부 파트너 계약 관리
+## 기존 구조 재사용 기준
 
-## 상위 규범 문서
-
-- 권한, 호스트 계정 연결, 운영 액션 감사 기준은 [보안/접근통제 정책](../policy/security-access-control-policy.md)을 따른다.
-- 키 차감, 환불, 키 로그 기준은 [결제 운영 정책](../policy/payment-ops-policy.md)을 따른다.
-- 푸시 타입, 중복 발송 방지, 알림 저장 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)을 따른다.
-- 회원 프로필, 연락처, 운영 로그 같은 데이터 분류와 접근 통제는 [데이터 거버넌스 정책](../policy/data-governance-policy.md)을 따른다.
-- 사용자 노출 용어는 [서비스 용어 정책](../policy/service-terminology-policy.md)을 따른다.
-
-## 기본 방향
-
-### 1) 2:2 미팅과 분리
-
-- 기존 [미팅 시스템](meeting-system.md)은 2:2 그룹 미팅의 as-is 구조로 유지한다.
-- 로테이션 소개팅은 `rotation` 도메인으로 분리하고 `t_meeting`, `t_meeting_member`, `/meeting/*` API를 재사용하지 않는다.
-- 화면 레이아웃, 리스트 테이블, 상세 팝업, 푸시 발송 helper 같은 구현 패턴은 참고할 수 있다.
-- 2:2 미팅 데이터를 백업해서 전환하는 방식이 아니라, 신규 테이블과 API를 additive로 추가한다.
-
-### 2) 호스트는 Admin 계정으로만 운영
-
-- 행사 생성, 신청자 승인, 체크인 확정, 라운드 시작, 결과 공개는 Admin 권한에서만 수행한다.
-- 호스트가 모바일 회원으로도 존재하는 경우를 위해 Admin 계정과 모바일 회원 계정의 연결 테이블을 둔다.
-- 기존 `t_member_manager_assignment`는 클럽매니저 담당 배정 책임이므로 호스트 신원 연결에 사용하지 않는다.
-
-### 3) 신청자 수신 시 호스트 무과금
-
-- 참가 신청이 들어오거나 신청자를 승인할 때 호스트 모바일 계정의 키를 차감하지 않는다.
-- 호스트 관련 과금/정산은 이 문서의 MVP 범위 밖이다.
-- 참가자 키 과금은 승인 또는 체크인 시점 중 하나로 고정해야 하며, MVP 권장값은 `승인 시 차감, 거절/행사 취소 시 환불`이다.
-
-### 4) 푸시는 트리거만 재사용
-
-- 기존 2:2 미팅 푸시 흐름은 신청, 승인, 확정, 채팅/상세 갱신 트리거를 참고한다.
-- FCM 타입 ID와 i18n key는 `ROTATION_*`, `push.rotation_*`로 새로 추가한다.
-- 알림 문구는 2:2 문구를 초안으로 참고할 수 있지만, 로테이션 행사 맥락에 맞게 별도 문구로 저장한다.
-
-### 5) 백업/전환 안전장치
-
-- 2:2 미팅을 로테이션 소개팅으로 변환하지 않는다.
-- DB 변경은 `t_rotation_*` 신규 테이블 추가 중심으로 진행하고, 기존 `t_meeting_*` 테이블 변경은 MVP 범위에서 제외한다.
-- 운영 DB 반영 전 백업과 검증은 [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)에 따른다.
-
-### 6) 현 DB 구조 반영 기준
-
-- 기존 Admin 계정은 `t_admin`, 클럽매니저 프로필은 `t_manager`, 회원-클럽매니저 배정은 `t_member_manager_assignment`가 담당한다.
-- 로테이션 호스트는 클럽매니저 배정과 다른 책임이므로 `t_rotation_host`에서 `t_admin.id`와 `t_member.id`를 직접 연결한다.
-- 기존 알림 저장소 `t_alarm`은 `member` FK 기준이므로 호스트 FCM은 `t_rotation_host.member_id`로 보낸다.
-- Admin Web의 신청자 알림은 `t_alarm`에 저장하지 않고, `t_rotation_application`의 대기 건수 집계로 노출한다.
-- 기존 키 변동 원장은 `t_member_key_log`지만 행사/신청 FK가 없으므로, 로테이션 과금 추적은 `t_rotation_key_ledger`를 추가해 보완한다.
-
-## 구성요소
-
-| 구성요소 | 책임 |
+| 대상 | 판정 |
 | --- | --- |
-| Rotation Host | Admin 계정과 모바일 회원 계정 연결, 호스트 활성/비활성 관리 |
-| Rotation Event | 행사 기본 정보, 모집 정원, 상태, 장소, 라운드 설정 관리 |
-| Rotation Application | 참가 신청, 승인, 대기, 거절, 취소, 환불 기준 상태 관리 |
-| Rotation Participant | 최종 참가자, 체크인, 노쇼, 완료 상태 관리 |
-| Rotation Round | 라운드 번호, 시작/종료 시간, 진행 상태 관리 |
-| Rotation Assignment | 라운드별 테이블, 좌석, 상대 배정 관리 |
-| Rotation Interest | 라운드 후 호감 선택과 상호 매칭 결과 관리 |
-| Rotation Key Ledger | 참가자 키 차감/환불과 원천 신청/행사 연결 |
-| Admin Rotation UI | 행사 생성, 신청자 승인, 체크인, 라운드 시작/종료, 결과 공개 운영 |
-| Mobile Rotation UI | 행사 목록, 상세, 신청, 승인 상태, 체크인, 현재 라운드, 결과 확인 |
-| Push Dispatcher | 신청/승인/체크인/라운드/결과 이벤트 알림 발송 |
+| `t_meeting*`, `/meeting/*`, `MEET_*` FCM | 데이터/상태/타입 재사용 금지 |
+| `t_member`, 승인 프로필 | 회원 조회 SoT로 재사용 |
+| `t_admin` | Admin 인증 주체로 재사용 |
+| 매니저 긴 이미지 처리 | upload/polling/worker/slice 코드 패턴 재사용 |
+| `t_manager_detail_profile_*` | 매니저 FK이므로 행사 row 저장 금지 |
+| `t_member_key_log` | 전체 Key 원장으로 함께 기록 |
+| `t_alarm` | 로테이션 알림도 기존 수신자/type/content/target 구조로 저장 |
 
-## 코드 / 파일 배치 계획
+## DB 공통 기준
 
-로테이션 소개팅은 같은 레포 안에서 별도 도메인 파일로 분리한다.
-2:2 미팅 파일을 직접 확장하지 않고, 필요한 UI 패턴만 복제해 `rotation` 이름으로 새 파일을 둔다.
+- 신규 테이블은 MySQL 8.4.9와 MariaDB 10.6.24 공통 DDL만 사용하고 모든 `CREATE TABLE` 끝에
+  `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`를 명시한다.
+- PK/FK는 기존 스키마와 `t_alarm.target`에 맞춰 signed `INT AUTO_INCREMENT`를 사용한다. 1차 범위에는
+  21억 건을 넘는 단일 테이블이 없으므로 `BIGINT`를 선반영하지 않는다.
+- 행사/신청/채팅 같은 비즈니스 상태는 `TINYINT`와 서버 enum을 1:1로 고정한다. 긴 이미지 worker 상태만
+  재사용 코드와 맞춰 폐쇄형 ASCII `VARCHAR(20)`을 사용한다.
+- `created_at`은 `DEFAULT CURRENT_TIMESTAMP`, `updated_at`은
+  `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`를 사용한다.
+- `client_message_id`, `*_idempotency_key`, action/status 문자열은
+  `CHARACTER SET ascii COLLATE ascii_bin`으로 저장해 대소문자/locale 비교 차이를 막는다.
+- host/event/application/chat/profile view/review/report/action log는 hard delete하지 않는다. event mood는
+  DRAFT 편집 중 교체할 수 있고 media version/slice만 아래 cleanup 기준에 따라 정리할 수 있다.
+- 회원/Admin 삭제 뒤에도 운영 기록이 필요한 FK는 nullable + `ON DELETE SET NULL`을 사용한다.
+- 상태 변경, Key 변경, 채팅방 개설까지만 원천 transaction에서 수행한다. 알림은 commit 성공 후
+  `sendFCMPush()` 한 경로에서만 전송·저장하며 로테이션 코드가 `t_alarm`을 직접 insert하지 않는다.
+- 정원 승인은 행사 row를 `SELECT ... FOR UPDATE`로 잠그고 승인 수를 다시 집계한다.
+- 재전송 key는 행위 주체 범위의 UNIQUE로 멱등 처리한다. unique 충돌 시 같은 주체의 기존 성공 결과만
+  반환하고 다른 주체의 row를 반환하지 않는다.
 
-| 레포 | 신규 파일/디렉터리 방향 | 비고 |
+## 최종 테이블 구성
+
+필수 테이블은 13개다. 신청과 참가자를 분리하지 않고, 도메인별 상태 이력과 감사 로그를
+`t_rotation_action_log` 하나로 통합한다.
+
+| 번호 | 테이블 | 책임 |
 | --- | --- | --- |
-| coupler-api | `routes/app/v1/rotation.ts`, `controller/app/v1/rotation.ts`, `model/rotation_*.ts` | Mobile API |
-| coupler-api | `routes/admin/rotation.ts`, `controller/admin/rotation.ts` | Admin API |
-| coupler-api | `swagger/app/v1/rotation.yaml`, Admin Swagger 대상 | API 명세 |
-| coupler-admin-web | `src/pages/rotation/*` | 기존 `src/pages/meeting/*` 레이아웃 참고 |
-| coupler-mobile-app | `src/screens/rotation/*` | 기존 2:2 목록/상세 카드 레이아웃 참고 |
-| coupler-mobile-app | `src/utils/Common.tsx`, `src/constants/AppConstants.ts`의 `ROTATION_*` 분기 | 푸시 네비게이션 |
+| 1 | `t_rotation_host` | Admin과 호스트 회원 연결 |
+| 2 | `t_rotation_event` | 행사/모집/확정 생명주기 |
+| 3 | `t_rotation_event_mood` | 행사 분위기 다중값 정규화 |
+| 4 | `t_rotation_event_detail_image_version` | 긴 이미지 처리 버전 |
+| 5 | `t_rotation_event_detail_image_slice` | 긴 이미지 slice |
+| 6 | `t_rotation_application` | 신청과 참가 자격 SoT |
+| 7 | `t_rotation_chat_room` | 행사별 채팅방 식별자와 마지막 메시지 |
+| 8 | `t_rotation_chat_member` | 채팅 구성원 principal과 unread 경계 |
+| 9 | `t_rotation_chat_message` | 일반/시스템 메시지 |
+| 10 | `t_rotation_profile_view` | 미니/사진프로필 최초 열람과 과금 |
+| 11 | `t_rotation_review` | 종료 후기와 보상 snapshot |
+| 12 | `t_rotation_report` | 행사/회원 신고 |
+| 13 | `t_rotation_action_log` | 상태 변경과 운영 감사 통합 로그 |
 
-## 저장 구조 / 데이터 모델
+## 정규화 결정
 
-공통 기준:
+- 행사 분위기는 `event_mood` 관계 테이블로 분리해 한 컬럼에 다중 코드를 저장하지 않는다.
+- application의 gender/alias와 chat HOST alias snapshot은 현재 회원정보의 복제가 아니라 행사 당시
+  표시값을 보존하는 시간축 데이터다. 현재 프로필 SoT로 사용하지 않는다.
+- profile view는 대상 application을, review는 작성자 application을 직접 참조한다. 행사/대상 회원을
+  다시 저장하지 않고 application에서 조회한다.
+- 채팅방의 송신 가능 여부는 event.status, 참가자의 채팅 자격은 application.status에서 판정한다. 별도
+  room/member 상태와 퇴장 시각을 중복 저장하지 않는다.
+- profile view 종류와 Key 설정은 OPEN 뒤 불변인 event.photo_public에서 판정하므로 profile_type을
+  중복 저장하지 않는다.
+- chat member는 `application_id IS NULL`이면 HOST, 값이 있으면 PARTICIPANT로 판정해 role을 중복
+  저장하지 않는다. `host_room_id`는 방별 HOST 1명을 MySQL/MariaDB 공통 UNIQUE로 강제하기 위한
+  STORED generated column이며 API 데이터로 노출하지 않는다.
+- profile view/review는 적용된 기존 `t_member_key_log.id`를 직접 참조한다. 변동량/잔액을 별도
+  로테이션 원장에 중복 저장하지 않으며 각 원천 UNIQUE가 재처리 멱등성의 최종 DB guard다.
+- action log의 actor_id와 action/target_id는 삭제 후에도 남아야 하는 감사 snapshot이다.
+  비즈니스 관계 판정에는 사용하지 않고 event_id와 원천 테이블을 기준으로 판정한다.
+- report의 reporter/target member ID도 신고 당시 감사 snapshot으로 보존하며 회원 FK를 두지 않는다.
+  접수 시 회원/행사 관계를 server transaction에서 검증하고 회원 삭제 뒤에는 원천 회원과 다시 연결하지 않는다.
+- 화면 기획에 JSON 감사 상세나 가변 알림 payload 보관 요구가 없으므로 신규 JSON 컬럼은 만들지 않는다.
+  로테이션 알림은 기존 `t_alarm`의 type/content/target과 서버 FCM 상수를 사용한다.
 
-- 신규 PK는 기존 테이블 관례에 맞춰 `INT NOT NULL AUTO_INCREMENT`를 기본으로 한다.
-- 상태값은 기존 DB의 `tinyint` 상태 모델과 맞춰 `TINYINT NOT NULL`로 저장하고, 코드 상수에서 의미를 고정한다.
-- 날짜는 기존 DB 관례에 맞춰 `DATETIME`을 사용한다.
-- FK는 운영 삭제 정책을 먼저 확정한 뒤 `ON DELETE CASCADE` 또는 `ON DELETE RESTRICT`를 선택한다. MVP 권장값은 행사 하위 운영 데이터(`application`, `participant`, `round`, `assignment`, `interest`)는 `event_id` 기준 cascade 후보로 두되, 과금 원장인 `key_ledger`는 `RESTRICT` 또는 soft-delete 보존으로 둔다.
+### 기존 `t_alarm` 매핑
 
-### t_rotation_host
+- `member`: 수신 `t_member.id`
+- `type`: 충돌 검증을 마친 신규 `ROTATION_*` FCM type
+- `content`: type별 서버 i18n 문구를 확정해 저장
+- `target`: 행사/신청/후기 알림은 `t_rotation_event.id`, 채팅 알림은 `t_rotation_chat_room.id`
+- Mobile은 type으로 target 종류를 판정한다. 추가 route/payload 컬럼은 만들지 않는다.
+- application 상태 version, `client_message_id`, profile view/review UNIQUE 등으로 원천 write의 중복
+  반영을 막는다.
+  API는 신규 write가 실제 1건 commit된 경우에만 기존 `sendFCMPush()`를 한 번 호출한다.
+- `sendFCMPush()`가 FCM과 `t_alarm` 저장의 단일 책임자다. 로테이션 코드의 별도 `t_alarm` insert,
+  outbox/delivery/retry 테이블과 payload 컬럼은 만들지 않는다.
 
-| 필드 | 타입 | 설명 |
+## 테이블 정의
+
+### 1. `t_rotation_host`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| admin_id | INT | N | - | `t_admin.id` |
+| member_id | INT | Y | NULL | 호스트 Mobile 신원 |
+| status | TINYINT | N | 1 | 0=INACTIVE, 1=ACTIVE |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 생성 시각 |
+| updated_at | DATETIME | N | CURRENT_TIMESTAMP | 수정 시각 |
+
+- `UNIQUE(admin_id)`, `UNIQUE(member_id)`
+- 연결 시 `t_admin.super=0`인 파트너 Admin과 유효한 Mobile 회원인지 server에서 검증한다.
+- 호스트 회원 삭제 절차는 같은 transaction에서 host를 INACTIVE로 바꾼 뒤 회원을 삭제한다.
+- 연결/해제는 Super Admin만 수행하고 action log에 남긴다.
+
+### 2. `t_rotation_event`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| host_id | INT | N | - | `t_rotation_host.id` |
+| title | VARCHAR(255) | N | - | 행사명 |
+| thumbnail_path | VARCHAR(255) | N | - | 목록 이미지 상대경로 |
+| detail_text | TEXT | Y | NULL | 이미지 외 안내문 |
+| detail_image_version_id | INT | Y | NULL | 현재 ready 긴 이미지 |
+| event_at | DATETIME | N | - | 모임 일시 |
+| application_close_at | DATETIME | N | - | 신청 마감 시각 |
+| location | VARCHAR(255) | N | - | 장소 |
+| fee_amount | INT UNSIGNED | N | 0 | 화면 표시 회비, 0=없음 |
+| photo_public | TINYINT | N | 0 | 0=미니프로필, 1=사진 공개 |
+| male_capacity | TINYINT UNSIGNED | N | - | 남성 정원 2~20 |
+| female_capacity | TINYINT UNSIGNED | N | - | 여성 정원 2~20 |
+| status | TINYINT | N | 0 | 행사 상태 |
+| version | INT UNSIGNED | N | 1 | optimistic lock |
+| create_idempotency_key | VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin | N | - | 행사 생성 재전송 방지 |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 생성 시각 |
+| updated_at | DATETIME | N | CURRENT_TIMESTAMP | 수정 시각 |
+
+- `INDEX(status, created_at, id)`, `INDEX(status, application_close_at)`,
+  `INDEX(host_id, status, created_at, id)`
+- `UNIQUE(host_id, create_idempotency_key)`
+- 모집 시작은 별도 시각 컬럼 없이 `DRAFT -> OPEN` action log 시각으로 기록한다.
+- `OPEN` 이후 title, 일시, 장소, 정원, 사진 공개 여부 변경은 신청자 영향 때문에 금지한다.
+
+### 3. `t_rotation_event_mood`
+
+다중 분위기 코드를 event 문자열에 합치지 않고 관계 row로 저장한다.
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| event_id | INT | N | - | 행사 |
+| mood_code | TINYINT UNSIGNED | N | - | 기존 `MEET_MOOD` 코드 1~6 |
+
+- `PRIMARY KEY(event_id, mood_code)`
+
+### 4. `t_rotation_event_detail_image_version`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| event_id | INT | Y | NULL | draft는 null, attach 후 행사 ID |
+| source_image_path | VARCHAR(255) | N | - | 원본 상대경로 |
+| source_width | INT UNSIGNED | N | - | 원본 폭 |
+| source_height | INT UNSIGNED | N | - | 원본 높이 |
+| target_width | INT UNSIGNED | N | 1080 | 변환 폭 |
+| slice_height | INT UNSIGNED | N | 2048 | slice 기준 높이 |
+| slice_count | INT UNSIGNED | N | 0 | slice 수 |
+| total_bytes | BIGINT | N | 0 | slice 총 byte, 기존 매니저 worker 타입과 동일 |
+| status | VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin | N | 'pending' | pending/processing/ready/failed/discarded |
+| error_message | VARCHAR(255) | Y | NULL | 실패 사유 |
+| created_by_admin_id | INT | Y | NULL | 업로드 Admin |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 생성 시각 |
+| processing_started_at | DATETIME | Y | NULL | worker 시작 |
+| completed_at | DATETIME | Y | NULL | 완료/실패 시각 |
+
+- `UNIQUE(id, event_id)`, `INDEX(event_id, created_at)`, `INDEX(status, created_at)`
+- 신규 upload는 `created_by_admin_id`를 반드시 채운다. nullable은 Admin 삭제 시
+  `ON DELETE SET NULL`을 허용하기 위한 보관 예외다.
+- ready version만 행사에 attach한다. attach 시 `event_id`를 동시에 설정한다.
+- ready 전환 transaction에서 slice_index가 0부터 `slice_count - 1`까지 연속인지,
+  `slice_count = COUNT(slice)`, `total_bytes = SUM(slice.byte_size)`인지 검증한다.
+- 교체/clear된 이전 version은 discarded로 바꾸고 파일 cleanup 대상으로 처리한다.
+
+### 5. `t_rotation_event_detail_image_slice`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| version_id | INT | N | - | 이미지 version |
+| slice_index | INT UNSIGNED | N | - | 0부터 시작하는 순서 |
+| image_path | VARCHAR(255) | N | - | WebP 상대경로 |
+| width | INT UNSIGNED | N | - | 폭 |
+| height | INT UNSIGNED | N | - | 높이 |
+| byte_size | INT UNSIGNED | N | - | byte 크기 |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 생성 시각 |
+
+- `UNIQUE(version_id, slice_index)`
+
+### 6. `t_rotation_application`
+
+신청과 승인 후 참가 자격을 한 row로 관리한다.
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| event_id | INT | N | - | 행사 |
+| member_id | INT | Y | NULL | 신청 회원 |
+| gender_snapshot | CHAR(1) CHARACTER SET ascii COLLATE ascii_bin | N | - | 신청 시 M/F |
+| alias_snapshot | VARCHAR(255) | N | - | 행사 표시 별칭 |
+| status | TINYINT | N | 0 | 신청 상태 |
+| version | INT UNSIGNED | N | 1 | 동시 승인 방지 |
+| approved_at | DATETIME | Y | NULL | 승인 시각 |
+| left_at | DATETIME | Y | NULL | 승인 후 퇴장 시각 |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 신청 시각 |
+| updated_at | DATETIME | N | CURRENT_TIMESTAMP | 상태 변경 시각 |
+
+- `UNIQUE(event_id, member_id)`
+- `INDEX(event_id, status, gender_snapshot)`, `INDEX(member_id, status, event_id)`
+- 신규 신청의 `member_id`는 반드시 채운다. nullable은 회원 개인정보 삭제 후 신청 이력을 보존하기 위한
+  `ON DELETE SET NULL` 예외다.
+- 승인/거절/취소/퇴장 사유와 actor는 같은 transaction의 action log에 기록한다.
+- 행사 CONFIRMED 이후 신규 승인/거절과 신청 재개를 금지한다.
+
+### 7. `t_rotation_chat_room`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| event_id | INT | N | - | 행사 |
+| last_message_id | INT | Y | NULL | 마지막 메시지 |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 개설 시각 |
+
+- `UNIQUE(event_id)`
+- 행사 CONFIRMED transaction에서 한 번만 생성한다. 송신 가능 상태는 event CONFIRMED만 허용하며
+  FINISHED/CANCELED는 event 상태만으로 읽기 전용 종료를 판정한다.
+
+### 8. `t_rotation_chat_member`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| room_id | INT | N | - | 채팅방 |
+| application_id | INT | Y | NULL | 참가자는 신청 ID, 호스트는 null |
+| host_room_id | INT GENERATED ALWAYS AS (CASE WHEN application_id IS NULL THEN room_id ELSE NULL END) STORED | Y | GENERATED | 방별 HOST 1명 제약용 |
+| host_alias_snapshot | VARCHAR(255) | Y | NULL | HOST의 채팅 표시 별칭 |
+| last_read_message_id | INT | Y | NULL | unread 경계 |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 구성원 생성 시각 |
+
+- `UNIQUE(application_id)`, `UNIQUE(host_room_id)`, `INDEX(room_id, id)`
+- 호스트 row는 `application_id IS NULL`이고 host alias를 snapshot으로 저장한다. 참가자 row는 생성 시
+  APPROVED application을 참조하고 이후 application이 LEFT가 되어도 메시지 표시 이력 때문에 보존한다.
+  회원과 표시 별칭은 application에서 조회한다.
+- HOST의 송신 자격은 event의 ACTIVE host 연결, 참가자의 송신 자격은 현재 APPROVED application에서
+  판정한다. LEFT application의 chat member는 읽기·쓰기 자격 없이 이력으로만 남는다.
+- unread 수는 같은 room의 정상 메시지 중 `id > COALESCE(last_read_message_id, 0)`인 건수로 계산한다.
+
+### 9. `t_rotation_chat_message`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| room_id | INT | N | - | 채팅방 |
+| sender_chat_member_id | INT | Y | NULL | 시스템 메시지는 null |
+| message_type | TINYINT | N | 0 | 0=TEXT, 1=JOIN, 2=LEAVE, 3=NOTICE |
+| content | TEXT | N | - | 메시지 |
+| client_message_id | VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin | Y | NULL | Mobile 재전송 키 |
+| status | TINYINT | N | 1 | 1=NORMAL, 2=ADMIN_DELETED |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 발송 시각 |
+
+- `INDEX(room_id, id)`, `UNIQUE(sender_chat_member_id, client_message_id)`
+- 삭제 actor/reason은 action log에 기록하며 메시지는 hard delete하지 않는다.
+
+### 10. `t_rotation_profile_view`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| viewer_member_id | INT | Y | NULL | 열람자 |
+| target_application_id | INT | N | - | 열람 대상 신청 |
+| member_key_log_id | INT | Y | NULL | 기존 Key 원장 ID |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 최초 열람 시각 |
+
+- `UNIQUE(viewer_member_id, target_application_id)`, `UNIQUE(member_key_log_id)`
+- 신규 열람 row의 `viewer_member_id`는 반드시 채운다. nullable은 회원 삭제 시 `ON DELETE SET NULL`을
+  허용하기 위한 보관 예외이며 null viewer로 신규 insert하지 않는다.
+- Mobile 호스트는 APPLIED/APPROVED 신청자를, APPROVED 참가자는 다른 APPROVED 참가자를 열람할 수
+  있으며 본인은 열람/과금 대상이 아니다.
+- target application의 event.photo_public=0이면 MINI/id16, 1이면 PHOTO/id18을 서버에서 선택한다.
+- 최초 열람 row, 회원 Key, 기존 Key 원장을 한 transaction에서 저장한다.
+- 신규 열람 row의 `member_key_log_id`는 반드시 채워서 commit한다. nullable은 회원 삭제로 기존 Key 로그가
+  cascade 삭제될 때 `ON DELETE SET NULL`을 허용하기 위한 보관 예외다.
+
+### 11. `t_rotation_review`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| application_id | INT | N | - | 작성자 신청 |
+| result | TINYINT | N | - | 1=GOOD, 2=BAD |
+| content | VARCHAR(1000) | Y | NULL | BAD는 필수, GOOD은 선택 |
+| member_key_log_id | INT | Y | NULL | 기존 Key 원장 ID |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 작성 시각 |
+
+- `UNIQUE(application_id)`, `UNIQUE(member_key_log_id)`
+- 후기, 회원 Key, 기존 Key 원장을 한 transaction에서 저장한다.
+- 신규 후기 row의 `member_key_log_id`는 반드시 채워서 commit한다. nullable은 회원 삭제로 기존 Key 로그가
+  cascade 삭제될 때 `ON DELETE SET NULL`을 허용하기 위한 보관 예외다.
+
+### 12. `t_rotation_report`
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| event_id | INT | N | - | 관련 행사 |
+| reporter_member_id | INT | N | - | 신고 당시 회원 ID snapshot |
+| target_member_id | INT | Y | NULL | 회원 신고 대상 |
+| reason_code | TINYINT | N | - | target null은 `BLAME_TYPE`, 값이 있으면 `BLAME_TYPE_CHAT` |
+| content | VARCHAR(1000) | Y | NULL | 기타 사유/상세 |
+| idempotency_key | VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin | N | - | 신고 접수 재전송 방지 |
+| status | TINYINT | N | 0 | 0=PENDING, 1=RESOLVED, 2=DISMISSED |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 접수 시각 |
+
+- `UNIQUE(reporter_member_id, idempotency_key)`, `INDEX(status, created_at)`,
+  `INDEX(event_id, target_member_id)`
+- 신고 처리는 Super Admin만 수행하며 처리자·사유·처리 시각은 같은 transaction의 action log에만 남긴다.
+
+### 13. `t_rotation_action_log`
+
+별도 도메인별 상태 history를 만들지 않고 운영 감사와 상태 이력을 합친다.
+
+| 컬럼 | 타입 | Null | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| id | INT | N | AUTO_INCREMENT | PK |
+| event_id | INT | Y | NULL | 관련 행사 |
+| actor_type | TINYINT | N | - | 1=MEMBER, 2=ADMIN, 3=SYSTEM |
+| actor_id | INT | Y | NULL | MEMBER/ADMIN 내부 ID, SYSTEM은 null |
+| action | VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin | N | - | 폐쇄형 서버 상수 |
+| target_id | INT | N | - | action이 가리키는 대상 ID |
+| from_status | TINYINT | Y | NULL | 상태 변경 전 |
+| to_status | TINYINT | Y | NULL | 상태 변경 후 |
+| reason | VARCHAR(500) | Y | NULL | 승인/거절/취소/삭제 등 사유 |
+| request_id | VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin | N | - | 서버 요청 추적 ID |
+| created_at | DATETIME | N | CURRENT_TIMESTAMP | 발생 시각 |
+
+- `INDEX(event_id, created_at)`, `INDEX(action, target_id, id)`, `INDEX(request_id)`
+- action은 아래 목록만 허용하며 대상 종류도 함께 고정한다.
+
+| 대상 | 허용 action |
+| --- | --- |
+| HOST | `HOST_CREATED`, `HOST_ACTIVATED`, `HOST_DEACTIVATED` |
+| EVENT | `EVENT_CREATED`, `EVENT_UPDATED`, `EVENT_OPENED`, `EVENT_CLOSED`, `EVENT_CONFIRMED`, `EVENT_FINISHED`, `EVENT_CANCELED`, `EVENT_DELETED` |
+| APPLICATION | `APPLICATION_APPROVED`, `APPLICATION_REJECTED`, `APPLICATION_CANCELED`, `APPLICATION_LEFT` |
+| REPORT | `REPORT_RESOLVED`, `REPORT_DISMISSED` |
+| MESSAGE | `MESSAGE_ADMIN_DELETED` |
+| MEMBER | `ADMIN_PROFILE_VIEWED` |
+| DETAIL_IMAGE_VERSION | `DETAIL_IMAGE_ATTACHED`, `DETAIL_IMAGE_DISCARDED` |
+
+- `HOST_ACTIVATED/DEACTIVATED`, EVENT/APPLICATION/REPORT의 상태 전이 action과
+  `MESSAGE_ADMIN_DELETED`는 from/to를 모두 기록하고 서로 다른 값이어야 한다. 생성·일반 수정·조회 및
+  문자열 상태를 쓰는 detail image action은 둘 다 null로 둔다.
+- 회원 신청처럼 별도 사유가 없는 MEMBER 동작은 reason을 null로 둘 수 있다. ADMIN/SYSTEM action은
+  상위 보안·데이터 정책에 따라 사용자 입력 또는 서버 고정 사유를 필수로 기록한다.
+- request_id는 클라이언트 입력이 아니라 API 요청 또는 서버 job 실행 컨텍스트에서 생성해 모든 action log에
+  저장한다.
+
+## FK와 삭제 정책
+
+| 자식 컬럼 | 부모 | ON DELETE |
 | --- | --- | --- |
-| id | INT | 호스트 연결 PK |
-| admin_id | INT | `t_admin.id` |
-| member_id | INT | `t_member.id` |
-| status | TINYINT | 1=활성, 0=비활성 |
-| create_date | DATETIME | 생성 시각 |
-| edit_date | DATETIME NULL | 수정 시각 |
+| host.admin_id | `t_admin.id` | RESTRICT |
+| host.member_id | `t_member.id` | SET NULL |
+| event.host_id | host.id | RESTRICT |
+| event mood.event_id | event.id | RESTRICT |
+| detail version.event_id | event.id | SET NULL |
+| detail version.created_by_admin_id | `t_admin.id` | SET NULL |
+| detail slice.version_id | detail version.id | CASCADE |
+| application.event_id | event.id | RESTRICT |
+| application.member_id | `t_member.id` | SET NULL |
+| chat room.event_id | event.id | RESTRICT |
+| chat member.room_id | chat room.id | RESTRICT |
+| chat member.application_id | application.id | RESTRICT |
+| chat message.room_id | chat room.id | RESTRICT |
+| chat message.sender_chat_member_id | chat member.id | RESTRICT |
+| profile view.viewer_member_id | `t_member.id` | SET NULL |
+| profile view.target_application_id | application.id | RESTRICT |
+| profile view.member_key_log_id | `t_member_key_log.id` | SET NULL |
+| review.application_id | application.id | RESTRICT |
+| review.member_key_log_id | `t_member_key_log.id` | SET NULL |
+| report.event_id | event.id | RESTRICT |
+| action log.event_id | event.id | RESTRICT |
 
-제약:
+모든 FK의 `ON UPDATE`는 `RESTRICT`로 고정한다. PK 변경으로 관계를 이동하지 않는다.
 
-- `admin_id`는 유일해야 한다.
-- `member_id`는 유일해야 한다.
-- 연결 생성과 해제는 Super Admin만 수행한다.
-- API는 `admin_id`가 `t_admin.super = 0`인 호스트 계정인지 확인한다. Super Admin 계정은 운영자이며 호스트 연결 대상이 아니다.
+순환 참조는 테이블 생성 뒤 `ALTER TABLE`로 추가한다.
 
-### t_rotation_event
+- event의 `(detail_image_version_id, id)` -> detail version의 `(id, event_id)`, `ON DELETE RESTRICT`
+- chat room의 `last_message_id` -> chat message.id, `ON DELETE SET NULL`
+- chat member의 `last_read_message_id` -> chat message.id, `ON DELETE SET NULL`
 
-| 필드 | 타입 | 설명 |
+## DDL CHECK 제약
+
+아래 조건은 API validation에만 두지 않고 MySQL 8.4/MariaDB 10.6 공통 `CHECK`로도 생성한다.
+
+| 테이블 | CHECK |
+| --- | --- |
+| host | `status IN (0,1) AND (status = 0 OR member_id IS NOT NULL)` |
+| event | `status IN (-2,-1,0,1,2,3,4) AND version > 0 AND application_close_at <= event_at AND photo_public IN (0,1) AND male_capacity BETWEEN 2 AND 20 AND female_capacity BETWEEN 2 AND 20 AND CHAR_LENGTH(TRIM(title)) > 0 AND CHAR_LENGTH(TRIM(thumbnail_path)) > 0 AND CHAR_LENGTH(TRIM(location)) > 0 AND CHAR_LENGTH(TRIM(create_idempotency_key)) > 0` |
+| event mood | `mood_code BETWEEN 1 AND 6` |
+| detail version | `CHAR_LENGTH(TRIM(source_image_path)) > 0 AND source_width > 0 AND source_height > 0 AND target_width > 0 AND slice_height > 0 AND total_bytes >= 0 AND ((status = 'pending' AND processing_started_at IS NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'processing' AND processing_started_at IS NOT NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'ready' AND processing_started_at IS NOT NULL AND completed_at IS NOT NULL AND error_message IS NULL AND slice_count > 0 AND total_bytes > 0) OR (status IN ('failed','discarded') AND completed_at IS NOT NULL AND error_message IS NOT NULL AND CHAR_LENGTH(TRIM(error_message)) > 0)) AND (processing_started_at IS NULL OR processing_started_at >= created_at) AND (completed_at IS NULL OR completed_at >= COALESCE(processing_started_at, created_at))` |
+| detail slice | `CHAR_LENGTH(TRIM(image_path)) > 0 AND width > 0 AND height > 0 AND byte_size > 0` |
+| application | `gender_snapshot IN ('M','F') AND CHAR_LENGTH(TRIM(alias_snapshot)) > 0 AND version > 0 AND status IN (-3,-2,-1,0,1) AND ((status IN (-2,-1,0) AND approved_at IS NULL AND left_at IS NULL) OR (status = 1 AND approved_at IS NOT NULL AND left_at IS NULL) OR (status = -3 AND approved_at IS NOT NULL AND left_at IS NOT NULL AND left_at >= approved_at))` |
+| chat member | `(application_id IS NULL AND host_room_id = room_id AND host_alias_snapshot IS NOT NULL AND CHAR_LENGTH(TRIM(host_alias_snapshot)) > 0) OR (application_id IS NOT NULL AND host_room_id IS NULL AND host_alias_snapshot IS NULL)` |
+| chat message | `message_type IN (0,1,2,3) AND status IN (1,2) AND CHAR_LENGTH(TRIM(content)) > 0 AND ((message_type = 0 AND sender_chat_member_id IS NOT NULL AND client_message_id IS NOT NULL AND CHAR_LENGTH(TRIM(client_message_id)) > 0) OR (message_type IN (1,2,3) AND sender_chat_member_id IS NULL AND client_message_id IS NULL))` |
+| review | `result IN (1,2) AND (result = 1 OR (content IS NOT NULL AND CHAR_LENGTH(TRIM(content)) > 0))` |
+| report | `status IN (0,1,2) AND reporter_member_id > 0 AND CHAR_LENGTH(TRIM(idempotency_key)) > 0 AND ((target_member_id IS NULL AND reason_code BETWEEN 1 AND 6) OR (target_member_id IS NOT NULL AND target_member_id > 0 AND target_member_id <> reporter_member_id AND reason_code IN (1,2,3,4,6))) AND (reason_code <> 6 OR (content IS NOT NULL AND CHAR_LENGTH(TRIM(content)) > 0))` |
+| action log 공통 | `actor_type IN (1,2,3) AND target_id > 0 AND CHAR_LENGTH(TRIM(action)) > 0 AND CHAR_LENGTH(TRIM(request_id)) > 0 AND ((actor_type IN (1,2) AND actor_id IS NOT NULL AND actor_id > 0) OR (actor_type = 3 AND actor_id IS NULL)) AND (actor_type = 1 OR (reason IS NOT NULL AND CHAR_LENGTH(TRIM(reason)) > 0))` |
+
+action log에는 공통 CHECK와 함께 아래 폐쇄형 action CHECK를 추가한다. action 자체가 대상 테이블을
+유일하게 결정하므로 target_type은 저장하지 않는다.
+
+```sql
+action IN (
+  'HOST_CREATED','HOST_ACTIVATED','HOST_DEACTIVATED',
+  'EVENT_CREATED','EVENT_UPDATED','EVENT_OPENED','EVENT_CLOSED','EVENT_CONFIRMED',
+  'EVENT_FINISHED','EVENT_CANCELED','EVENT_DELETED',
+  'APPLICATION_APPROVED','APPLICATION_REJECTED','APPLICATION_CANCELED','APPLICATION_LEFT',
+  'REPORT_RESOLVED','REPORT_DISMISSED','MESSAGE_ADMIN_DELETED','ADMIN_PROFILE_VIEWED',
+  'DETAIL_IMAGE_ATTACHED','DETAIL_IMAGE_DISCARDED'
+)
+```
+
+action과 actor 종류도 DB에서 고정한다.
+
+```sql
+(actor_type = 1 AND action IN (
+  'APPLICATION_CANCELED','APPLICATION_LEFT'
+))
+OR (actor_type = 2 AND action IN (
+  'HOST_CREATED','HOST_ACTIVATED','HOST_DEACTIVATED',
+  'EVENT_CREATED','EVENT_UPDATED','EVENT_OPENED','EVENT_CLOSED','EVENT_CONFIRMED',
+  'EVENT_FINISHED','EVENT_CANCELED','EVENT_DELETED',
+  'APPLICATION_APPROVED','APPLICATION_REJECTED','REPORT_RESOLVED','REPORT_DISMISSED',
+  'MESSAGE_ADMIN_DELETED','ADMIN_PROFILE_VIEWED',
+  'DETAIL_IMAGE_ATTACHED','DETAIL_IMAGE_DISCARDED'
+))
+OR (actor_type = 3 AND action IN ('EVENT_CLOSED','EVENT_FINISHED'))
+```
+
+상태 전이 action의 정확한 from/to와 비상태 action의 null 조합도 별도 CHECK로 고정한다.
+
+```sql
+(action = 'HOST_ACTIVATED' AND from_status = 0 AND to_status = 1)
+OR (action = 'HOST_DEACTIVATED' AND from_status = 1 AND to_status = 0)
+OR (action = 'EVENT_OPENED' AND from_status = 0 AND to_status = 1)
+OR (action = 'EVENT_CLOSED' AND from_status = 1 AND to_status = 2)
+OR (action = 'EVENT_CONFIRMED' AND from_status = 2 AND to_status = 3)
+OR (action = 'EVENT_FINISHED' AND from_status = 3 AND to_status = 4)
+OR (action = 'EVENT_CANCELED' AND from_status IN (1,2,3) AND to_status = -1)
+OR (action = 'EVENT_DELETED' AND from_status = 0 AND to_status = -2)
+OR (action = 'APPLICATION_APPROVED' AND from_status = 0 AND to_status = 1)
+OR (action = 'APPLICATION_REJECTED' AND from_status = 0 AND to_status = -1)
+OR (action = 'APPLICATION_CANCELED' AND from_status = 0 AND to_status = -2)
+OR (action = 'APPLICATION_LEFT' AND from_status = 1 AND to_status = -3)
+OR (action = 'REPORT_RESOLVED' AND from_status = 0 AND to_status = 1)
+OR (action = 'REPORT_DISMISSED' AND from_status = 0 AND to_status = 2)
+OR (action = 'MESSAGE_ADMIN_DELETED' AND from_status = 1 AND to_status = 2)
+OR (action IN (
+  'HOST_CREATED','EVENT_CREATED','EVENT_UPDATED','ADMIN_PROFILE_VIEWED',
+  'DETAIL_IMAGE_ATTACHED','DETAIL_IMAGE_DISCARDED'
+) AND from_status IS NULL AND to_status IS NULL)
+```
+
+event 연결 CHECK는 HOST action만 event_id가 null이고, 분리된 이미지 폐기는 null을 허용하며 나머지 action은
+event_id를 필수로 갖도록 한다.
+
+```sql
+(action IN ('HOST_CREATED','HOST_ACTIVATED','HOST_DEACTIVATED') AND event_id IS NULL)
+OR (action = 'DETAIL_IMAGE_DISCARDED')
+OR (action NOT IN ('HOST_CREATED','HOST_ACTIVATED','HOST_DEACTIVATED','DETAIL_IMAGE_DISCARDED')
+    AND event_id IS NOT NULL)
+```
+
+EVENT action은 target_id와 event_id가 같은 행사인지 DB CHECK로도 고정한다.
+
+```sql
+action NOT IN (
+  'EVENT_CREATED','EVENT_UPDATED','EVENT_OPENED','EVENT_CLOSED','EVENT_CONFIRMED',
+  'EVENT_FINISHED','EVENT_CANCELED','EVENT_DELETED'
+) OR target_id = event_id
+```
+
+chat member 생성 시 application이 실제 APPROVED인지, 보존 중에는 APPROVED/LEFT인지, room/application의
+event가 같은지 같은 교차 row 조건은 CHECK로 표현하지 못하므로 같은 transaction의 lock 조회와 통합
+테스트로 강제한다. 같은 방식으로 detail version, last/last_read message, HOST 소유관계, profile view
+viewer/target application, review application과 report 대상의 event 일치도 및 `member_key_log_id`의
+회원/변동량이 잠근 회원과 서버 설정값에 일치하는지 검증한다.
+
+action log 저장 전에는 action이 가리키는 application/report/message/member가 event_id 소속인지, attach된
+detail version이 같은 event 소유인지 검증한다. 분리된 detail version 폐기는 created_by/요청 Admin 소유권을
+검증한다. MEMBER actor는 원천 application 회원과 같아야 하고, ADMIN actor는 event 소유 Admin 또는 해당
+action에 필요한 Super Admin 권한을 가져야 한다. SYSTEM actor는 허용된 job action과 서버 job identity를
+검증한 경우만 허용한다.
+
+## 변경 허용 범위
+
+- `t_rotation_action_log`, `t_rotation_profile_view`는 business append-only다. 개인정보/부모 row 정리로
+  nullable FK가 `ON DELETE SET NULL` 되는 변경만 예외다.
+- `t_rotation_review`는 business 수정/삭제를 금지하고 개인정보 정리 시 content를 비식별 문구로
+  바꾸는 것만 허용한다.
+- `t_rotation_chat_message`는 insert 후 Admin 삭제 시 `status`만 변경한다. 회원 개인정보 정리 시의
+  content 비식별화만 예외로 허용한다.
+- `t_rotation_report`는 status와 개인정보 정리 시의 자유문 비식별화만 변경한다.
+- event/application의 상태와 version은 상태 전이 service만 갱신한다.
+
+## 데이터 분류와 보관
+
+| 분류 | 대상 | 접근/보관 기준 |
 | --- | --- | --- |
-| id | INT | 행사 PK |
-| host_id | INT | `t_rotation_host.id` |
-| title | VARCHAR(255) | 행사 제목 |
-| location | VARCHAR(255) | 행사 장소 |
-| event_date | DATETIME | 행사 일시 |
-| application_open_at | DATETIME | 신청 오픈 시각 |
-| application_close_at | DATETIME | 신청 마감 시각 |
-| male_capacity | TINYINT UNSIGNED | 남성 정원 |
-| female_capacity | TINYINT UNSIGNED | 여성 정원 |
-| round_count | TINYINT UNSIGNED | 라운드 수 |
-| round_minutes | TINYINT UNSIGNED | 라운드당 진행 시간 |
-| status | TINYINT | 행사 상태 |
-| content | TEXT | 상세 설명 |
-| thumbnail | VARCHAR(255) | 목록 이미지 |
-| create_date | DATETIME | 생성 시각 |
-| edit_date | DATETIME NULL | 수정 시각 |
+| 일반 | 공개 행사, mood, 공개 상세 이미지 | 행사 노출/운영 기간 동안 보관 |
+| 내부 | application 상태/snapshot, chat membership/host alias, profile view, review 결과, Key log 연결, action metadata | 회원/API/Admin 권한에 따라 최소 조회 |
+| 민감 | chat content, report content | 운영 목적 권한과 마스킹 적용 |
 
-권장 인덱스:
-
-- `idx_rotation_event_host_status_date (host_id, status, event_date)`
-- `idx_rotation_event_status_date (status, event_date)`
-
-### t_rotation_application
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 신청 PK |
-| event_id | INT | `t_rotation_event.id` |
-| member_id | INT | 신청 회원 |
-| gender | ENUM('F','M') | 신청 시점 성별 스냅샷 |
-| status | TINYINT | 신청, 승인, 대기, 거절, 취소 |
-| payment_status | TINYINT | 0=미차감, 1=차감, 2=환불 |
-| key_amount | INT | 참가자에게 차감한 키 |
-| charged_at | DATETIME NULL | 차감 시각 |
-| refunded_at | DATETIME NULL | 환불 시각 |
-| create_date | DATETIME | 신청 시각 |
-| edit_date | DATETIME NULL | 수정 시각 |
-
-제약:
-
-- `(event_id, member_id)`는 유일해야 한다.
-- 동일 행사 중복 신청은 서버에서 fail-closed로 거부한다.
-- `payment_status = 1`이면 `charged_at`과 `key_amount < 0`을 함께 보장한다.
-- `payment_status = 2`이면 `refunded_at`과 환불 `t_rotation_key_ledger` row가 있어야 한다.
-
-권장 인덱스:
-
-- `uq_rotation_application_event_member (event_id, member_id)`
-- `idx_rotation_application_event_status_gender (event_id, status, gender)`
-- `idx_rotation_application_member_status_event (member_id, status, event_id)`
-
-### t_rotation_participant
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 참가자 PK |
-| event_id | INT | 행사 ID |
-| application_id | INT | 신청 ID |
-| member_id | INT | 회원 ID |
-| status | TINYINT | 참가 확정, 체크인, 노쇼, 완료, 중도 이탈 |
-| alias | VARCHAR(255) | 행사 내 노출 별칭 |
-| checkin_at | DATETIME NULL | 체크인 시각 |
-| create_date | DATETIME | 생성 시각 |
-| edit_date | DATETIME NULL | 수정 시각 |
-
-권장 인덱스:
-
-- `uq_rotation_participant_event_application (event_id, application_id)`
-- `uq_rotation_participant_event_member (event_id, member_id)`
-- `idx_rotation_participant_event_status (event_id, status)`
-
-### t_rotation_round
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 라운드 PK |
-| event_id | INT | 행사 ID |
-| round_no | TINYINT UNSIGNED | 라운드 번호 |
-| starts_at | DATETIME NULL | 시작 시각 |
-| ends_at | DATETIME NULL | 종료 시각 |
-| status | TINYINT | 대기, 진행, 종료 |
-
-권장 인덱스:
-
-- `uq_rotation_round_event_no (event_id, round_no)`
-
-### t_rotation_round_assignment
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 배정 PK |
-| event_id | INT | 행사 ID |
-| round_id | INT | 라운드 ID |
-| table_no | SMALLINT UNSIGNED | 테이블 번호 |
-| male_participant_id | INT | 남성 참가자 ID |
-| female_participant_id | INT | 여성 참가자 ID |
-| status | TINYINT | 예정, 진행, 완료, 결석 무효 |
-
-권장 인덱스:
-
-- `uq_rotation_assignment_round_table (round_id, table_no)`
-- `uq_rotation_assignment_round_male (round_id, male_participant_id)`
-- `uq_rotation_assignment_round_female (round_id, female_participant_id)`
-
-### t_rotation_interest
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 호감 선택 PK |
-| event_id | INT | 행사 ID |
-| round_id | INT | 라운드 ID |
-| chooser_participant_id | INT | 선택한 참가자 |
-| target_participant_id | INT | 선택 대상 참가자 |
-| choice | TINYINT | 1=선택, 0=미선택 |
-| matched | TINYINT | 1=상호 선택, 0=상호 선택 아님 |
-| create_date | DATETIME | 선택 시각 |
-
-권장 인덱스:
-
-- `uq_rotation_interest_round_chooser (round_id, chooser_participant_id)`
-- `idx_rotation_interest_target (event_id, target_participant_id)`
-
-### t_rotation_key_ledger
-
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| id | INT | 로테이션 키 원장 PK |
-| event_id | INT | 행사 ID |
-| application_id | INT | 신청 ID |
-| member_id | INT | 키 변동 회원 |
-| member_key_log_id | INT | `t_member_key_log.id` |
-| action | TINYINT | 1=차감, 2=환불 |
-| key_amount | INT | 키 변동량 |
-| key_total | INT | 변동 후 회원 키 |
-| actor_admin_id | INT NULL | 처리 Admin ID |
-| reason | VARCHAR(255) | 사유 |
-| create_date | DATETIME | 발생 시각 |
-
-운영 기준:
-
-- 참가자 키 차감/환불은 `t_member.key`, `t_member_key_log`, `t_rotation_key_ledger`, `t_rotation_application.payment_status`를 같은 트랜잭션에서 갱신한다.
-- `member_key_log_id`로 기존 키 원장과 로테이션 원장을 연결한다.
-- 호스트 무과금 원칙 때문에 `t_rotation_key_ledger.member_id`는 참가자 회원만 기록한다.
-- 정산/감사 추적을 위해 행사 삭제 시에도 물리 삭제하지 않는다.
+- action log의 reason에는 연락처·프로필 원문·인증정보를 넣지 않고 승인/거절/삭제의 최소 운영 사유만 남긴다.
+- 회원 LEAVE/BLOCK 후 30일 개인정보 정리 전에 rotation 파생 저장소도 같은 cleanup transaction/작업에 포함한다.
+- 회원 작성 chat content와 review 자유문은 비식별 문구로 교체한다.
+- application alias와 chat member의 host alias snapshot도 비식별 문구로 교체한다.
+- report 자유문은 직접 식별자를 제거한다.
+- nullable member/admin FK는 부모 삭제 시 null 처리한다. RESTRICT 관계는 먼저 비활성/연결 해제한 뒤
+  부모를 삭제한다. 행사/application 상태, 익명화된 신고, 기존 Key log와 action metadata는 운영 감사
+  목적의 비개인 기록으로 보존한다.
+- action actor_id는 부모 FK를 두지 않는 내부 감사 snapshot이며 부모 삭제 뒤에는 원천 회원/Admin과
+  다시 연결하지 않는다.
+- failed/discarded 또는 행사에서 분리된 상세 이미지 version은 기존 매니저 상세 이미지 cleanup과 같은
+  기준으로 원본/slice 파일과 metadata를 정리한다.
 
 ## 상태 모델
 
-### 행사 상태
+### 행사
 
-| 값 | 상태 | 의미 |
+| 값 | 상수 | 의미 |
 | --- | --- | --- |
-| -1 | CANCELED | 행사 취소 |
-| 0 | DRAFT | 호스트가 작성 중 |
+| -2 | DELETED | 신청자가 없는 DRAFT 삭제 |
+| -1 | CANCELED | 모집/확정 후 취소 |
+| 0 | DRAFT | 작성 중 |
 | 1 | OPEN | 신청 가능 |
-| 2 | APPLY_CLOSED | 신청 마감 |
-| 3 | CONFIRMED | 참가자 확정 |
-| 4 | CHECKIN_OPEN | 체크인 가능 |
-| 5 | IN_PROGRESS | 라운드 진행 중 |
-| 6 | RESULT_OPEN | 결과 공개 |
-| 7 | FINISHED | 행사 종료 |
-
-### 신청 상태
-
-| 값 | 상태 | 의미 |
-| --- | --- | --- |
-| -2 | CANCELED | 신청자 취소 |
-| -1 | REJECTED | 거절 |
-| 0 | APPLIED | 신청 접수 |
-| 1 | APPROVED | 승인 완료 |
-| 2 | WAITLISTED | 대기자 |
-
-### 신청 과금 상태
-
-| 값 | 상태 | 의미 |
-| --- | --- | --- |
-| 0 | NONE | 미차감 |
-| 1 | CHARGED | 차감 완료 |
-| 2 | REFUNDED | 환불 완료 |
-
-### 참가자 상태
-
-| 값 | 상태 | 의미 |
-| --- | --- | --- |
-| -2 | LEFT | 중도 이탈 |
-| -1 | NO_SHOW | 노쇼 |
-| 0 | CONFIRMED | 참가 확정 |
-| 1 | CHECKED_IN | 현장 체크인 |
-| 2 | COMPLETED | 행사 완료 |
-
-### 라운드 / 배정 상태
-
-| 값 | 상태 | 의미 |
-| --- | --- | --- |
-| -1 | VOID | 취소 또는 결석으로 무효 |
-| 0 | PENDING | 대기 |
-| 1 | IN_PROGRESS | 진행 중 |
-| 2 | FINISHED | 종료 |
-
-## 데이터 흐름
+| 2 | CLOSED | 신청 마감/승인 처리 중 |
+| 3 | CONFIRMED | 참가 확정, 채팅 OPEN |
+| 4 | FINISHED | 행사 종료, 후기 가능 |
 
 ```mermaid
-sequenceDiagram
-    participant Host as Host Admin
-    participant API as coupler-api
-    participant DB as t_rotation_*
-    participant App as Mobile App
-    participant Push as FCM
-
-    Host->>API: 행사 생성/오픈
-    API->>DB: t_rotation_event 저장
-    App->>API: 행사 신청
-    API->>DB: t_rotation_application 저장
-    API->>Push: 호스트 모바일 신청 알림
-    Host->>API: 신청자 승인
-    API->>DB: 신청 상태 APPROVED, 참가자 생성
-    API->>Push: 참가 승인 알림
-    Host->>API: 체크인 오픈/확정
-    API->>DB: participant CHECKED_IN
-    Host->>API: 라운드 시작
-    API->>DB: round, assignment 저장/갱신
-    API->>Push: 현재 자리 안내
-    App->>API: 호감 선택
-    API->>DB: t_rotation_interest 저장
-    Host->>API: 결과 공개
-    API->>Push: 결과 확인 알림
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> OPEN
+    DRAFT --> DELETED
+    OPEN --> CLOSED
+    CLOSED --> CONFIRMED
+    CONFIRMED --> FINISHED
+    OPEN --> CANCELED
+    CLOSED --> CANCELED
+    CONFIRMED --> CANCELED
 ```
 
-Admin Web의 신청자 알림/배지는 FCM 이벤트가 아니라 `t_rotation_application.status = 0` 신청 대기 건수 조회로 노출한다.
-모바일 푸시를 받은 호스트는 `t_rotation_host.member_id` 기준의 회원 알림으로 행사 상세 또는 호스트 모바일 운영 화면에 진입한다.
+### 신청
 
-## 라운드 배정
-
-- MVP는 남녀 동수 확정 후 시작을 기본으로 한다.
-- 한쪽 그룹은 고정하고 다른 한쪽 그룹을 라운드마다 한 칸씩 회전시키면 중복 만남 없이 배정할 수 있다.
-- 예시: 남성 `A1..A5`, 여성 `B1..B5`일 때 `round_no = r`에서 `Ai`는 `B((i + r) mod 5)`와 만난다.
-- 인원이 맞지 않는 행사는 MVP에서 시작 불가로 처리한다.
-- 후속 버전에서 홀수 인원, 지각, 노쇼를 지원할 때는 `BYE` 또는 운영자 수동 재배정 상태를 추가한다.
-
-## API 초안
-
-### Mobile API
-
-| 메서드 | 엔드포인트 | 설명 |
+| 값 | 상수 | 의미 |
 | --- | --- | --- |
-| GET | `/rotation/list` | 행사 목록 |
-| GET | `/rotation/my-list` | 내 신청/참가 행사 |
-| GET | `/rotation/detail` | 행사 상세 |
-| POST | `/rotation/apply` | 참가 신청 |
-| POST | `/rotation/cancel-application` | 신청 취소 |
-| GET | `/rotation/current-round` | 현재 라운드/자리 확인 |
-| POST | `/rotation/interest` | 호감 선택 |
-| GET | `/rotation/result` | 결과 확인 |
+| -3 | LEFT | 승인 후 퇴장 |
+| -2 | CANCELED | 승인 전 신청 취소 |
+| -1 | REJECTED | Admin 거절 |
+| 0 | APPLIED | 신청 접수 |
+| 1 | APPROVED | 참여 승인 |
 
-### Admin API
+- 허용 전이: `APPLIED -> APPROVED | REJECTED | CANCELED`, `APPROVED -> LEFT`
+- 같은 회원은 같은 행사에 한 번만 신청하며 CANCELED/REJECTED 뒤 재신청은 허용하지 않는다.
+- 행사 CONFIRMED 시 APPLIED가 남아 있으면 실패한다.
+- 행사 CANCELED는 신청 상태를 덮어쓰지 않는다. 행사 상태로 전체 취소를 해석한다.
 
-| 메서드 | 엔드포인트 | 설명 |
-| --- | --- | --- |
-| GET | `/admin/rotation/list` | 행사 목록 |
-| POST | `/admin/rotation/save` | 행사 생성/수정 |
-| POST | `/admin/rotation/open` | 신청 오픈 |
-| POST | `/admin/rotation/close-application` | 신청 마감 |
-| GET | `/admin/rotation/application-summary` | 행사별 신청 대기 건수 |
-| GET | `/admin/rotation/applications` | 신청자 목록 |
-| POST | `/admin/rotation/approve` | 신청 승인 |
-| POST | `/admin/rotation/reject` | 신청 거절 |
-| POST | `/admin/rotation/checkin` | 체크인 처리 |
-| POST | `/admin/rotation/generate-assignments` | 라운드 배정 생성 |
-| POST | `/admin/rotation/start-round` | 라운드 시작 |
-| POST | `/admin/rotation/finish-round` | 라운드 종료 |
-| POST | `/admin/rotation/open-result` | 결과 공개 |
-| POST | `/admin/rotation/cancel` | 행사 취소 |
+## 핵심 transaction
 
-## Admin 화면 계획
+### 신청
 
-- 메뉴: `로테이션 소개팅 관리`
-- 1차 화면:
-    - 행사 목록
-    - 행사 생성/수정 팝업
-    - 신청자/대기자 관리
-    - 체크인 운영판
-    - 라운드 배정표
-    - 결과/호감 선택 현황
-- 기존 미팅관리의 리스트, 상세, 신고/후기 팝업 구조는 참고하되 API와 상태 컬럼은 `rotation` 기준으로 분리한다.
-- 호스트 Admin은 자기 행사만 조회하고, Super Admin은 전체 행사를 조회한다.
+1. 행사 OPEN, 마감 전, 성별 정원 설정, 회원 상태와 중복 신청을 검증한다.
+2. 원천 이력인 application을 저장한다. 접수 주체·상태·시각이 application에 있으므로 생성 action log를
+   중복 저장하지 않는다.
+3. transaction commit 뒤 신규 application insert가 성공한 경우에만 호스트 대상으로 `sendFCMPush()`를
+   한 번 호출한다. 중복 신청 재요청에는 호출하지 않는다.
 
-## Mobile 화면 계획
+### 승인과 참가 확정
 
-- 기존 2:2 미팅 카드 레이아웃을 최대한 따르되 사용자에게 보이는 정보는 로테이션 행사에 맞게 바꾼다.
-- 목록 카드:
-    - 행사명, 일시, 장소, 모집 현황, 신청 상태
-- 상세 화면:
-    - 행사 소개, 참가 조건, 신청 버튼, 승인/대기/거절 상태
-- 당일 화면:
-    - 체크인 상태, 현재 라운드, 테이블/좌석, 다음 이동 안내
-- 결과 화면:
-    - 상호 선택 결과만 공개한다.
-    - 일방 선택 결과는 기본 비공개로 둔다.
+1. 행사 소유권과 application version을 검증한다.
+2. event/application row를 lock하고 해당 성별 APPROVED 수를 재집계한다.
+3. application을 APPROVED로 변경하고 action log를 저장한다.
+4. 최종 확정 시 APPLIED 0건, 남녀 APPROVED 각각 2명 이상을 확인한다.
+5. event CONFIRMED, chat room, 호스트/참가자 chat member, 시스템 메시지를 한 transaction에 저장한다.
+6. commit 뒤 상태 전이가 실제 반영된 경우에만 대상별 `sendFCMPush()`를 한 번 호출한다.
 
-## 푸시 알림 초안
+### 채팅 전송/읽음/퇴장
 
-| 상수 | 수신자 | 트리거 | 이동 |
-| --- | --- | --- | --- |
-| ROTATION_APPLY_REQUEST | 호스트 모바일 회원 | 회원 신청 | 호스트 모바일 행사 상세 |
-| ROTATION_APPROVED | 참가자 | 호스트 승인 | 행사 상세 |
-| ROTATION_WAITLISTED | 참가자 | 대기자 전환 | 행사 상세 |
-| ROTATION_REJECTED | 참가자 | 신청 거절 | 행사 상세 |
-| ROTATION_CHECKIN_OPEN | 참가자 | 체크인 오픈 | 체크인 화면 |
-| ROTATION_ROUND_START | 참가자 | 라운드 시작 | 현재 라운드 |
-| ROTATION_NEXT_ROUND | 참가자 | 다음 라운드 이동 | 현재 라운드 |
-| ROTATION_RESULT_OPEN | 참가자 | 결과 공개 | 결과 화면 |
-| ROTATION_CANCELED | 참가자 | 행사 취소 | 행사 상세 |
+1. 메시지 전송은 room/event와 sender chat member를 lock한다. event CONFIRMED이고 sender가 ACTIVE host
+   연결이거나 APPROVED application인 경우만 허용한다.
+2. 같은 sender/client_message_id가 없을 때 message를 insert하고 room.last_message_id와 sender의
+   last_read_message_id를 신규 message.id까지 함께 단조 증가시킨다. commit 뒤 신규 message insert가
+   성공한 경우에만 sender를 제외한 host와 APPROVED 참가자에게 `sendFCMPush()`를 한 번 호출한다.
+3. 읽음 처리는 대상 message가 같은 room인지 확인하고 기존 값보다 큰 ID일 때만 last_read_message_id를
+   단조 증가시킨다.
+4. 참가자 퇴장은 application/chat member를 함께 lock해 application만 LEFT로 바꾸고 leave system
+   message/action log를 한 transaction에 저장한다. chat member row는 메시지 표시 이력 때문에 보존하고
+   이후 자격은 application LEFT로 차단한다. commit 뒤 상태 전이가 성공한 경우에만 알림을 호출한다.
+   호스트는 채팅 퇴장이 아니라 행사 취소 절차를 사용한다.
 
-운영 기준:
+### 프로필 열람
 
-- 타입 ID는 기존 FCM 타입과 충돌하지 않는 새 번호를 배정한다.
-- `t_alarm.member`는 수신 모바일 회원 ID로 저장한다. 참가자 알림은 `t_rotation_participant.member_id`, 호스트 알림은 `t_rotation_host.member_id`를 사용한다.
-- `t_alarm.target`은 `t_rotation_event.id`로 저장한다. 신청 단위 식별자가 필요하면 FCM `custom_data`에 `application_id`를 추가하되 `t_alarm` 스키마 확장은 별도 결정으로 둔다.
-- Admin Web 신청자 목록과 신청 대기 배지는 `t_alarm`이 아니라 `t_rotation_application` 집계 API로 제공한다.
-- 라운드 알림은 `event_id + round_id + participant_id + type` 기준으로 중복 발송을 막는다.
-- 모바일 푸시 네비게이션은 기존 2:2 상세/채팅 이동 분기를 재사용하지 않고 `rotation` 전용 분기를 추가한다.
+1. target application과 event를 조회해 Mobile 호스트는 같은 행사의 APPLIED/APPROVED 신청자,
+   APPROVED 참가자는 다른 APPROVED 참가자만 target으로 허용한다.
+2. event.photo_public에 따라 `t_setting.id=16` 또는 `id=18`을 서버에서 읽고 viewer `t_member` row를
+   `SELECT ... FOR UPDATE`로 잠근 뒤 기존 profile view를 다시 확인하고 잔액을 검증한다.
+3. `t_member_key_log`, profile view의 `member_key_log_id`, 회원 Key를 한 transaction에 저장한다.
+4. unique 충돌은 transaction 전체를 rollback하고 기존 열람 성공을 반환해 재차감하지 않는다.
 
-## 과금 계획
+### 후기
 
-| 액션 | 호스트 키 | 참가자 키 | 비고 |
-| --- | --- | --- | --- |
-| 행사 생성 | 0 | 0 | 호스트 무과금 |
-| 참가 신청 | 0 | 0 | MVP 권장 |
-| 신청 승인 | 0 | 차감 | MVP 권장 차감 시점 |
-| 신청 거절 | 0 | 0 또는 환불 | 차감 전이면 환불 없음 |
-| 신청자 취소 | 0 | 환불 정책 필요 | 승인 후 취소 시점별 정책 필요 |
-| 행사 취소 | 0 | 환불 | 승인 차감분 환불 |
-| 체크인 | 0 | 0 | 승인 시 차감 기준 |
+1. application을 기준으로 행사 FINISHED와 작성자의 APPROVED 또는 LEFT 이력을 검증한다.
+2. `t_setting.id=20` 값을 서버에서 읽고 작성자의 `t_member` row를 `SELECT ... FOR UPDATE`로 잠근 뒤
+   기존 review를 다시 확인한다.
+3. `t_member_key_log`, review의 `member_key_log_id`, 회원 Key를 한 transaction에 저장한다.
+4. unique 충돌은 transaction 전체를 rollback하고 기존 성공을 반환해 중복 보상하지 않는다.
 
-승인 시 차감을 채택하면 참가 의사가 약한 신청을 줄이고, 거절/대기 단계에서 환불 처리가 단순해진다.
-다만 승인 후 회원 취소 가능 시각과 환불 가능 여부는 운영 정책으로 별도 확정해야 한다.
+## 저장하지 않고 계산하는 값
 
-## 구현 작업 계획
+- 행사 신청/승인/성별 인원수: application을 status/gender로 집계한다.
+- 참가자: APPROVED application 자체가 참가자 SoT이므로 별도 participant row를 만들지 않는다.
+- 외부 입금 상태: DB 결제 기능이 아니며 입금 확인 뒤 application APPROVED로 표현한다.
+- 행사/신청 상태 이력과 처리 사유: action log에서 조회한다.
+- unread 수: chat member의 last_read_message_id와 정상 message를 비교한다.
+- 프로필 열람/후기 Key 금액과 변경 후 잔액: t_setting에서 읽어 기존 `t_member_key_log`에 기록한다.
 
-| 영역 | 필요 작업 |
+## 프론트 read model과 DB VIEW
+
+반복되는 성별 신청/승인 집계는 `v_rotation_event_application_summary`를 단일 SoT로 제공한다. VIEW는
+event를 기준으로 application을 LEFT JOIN하고 `SUM(CASE WHEN ... THEN 1 ELSE 0 END)`를 사용해 MySQL/MariaDB
+공통 문법으로 만든다.
+
+| VIEW 컬럼 | 의미 |
 | --- | --- |
-| DB | `t_rotation_host`, `t_rotation_event`, `t_rotation_application`, `t_rotation_participant`, `t_rotation_round`, `t_rotation_round_assignment`, `t_rotation_interest`, `t_rotation_key_ledger` additive migration 작성 |
-| DB | FK/인덱스/유니크 제약 추가, `key_ledger`는 cascade 금지, DB Migration Gate 백업/리허설/롤백 SQL 준비 |
-| API | `model/rotation_*.ts`, `routes/app/v1/rotation.ts`, `controller/app/v1/rotation.ts`, `routes/admin/rotation.ts`, `controller/admin/rotation.ts` 추가, `app.ts`에 `/app/rotation`, `/admin/rotation` mount |
-| API | Mobile 목록/상세/신청/취소/현재라운드/호감/결과, Admin 행사 CRUD/신청 집계/승인/거절/체크인/배정/라운드/결과/취소 구현 |
-| API | 승인/거절/취소의 키 차감·환불 트랜잭션, 호스트 소유권 필터, `ROTATION_*` FCM 발송과 중복 방지 구현 |
-| Docs | App/Admin Swagger에 `rotation` API 추가, FCM 타입/문구/i18n key 문서화, DBM Gate와 배포 체크리스트 기록 |
-| Admin Web | `src/pages/rotation/*` 메뉴 추가, 행사 목록/생성·수정 팝업, 신청 대기 배지, 신청자 승인·거절, 체크인 운영판, 라운드/결과 화면 구현 |
-| Admin Web | Super Admin은 전체 행사와 호스트 연결 관리, 호스트 Admin은 자기 `t_rotation_host.id` 행사만 조회·수정하도록 UI/API 권한을 맞춘다 |
-| Mobile | `src/screens/rotation/*`, navigation type, `AppNavigator.tsx` Stack.Screen 추가, 행사 목록/상세/신청/취소/상태/현재라운드/호감/결과 화면 구현 |
-| Mobile | `src/constants/AppConstants.ts`, `src/utils/Common.tsx`에 `ROTATION_*` 푸시 이동 분기 추가, 호스트 모바일 신청 알림은 읽기용 행사 상세로 연결 |
-| 검증 | API 트랜잭션/권한/중복신청/중복푸시 테스트, Admin/Mobile 핵심 화면 스모크, 문서 구조·Markdown lint 통과 |
+| event_id | 행사 ID, VIEW 내 유일 row |
+| male_applied_count | 남성 APPLIED 수 |
+| female_applied_count | 여성 APPLIED 수 |
+| male_approved_count | 남성 APPROVED 수 |
+| female_approved_count | 여성 APPROVED 수 |
 
-구현 순서는 `DB -> API -> Admin Web -> Mobile -> Docs/검증 보강`으로 진행한다.
-체크인/라운드/결과는 신청/승인 MVP가 동작한 뒤 같은 도메인 테이블 위에 확장한다.
+호출자별 내 application status/권한과 mood 목록은 파라미터 및 1:N 관계이므로 repository query에서 VIEW에
+결합한다. API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 
-## MVP 완료 기준
+| API read model | 구성 원천 |
+| --- | --- |
+| `RotationEventListItem` | event + host/member 요약 + mood 목록 + application summary VIEW + 내 application status |
+| `RotationEventDetail` | event + ready image slices + application summary VIEW + 내 권한 + 서버 Key 설정 |
+| `RotationMyEventItem` | EventListItem + host/participant role |
+| `RotationApplicantItem` | application + 승인 프로필 요약 + 내가 열람한 profile view 여부 |
+| `RotationChatListItem` | application/event + optional chat room + last message + unread 수 |
+| `RotationChatMessageItem` | 정상 message + sender principal별 host/application alias, 운영 삭제 표기 |
+| `RotationReviewState` | event FINISHED 여부 + application 자격 + 기존 review 여부 + reward Key |
 
-- Super Admin이 호스트 Admin과 모바일 회원 계정을 연결할 수 있다.
-- 호스트 Admin은 자기 행사만 생성/수정/운영할 수 있다.
-- 회원은 행사 목록을 보고 신청할 수 있다.
-- 호스트는 Admin Web에서 신청자 목록과 신청 대기 건수를 확인하고 승인/거절할 수 있다.
-- 호스트 모바일 회원은 신청 접수 푸시를 받을 수 있으며, 이 알림은 호스트에게 과금하지 않는다.
-- 승인 시 참가자 키 차감과 환불 가능 이벤트가 `t_member_key_log`와 `t_rotation_key_ledger`에 함께 남는다.
-- 체크인된 참가자 기준으로 라운드 배정을 생성할 수 있다.
-- 참가자는 현재 라운드의 자리와 상대를 확인할 수 있다.
-- 참가자는 호감 선택을 제출하고 상호 선택 결과만 확인할 수 있다.
-- 로테이션 전용 푸시 타입과 모바일 네비게이션이 동작한다.
+- raw DB row, 내부 status history와 `t_member_key_log` 연결은 프론트 응답으로 직접 노출하지 않는다.
+- 공개 행사 목록은 OPEN/CLOSED/CONFIRMED를 먼저, FINISHED/CANCELED를 뒤에 두고 각 그룹에서
+  `created_at DESC, id DESC`로 정렬한다. DRAFT/DELETED는 호스트/Admin 조회에서만 노출한다.
+- 채팅 목록은 APPLIED 신청도 chat room 없이 노출해 “호스트 검토 중” 상태를 표시한다. CONFIRMED 뒤에는
+  room/message를 결합하고 FINISHED/CANCELED는 읽기 전용 종료 상태로 표시한다.
+- unread처럼 호출자별 계산이 필요한 값은 VIEW에 넣지 않고 repository query에서 계산한다.
 
-## 후속 결정 필요 항목
+## API 범위
 
-- 참가자 키 차감량
-- 승인 후 신청자 취소 가능 시각과 환불률
-- 대기자 자동 승격 여부
-- 행사 최소 성립 인원
-- 노쇼 패널티와 다음 행사 신청 제한
-- 호스트가 참가자로도 행사에 들어갈 수 있는지 여부
-- 결과 공개 범위: 상호 선택만 공개할지, 운영자에게 일방 선택까지 공개할지 여부
+### Mobile
 
-## 비포함 / 금지
+- 행사 목록/상세/내가 만든 모임/내가 참여한 모임
+- 신청/신청 취소/신청자 목록(호스트 회원)
+- 미니/사진프로필 최초 열람
+- 채팅방 목록, 메시지 목록/전송/읽음/퇴장
+- 행사/회원 신고, 종료 후기
 
-- 2:2 미팅의 기존 테이블에 `type = rotation` 같은 구분자를 추가해 혼합 저장하지 않는다.
-- 기존 `MEET_*` FCM 타입을 로테이션 알림에 재사용하지 않는다.
-- 호스트 계정 연결을 `t_member_manager_assignment`에 섞지 않는다.
-- Admin UI 숨김만으로 권한을 처리하지 않고 API 서버에서 행사 소유권을 판정한다.
-- 회원 연락처는 결과 공개만으로 자동 노출하지 않는다.
+### Admin
+
+- 행사 목록/상세/생성/수정/모집 시작/마감/참가 확정/종료/취소
+- 신청 목록/승인/거절
+- 긴 이미지 upload/status/discard
+- 신고 목록/처리, 채팅 메시지 운영 삭제
+
+동시 수정 대상 write API는 `version`을, 재전송 가능한 생성/메시지/신고 API는 각각 명시된 idempotency key
+또는 `client_message_id`를 받는다. 상태 전이와 Admin 감사 대상 write는 API 요청/job 실행 컨텍스트가
+생성한 request_id를 action log에 기록하며 클라이언트가 감사용 request_id를 결정하지 않는다.
+
+## 필수 검증
+
+- 같은 host/create_idempotency_key와 reporter/idempotency_key 재요청이 행사/신고를 중복 생성하지 않는다.
+- 동일 회원의 행사 중복 신청과 동일 Mobile write 재전송이 한 번만 반영된다.
+- 동시 승인에도 성별 정원 20명을 초과하지 않는다.
+- 다른 호스트 Admin은 행사/신청/이미지 version을 조회·변경할 수 없다.
+- ready가 아니거나 다른 행사 소유인 긴 이미지 version은 attach되지 않는다.
+- CONFIRMED 시 APPLIED가 없고 남녀 승인 인원이 각각 2명 이상이다.
+- 호스트가 아니면서 APPROVED가 아닌 회원과 LEFT 회원은 채팅을 읽거나 쓰지 못한다.
+- 신규 메시지는 sender 자신의 unread에 포함되지 않고 sender에게 푸시/`t_alarm`을 생성하지 않는다.
+- 같은 대상의 프로필 재열람과 후기 재요청으로 Key가 중복 변경되지 않는다.
+- null viewer profile view insert는 실패하고 회원 삭제로 null 처리된 이력만 허용한다.
+- 신고 처리, 메시지 삭제, 승인/거절, 행사 취소는 action log 없이 완료되지 않는다.
+- EVENT action의 target_id/event_id 불일치와 다른 event 소속 target/권한 없는 actor의 action log는 실패한다.
+- 행사 FINISHED/CANCELED 시 event 상태로 채팅 송신이 닫히고 이후 메시지 전송이 실패한다.
+- 동일 상태 전이/메시지 재요청은 DB에 중복 반영되지 않고 `sendFCMPush()`도 다시 호출되지 않는다.
+- 로테이션 코드가 `t_alarm`을 직접 insert하지 않아 기존 `sendFCMPush()`의 저장과 중복되지 않는다.
+- 회원 개인정보 정리 후 파생 개인정보가 익명화되고 행사/신고/기존 Key log 연결/감사 기록은 정해진
+  보관 정책을 따른다.
+
+## Migration Gate 적용
+
+이 문서는 DB 설계 SoT이며 실제 테이블 생성은 별도 additive migration SQL로 수행한다.
+미구현 상태와 후속 API/Admin/Mobile 작업은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`24) 로테이션 소개팅 1차 구현 미착수`에서 추적한다.
+
+| Gate | 적용 | 검증 |
+| --- | --- | --- |
+| `DBM-GATE-000` | 필수 | CHECK와 STORED generated UNIQUE 지원, 부모 테이블 타입/collation, 미사용 FCM type 확인 |
+| `DBM-GATE-010` | 필수 | migration checksum과 dev/prod `schema_migrations` 기록 |
+| `DBM-GATE-100` | 필수 | 13개 테이블과 1개 VIEW, PK/UNIQUE/INDEX/FK/CHECK의 SHOW CREATE diff와 실패 guard |
+| `DBM-GATE-200` | N/A | 신규 additive 테이블이며 backfill 대상 없음 |
+| `DBM-GATE-300` | N/A | 기존 read/write 기준을 변경하지 않음 |
+| `DBM-GATE-400` | N/A | 기존 객체 drop/contract 없음 |
+
+로컬 운영 dump에서 잘못된 CHECK row, FK 불일치, 중복 idempotency, 정원 동시 승인, Key 중복 지급을
+실패 fixture로 검증한 뒤에만 개발계/운영계 적용 대상으로 본다.
+
+## 2차 확장 원칙
+
+현장 운영이 실제 확정될 때만 `t_rotation_round`, `t_rotation_round_assignment`,
+`t_rotation_interest`를 additive migration으로 추가한다. 1차 테이블에 빈 라운드/호감 컬럼을 미리 두지 않는다.
 
 ## 관련 문서
 
 - [미팅 시스템](meeting-system.md)
+- [채팅 시스템](chat-system.md)
+- [업로드/미디어 시스템](upload-media-system.md)
 - [푸시알림 시스템](push-notification.md)
 - [관리자 권한 시스템](admin-permission.md)
 - [결제 시스템](payment-system.md)
-- [채팅 시스템](chat-system.md)
 - [보안/접근통제 정책](../policy/security-access-control-policy.md)
 - [결제 운영 정책](../policy/payment-ops-policy.md)
 - [푸시알림 운영 정책](../policy/push-notification-policy.md)
 - [데이터 거버넌스 정책](../policy/data-governance-policy.md)
+- [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)
+- [기술 부채 인벤토리](../technical-debt/technical-debt.md)
