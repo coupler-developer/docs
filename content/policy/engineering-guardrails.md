@@ -176,7 +176,9 @@ cutover 배포 코드 기준:
     - 최종 계약 밖에 남은 legacy/cutover 부채는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`에서 추적한다
     - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 공통 응답 계약 정책과 API 에러 계약 정책을 따른다
 - **요청 transport 계약은 contracts package operation runtime을 따른다**
-    - operation method/path는 실제 Express mount/route registration에서 생성한다
+    - operation method/path는 실제 Express mount/route registration에서, request media type은 JSON parser/multipart middleware registration에서 생성한다
+    - operation path는 `/app`/`/admin` mount prefix를 포함한 실제 wire path로 고정하고 소비자가 base URL을 잘라 상대 path로 변환하지 않는다
+    - URL path 이름으로 JSON/multipart 여부를 추측하지 않는다
     - body 없는 `GET`/`DELETE`, JSON write request, upload multipart 세 가지 media type만 canonical client request로 허용한다
     - Mobile/Admin request boundary는 package operation runtime으로 method/path/media type을 요청 직전에 fail-fast 검증한다
     - base URL, 인증 header, fetch/axios 실행은 플랫폼별 infra 책임으로 유지하되 operation 판정은 로컬 문자열 목록으로 복제하지 않는다

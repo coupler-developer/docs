@@ -19,34 +19,7 @@
 
 ---
 
-## 1) API URL-encoded 호환 parser 제거 대기 `P1` `S`
-
-현상
-
-- Mobile/Admin canonical request는 body 없는 `GET`/`DELETE`, JSON write, upload multipart로 수렴했고 contracts package operation runtime이 method/path/media type을 검증한다.
-- Swagger request media type도 JSON/multipart 기준으로 수렴했다.
-- 다만 API 프로세스에는 기존 운영 앱 호환을 위한 `bodyParser.urlencoded(...)` 입력 parser가 남아 있다.
-- 운영 중인 구버전 앱의 URL-encoded 요청이 강제 업데이트로 차단됐다는 트래픽 근거가 없어 parser를 즉시 제거할 수 없다.
-
-영향
-
-- canonical 계약 밖 URL-encoded 요청도 계속 수용하므로 서버 입력 경계가 완전히 폐쇄되지 않는다.
-- 트래픽 근거 없이 제거하면 구버전 앱 요청이 파싱되지 않는 회귀가 발생할 수 있다.
-
-액션 후보
-
-- contracts package 최신 stable version의 Admin/Mobile exact pin과 운영 배포를 완료한다.
-- 강제 업데이트 `min_version/force_update`로 legacy 앱 요청을 차단하고 URL-encoded 요청 0건 검증 범위와 로그 위치를 릴리즈 기록에 남긴다.
-- 제거 조건 충족 후 별도 cutover PR에서 `bodyParser.urlencoded(...)`를 제거하고 JSON/multipart 핵심 요청 통합 테스트를 재검증한다.
-
-완료 기준
-
-- 운영 URL-encoded 요청 0건이 검증 범위/기간/로그와 함께 확인된다.
-- `coupler-api/app.ts`에서 URL-encoded parser가 제거되고 canonical JSON/multipart request만 통합 테스트를 통과한다.
-
----
-
-## 2) 레거시 클래스 컴포넌트 잔존 `P2` `L`
+## 1) 레거시 클래스 컴포넌트 잔존 `P2` `L`
 
 현상
 
@@ -65,7 +38,7 @@
 
 ---
 
-## 3) Deprecated 의존성 존재 `P1` `M`
+## 2) Deprecated 의존성 존재 `P1` `M`
 
 현상
 
@@ -82,7 +55,7 @@
 
 ---
 
-## 4) 에러 처리/로깅 공백 `P1` `S`
+## 3) 에러 처리/로깅 공백 `P1` `S`
 
 현상
 
@@ -98,7 +71,7 @@
 
 ---
 
-## 5) 불필요한 normalize / fallback 로직 정리 `P2` `M`
+## 4) 불필요한 normalize / fallback 로직 정리 `P2` `M`
 
 현상
 
@@ -119,7 +92,7 @@
 
 ---
 
-## 6) 다국어(i18n) 키 정합성 및 JSON 구조 정리 `P1` `M`
+## 5) 다국어(i18n) 키 정합성 및 JSON 구조 정리 `P1` `M`
 
 현상
 
@@ -142,7 +115,7 @@
 
 ---
 
-## 7) 회원가입(Signup) 리팩토링 후속 안정화 `P2` `M`
+## 6) 회원가입(Signup) 리팩토링 후속 안정화 `P2` `M`
 
 현상
 
@@ -164,7 +137,7 @@
 
 ---
 
-## 8) 심사 상태 SoT/호환 스냅샷 이중 경로 잔존 `P1` `M`
+## 7) 심사 상태 SoT/호환 스냅샷 이중 경로 잔존 `P1` `M`
 
 현상
 
@@ -184,7 +157,7 @@
 
 ---
 
-## 9) 설정 승인 푸시 메시지 계약 점진 이관 필요 `P2` `S`
+## 8) 설정 승인 푸시 메시지 계약 점진 이관 필요 `P2` `S`
 
 현상
 
@@ -209,7 +182,7 @@
 
 ---
 
-## 10) 파일 구조 정책 반영 미흡 (TO-BE 전환 필요) `P1` `L`
+## 9) 파일 구조 정책 반영 미흡 (TO-BE 전환 필요) `P1` `L`
 
 현상
 
@@ -233,7 +206,7 @@
 
 ---
 
-## 11) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
+## 10) Admin Color Token 단일화 미흡 (디자인 가이드 불일치) `P2` `M`
 
 현상
 
@@ -263,7 +236,7 @@
 
 ---
 
-## 12) ritzy -> coupler 네이밍/운영 잔존 정리 `P3` `M`
+## 11) ritzy -> coupler 네이밍/운영 잔존 정리 `P3` `M`
 
 현상
 
@@ -299,7 +272,7 @@
 
 ---
 
-## 13) Mobile patch-package 의존 제거 가능성 검증 `P2` `S`
+## 12) Mobile patch-package 의존 제거 가능성 검증 `P2` `S`
 
 현상
 
@@ -328,7 +301,7 @@
 
 ---
 
-## 14) iOS SDK / Xcode 업로드 기준 선제 업그레이드 필요 `P1` `M`
+## 13) iOS SDK / Xcode 업로드 기준 선제 업그레이드 필요 `P1` `M`
 
 현상
 
@@ -352,7 +325,7 @@
 
 ---
 
-## 15) 라운지 댓글 수 레거시 집계 의미 분리 미완료 `P2` `M`
+## 14) 라운지 댓글 수 레거시 집계 의미 분리 미완료 `P2` `M`
 
 현상
 
@@ -376,7 +349,7 @@
 
 ---
 
-## 16) 미팅 회비 `0=미정` 계약 불일치 `P2` `S`
+## 15) 미팅 회비 `0=미정` 계약 불일치 `P2` `S`
 
 현상
 
@@ -398,7 +371,7 @@
 
 ---
 
-## 17) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
+## 16) Mobile Kakao 초대하기 전송 성공 판정 미분리 `P2` `M`
 
 현상
 
@@ -429,7 +402,7 @@
 
 ---
 
-## 18) 클럽/클럽매니저 UI 용어 통일 미완료 `P2` `M`
+## 17) 클럽/클럽매니저 UI 용어 통일 미완료 `P2` `M`
 
 현상
 
@@ -458,7 +431,7 @@
 
 ---
 
-## 19) Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약 `P2` `S`
+## 18) Mobile 앱 알림 팝업 레거시 키 마이그레이션 제거 예약 `P2` `S`
 
 현상
 
@@ -484,7 +457,7 @@
 
 ---
 
-## 20) Mobile inline style lint 전역 확대 미완료 `P2` `M`
+## 19) Mobile inline style lint 전역 확대 미완료 `P2` `M`
 
 현상
 
@@ -513,7 +486,7 @@
 
 ---
 
-## 21) Mobile StyleSheet style key 네이밍 일관성 미완료 `P2` `S`
+## 20) Mobile StyleSheet style key 네이밍 일관성 미완료 `P2` `S`
 
 현상
 
@@ -537,15 +510,16 @@
 - `coupler-mobile-app/src` 1st-party 코드의 `StyleSheet.create` style key가 `lowerCamelCase`로 통일되어 있다.
 - 코드 리뷰 정책과 엔지니어링 가드레일이 신규 style key의 `lowerCamelCase` 기준을 같은 결론으로 설명한다.
 
-## 22) API 응답 공통 계약 cutover 인덱스 `P1` `M`
+## 21) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
 현상
 
 - [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope 기준의 단일 SoT이고, [API 에러 계약 정책](../policy/api-error-contract-policy.md)은 실패 `ErrorData`와 descriptor-first catalog 기준의 단일 SoT다.
 - API/Mobile/Admin 코드의 공통 JSON API 응답 계약은 성공 `{ ok: true, data }`, 실패 `{ ok: false, error: ErrorData }` 구조로 수렴했으며, 구현 세부 규칙은 공통 응답 정책에서, 실패 taxonomy는 에러 정책에서 관리한다.
 - API 서버 코드 계약은 response writer, `ErrorDescriptor` catalog, Swagger(OpenAPI) 실패 예시, generated contract/package artifact, freshness CI gate 기준으로 정리됐다.
-- contracts package source는 실제 Express route에서 operation method/path/request media type을 생성하고, strict `ErrorData` 기반 envelope runtime을 public entrypoint로 제공하는 구조로 정리됐다.
-- Mobile/Admin 소비 경계는 package operation runtime과 envelope runtime을 사용하며 로컬 envelope key guard와 URL-encoded request helper를 두지 않는다.
+- contracts package source는 `/app`/`/admin` mount prefix를 포함한 실제 Express wire path의 operation method/path와 JSON parser/multipart middleware의 request media type을 생성하고, strict `ErrorData` 기반 envelope runtime을 public entrypoint로 제공하는 구조로 정리됐다.
+- Mobile/Admin 소비 경계는 package operation runtime과 envelope runtime을 직접 사용하며 소비자별 operation adapter와 URL-encoded request helper를 두지 않는다.
+- API 서버 입력 경계는 같은 package operation runtime으로 method/path/request media type을 검증하고 URL-encoded body를 415로 거부한다.
 - 남은 cutover 완료 차단 조건은 package `0.1.4` publish/consumer exact pin, API/Admin/Mobile 동시 cutover 릴리즈 기록, 배포 순서/전환 시점, 강제 업데이트 차단 근거를 릴리즈 기록에 연결하는 작업이다.
 
 잔여 범위
@@ -583,7 +557,7 @@
 
 ---
 
-## 23) API request/success DTO schema 정리 미완료 `P2` `L`
+## 22) API request/success DTO schema 정리 미완료 `P2` `L`
 
 현상
 
