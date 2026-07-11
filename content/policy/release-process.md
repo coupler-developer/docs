@@ -66,7 +66,7 @@
 대상: `coupler-api/packages/contracts`
 
 - 계약 package의 목적, package manager 기준, registry/auth 설정, 소비자 전환 조건, version bump 기준은 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따른다.
-- Express route operation/request media type, API 공통 응답/에러 runtime, 또는 Swagger request/success DTO contract 변경이 있으면 `contracts package` 범위를 포함한다.
+- API 공통 응답/에러 계약 또는 Swagger success contract 변경이 있으면 `contracts package` 범위를 포함한다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 publish된 package version을 lockfile로 고정한다.
 - GitHub Packages publish name과 Admin/Mobile 코드 import name은 `@coupler-developer/coupler-api-contracts`다.
 - package source는 `coupler-api/packages/contracts/src/generated/`에서 생성하고, Admin/Mobile은 publish된 package dependency와 lockfile로만 소비한다.

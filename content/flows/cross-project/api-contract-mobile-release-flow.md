@@ -107,7 +107,7 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 | --- | --- | --- |
 | Deployment | `N+1` Store 승인/운영 출시 또는 NextPush `Production` 배포/적용 확인 완료 | 스토어 콘솔, NextPush 이력, 릴리즈 기록 |
 | Legacy traffic | `N` 앱의 변경 도메인 legacy 요청이 강제 업데이트로 차단 완료 | 강제 업데이트 설정, min_version/force_update 검증 |
-| Contract artifact sync | Express route operation/request media type/envelope runtime을 포함한 [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의 published latest stable version과 Mobile/Admin exact dependency/lockfile version 일치 확인 완료 | API `pnpm check:contracts`, `pnpm pack:contracts`, package publish workflow, Mobile/Admin `package.json`/lockfile diff와 표준 품질 게이트 |
+| Contract artifact sync | [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의 published latest stable version과 Mobile/Admin exact dependency/lockfile version 일치 확인 완료 | API `pnpm check:contracts`, `pnpm pack:contracts`, package publish workflow, Mobile/Admin `package.json`/lockfile diff와 표준 품질 게이트 |
 | Admin | 변경 도메인 데이터 처리와 운영자 액션 검증 완료 | Admin 수동 검증, 운영 로그 |
 | DB | contract/drop 대상의 의존성 0건과 DBM Gate 통과 | DB Migration Gate 로그 |
 | Rollback | cutover 실패 시 호환 배포로 되돌릴 기준점 확보 | 서비스 태그, 배포 SHA, DB 백업/복구 기준 |
