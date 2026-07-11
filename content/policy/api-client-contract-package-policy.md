@@ -20,6 +20,7 @@
 제외 범위:
 
 - JSON API 응답 envelope 자체의 wire 구조 변경
+- request method/path/media type 검증 runtime과 request DTO
 - operation별 success DTO schema 작성 기준
 - 실패 `ErrorData` taxonomy 작성 기준
 
@@ -71,6 +72,8 @@
 - 발행된 package version은 재사용하지 않는다. 계약 산출물이 바뀌면 새 version을 발행하고 소비자 lockfile에 반영한다.
 - package의 public response/envelope 타입과 runtime guard는 generated error runtime의 strict `ErrorData`를 실패 계약으로 사용한다.
 - `generated/apiContract.ts`는 Swagger success operation map 산출물이며, 그 안의 느슨한 실패 helper 타입을 package public response 기준으로 삼지 않는다.
+- request transport는 package public runtime으로 승격하지 않는다. Canonical client request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload `multipart/form-data`로 고정하고, Mobile/Admin request boundary와 API Swagger/parser가 같은 결론을 가리켜야 한다.
+- API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package contract 또는 명시 ViewModel mapping을 사용하고, API 응답 shape를 local cast, alias fallback, normalize로 보정하지 않는다.
 
 ## 운영 절차
