@@ -23,11 +23,13 @@
 - 직접 연결 문서:
     - [API 공통 응답 계약 정책](../../policy/api-response-contract-policy.md)
     - [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)
+    - [배포/릴리즈 프로세스](../../policy/release-process.md)
     - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
     - [코드 리뷰 정책](../../policy/code-review-policy.md)
     - [기술 부채 정리](../../technical-debt/technical-debt.md)
 - 제외:
     - operation별 success DTO runtime validator 완성
+    - operation별 type-only public request DTO 생성과 소비자 local request wire DTO 제거
     - Store/NextPush 배포 이력
     - `min_version`/`force_update`와 legacy traffic 운영 증빙
     - API URL-encoded parser 실제 제거
@@ -101,6 +103,7 @@
 | --- | --- |
 | API URL-encoded parser 제거 대기 | `content/technical-debt/technical-debt.md`의 `API URL-encoded 호환 parser 제거 대기` |
 | Success DTO schema 정리 미완료 | `content/technical-debt/technical-debt.md`의 `API success DTO schema 정리 미완료` |
+| Public request DTO 생성/소비 전환 미완료 | `content/technical-debt/technical-debt.md`의 `API public request DTO 생성/소비 전환 미완료` |
 
 ## 결론
 

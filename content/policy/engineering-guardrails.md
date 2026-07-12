@@ -187,7 +187,8 @@ cutover 배포 코드 기준:
 - **요청 transport는 JSON/multipart 단일 계약으로 수렴한다**
     - Mobile/Admin의 body 없는 `GET`/`DELETE`는 query string, 일반 `POST`/`PUT` body는 JSON, upload body는 `multipart/form-data`로 고정한다
     - `FormData`의 multipart boundary는 fetch/axios runtime이 생성하게 하고 `Content-Type` boundary를 수동 조립하지 않는다
-    - request method/path/media type 검증을 contracts package public runtime이나 request DTO로 승격하지 않는다
+    - Public request DTO는 Swagger/OpenAPI에서 한 번만 정의하고 API generator가 contracts package의 type-only 계약으로 생성한다. Mobile/Admin은 동일 wire DTO를 local type/interface로 다시 정의하지 않는다
+    - Request DTO type 공유는 transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 contracts package public runtime으로 승격하지 않는다
     - Swagger request body, Mobile/Admin request boundary, API parser가 같은 JSON/multipart 계약을 가리켜야 한다
     - API URL-encoded parser는 구버전 Mobile 운영 트래픽을 위한 호환 입력 경로로만 허용한다. 제거는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의 Legacy traffic Gate 충족 후 별도 cutover PR에서 수행한다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
@@ -199,6 +200,7 @@ cutover 배포 코드 기준:
     - 제출 payload는 요청 스펙으로만 구성하고, 응답 스펙은 오직 서버 응답으로만 갱신한다
 - **API 입출력 경계에서는 DTO 계약 필드명을 그대로 사용한다**
     - 클라이언트는 요청 payload 작성/응답 파싱에서 계약 DTO 키를 변경하거나 별칭 키를 병행 처리하지 않는다
+    - Public request/success wire DTO는 contracts package generated type을 사용한다. 소비자는 API wire DTO를 재정의하지 않고 화면 ViewModel, 로컬 draft, 표시 모델만 별도로 정의한다
     - 화면 표시용 ViewModel/로컬 상태 가공은 허용하되, API 호출 계층으로 역유입시키지 않는다
     - DB 컬럼명과 API DTO명을 1:1로 강제하지 않는다. 서버 경계에서 매핑을 명시하고 외부 계약은 DTO로 고정한다
 - **서버 enum과 로컬 상태를 섞지 않기**
@@ -322,7 +324,7 @@ cutover 배포 코드 기준:
 ### Mobile (coupler-mobile-app)
 
 - Mobile은 서버 판단을 재구현하지 않고, 서버 응답 상태를 표시/입력 전달에만 사용한다.
-- 제출 payload는 요청 스펙 필드만 사용한다(응답 필드 재사용 금지).
+- 제출 payload는 package generated public request DTO와 요청 스펙 필드만 사용한다(consumer-local wire DTO 및 응답 필드 재사용 금지).
 - 화면 컴포넌트에서 normalize/resolve/fallback로 계약 불일치를 보정하지 않는다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
 - 구/신 API 이중 경로를 동시에 유지하지 않는다. 불가피한 과도기에는 Shadow Cutover 규칙을 따른다.
@@ -333,6 +335,7 @@ cutover 배포 코드 기준:
 - Admin은 운영 UI이며, 서버 권한/상태 전이를 우회하는 로컬 판단을 두지 않는다.
 - 상태 변경 액션은 서버 명령 API를 통해서만 수행한다(클라이언트 로컬 상태 덮어쓰기 금지).
 - 테이블/상세 화면 표시 값은 서버 계약 필드를 그대로 사용하고 임의 매핑 키를 추가하지 않는다.
+- 요청 payload와 성공 응답 wire shape는 package generated public DTO를 사용하고, 화면용 목록 결과/ViewModel과 API DTO를 구분한다.
 - 운영 액션(승인/반려/제재 등)은 사유/근거를 남기는 입력 규칙을 강제한다.
 - 레거시 컬럼/엔드포인트를 위한 임시 버튼/분기 추가 시 제거 조건과 목표 시점을 PR에 명시한다.
 

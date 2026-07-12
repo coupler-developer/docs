@@ -25,7 +25,7 @@
 
 - Mobile canonical request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload multipart로 전환 중이다.
 - Admin canonical request와 Swagger app request body도 JSON/multipart 기준으로 수렴한다.
-- contracts package는 response/error runtime만 배포하고 request method/path/media type runtime 또는 request DTO를 노출하지 않는다.
+- 현재 published contracts package는 response/error runtime과 success DTO type을 배포하지만 public request DTO type은 아직 노출하지 않는다. Type-only request DTO 생성/소비 전환은 이 항목이 아니라 `API public request DTO 생성/소비 전환 미완료`에서 추적한다.
 - API 프로세스에는 현재 운영 Mobile build `100`의 URL-encoded 요청을 수용하기 위한 `bodyParser.urlencoded(...)` parser가 남아 있다.
 - [2.2.5 릴리스 기록](../releases/v2.2.5.md)의 `min_version=100` 근거는 build `100` 자체를 차단하지 않으므로 parser 제거 조건으로 사용할 수 없다.
 
@@ -595,7 +595,7 @@
 
 현상
 
-- [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope의 단일 SoT이고, operation별 성공 `data` schema는 Swagger/OpenAPI와 각 도메인 정책이 SoT다.
+- [API 공통 응답 계약 정책](../policy/api-response-contract-policy.md)은 공통 envelope의 단일 SoT이고, operation별 성공 `data` wire schema는 Swagger/OpenAPI가 SoT이며 필드의 비즈니스 의미와 도메인 제약은 각 도메인 정책이 정의한다.
 - `coupler-api/packages/contracts/src/generated/apiContract.ts`는 Swagger success schema를 그대로 투영하므로, Swagger schema가 없거나 느슨한 endpoint의 generated success data type은 `unknown` 또는 loose object가 될 수 있다.
 - API 응답 공통 계약 cutover 인덱스는 성공 `{ ok: true, data }` / 실패 `{ ok: false, error: ErrorData }` envelope과 실패 taxonomy 수렴을 추적한다. 전체 endpoint의 success DTO schema 완성 여부는 별도 후속 부채로 관리한다.
 - Admin 목록 38개 endpoint의 Swagger `list` item이 공통 `additionalProperties: true`로 정의되어 generated contract가 `Record<string, unknown>[]`이고, `/admin/manager/all`의 `data.cnt`와 `data.list`도 generated contract에서 optional이다.
@@ -644,3 +644,37 @@
 - architecture의 13개 테이블과 1개 VIEW를 additive migration SQL로 작성하고 DB Migration Gate를 통과한다.
 - API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한 뒤 Admin과 Mobile을 연결한다.
 - 로테이션 전체 검증이 완료되면 이 항목을 삭제하고 구현·검증 근거는 PR과 릴리스 기록에 남긴다.
+
+---
+
+## 25) API public request DTO 생성/소비 전환 미완료 `P2` `L`
+
+현상
+
+- [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)은 public request/success wire DTO를 API Swagger/OpenAPI에서 한 번만 정의하고 contracts package type으로 배포하도록 고정한다.
+- 현재 `@coupler-developer/coupler-api-contracts`의 generated operation contract는 success data type 중심이며, path/query/body 위치와 required/optional/nullable을 보존하는 operation별 public request DTO type은 제공하지 않는다.
+- Admin/Mobile에는 request payload wire shape를 local type/interface, `Record<string, unknown>`, 인라인 object로 표현하는 경로가 남아 있어 API request schema 변경이 package version 갱신과 compile 단계에서 모두 드러난다고 보장할 수 없다.
+- Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 package 공개 runtime에 포함하지 않는 것이 최종 경계다. 이 부채는 type-only DTO 생성과 소비 전환만 다룬다.
+
+영향
+
+- API와 소비자가 같은 request wire shape를 각각 정의하면 필드명, required/optional, nullable, 배열/단수 기준이 조용히 어긋날 수 있다.
+- 소비자 local request DTO가 API 계약처럼 사용되면 Swagger/OpenAPI를 수정해도 Admin/Mobile typecheck에서 drift가 차단되지 않을 수 있다.
+- Request DTO type 공유와 transport runtime 공유를 구분하지 않으면 contracts package가 serializer/dispatcher를 포함한 범용 SDK로 불필요하게 확장될 수 있다.
+
+액션 후보
+
+- Admin/Mobile이 사용하는 API operation을 목록화하고 각 operation의 path/query/body request schema, required/optional, nullable, media type을 Swagger/OpenAPI에서 명시한다.
+- API generator가 operation별 type-only public request DTO map을 생성하도록 확장하되, runtime export에는 request validator/serializer/dispatcher를 추가하지 않는다.
+- Contracts package version을 올려 발행하고 Admin/Mobile dependency와 lockfile을 같은 stable version으로 정렬한다.
+- 소비자 request payload를 package generated DTO로 전환하고 동일 wire shape의 local type/interface, broad `Record<string, unknown>`, alias fallback을 제거한다.
+- 화면 ViewModel과 로컬 draft는 소비자에 유지하되 API payload로 전달할 때 package request DTO로 명시 변환한다.
+- Generated request DTO freshness, package type export, 소비자 local wire DTO 재유입을 CI 또는 정적 검사로 차단한다.
+
+완료 기준
+
+- Admin/Mobile이 사용하는 public API operation의 request path/query/body schema가 Swagger/OpenAPI에 명시되어 있다.
+- Contracts package가 operation별 type-only public request DTO를 제공하고 path/query/body 위치와 required/optional/nullable을 보존한다.
+- Admin/Mobile request payload가 package generated DTO를 사용하며 동일 wire shape의 consumer-local DTO, broad cast, alias fallback이 남아 있지 않다.
+- Package public runtime에 request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher가 추가되지 않았다.
+- API generated contract freshness와 Admin/Mobile 표준 품질 게이트가 통과하고 세 레포의 package exact version이 일치한다.
