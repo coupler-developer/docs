@@ -13,12 +13,12 @@
 
 ## 범위
 
-- 리뷰일: `2026-07-11`
+- 리뷰일: `2026-07-12`
 - 변경 유형: `코드+문서`
 - 판정 범위: `동시 배포 계약 묶음`
 - API: `coupler-api` PR [#107](https://github.com/coupler-developer/coupler-api/pull/107), source commit `56f7a45`, merge commit `c872927`
-- Admin: `coupler-admin-web` PR [#54](https://github.com/coupler-developer/coupler-admin-web/pull/54), comparison ref `refactor/김민식/api-contract-cutover` (review baseline `04163e4`)
-- Mobile: `coupler-mobile-app` PR [#156](https://github.com/coupler-developer/coupler-mobile-app/pull/156), commit `f3672b6`
+- Admin: `coupler-admin-web` PR [#54](https://github.com/coupler-developer/coupler-admin-web/pull/54), merge commit `d58040f8`
+- Mobile: `coupler-mobile-app` PR [#156](https://github.com/coupler-developer/coupler-mobile-app/pull/156), merge commit `a5f4a0b`
 - Docs: `docs` PR [#53](https://github.com/coupler-developer/docs/pull/53), 이 문서와 직접 연결된 정책 변경
 - 직접 연결 문서:
     - [API 공통 응답 계약 정책](../../policy/api-response-contract-policy.md)
@@ -89,7 +89,7 @@
 
 | ID | 상태 | 관점 | 내용 | 근거 | 조치 |
 | --- | --- | --- | --- | --- | --- |
-| `ACR-001` | `닫힘` | QA / Evidence Reviewer, API 계약 | API package source와 Admin/Mobile dependency·lockfile을 `0.1.5`로 정렬하고 제거 대상 runtime export가 설치 package에서 사라진 것을 확인했다. | API #107 merge commit `c872927`, `0.1.5` tarball `a673c3d`, Admin `04163e4`, Mobile `f3672b6`, 두 소비자 전체 품질 게이트 | 완료 |
+| `ACR-001` | `닫힘` | QA / Evidence Reviewer, API 계약 | API package source와 Admin/Mobile dependency·lockfile을 `0.1.5`로 정렬하고 제거 대상 runtime export가 설치 package에서 사라진 것을 확인했다. | API #107 merge commit `c872927`, `0.1.5` tarball `a673c3d`, Admin merge commit `d58040f8`, Mobile merge commit `a5f4a0b`, 두 소비자 전체 품질 게이트 | 완료 |
 | `ACR-002` | `닫힘` | Structure Fitness / Simplification Reviewer, API 계약 | Admin 목록 응답의 local envelope 재해석을 제거하고 package `isEnvelope` 검증 뒤 `data.cnt/list`를 검증하도록 책임을 분리했다. | `coupler-admin-web/src/api/adminListClient.ts`, `coupler-admin-web/src/__tests__/admin-list-client.test.ts`, Admin 전체 품질 게이트 | 완료 |
 
 ## 비차단 판정
@@ -111,10 +111,11 @@
 - 열린 Finding: 없음
 - Exit Gate: `No Findings`
 - 최종 판정: `No Findings`
-- 완료한 소비자 merge 전제조건:
+- 완료한 계약 정렬 및 소비자 merge:
     1. API #107 병합 및 `@coupler-developer/coupler-api-contracts@0.1.5` 발행 확인
     2. Admin/Mobile `package.json`과 `yarn.lock` exact version `0.1.5` 정렬
     3. Admin/Mobile 전체 품질 게이트 통과
     4. 최종 비교 ref로 동일 범위 재리뷰 완료
-- 소비자 PR 상태: 코드와 계약 검증 기준 merge 전제조건 완료. 이 문서는 실제 merge 완료를 주장하지 않는다.
+    5. Admin #54와 Mobile #156의 `main` 병합 확인
+- 소비자 PR 상태: Admin #54와 Mobile #156 병합 완료.
 - 남은 위험: 이번 동시 배포 계약 묶음 범위에서 확인된 위험 없음.
