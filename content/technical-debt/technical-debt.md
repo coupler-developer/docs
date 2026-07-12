@@ -630,11 +630,10 @@
 
 - [그룹미팅 시스템](../architecture/group-meeting-system.md)에 1차 DB/API 기준은 확정했지만,
   서비스 DB와 API/Admin/Mobile에는 아직 구현되지 않았다.
-- 13개 신규 테이블, 1개 VIEW와 기존 `t_setting` 표시명 변경 migration SQL 및 dev/prod DB Migration Gate
-  증빙이 없다.
+- 12개 신규 테이블과 1개 VIEW의 migration SQL 및 dev/prod DB Migration Gate 증빙이 없다.
 - 그룹미팅 API 계약, Admin 운영 화면, Mobile 행사·채팅·후기 흐름과 통합 테스트가 없다.
-- 예약 FCM 77~85의 서버 문구·`alarm_event`/`alarm_chat` 분기·Mobile 라우팅과 `t_setting` fallback/Key 로그
-  문구의 그룹미팅 명칭 동기화가 구현되지 않았다.
+- 예약 FCM 77~85의 서버 문구·`alarm_event`/`alarm_chat` 분기·Mobile 라우팅과 그룹미팅 Key 로그 문구가
+  구현되지 않았다.
 
 영향
 
@@ -644,12 +643,11 @@
 
 액션 후보
 
-- architecture의 13개 테이블, 1개 VIEW와 `t_setting` 표시명 변경을 migration SQL로 작성하고 DB Migration
-  Gate를 통과한다.
+- architecture의 12개 테이블과 1개 VIEW를 migration SQL로 작성하고 DB Migration Gate를 통과한다.
 - API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한 뒤 Admin과 Mobile을 연결한다.
 - FCM 77~85의 미사용 여부를 적용 직전에 다시 확인하고 서버/모바일/알림 설정/라우팅을 한 릴리스로
-  추가한다. 신규 타입을 인식하는 Mobile을 먼저 배포한 뒤 서버 발송을 활성화하고, `t_setting` fallback과
-  사용자 노출·Key 로그 문구도 함께 `그룹미팅`으로 맞춘다.
+  추가한다. 신규 타입을 인식하는 Mobile을 먼저 배포한 뒤 서버 발송을 활성화하고, 그룹미팅 Key 로그
+  문구도 함께 추가한다.
 - 그룹미팅 전체 검증이 완료되면 이 항목을 삭제하고 구현·검증 근거는 PR과 릴리스 기록에 남긴다.
 
 ---

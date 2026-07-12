@@ -24,7 +24,7 @@
   `t_setting.id=18`, 후기 보상은 `t_setting.id=20`의 서버 값을 사용한다. 거래 row에는 실제 적용한
   값을 `t_member_key_log.key/key_total`로 남기며 클라이언트가 보낸 Key 값은 사용하지 않는다.
 - 참가 확정은 남녀 승인 인원이 각각 2명 이상이고 모든 대기 신청을 처리한 뒤 Admin이 수행한다.
-  확정 transaction에서 채팅방을 연다.
+  확정 transaction에서 채팅 구성원과 최초 시스템 메시지를 만든다.
 - Admin CMS의 운영 목적 프로필 조회는 무료이며 감사 로그를 남긴다. Mobile에서는 호스트와 승인
   참가자 모두 다른 회원의 프로필을 최초 열람할 때 Key를 차감한다.
 
@@ -51,18 +51,10 @@
 | 18 | 사진 공개 행사의 사진프로필 최초 열람 비용 | -25 Key |
 | 20 | 종료 후기 최초 작성 보상 | +5 Key |
 
-- 예: 회원 Key가 100이고 `id=18` 값이 -25이면 사진프로필 최초 열람 transaction에서 잔액을 75로
-  변경하고 `t_member_key_log`와 profile view를 함께 저장한다. 같은 프로필을 다시 열면 profile view UNIQUE로
-  재차감하지 않는다.
-- 운영자가 설정값을 -20으로 바꾸면 이후 최초 열람부터 20 Key를 차감한다. event/application 컬럼에 가격을
-  중복 저장하지 않는다.
-- `id=18`은 title/content를 각각 `그룹미팅 사진프로필 보기 (남자/여자)`,
-  `그룹미팅 사진프로필 보기`로, `id=20`은 각각 `그룹미팅 후기작성 보상 (남자/여자)`,
-  `그룹미팅 후기작성 보상`으로 바꾸되 id와 value는 유지한다.
-- 같은 API 릴리스에서 `coupler-api/config/constant.ts`의 빈 테이블 fallback `SETTING`과 Key 로그용
-  한국어 문구도 같은 이름으로 바꾼다. DB만 바꿨다가 빈 DB 초기화나 Key 로그에서 `2:2`가 되살아나면 안 된다.
-- 1차는 기존 2:2와 그룹미팅이 같은 값을 공유한다. 향후 가격을 독립 운영하기로 확정된 경우에만 신규
-  `t_setting` row를 추가하며 그룹미팅 전용 설정 테이블이나 event 가격 snapshot 컬럼은 만들지 않는다.
+- 1차는 기존 row를 read-only로 공유한다. id/value/title/content를 변경하지 않고 신규 row/테이블이나
+  event 가격 snapshot 컬럼도 만들지 않는다.
+- 실제 적용 금액과 잔액은 기존 `t_member_key_log`에 기록한다. 그룹미팅 Key 로그의 content는 API의 신규
+  그룹미팅 i18n 문구를 사용하며 `t_setting.title/content`를 사용자 문구로 재사용하지 않는다.
 
 ## DB 공통 기준
 
@@ -79,7 +71,7 @@
 - host/event/application/chat/profile view/review/report/action log는 hard delete하지 않는다. event mood는
   DRAFT 편집 중 교체할 수 있고 media version/slice만 아래 cleanup 기준에 따라 정리할 수 있다.
 - 회원/Admin 삭제 뒤에도 운영 기록이 필요한 FK는 nullable + `ON DELETE SET NULL`을 사용한다.
-- 상태 변경, Key 변경, 채팅방 개설까지만 원천 transaction에서 수행한다. 알림은 commit 성공 후
+- 상태 변경, Key 변경, 채팅 구성원/시스템 메시지 생성까지만 원천 transaction에서 수행한다. 알림은 commit 성공 후
   `sendFCMPush()` 한 경로에서만 전송·저장하며 그룹미팅 코드가 `t_alarm`을 직접 insert하지 않는다.
 - 정원 승인은 행사 row를 `SELECT ... FOR UPDATE`로 잠그고 승인 수를 다시 집계한다.
 - 재전송 key는 행위 주체 범위의 UNIQUE로 멱등 처리한다. unique 충돌 시 같은 주체의 기존 성공 결과만
@@ -87,7 +79,7 @@
 
 ## 최종 테이블 구성
 
-필수 테이블은 13개다. 신청과 참가자를 분리하지 않고, 도메인별 상태 이력과 감사 로그를
+필수 테이블은 12개다. 신청과 참가자를 분리하지 않고, 도메인별 상태 이력과 감사 로그를
 `t_group_meeting_action_log` 하나로 통합한다.
 
 | 번호 | 테이블 | 책임 |
@@ -98,13 +90,12 @@
 | 4 | `t_group_meeting_event_detail_image_version` | 긴 이미지 처리 버전 |
 | 5 | `t_group_meeting_event_detail_image_slice` | 긴 이미지 slice |
 | 6 | `t_group_meeting_application` | 신청과 참가 자격 SoT |
-| 7 | `t_group_meeting_chat_room` | 행사별 채팅방 식별자와 마지막 메시지 |
-| 8 | `t_group_meeting_chat_member` | 채팅 구성원 principal과 unread 경계 |
-| 9 | `t_group_meeting_chat_message` | 일반/시스템 메시지 |
-| 10 | `t_group_meeting_profile_view` | 미니/사진프로필 최초 열람과 과금 |
-| 11 | `t_group_meeting_review` | 종료 후기와 보상 snapshot |
-| 12 | `t_group_meeting_report` | 행사/회원 신고 |
-| 13 | `t_group_meeting_action_log` | 상태 변경과 운영 감사 통합 로그 |
+| 7 | `t_group_meeting_chat_member` | 행사 채팅 구성원 principal과 unread 경계 |
+| 8 | `t_group_meeting_chat_message` | 행사별 일반/시스템 메시지 |
+| 9 | `t_group_meeting_profile_view` | 미니/사진프로필 최초 열람과 과금 |
+| 10 | `t_group_meeting_review` | 종료 후기와 보상 snapshot |
+| 11 | `t_group_meeting_report` | 행사/회원 신고 |
+| 12 | `t_group_meeting_action_log` | 상태 변경과 운영 감사 통합 로그 |
 
 ## 정규화 결정
 
@@ -116,12 +107,12 @@
   보존한다.
 - profile view는 대상 application을, review는 작성자 application을 직접 참조한다. 행사/대상 회원을
   다시 저장하지 않고 application에서 조회한다.
-- 채팅방의 송신 가능 여부는 event.status, 참가자의 채팅 자격은 application.status에서 판정한다. 별도
-  room/member 상태와 퇴장 시각을 중복 저장하지 않는다.
+- 행사당 채팅은 하나이므로 event.id를 채팅 식별자로 사용한다. 별도 chat room 테이블/ID/상태를 만들지 않고
+  송신 가능 여부는 event.status, 참가자 자격은 application.status에서 판정한다.
 - profile view 종류와 Key 설정은 OPEN 뒤 불변인 event.photo_public에서 판정하므로 profile_type을
   중복 저장하지 않는다.
 - chat member는 `application_id IS NULL`이면 HOST, 값이 있으면 PARTICIPANT로 판정해 role을 중복
-  저장하지 않는다. `host_room_id`는 방별 HOST 1명을 MySQL/MariaDB 공통 UNIQUE로 강제하기 위한
+  저장하지 않는다. `host_event_id`는 행사별 HOST 1명을 MySQL/MariaDB 공통 UNIQUE로 강제하기 위한
   STORED generated column이며 API 데이터로 노출하지 않는다.
 - profile view/review는 적용된 기존 `t_member_key_log.id`를 직접 참조한다. 변동량/잔액을 별도
   그룹미팅 원장에 중복 저장하지 않으며 각 원천 UNIQUE가 재처리 멱등성의 최종 DB guard다.
@@ -137,8 +128,8 @@
 - `member`: 수신 `t_member.id`
 - `type`: 아래 77~85의 신규 `GROUP_MEETING_*` FCM type
 - `content`: type별 서버 i18n 문구를 확정해 저장
-- `target`: 행사/신청/후기 알림은 `t_group_meeting_event.id`, 채팅 알림은 `t_group_meeting_chat_room.id`
-- Mobile은 type으로 target 종류를 판정한다. 추가 route/payload 컬럼은 만들지 않는다.
+- `target`: 모든 그룹미팅 알림은 `t_group_meeting_event.id`
+- Mobile은 type으로 행사 상세 또는 행사 채팅 화면을 판정한다. 추가 route/payload 컬럼은 만들지 않는다.
 - application 상태 version, `client_message_id`, profile view/review UNIQUE 등으로 원천 write의 중복
   반영을 막는다.
   API는 신규 write가 실제 1건 commit된 경우에만 기존 `sendFCMPush()`를 한 번 호출한다.
@@ -154,7 +145,7 @@
 | 81 | `GROUP_MEETING_APPLICATION_CANCELED` | 호스트 / 신청자 취소 | `alarm_event` | event ID |
 | 82 | `GROUP_MEETING_EVENT_CONFIRMED` | 승인 참가자 / 최종 확정 | `alarm_event` | event ID |
 | 83 | `GROUP_MEETING_EVENT_CANCELED` | APPLIED/APPROVED 신청자와 필요 시 호스트 / 행사 취소 | `alarm_event` | event ID |
-| 84 | `GROUP_MEETING_CHAT_MESSAGE` | 송신자 외 현재 채팅 구성원 / 신규 메시지 | `alarm_chat` | room ID |
+| 84 | `GROUP_MEETING_CHAT_MESSAGE` | 송신자 외 현재 채팅 구성원 / 신규 메시지 | `alarm_chat` | event ID |
 | 85 | `GROUP_MEETING_REVIEW_AVAILABLE` | APPROVED/LEFT 참가자 / 행사 종료 | `alarm_event` | event ID |
 
 - 운영 `t_alarm.type`은 signed `TINYINT`이고 현재 최대 타입은 76이므로 77~85는 범위 안의 미사용 값이다.
@@ -296,45 +287,32 @@
 - 승인/확정 취소/거절/신청 취소/퇴장 사유와 actor는 같은 transaction의 action log에 기록한다.
 - 행사 CONFIRMED 이후 신규 승인/확정 취소/거절과 신청 재개를 금지한다.
 
-### 7. `t_group_meeting_chat_room`
+### 7. `t_group_meeting_chat_member`
 
 | 컬럼 | 타입 | Null | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
 | id | INT | N | AUTO_INCREMENT | PK |
-| event_id | INT | N | - | 행사 |
-| last_message_id | INT | Y | NULL | 마지막 메시지 |
-| created_at | DATETIME | N | CURRENT_TIMESTAMP | 개설 시각 |
-
-- `UNIQUE(event_id)`
-- 행사 CONFIRMED transaction에서 한 번만 생성한다. 송신 가능 상태는 event CONFIRMED만 허용하며
-  FINISHED/CANCELED는 event 상태만으로 읽기 전용 종료를 판정한다.
-
-### 8. `t_group_meeting_chat_member`
-
-| 컬럼 | 타입 | Null | 기본값 | 설명 |
-| --- | --- | --- | --- | --- |
-| id | INT | N | AUTO_INCREMENT | PK |
-| room_id | INT | N | - | 채팅방 |
+| event_id | INT | N | - | 행사이자 채팅 식별자 |
 | application_id | INT | Y | NULL | 참가자는 신청 ID, 호스트는 null |
-| host_room_id | INT GENERATED ALWAYS AS (CASE WHEN application_id IS NULL THEN room_id ELSE NULL END) STORED | Y | GENERATED | 방별 HOST 1명 제약용 |
+| host_event_id | INT GENERATED ALWAYS AS (CASE WHEN application_id IS NULL THEN event_id ELSE NULL END) STORED | Y | GENERATED | 행사별 HOST 1명 제약용 |
 | host_alias_snapshot | VARCHAR(255) | Y | NULL | HOST의 채팅 표시 별칭 |
 | last_read_message_id | INT | Y | NULL | unread 경계 |
 | created_at | DATETIME | N | CURRENT_TIMESTAMP | 구성원 생성 시각 |
 
-- `UNIQUE(application_id)`, `UNIQUE(host_room_id)`, `INDEX(room_id, id)`
+- `UNIQUE(application_id)`, `UNIQUE(host_event_id)`, `INDEX(event_id, id)`
 - 호스트 row는 `application_id IS NULL`이고 host alias를 snapshot으로 저장한다. 참가자 row는 생성 시
   APPROVED application을 참조하고 이후 application이 LEFT가 되어도 메시지 표시 이력 때문에 보존한다.
   회원과 표시 별칭은 application에서 조회한다.
 - HOST의 송신 자격은 event의 ACTIVE host 연결, 참가자의 송신 자격은 현재 APPROVED application에서
   판정한다. LEFT application의 chat member는 읽기·쓰기 자격 없이 이력으로만 남는다.
-- unread 수는 같은 room의 정상 메시지 중 `id > COALESCE(last_read_message_id, 0)`인 건수로 계산한다.
+- unread 수는 같은 event의 정상 메시지 중 `id > COALESCE(last_read_message_id, 0)`인 건수로 계산한다.
 
-### 9. `t_group_meeting_chat_message`
+### 8. `t_group_meeting_chat_message`
 
 | 컬럼 | 타입 | Null | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
 | id | INT | N | AUTO_INCREMENT | PK |
-| room_id | INT | N | - | 채팅방 |
+| event_id | INT | N | - | 행사이자 채팅 식별자 |
 | sender_chat_member_id | INT | Y | NULL | 시스템 메시지는 null |
 | message_type | TINYINT | N | 0 | 0=TEXT, 1=JOIN, 2=LEAVE, 3=NOTICE |
 | content | TEXT | N | - | 메시지 |
@@ -342,10 +320,10 @@
 | status | TINYINT | N | 1 | 1=NORMAL, 2=ADMIN_DELETED |
 | created_at | DATETIME | N | CURRENT_TIMESTAMP | 발송 시각 |
 
-- `INDEX(room_id, id)`, `UNIQUE(sender_chat_member_id, client_message_id)`
+- `INDEX(event_id, id)`, `UNIQUE(sender_chat_member_id, client_message_id)`
 - 삭제 actor/reason은 action log에 기록하며 메시지는 hard delete하지 않는다.
 
-### 10. `t_group_meeting_profile_view`
+### 9. `t_group_meeting_profile_view`
 
 | 컬럼 | 타입 | Null | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -365,7 +343,7 @@
 - 신규 열람 row의 `member_key_log_id`는 반드시 채워서 commit한다. nullable은 회원 삭제로 기존 Key 로그가
   cascade 삭제될 때 `ON DELETE SET NULL`을 허용하기 위한 보관 예외다.
 
-### 11. `t_group_meeting_review`
+### 10. `t_group_meeting_review`
 
 | 컬럼 | 타입 | Null | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -381,7 +359,7 @@
 - 신규 후기 row의 `member_key_log_id`는 반드시 채워서 commit한다. nullable은 회원 삭제로 기존 Key 로그가
   cascade 삭제될 때 `ON DELETE SET NULL`을 허용하기 위한 보관 예외다.
 
-### 12. `t_group_meeting_report`
+### 11. `t_group_meeting_report`
 
 | 컬럼 | 타입 | Null | 기본값 | 설명 |
 | --- | --- | --- | --- | --- |
@@ -399,7 +377,7 @@
   `INDEX(event_id, target_member_id)`
 - 신고 처리는 Super Admin만 수행하며 처리자·사유·처리 시각은 같은 transaction의 action log에만 남긴다.
 
-### 13. `t_group_meeting_action_log`
+### 12. `t_group_meeting_action_log`
 
 별도 도메인별 상태 history를 만들지 않고 운영 감사와 상태 이력을 합친다.
 
@@ -433,8 +411,9 @@
 - `HOST_ACTIVATED/DEACTIVATED`, EVENT/APPLICATION/REPORT의 상태 전이 action과
   `MESSAGE_ADMIN_DELETED`는 from/to를 모두 기록하고 서로 다른 값이어야 한다. 생성·일반 수정·조회 및
   문자열 상태를 쓰는 detail image action은 둘 다 null로 둔다.
-- 회원 신청처럼 별도 사유가 없는 MEMBER 동작은 reason을 null로 둘 수 있다. ADMIN/SYSTEM action은
-  상위 보안·데이터 정책에 따라 사용자 입력 또는 서버 고정 사유를 필수로 기록한다.
+- 승인/확정 취소/거절, 비활성화, 취소/삭제, 신고 처리, 메시지 삭제, 운영 프로필 조회, 이미지 폐기처럼
+  사유가 필요한 중요 운영 action만 reason을 필수로 기록한다. 정상 생성·수정·모집·확정·종료와 MEMBER/SYSTEM
+  action은 reason을 null로 둘 수 있으며 값이 있으면 공백이 아니어야 한다.
 - request_id는 클라이언트 입력이 아니라 API 요청 또는 서버 job 실행 컨텍스트에서 생성해 모든 action log에
   저장한다.
 
@@ -451,10 +430,9 @@
 | detail slice.version_id | detail version.id | CASCADE |
 | application.event_id | event.id | RESTRICT |
 | application.member_id | `t_member.id` | SET NULL |
-| chat room.event_id | event.id | RESTRICT |
-| chat member.room_id | chat room.id | RESTRICT |
+| chat member.event_id | event.id | RESTRICT |
 | chat member.application_id | application.id | RESTRICT |
-| chat message.room_id | chat room.id | RESTRICT |
+| chat message.event_id | event.id | RESTRICT |
 | chat message.sender_chat_member_id | chat member.id | RESTRICT |
 | profile view.viewer_member_id | `t_member.id` | SET NULL |
 | profile view.target_application_id | application.id | RESTRICT |
@@ -469,7 +447,6 @@
 순환 참조는 테이블 생성 뒤 `ALTER TABLE`로 추가한다.
 
 - event의 `(detail_image_version_id, id)` -> detail version의 `(id, event_id)`, `ON DELETE RESTRICT`
-- chat room의 `last_message_id` -> chat message.id, `ON DELETE SET NULL`
 - chat member의 `last_read_message_id` -> chat message.id, `ON DELETE SET NULL`
 
 ## DDL CHECK 제약
@@ -481,14 +458,14 @@
 | host | `status IN (0,1) AND (status = 0 OR member_id IS NOT NULL)` |
 | event | `status IN (-2,-1,0,1,2,3,4) AND version > 0 AND application_close_at <= event_at AND photo_public IN (0,1) AND male_capacity BETWEEN 2 AND 20 AND female_capacity BETWEEN 2 AND 20 AND CHAR_LENGTH(TRIM(title)) > 0 AND CHAR_LENGTH(TRIM(thumbnail_path)) > 0 AND CHAR_LENGTH(TRIM(location)) > 0 AND CHAR_LENGTH(TRIM(create_idempotency_key)) > 0` |
 | event mood | `mood_code BETWEEN 1 AND 6` |
-| detail version | `CHAR_LENGTH(TRIM(source_image_path)) > 0 AND source_width > 0 AND source_height > 0 AND target_width > 0 AND slice_height > 0 AND total_bytes >= 0 AND ((status = 'pending' AND processing_started_at IS NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'processing' AND processing_started_at IS NOT NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'ready' AND processing_started_at IS NOT NULL AND completed_at IS NOT NULL AND error_message IS NULL AND slice_count > 0 AND total_bytes > 0) OR (status = 'failed' AND completed_at IS NOT NULL AND error_message IS NOT NULL AND CHAR_LENGTH(TRIM(error_message)) > 0) OR (status = 'discarded' AND completed_at IS NOT NULL AND error_message IS NULL)) AND (processing_started_at IS NULL OR processing_started_at >= created_at) AND (completed_at IS NULL OR completed_at >= COALESCE(processing_started_at, created_at))` |
+| detail version | `CHAR_LENGTH(TRIM(source_image_path)) > 0 AND source_width > 0 AND source_height > 0 AND target_width > 0 AND slice_height > 0 AND total_bytes >= 0 AND ((status = 'pending' AND processing_started_at IS NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'processing' AND processing_started_at IS NOT NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'ready' AND processing_started_at IS NOT NULL AND completed_at IS NOT NULL AND error_message IS NULL AND slice_count > 0 AND total_bytes > 0) OR (status = 'failed' AND completed_at IS NOT NULL AND error_message IS NOT NULL AND CHAR_LENGTH(TRIM(error_message)) > 0) OR (status = 'discarded' AND completed_at IS NOT NULL AND (error_message IS NULL OR CHAR_LENGTH(TRIM(error_message)) > 0))) AND (processing_started_at IS NULL OR processing_started_at >= created_at) AND (completed_at IS NULL OR completed_at >= COALESCE(processing_started_at, created_at))` |
 | detail slice | `CHAR_LENGTH(TRIM(image_path)) > 0 AND width > 0 AND height > 0 AND byte_size > 0` |
 | application | `gender_snapshot IN ('M','F') AND CHAR_LENGTH(TRIM(alias_snapshot)) > 0 AND version > 0 AND status IN (-3,-2,-1,0,1) AND ((status IN (-2,-1,0) AND approved_at IS NULL AND left_at IS NULL) OR (status = 1 AND approved_at IS NOT NULL AND left_at IS NULL) OR (status = -3 AND approved_at IS NOT NULL AND left_at IS NOT NULL AND left_at >= approved_at))` |
-| chat member | `(application_id IS NULL AND host_room_id = room_id AND host_alias_snapshot IS NOT NULL AND CHAR_LENGTH(TRIM(host_alias_snapshot)) > 0) OR (application_id IS NOT NULL AND host_room_id IS NULL AND host_alias_snapshot IS NULL)` |
+| chat member | `(application_id IS NULL AND host_event_id = event_id AND host_alias_snapshot IS NOT NULL AND CHAR_LENGTH(TRIM(host_alias_snapshot)) > 0) OR (application_id IS NOT NULL AND host_event_id IS NULL AND host_alias_snapshot IS NULL)` |
 | chat message | `message_type IN (0,1,2,3) AND status IN (1,2) AND CHAR_LENGTH(TRIM(content)) > 0 AND ((message_type = 0 AND sender_chat_member_id IS NOT NULL AND client_message_id IS NOT NULL AND CHAR_LENGTH(TRIM(client_message_id)) > 0) OR (message_type IN (1,2,3) AND sender_chat_member_id IS NULL AND client_message_id IS NULL))` |
 | review | `result IN (1,2) AND (result = 1 OR (content IS NOT NULL AND CHAR_LENGTH(TRIM(content)) > 0))` |
 | report | `status IN (0,1,2) AND reporter_member_id > 0 AND CHAR_LENGTH(TRIM(idempotency_key)) > 0 AND ((target_member_id IS NULL AND reason_code BETWEEN 1 AND 6) OR (target_member_id IS NOT NULL AND target_member_id > 0 AND target_member_id <> reporter_member_id AND reason_code IN (1,2,3,4,6))) AND (reason_code <> 6 OR (content IS NOT NULL AND CHAR_LENGTH(TRIM(content)) > 0))` |
-| action log 공통 | `actor_type IN (1,2,3) AND target_id > 0 AND CHAR_LENGTH(TRIM(action)) > 0 AND CHAR_LENGTH(TRIM(request_id)) > 0 AND ((actor_type IN (1,2) AND actor_id IS NOT NULL AND actor_id > 0) OR (actor_type = 3 AND actor_id IS NULL)) AND (actor_type = 1 OR (reason IS NOT NULL AND CHAR_LENGTH(TRIM(reason)) > 0))` |
+| action log 공통 | `actor_type IN (1,2,3) AND target_id > 0 AND CHAR_LENGTH(TRIM(action)) > 0 AND CHAR_LENGTH(TRIM(request_id)) > 0 AND ((actor_type IN (1,2) AND actor_id IS NOT NULL AND actor_id > 0) OR (actor_type = 3 AND actor_id IS NULL)) AND (reason IS NULL OR CHAR_LENGTH(TRIM(reason)) > 0)` |
 
 action log에는 공통 CHECK와 함께 아래 폐쇄형 action CHECK를 추가한다. action 자체가 대상 테이블을
 유일하게 결정하므로 target_type은 저장하지 않는다.
@@ -521,6 +498,17 @@ OR (actor_type = 2 AND action IN (
   'DETAIL_IMAGE_ATTACHED','DETAIL_IMAGE_DISCARDED'
 ))
 OR (actor_type = 3 AND action IN ('EVENT_CLOSED','EVENT_FINISHED'))
+```
+
+중요 운영 action의 사유만 별도 CHECK로 필수화한다.
+
+```sql
+action NOT IN (
+  'HOST_DEACTIVATED','EVENT_CANCELED','EVENT_DELETED',
+  'APPLICATION_APPROVED','APPLICATION_APPROVAL_REVOKED','APPLICATION_REJECTED',
+  'REPORT_RESOLVED','REPORT_DISMISSED','MESSAGE_ADMIN_DELETED','ADMIN_PROFILE_VIEWED',
+  'DETAIL_IMAGE_DISCARDED'
+) OR (reason IS NOT NULL AND CHAR_LENGTH(TRIM(reason)) > 0)
 ```
 
 상태 전이 action의 정확한 from/to와 비상태 action의 null 조합도 별도 CHECK로 고정한다.
@@ -567,9 +555,9 @@ action NOT IN (
 ) OR target_id = event_id
 ```
 
-chat member 생성 시 application이 실제 APPROVED인지, 보존 중에는 APPROVED/LEFT인지, room/application의
+chat member 생성 시 application이 실제 APPROVED인지, 보존 중에는 APPROVED/LEFT인지, member/application의
 event가 같은지 같은 교차 row 조건은 CHECK로 표현하지 못하므로 같은 transaction의 lock 조회와 통합
-테스트로 강제한다. 같은 방식으로 detail version, last/last_read message, HOST 소유관계, profile view
+테스트로 강제한다. 같은 방식으로 detail version, last_read message, HOST 소유관계, profile view
 viewer/target application, review application과 report 대상의 event 일치도 및 `member_key_log_id`의
 회원/변동량이 잠근 회원과 서버 설정값에 일치하는지 검증한다.
 
@@ -653,6 +641,7 @@ stateDiagram-v2
   `APPROVED -> APPLIED | LEFT`
 - `APPROVED -> APPLIED`는 행사 CONFIRMED 전 Admin의 참여 확정 취소다. 같은 transaction에서
   `approved_at`을 null로 바꾸고 version을 증가시키며, 기존 승인과 확정 취소 이력은 action log에 보존한다.
+- `APPROVED -> LEFT`는 행사 CONFIRMED 상태에서 참가자가 채팅을 퇴장할 때만 허용한다.
 - 같은 회원은 같은 행사에 한 번만 신청하며 CANCELED/REJECTED 뒤 재신청은 허용하지 않는다.
 - 행사 CONFIRMED 시 APPLIED가 남아 있으면 실패한다.
 - 행사 CANCELED는 신청 상태를 덮어쓰지 않는다. 행사 상태로 전체 취소를 해석한다.
@@ -672,13 +661,13 @@ stateDiagram-v2
 1. 행사 소유권과 application version을 검증한다.
 2. event/application row를 lock하고 해당 성별 APPROVED 수를 재집계한다.
 3. 참여 승인 시 application을 `APPLIED -> APPROVED`로 변경하고 approved_at, version, action log를
-   같은 transaction에 저장한다. commit 뒤 78 알림을 보낸다.
+   같은 transaction에 저장한다.
 4. 참여 확정 취소 시 행사 CONFIRMED 전인지 확인하고 application을 `APPROVED -> APPLIED`로 되돌린다.
    approved_at을 null로 바꾸고 version과 `APPLICATION_APPROVAL_REVOKED` action log를 같은 transaction에
-   저장한다. 별도 취소 row나 상태는 만들지 않고 commit 뒤 79 알림을 보낸다.
+   저장한다. 별도 취소 row나 상태는 만들지 않는다.
 5. 최종 확정 시 APPLIED 0건, 남녀 APPROVED 각각 2명 이상을 확인한다.
-6. event CONFIRMED, chat room, 호스트/참가자 chat member, 시스템 메시지를 한 transaction에 저장한다.
-7. commit 뒤 승인 또는 최종 확정이 실제 반영된 경우에만 각각 78 또는 82 타입으로 대상별
+6. event CONFIRMED, 호스트/참가자 chat member, 시스템 메시지를 한 transaction에 저장한다.
+7. commit 뒤 승인, 확정 취소 또는 최종 확정이 실제 반영된 경우에만 각각 78, 79 또는 82 타입으로 대상별
    `sendFCMPush()`를 한 번 호출한다.
 
 ### 신청 거절/취소와 행사 취소/종료
@@ -687,7 +676,7 @@ stateDiagram-v2
    commit 성공 시 신청자에게 80 타입을 보낸다.
 2. 회원 신청 취소는 APPLIED application을 CANCELED로 바꾸고 action log를 같은 transaction에 저장한 뒤
    commit 성공 시 호스트에게 81 타입을 보낸다.
-3. 행사 취소는 event를 CANCELED로 바꾸고 action log를 같은 transaction에 저장한다. 이미 채팅방이 있으면
+3. 행사 취소는 event를 CANCELED로 바꾸고 action log를 같은 transaction에 저장한다. CONFIRMED 이후면
    취소 시스템 메시지도 함께 저장하고, commit 성공 시 APPLIED/APPROVED 신청자와 Super Admin 취소 시
    호스트에게 83 타입을 보낸다.
 4. 행사 종료는 event를 FINISHED로 바꾸고 action log를 같은 transaction에 저장한 뒤 commit 성공 시
@@ -695,16 +684,17 @@ stateDiagram-v2
 
 ### 채팅 전송/읽음/퇴장
 
-1. 메시지 전송은 room/event와 sender chat member를 lock한다. event CONFIRMED이고 sender가 ACTIVE host
+1. 메시지 전송은 event와 sender chat member를 lock한다. event CONFIRMED이고 sender가 ACTIVE host
    연결이거나 APPROVED application인 경우만 허용한다.
-2. 같은 sender/client_message_id가 없을 때 message를 insert하고 room.last_message_id와 sender의
-   last_read_message_id를 신규 message.id까지 함께 단조 증가시킨다. commit 뒤 신규 message insert가
+2. 같은 sender/client_message_id가 없을 때 message를 insert하고 sender의 last_read_message_id를 신규
+   message.id까지 함께 단조 증가시킨다. commit 뒤 신규 message insert가
    성공한 경우에만 sender를 제외한 host와 APPROVED 참가자에게 84 타입 `sendFCMPush()`를 한 번 호출한다.
-3. 읽음 처리는 대상 message가 같은 room인지 확인하고 기존 값보다 큰 ID일 때만 last_read_message_id를
+3. 읽음 처리는 대상 message가 같은 event인지 확인하고 기존 값보다 큰 ID일 때만 last_read_message_id를
    단조 증가시킨다.
 4. 참가자 퇴장은 application/chat member를 함께 lock해 application만 LEFT로 바꾸고 leave system
    message/action log를 한 transaction에 저장한다. chat member row는 메시지 표시 이력 때문에 보존하고
-   이후 자격은 application LEFT로 차단한다. commit 뒤 상태 전이가 성공한 경우에만 알림을 호출한다.
+   이후 자격은 application LEFT로 차단한다. commit 뒤 상태 전이가 성공한 경우에만 퇴장자를 제외한 현재
+   채팅 구성원에게 84 타입을 호출한다.
    호스트는 채팅 퇴장이 아니라 행사 취소 절차를 사용한다.
 
 ### 프로필 열람
@@ -756,15 +746,15 @@ event를 기준으로 application을 LEFT JOIN하고 `SUM(CASE WHEN ... THEN 1 E
 | `GroupMeetingEventDetail` | event + ready image slices + application summary VIEW + 내 권한 + 서버 Key 설정 |
 | `GroupMeetingMyEventItem` | EventListItem + host/participant role |
 | `GroupMeetingApplicantItem` | application + 승인 프로필 요약 + 내가 열람한 profile view 여부 |
-| `GroupMeetingChatListItem` | application/event + optional chat room + last message + unread 수 |
+| `GroupMeetingChatListItem` | application/event + last message + unread 수 |
 | `GroupMeetingChatMessageItem` | 정상 message + sender principal별 host/application alias, 운영 삭제 표기 |
 | `GroupMeetingReviewState` | event FINISHED 여부 + application 자격 + 기존 review 여부 + reward Key |
 
 - raw DB row, 내부 status history와 `t_member_key_log` 연결은 프론트 응답으로 직접 노출하지 않는다.
 - 공개 행사 목록은 OPEN/CLOSED/CONFIRMED를 먼저, FINISHED/CANCELED를 뒤에 두고 각 그룹에서
   `created_at DESC, id DESC`로 정렬한다. DRAFT/DELETED는 호스트/Admin 조회에서만 노출한다.
-- 채팅 목록은 APPLIED 신청도 chat room 없이 노출해 “호스트 검토 중” 상태를 표시한다. CONFIRMED 뒤에는
-  room/message를 결합하고 FINISHED/CANCELED는 읽기 전용 종료 상태로 표시한다.
+- 채팅 목록은 APPLIED 신청도 메시지 없이 노출해 “호스트 검토 중” 상태를 표시한다. CONFIRMED 뒤에는
+  event/message를 결합하고 FINISHED/CANCELED는 읽기 전용 종료 상태로 표시한다.
 - unread처럼 호출자별 계산이 필요한 값은 VIEW에 넣지 않고 repository query에서 계산한다.
 
 ## API 범위
@@ -812,7 +802,8 @@ event를 기준으로 application을 LEFT JOIN하고 `SUM(CASE WHEN ... THEN 1 E
 
 ## Migration Gate 적용
 
-이 문서는 DB 설계 SoT이며 실제 테이블 생성과 기존 `t_setting` 명칭 변경은 별도 migration SQL로 수행한다.
+이 문서는 DB 설계 SoT이며 실제 12개 테이블과 1개 VIEW 생성은 migration SQL로 수행한다.
+기존 `t_setting` row는 읽기만 하며 변경 migration을 만들지 않는다.
 미구현 상태와 후속 API/Admin/Mobile 작업은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
 `24) 그룹미팅 1차 구현 미착수`에서 추적한다.
 
@@ -820,18 +811,13 @@ event를 기준으로 application을 LEFT JOIN하고 `SUM(CASE WHEN ... THEN 1 E
 | --- | --- | --- |
 | `DBM-GATE-000` | 필수 | CHECK와 STORED generated UNIQUE 지원, 부모 테이블 타입/collation, FCM 77~85 미사용 확인 |
 | `DBM-GATE-010` | 필수 | migration checksum과 dev/prod `schema_migrations` 기록 |
-| `DBM-GATE-100` | 필수 | 13개 테이블과 1개 VIEW, PK/UNIQUE/INDEX/FK/CHECK의 SHOW CREATE diff와 실패 guard |
-| `DBM-GATE-200` | 필수 | `t_setting.id IN (18,20)`의 title/content가 위 확정 문구로 변경되고 id/value가 보존됨을 검증 |
+| `DBM-GATE-100` | 필수 | 12개 테이블과 1개 VIEW, PK/UNIQUE/INDEX/FK/CHECK의 SHOW CREATE diff와 실패 guard |
+| `DBM-GATE-200` | N/A | 기존 데이터 backfill/보정 없음. `t_setting.id IN (16,18,20)`은 변경하지 않고 read-only 재사용 |
 | `DBM-GATE-300` | N/A | 기존 read/write 기준을 변경하지 않음 |
 | `DBM-GATE-400` | N/A | 기존 객체 drop/contract 없음 |
 
 로컬 운영 dump에서 잘못된 CHECK row, FK 불일치, 중복 idempotency, 정원 동시 승인, Key 중복 지급을
 실패 fixture로 검증한 뒤에만 개발계/운영계 적용 대상으로 본다.
-
-## 2차 확장 원칙
-
-현장 운영이 실제 확정될 때만 `t_group_meeting_round`, `t_group_meeting_round_assignment`,
-`t_group_meeting_interest`를 additive migration으로 추가한다. 1차 테이블에 빈 라운드/호감 컬럼을 미리 두지 않는다.
 
 ## 관련 문서
 
