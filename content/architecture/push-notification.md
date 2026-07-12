@@ -82,6 +82,23 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 
 - 위 표는 전체 타입 목록이 아니라 대표 타입 예시와 범주 요약이다.
 
+### 그룹미팅 예약 타입 (77-85, to-be)
+
+아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 구현 계약으로 예약했으며 현재 운영 코드에는 아직
+추가되지 않았다. 구현 직전 운영 상수에서 미사용 여부를 재검증한다.
+
+| 값 | 상수 | 의미 | 사용자 설정 |
+| --- | --- | --- | --- |
+| 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | `alarm_event` |
+| 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | `alarm_event` |
+| 79 | `GROUP_MEETING_APPLICATION_APPROVAL_REVOKED` | 참여 확정 취소 | `alarm_event` |
+| 80 | `GROUP_MEETING_APPLICATION_REJECTED` | 신청 거절 | `alarm_event` |
+| 81 | `GROUP_MEETING_APPLICATION_CANCELED` | 신청자 취소 | `alarm_event` |
+| 82 | `GROUP_MEETING_EVENT_CONFIRMED` | 참가 최종 확정 | `alarm_event` |
+| 83 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` |
+| 84 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` |
+| 85 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` |
+
 ## 발송 흐름
 
 ```mermaid
@@ -93,7 +110,7 @@ sequenceDiagram
     participant DB as t_alarm
 
     C->>Common: sendFCMPush(user_data, type, data)
-    Common->>Common: 알림 설정 체크 (alarm_chat, alarm_match)
+    Common->>Common: 알림 설정 체크 (alarm_chat, alarm_match, alarm_event)
     alt 알림 허용
         Common->>FCM: send(token, type, title, content, data)
         FCM->>Firebase: firebase.messaging().send()
@@ -108,6 +125,8 @@ sequenceDiagram
 |------|----------|------|
 | 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT 스킵 |
 | 매칭 알림 | `alarm_match = NO` | FCM 12-30 스킵 |
+| 그룹미팅 행사 알림(to-be) | `alarm_event = NO` | FCM 77-83/85 스킵 |
+| 그룹미팅 채팅 알림(to-be) | `alarm_chat = NO` | FCM 84 스킵 |
 | 보이스톡 오픈 알림 숨김 | `MATCH_VOICE_CALL` | 전송/저장 스킵, 알림 목록 제외 |
 | FCM 토큰 | `fcm_token` 없음 | 전송 스킵 |
 | OFFLINE_MODE | 개발 환경 | 전송 스킵 |
@@ -141,7 +160,7 @@ sequenceDiagram
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | member | INT | 수신자 ID |
-| type | INT | FCM_TYPE (1-76) |
+| type | TINYINT | 운영 FCM_TYPE 1-76, 그룹미팅 예약 77-85 |
 | content | VARCHAR | 알림 메시지 |
 | target | INT | 관련 ID (매칭/미팅/라운지) |
 | create_date | DATETIME | 발송 시간 |

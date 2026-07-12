@@ -624,26 +624,33 @@
 
 ---
 
-## 24) 로테이션 소개팅 1차 구현 미착수 `P1` `L`
+## 24) 그룹미팅 1차 구현 미착수 `P1` `L`
 
 현상
 
-- [n대n 로테이션 소개팅 시스템](../architecture/rotation-meeting-system.md)에 1차 DB/API 기준은 확정했지만,
+- [그룹미팅 시스템](../architecture/group-meeting-system.md)에 1차 DB/API 기준은 확정했지만,
   서비스 DB와 API/Admin/Mobile에는 아직 구현되지 않았다.
-- 13개 신규 테이블과 1개 VIEW의 additive migration SQL, dev/prod DB Migration Gate 증빙이 없다.
-- 로테이션 API 계약, Admin 운영 화면, Mobile 행사·채팅·후기 흐름과 통합 테스트가 없다.
+- 13개 신규 테이블, 1개 VIEW와 기존 `t_setting` 표시명 변경 migration SQL 및 dev/prod DB Migration Gate
+  증빙이 없다.
+- 그룹미팅 API 계약, Admin 운영 화면, Mobile 행사·채팅·후기 흐름과 통합 테스트가 없다.
+- 예약 FCM 77~85의 서버 문구·`alarm_event`/`alarm_chat` 분기·Mobile 라우팅과 `t_setting` fallback/Key 로그
+  문구의 그룹미팅 명칭 동기화가 구현되지 않았다.
 
 영향
 
-- architecture 문서만으로는 로테이션 소개팅 기능이 실행되지 않는다.
+- architecture 문서만으로는 그룹미팅 기능이 실행되지 않는다.
 - migration, 서버 권한·상태 전이, 클라이언트 계약을 서로 다른 기준으로 구현하면 중복 알림·중복 과금·
   정원 초과와 개인정보 접근 회귀가 생길 수 있다.
 
 액션 후보
 
-- architecture의 13개 테이블과 1개 VIEW를 additive migration SQL로 작성하고 DB Migration Gate를 통과한다.
+- architecture의 13개 테이블, 1개 VIEW와 `t_setting` 표시명 변경을 migration SQL로 작성하고 DB Migration
+  Gate를 통과한다.
 - API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한 뒤 Admin과 Mobile을 연결한다.
-- 로테이션 전체 검증이 완료되면 이 항목을 삭제하고 구현·검증 근거는 PR과 릴리스 기록에 남긴다.
+- FCM 77~85의 미사용 여부를 적용 직전에 다시 확인하고 서버/모바일/알림 설정/라우팅을 한 릴리스로
+  추가한다. 신규 타입을 인식하는 Mobile을 먼저 배포한 뒤 서버 발송을 활성화하고, `t_setting` fallback과
+  사용자 노출·Key 로그 문구도 함께 `그룹미팅`으로 맞춘다.
+- 그룹미팅 전체 검증이 완료되면 이 항목을 삭제하고 구현·검증 근거는 PR과 릴리스 기록에 남긴다.
 
 ---
 

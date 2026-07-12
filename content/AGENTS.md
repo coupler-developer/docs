@@ -58,8 +58,8 @@
 - [회원 라이프사이클](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
 - [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
 - [매칭 스케줄 알고리즘](architecture/matching-schedule-algorithm.md)
-- [미팅 시스템](architecture/meeting-system.md) - 2:2 그룹 미팅
-- [n대n 로테이션 소개팅 시스템](architecture/rotation-meeting-system.md) - 로테이션 소개팅 to-be 기획
+- [기존 2:2 그룹미팅 시스템](architecture/meeting-system.md) - 구현·배포된 레거시 계약
+- [그룹미팅 시스템](architecture/group-meeting-system.md) - n대n 그룹미팅 to-be 기획
 - [라운지 시스템](architecture/lounge-system.md) - 커뮤니티
 - [채팅 시스템](architecture/chat-system.md)
 - [결제 시스템](architecture/payment-system.md) - 키 충전 및 인앱결제

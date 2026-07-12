@@ -174,7 +174,9 @@
 - **Senior PM / Product**: 요구사항, 사용자 흐름, 스펙 공백, 기준 변경 여부를 확인한다.
 - **Business / Operations**: 운영 가능성, CS 리스크, 관리자 액션, 심사/결제/푸시 운영 영향을 확인한다.
 - **Senior Security**: 인증/인가, 권한 우회, 민감정보, 로그 마스킹, 임시 권한, 감사 로그를 확인한다.
-- **Senior Backend**: API 계약, DB, 상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy), [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
+- **Senior Backend**: API 계약, [엔지니어링 가드레일](engineering-guardrails.md)의 DB 설계 최종 리뷰,
+  상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy),
+  [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
 - **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 클라이언트 로컬 subset과 서버 분류 체계(taxonomy)의 충돌 여부, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
 - **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, 태그/제출 마커 정책 준수, PR별 cutover 필요성/현재 제거 가능 여부를 확인한다.
 - 릴리즈 기록/자동화 변경 리뷰에서는 `release-metadata`를 기계 판정 SoT로 둔다. 본문 자유 문장 검색, validator별 중복 상수, metadata와 Markdown mirror의 불일치, cutover 없는 `N/A` 설명을 Gate 포함 신호로 처리하는 변경은 finding으로 기록한다.
