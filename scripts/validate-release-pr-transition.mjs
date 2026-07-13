@@ -5,6 +5,10 @@ import {
 import {
   validatePendingToReleasedTransition,
 } from "./release-transition.mjs";
+import {
+  activeReleaseStatuses,
+  terminalReleaseStatuses,
+} from "./release-schema.mjs";
 
 const errors = [];
 let args = {};
@@ -86,13 +90,15 @@ function validateChangedReleaseRecords(baseRef, headRef, validationErrors) {
     return;
   }
 
-  const changedPaths = git([
-    "diff",
+  const changedPaths = [...new Set(git([
+    "log",
+    "--format=",
     "--name-only",
-    `${baseRef}...${headRef}`,
+    "--full-history",
+    `${baseRef}..${headRef}`,
     "--",
     "content/releases/v*.md",
-  ]).split("\n").filter(Boolean);
+  ]).split("\n").filter(Boolean))];
 
   for (const releasePath of changedPaths) {
     validateReleaseRecordHistory(baseRef, headRef, releasePath, validationErrors);
@@ -101,21 +107,49 @@ function validateChangedReleaseRecords(baseRef, headRef, validationErrors) {
 
 function validateReleaseRecordHistory(baseRef, headRef, releasePath, validationErrors) {
   const currentMetadata = readMetadataAtRef(headRef, releasePath, validationErrors);
-  if (!currentMetadata || currentMetadata.status !== "released") {
+  if (!currentMetadata) {
     return;
   }
 
+  const baseMetadata = readMetadataAtRef(
+    baseRef,
+    releasePath,
+    validationErrors,
+    true,
+  );
+
   const commits = git([
     "rev-list",
+    "--full-history",
     "--reverse",
     `${baseRef}..${headRef}`,
     "--",
     releasePath,
   ]).split("\n").filter(Boolean);
 
-  const pendingSnapshot = commits
+  const releaseMetadataHistory = commits
     .map((commit) => readMetadataAtRef(commit, releasePath, validationErrors, true))
-    .filter((metadata) => metadata?.status === "pending")
+    .filter(Boolean);
+
+  const regressedMetadata = terminalReleaseStatuses.has(baseMetadata?.status)
+    ? releaseMetadataHistory.find((metadata) =>
+        activeReleaseStatuses.has(metadata.status),
+      )
+    : null;
+
+  if (regressedMetadata) {
+    validationErrors.push(
+      `${releasePath}: terminal release status cannot transition back to active (${baseMetadata.status} -> ${regressedMetadata.status})`,
+    );
+    return;
+  }
+
+  if (currentMetadata.status !== "released") {
+    return;
+  }
+
+  const pendingSnapshot = releaseMetadataHistory
+    .filter((metadata) => metadata.status === "pending")
     .at(-1);
 
   if (pendingSnapshot) {

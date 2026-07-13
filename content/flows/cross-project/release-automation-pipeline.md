@@ -117,6 +117,7 @@
 | `rolled_back` | 완료/rollback 증빙에는 금지 | 하나 이상의 scope가 `rolled_back`이어야 하며, rolled_back scope의 `rollbackReason`과 rollback/cutover 증빙에 placeholder 신호가 남으면 차단한다. |
 | `superseded` | 대체 사유에는 허용 | `released`/`superseded` scope만 남아야 하며, superseded scope는 `supersededBy`, `incompleteReason`, `tagStatus`로 미완료 대체 범위를 표현한다. |
 
+- base 기록이 `released`, `rolled_back`, `superseded`이면 PR 이력 어디에서도 `planned`, `pending`, `in_progress`로 되돌리지 못하게 차단한다. 사실 정정은 terminal 상태를 유지하고, 후속 배포는 새 버전의 릴리즈 기록으로 분리한다.
 - `N/A - <사유>`는 제외 범위, cutover 미포함 사유, 참고 mirror처럼 완료 판정에 직접 쓰이지 않는 항목에만 쓴다. `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 terminal evidence는 실제 workflow, Gate, smoke, artifact, rollback 기준 같은 concrete 증빙이어야 하며 `N/A - <사유>`로 대체하지 않는다.
 - `preflightRepoNames`에 포함되지 않은 레포의 `versionMapping` placeholder는 해당 릴리즈의 완료 차단 조건이 아니다. 제외 근거는 `범위`의 `제외 범위`에 남긴다.
 
@@ -223,8 +224,9 @@ yarn release:preflight \
 2. 완료되지 않은 범위가 있으면 `released`로 닫지 않고 `in_progress` 또는 `superseded` 상태와 근거를 남긴다.
 3. 제출 마커 태그를 삭제했다면 삭제 완료 증빙을 릴리즈 기록에 남긴다.
 4. 같은 PR의 `pending -> released` transition은 `releaseScopes`, `extraRepoRefs`, 서비스 commit SHA, Mobile Store version/build, API contract comparison ref가 그대로인지 검사한다. 변경되면 기존 실행을 중단하고 새 `pending` 기준점부터 다시 시작한다.
-5. 마지막 수정 이후 전체 `yarn validate:docs`를 다시 실행하고 PR을 Ready로 전환해 한 번만 병합한다.
-6. 병합된 main 커밋에 docs annotated tag를 생성하고 Release workflow와 artifact를 postcheck한다.
+5. base 기록이 terminal이면 PR 이력에 active 역전이가 없는지 검사한다. 후속 배포는 기존 버전을 다시 열지 않고 새 버전의 릴리즈 기록으로 시작한다.
+6. 마지막 수정 이후 전체 `yarn validate:docs`를 다시 실행하고 PR을 Ready로 전환해 한 번만 병합한다.
+7. 병합된 main 커밋에 docs annotated tag를 생성하고 Release workflow와 artifact를 postcheck한다.
 
 ## 자동화 범위
 
