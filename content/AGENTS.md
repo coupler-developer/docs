@@ -115,6 +115,7 @@
 
 ### Releases
 
+- [2.2.7 릴리스 실행 기록](releases/v2.2.7.md) - contracts 0.1.5 기준 API/Admin/Mobile NextPush 운영 배포 기록
 - [2.2.6 릴리스 실행 기록](releases/v2.2.6.md) - contracts package 0.1.2 발행과 Admin/Mobile 소비자 dependency bump 준비 기록
 - [2.2.5 릴리스 실행 기록](releases/v2.2.5.md) - API/Admin/Mobile 공통 응답 contract cutover 진행 기록
 - [2.2.4 릴리스 실행 기록](releases/v2.2.4.md) - Mobile Store 2.2.1 (100) 배포 진행 기록
