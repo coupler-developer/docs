@@ -646,8 +646,13 @@
 
 액션 후보
 
-- architecture의 11개 테이블과 1개 VIEW를 migration SQL로 작성하고 DB Migration Gate를 통과한다.
-- API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한 뒤 Admin과 Mobile을 연결한다.
+- architecture의 11개 테이블, 1개 VIEW와 `t_setting.id=25` 초기 설정 row를 migration SQL로 작성하고
+  DB Migration Gate를 통과한다.
+- API 계약과 서버 transaction/권한/멱등성 통합 테스트를 먼저 고정한다. 이때 Mobile 호스트의 신청자
+  프로필 무료 열람에는 Key 원장/열람 row가 생기지 않고, 승인 참가자 간 최초 열람만 16/18번 설정으로
+  과금되며, 후기 최초 보상은 25번 설정으로 한 번만 지급되는지 검증한 뒤 Admin과 Mobile을 연결한다.
+  OPEN 전 ready 본문 이미지, 행사별 성별 정원, OPEN/CLOSED에서만 가능한 승인/확정 취소, 16/18 음수와
+  25 양수 설정 검증, CANCELED 프로필 차단도 같은 통합 테스트 범위에 포함한다.
 - FCM 77~83의 미사용 여부를 적용 직전에 다시 확인하고 서버/모바일/알림 설정/라우팅을 한 릴리스로
   추가한다. 신규 타입을 인식하는 Mobile을 먼저 배포한 뒤 서버 발송을 활성화하고, 그룹미팅 Key 로그
   문구도 함께 추가한다.

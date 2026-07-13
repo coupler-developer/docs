@@ -296,7 +296,8 @@
 - 신규 신청의 `member_id`는 반드시 채운다. nullable은 회원 개인정보 삭제 후 신청 이력을 보존하기 위한
   `ON DELETE SET NULL` 예외다.
 - 확정 취소/퇴장 사유와 actor 및 정확한 발생 시각은 같은 transaction의 action log에 기록한다.
-- 행사 CONFIRMED 이후 신규 승인과 확정 취소를 금지한다. 남은 APPLIED는 미확정 마감 상태로만 조회한다.
+- 신규 승인과 확정 취소는 행사 OPEN/CLOSED에서만 허용한다. CONFIRMED/CANCELED를 포함한 나머지 행사
+  상태에서는 두 전이를 모두 금지하며, CONFIRMED 시 남은 APPLIED는 미확정 마감 상태로만 조회한다.
 
 ### 6. `t_group_meeting_chat_member`
 
@@ -650,7 +651,7 @@ stateDiagram-v2
 | 1 | APPROVED | 입금 확인 후 참여 승인 |
 
 - 허용 전이: `APPLIED -> APPROVED`, `APPROVED -> CANCELED | LEFT`
-- `APPROVED -> CANCELED`는 행사 CONFIRMED 전 Admin의 확정 취소다. `approved_at`은 승인 증빙으로
+- `APPROVED -> CANCELED`는 행사 OPEN/CLOSED에서만 가능한 Admin 확정 취소다. `approved_at`은 승인 증빙으로
   유지하고 version을 증가시키며, 확정 취소 사유/시각은 action log에 보존한다. CANCELED는 외부 환불이
   필요한 상태라는 의미만 가지며 환불 완료 여부나 금액은 저장하지 않는다.
 - `APPROVED -> LEFT`는 행사 CONFIRMED 상태에서 참가자가 채팅을 퇴장할 때만 허용한다.
@@ -671,18 +672,21 @@ stateDiagram-v2
 
 ### 참여 승인과 모임 확정
 
-1. 행사 소유권과 application version을 검증한다.
-2. event/application row를 lock하고 해당 성별 APPROVED 수를 재집계한다.
-3. 참여 승인 시 CMS에서 입금 확인 사유를 필수로 받고 application을 `APPLIED -> APPROVED`로 변경한다.
+1. 호스트는 기존 CMS 회원정보를 확인하고 스마트 문자/CMS 큐레이터 채팅으로 입금을 요청한다. 이 단계는
+   기존 연락 기능만 사용하며 그룹미팅 DB 상태를 만들거나 변경하지 않는다.
+2. 행사 소유권과 application version을 검증한다.
+3. event/application row를 lock하고 해당 성별 APPROVED 수를 재집계한다. 참여 승인은 행사 상태가
+   OPEN/CLOSED이고 재집계 수가 event의 해당 `male_capacity`/`female_capacity`보다 작을 때만 허용한다.
+4. 참여 승인 시 CMS에서 입금 확인 사유를 필수로 받고 application을 `APPLIED -> APPROVED`로 변경한다.
    approved_at, version, 사유를 포함한 action log를 같은 transaction에 저장한다.
-4. 확정 취소 시 행사 CONFIRMED 전인지 확인하고 application을 `APPROVED -> CANCELED`로 바꾼다.
+5. 확정 취소도 행사 상태가 OPEN/CLOSED일 때만 application을 `APPROVED -> CANCELED`로 바꾼다.
    approved_at은 유지하고 version과 `APPLICATION_CANCELED` action log를 같은 transaction에 저장한다.
    CANCELED는 CMS에서 외부 환불이 필요한 대상으로 표시한다.
-5. 모임 확정 시 남녀 APPROVED 각각 2명 이상을 확인한다. 설정 정원 전체 충원은 요구하지 않으며 남은
+6. 모임 확정 시 남녀 APPROVED 각각 2명 이상을 확인한다. 설정 정원 전체 충원은 요구하지 않으며 남은
    APPLIED는 미확정 마감으로 남긴다.
-6. event CONFIRMED와 `host_id`를 채운 호스트, `application_id`를 채운 참가자 chat member를 한
+7. event CONFIRMED와 `host_id`를 채운 호스트, `application_id`를 채운 참가자 chat member를 한
    transaction에 저장한다. 최초 시스템 메시지는 만들지 않는다.
-7. commit 뒤 참여 승인, 확정 취소 또는 모임 확정이 실제 반영된 경우에만 각각 78, 79 또는 80 타입으로 대상별
+8. commit 뒤 참여 승인, 확정 취소 또는 모임 확정이 실제 반영된 경우에만 각각 78, 79 또는 80 타입으로 대상별
    `sendFCMPush()`를 한 번 호출한다.
 
 ### 행사 취소/종료
@@ -772,8 +776,10 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 - raw DB row, 내부 status history와 `t_member_key_log` 연결은 프론트 응답으로 직접 노출하지 않는다.
 - 공개 행사 목록은 OPEN/CLOSED/CONFIRMED를 먼저, FINISHED/CANCELED를 뒤에 두고 각 그룹에서
   `created_at DESC, id DESC`로 정렬한다. DRAFT/DELETED는 호스트/Admin 조회에서만 노출한다.
-- 채팅 목록은 APPLIED 신청도 메시지 없이 노출해 “호스트 검토 중” 상태를 표시한다. CONFIRMED 뒤에는
-  event/message를 결합하고 FINISHED/CANCELED는 읽기 전용 종료 상태로 표시한다.
+- APPLIED는 내 모임에서만 “호스트 검토 중” 상태로 표시하고 채팅 목록에는 노출하지 않는다. APPROVED부터
+  채팅 목록에 메시지 없이 “모임 참여 확정/채팅 준비 중” 상태로 노출하며, event CONFIRMED 뒤에
+  event/message를 결합해 채팅을 연다. FINISHED/CANCELED는 기존 채팅이 있을 때만 읽기 전용 종료 상태로
+  표시한다.
 - unread처럼 호출자별 계산이 필요한 값은 VIEW에 넣지 않고 repository query에서 계산한다.
 
 ## API 범위
@@ -804,9 +810,10 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
   token은 실패한다. 유효한 입력은 별도 정규화 없이 공백 한 칸 구분 문자열로 저장한다.
 - ready 상태의 같은 행사 detail image version이 없으면 DRAFT 행사를 OPEN으로 바꿀 수 없다.
 - 동일 회원의 행사 중복 신청과 동일 Mobile write 재전송이 한 번만 반영된다.
-- 행사 CONFIRMED 전 확정 취소는 application을 CANCELED로 바꾸고 approved_at을 유지하며
-  version과 `APPLICATION_CANCELED` action log를 함께 반영한다. CONFIRMED 이후에는 실패한다.
-- 동시 승인에도 성별 정원 20명을 초과하지 않는다.
+- 참여 승인과 확정 취소는 행사 OPEN/CLOSED에서만 허용한다. 확정 취소는 application을 CANCELED로 바꾸고
+  approved_at을 유지하며 version과 `APPLICATION_CANCELED` action log를 함께 반영한다. 그 밖의 행사
+  상태에서는 두 전이가 모두 실패한다.
+- 동시 승인에도 행사의 `male_capacity`/`female_capacity`를 초과하지 않는다.
 - 다른 호스트 Admin은 행사/신청/이미지 version을 조회·변경할 수 없다.
 - DRAFT/OPEN/CLOSED/CONFIRMED 행사가 연결된 host의 원천 Admin/회원 삭제는 실패한다. 종료된 행사만 있으면
   host row와 event 이력을 유지하고 삭제된 원천 FK만 null 처리한다.
@@ -833,6 +840,8 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 - 참가자 퇴장은 application과 action log만 반영하고 chat message, 82 타입 FCM, `t_alarm`을 만들지 않는다.
 - EVENT action의 target_id/event_id 불일치와 다른 event 소속 target/권한 없는 actor의 action log는 실패한다.
 - 행사 FINISHED/CANCELED 시 event 상태로 채팅 송신이 닫히고 이후 메시지 전송이 실패한다.
+- APPLIED는 채팅 목록에 노출되지 않고 APPROVED부터 채팅 준비 상태로 노출되며, 실제 송신은 event
+  CONFIRMED에서만 허용된다.
 - 동일 상태 전이/메시지 재요청은 DB에 중복 반영되지 않고 `sendFCMPush()`도 다시 호출되지 않는다.
 - 그룹미팅 코드가 `t_alarm`을 직접 insert하지 않아 기존 `sendFCMPush()`의 저장과 중복되지 않는다.
 - 회원 개인정보 정리 후 파생 개인정보가 익명화되고 행사/신고/기존 Key log 연결/감사 기록은 정해진
