@@ -40,8 +40,8 @@ export function validateReleaseStatusGate({ context, status, statusSection }) {
     }
   }
 
-  if (status === "in_progress" && isEmptyPendingScope(pendingScope)) {
-    errors.push(`${context}: in_progress 상태에는 대기 범위를 명시해야 합니다`);
+  if ((status === "pending" || status === "in_progress") && isEmptyPendingScope(pendingScope)) {
+    errors.push(`${context}: ${status} 상태에는 대기 범위를 명시해야 합니다`);
   }
 
   return errors;

@@ -124,4 +124,24 @@ describe("release status gate", () => {
       ],
     );
   });
+
+  it("requires pending scope for pending status", () => {
+    const statusSection = [
+      "- 목표 버전: `v9.9.0`",
+      "- 전체 상태: `pending`",
+      "- 완료 범위: 대상 SHA와 롤백 계획 고정",
+      "- 대기 범위: N/A",
+    ].join("\n");
+
+    assert.deepEqual(
+      validateReleaseStatusGate({
+        context: "content/releases/v9.9.0.md",
+        status: "pending",
+        statusSection,
+      }),
+      [
+        "content/releases/v9.9.0.md: pending 상태에는 대기 범위를 명시해야 합니다",
+      ],
+    );
+  });
 });

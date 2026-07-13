@@ -120,7 +120,8 @@
 - [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
 - [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
 - [ ] 릴리즈 자동화 metadata 필드가 추가되면 같은 질문을 두 필드가 독립적으로 답하지 않는지 확인한다. 포함 범위/required repo/scope별 결과/terminal evidence 완료 조건은 `releaseScopes` descriptor와 `scopeResults.<scope>`에서 파생하고, 비-ref 증적은 기존 scope-keyed namespace에 둔다.
-- [ ] 릴리즈 자동화 hard gate가 추가되면 terminal 상태의 거짓 완료를 막는 조건인지 확인한다. `planned`/`in_progress` placeholder, 제외 scope, 참고용 본문 형식을 막는 변경은 finding으로 기록하고, 누락 실패/정상 통과/제외 scope 미차단 테스트가 함께 있는지 확인한다.
+- [ ] 릴리즈 자동화 hard gate가 추가되면 terminal 상태의 거짓 완료 또는 `pending` 이후 고정 기준 변경을 막는 조건인지 확인한다. `planned`/`pending`/`in_progress` placeholder, 제외 scope, 참고용 본문 형식만 막는 변경은 finding으로 기록하고, 누락 실패/정상 통과/제외 scope 미차단 테스트가 함께 있는지 확인한다.
+- [ ] 신규 릴리즈 기록 PR이 표준 단일 PR 흐름을 사용하면 `pending` 커밋이 원격 Draft PR에 존재하고, `released` 전환에서 `releaseScopes`, `extraRepoRefs`, 서비스 commit SHA, Mobile Store version/build, API contract comparison ref가 바뀌지 않았는지 확인한다. `planned`는 선택 초안이며 배포 시작 근거로 승인하지 않는다. `released` 전체 CI와 리뷰 전에는 Ready 전환을 승인하지 않는다.
 - [ ] 릴리즈 자동화 hard gate가 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 그 액션의 사전 조건으로 요구하지 않는지 확인한다. 이런 항목은 precheck와 postcheck/corrective reissue로 분리한다.
 - [ ] 릴리즈 자동화 terminal evidence 검증을 바꾸면 `releaseScopeDescriptors`/cutover required path/release tag descriptor 전체를 순회하는 `N/A - <사유>`, `pending`, 비-SHA ref, 서로 다른 SQL/checksum false-pass fixture가 실패 테스트로 고정되어 있는지 확인한다.
 - [ ] 릴리즈 자동화 metadata object 구조를 바꾸면 완전한 정상 metadata의 모든 object path에 unknown key를 주입하는 fail-closed 테스트가 유지되는지 확인한다.

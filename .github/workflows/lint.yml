@@ -1,47 +1,73 @@
 name: Docs Validation
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
+concurrency:
+  group: docs-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docs-structure:
     runs-on: ubuntu-latest
+    outputs:
+      validation_mode: ${{ steps.validation_mode.outputs.mode }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Enable Yarn
+      - name: Determine validation mode
+        id: validation_mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          corepack enable
-          corepack prepare yarn@1.22.22 --activate
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Validate docs structure
-        run: yarn validate:docs-structure
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            mode=$(node scripts/release-validation-mode.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA")
+          else
+            mode=full
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "validation mode: $mode"
 
       - name: Validate release records
-        run: yarn validate:release-records
+        run: node scripts/validate-release-records.mjs
+
+      - name: Validate release PR transition
+        if: github.event_name == 'pull_request'
+        run: node scripts/validate-release-pr-transition.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate docs structure
+        if: steps.validation_mode.outputs.mode == 'full'
+        run: node scripts/validate-docs-structure.mjs
 
       - name: Validate API error docs
-        run: yarn validate:api-error-docs
+        if: steps.validation_mode.outputs.mode == 'full'
+        run: node scripts/validate-api-error-docs.mjs
 
       - name: Test release preflight
-        run: yarn test:release-preflight
+        if: steps.validation_mode.outputs.mode == 'full'
+        run: node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-transition.test.mjs scripts/validate-release-pr-transition.test.mjs scripts/release-validation-mode.test.mjs scripts/release-preflight.test.mjs
 
   markdown-lint:
+    needs: docs-structure
+    if: ${{ needs['docs-structure'].outputs.validation_mode == 'full' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -56,6 +82,8 @@ jobs:
             #site
 
   build-docs:
+    needs: docs-structure
+    if: ${{ needs['docs-structure'].outputs.validation_mode == 'full' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

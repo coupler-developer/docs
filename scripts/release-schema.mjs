@@ -287,6 +287,7 @@ export const releaseScopeDescriptors = {
 
 export const releaseStatuses = [
   "planned",
+  "pending",
   "in_progress",
   "released",
   "rolled_back",
@@ -300,7 +301,7 @@ export const terminalReleaseStatuses = new Set([
   "superseded",
 ]);
 export const completedReleaseStatus = "released";
-export const activeReleaseStatuses = new Set(["planned", "in_progress"]);
+export const activeReleaseStatuses = new Set(["planned", "pending", "in_progress"]);
 export const terminalScopeResultStatuses = new Set([
   "released",
   "rolled_back",
@@ -516,6 +517,19 @@ export const apiContractCutoverValueFields = [
 export const apiContractCutoverRequiredPaths = apiContractCutoverValueFields.map(
   ({ metadataPath }) => metadataPath,
 );
+
+export const pendingTransitionFrozenPaths = [
+  ["version"],
+  ["releaseScopes"],
+  ["extraRepoRefs"],
+  ["versionMapping", "coupler-api", "commit"],
+  ["versionMapping", "coupler-admin-web", "commit"],
+  ["versionMapping", "coupler-mobile-app", "commit"],
+  ["versionMapping", "coupler-mobile-app", "store"],
+  ["apiContractCutover", "comparisonRefs", "coupler-api"],
+  ["apiContractCutover", "comparisonRefs", "coupler-admin-web"],
+  ["apiContractCutover", "comparisonRefs", "coupler-mobile-app"],
+];
 
 export function isEmptyRefValue(value) {
   return value == null || (typeof value === "string" && emptyRefValues.has(value));

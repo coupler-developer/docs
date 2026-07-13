@@ -132,22 +132,25 @@
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
-- 릴리즈 preflight 스크립트 검증(로컬): `yarn test:release-preflight`
+- 릴리즈 preflight·pending transition·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
 - 문서 구조 검증(CI): `node scripts/validate-docs-structure.mjs`
 - 릴리스 기록 검증(CI): `node scripts/validate-release-records.mjs`
 - API 에러 문서 검증(CI): `node scripts/validate-api-error-docs.mjs`
-- 릴리즈 preflight 스크립트 검증(CI): `yarn test:release-preflight`
+- 릴리즈 preflight·pending transition·CI mode 스크립트 검증(CI): `yarn test:release-preflight`
 - 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 - 문서 build(CI): Python 의존성 설치 후 `mkdocs build --strict`
 
 ## CI 전략
 
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
-- docs 레포: 검증 워크플로는 `pull_request(main)`과 `push(main)`에서 동작한다.
-- docs 레포: `pull_request(main)` 검증이 merge gate이고, `push(main)` 검증은 배포 전 최종 안전망으로 사용한다.
+- docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
+- docs 레포: PR 병합 뒤 `push(main)`에서는 `Deploy Docs`가 `yarn validate:docs`를 다시 실행한 뒤에만 Pages artifact를 배포하므로, `Docs Validation`을 중복 실행하지 않는다.
+- docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면 `docs-structure`에서 metadata와 PR transition만 경량 검증한다. `released`/terminal 기록, 일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
+- docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 경량 검증을 통과한 `pending`은 배포 시작 gate이고, 최종 병합 gate는 `released` 커밋의 전체 docs 검증이다.
+- docs 레포: `Docs Validation`은 `opened`, `synchronize`, `reopened`만 구독한다. 따라서 `released` 전체 검증 뒤 Draft PR을 Ready로 전환하는 동작만으로 같은 CI를 다시 실행하지 않는다.
 
 ## DB 마이그레이션 검증 (공통)
 

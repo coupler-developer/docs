@@ -39,8 +39,13 @@ if (!version) {
   errors.push("--version is required for release preflight");
 }
 const releaseRecord = version
-  ? readReleaseRecord(version, errors)
+  ? readReleaseRecord(version, errors, args.pendingRef)
   : null;
+if (args.pendingRef && releaseRecord?.status !== "pending") {
+  errors.push(
+    `--pending-ref requires release-metadata status pending, got ${releaseRecord?.status ?? "unknown"}`,
+  );
+}
 const preflightRepoNames = releaseRecord
   ? resolvePreflightRepoNames(args.include, releaseRecord, errors)
   : new Set();
@@ -50,7 +55,9 @@ const workspaceRoot = releaseRecord
 const repoStates = releaseRecord
   ? buildRepos(docsRoot, workspaceRoot)
     .filter((repo) => preflightRepoNames.has(repo.name))
-    .map((repo) => inspectRepo(repo, errors))
+    .map((repo) => inspectRepo(repo, errors, {
+      pendingRef: repo.name === "docs" ? args.pendingRef : null,
+    }))
   : [];
 
 if (releaseRecord) {
@@ -63,6 +70,7 @@ printReport({
   version,
   repoStates,
   errors,
+  pendingRef: args.pendingRef,
 });
 
 if (errors.length > 0) {
@@ -103,6 +111,17 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--pending-ref") {
+      result.pendingRef = requireValue(argv, index, arg).toLowerCase();
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--pending-ref=")) {
+      result.pendingRef = arg.slice("--pending-ref=".length).toLowerCase();
+      continue;
+    }
+
     if (arg.startsWith("--include=")) {
       result.include = arg.slice("--include=".length);
       continue;
@@ -118,6 +137,10 @@ function parseArgs(argv) {
 
   if (result.version && !/^v\d+\.\d+\.\d+$/.test(result.version)) {
     throw new Error(`--version must use vMAJOR.MINOR.PATCH format: ${result.version}`);
+  }
+
+  if (result.pendingRef && !/^[0-9a-f]{40}$/.test(result.pendingRef)) {
+    throw new Error(`--pending-ref must be a full 40-character commit SHA: ${result.pendingRef}`);
   }
 
   return result;
@@ -307,7 +330,7 @@ function buildRepos(docsRoot, workspaceRoot) {
   return repos;
 }
 
-function inspectRepo(repo, errors) {
+function inspectRepo(repo, errors, options = {}) {
   const state = {
     ...repo,
     branch: null,
@@ -317,6 +340,7 @@ function inspectRepo(repo, errors) {
     clean: false,
     onMain: false,
     syncedWithOriginMain: false,
+    upstream: null,
     exists: fs.existsSync(repo.root),
   };
 
@@ -343,7 +367,7 @@ function inspectRepo(repo, errors) {
     errors.push(`${repo.name}: working tree is not clean`);
   }
 
-  if (!state.onMain) {
+  if (!options.pendingRef && !state.onMain) {
     errors.push(`${repo.name}: branch must be main for release preflight, got ${state.branch || "(detached)"}`);
   }
 
@@ -362,14 +386,70 @@ function inspectRepo(repo, errors) {
     state.originMainFull = originMainFull;
     state.syncedWithOriginMain = headFull === originMainFull;
 
-    if (!state.syncedWithOriginMain) {
+    if (!options.pendingRef && !state.syncedWithOriginMain) {
       errors.push(`${repo.name}: HEAD is not exactly origin/main`);
     }
   } catch {
     errors.push(`${repo.name}: origin/main is unavailable; fetch before release judgment`);
   }
 
+  if (options.pendingRef) {
+    validatePendingDocsRepo(state, options.pendingRef, errors);
+  }
+
   return state;
+}
+
+function validatePendingDocsRepo(state, pendingRef, errors) {
+  const headFull = resolveLocalCommit(state.root, "HEAD");
+  if (headFull !== pendingRef) {
+    errors.push(
+      `docs: --pending-ref must equal the checked-out docs HEAD (${pendingRef} != ${headFull ?? "unresolved"})`,
+    );
+  }
+
+  if (state.branch === "main") {
+    errors.push("docs: --pending-ref requires a non-main release PR branch");
+  }
+
+  let upstream;
+  try {
+    upstream = git(state.root, [
+      "rev-parse",
+      "--abbrev-ref",
+      "--symbolic-full-name",
+      "@{upstream}",
+    ]);
+  } catch {
+    errors.push("docs: pending release branch must be pushed to an origin upstream");
+    return;
+  }
+
+  if (!upstream.startsWith("origin/")) {
+    errors.push(`docs: pending release branch upstream must use origin, got ${upstream}`);
+    return;
+  }
+
+  state.upstream = upstream;
+  const remoteBranch = upstream.slice("origin/".length);
+  if (!fetchOriginBranch(state.root, remoteBranch)) {
+    errors.push(`docs: failed to fetch pending release branch ${upstream}`);
+    return;
+  }
+
+  const upstreamHead = resolveLocalCommit(state.root, upstream);
+  if (upstreamHead !== pendingRef) {
+    errors.push(
+      `docs: pending release branch HEAD must equal pushed upstream and --pending-ref (${upstreamHead ?? "unresolved"} != ${pendingRef})`,
+    );
+  }
+
+  if (
+    state.originMainFull &&
+    !gitCommitIsAncestor(state.root, state.originMainFull, pendingRef)
+  ) {
+    errors.push("docs: pending release branch must include the latest origin/main");
+  }
 }
 
 function fetchOriginMain(repoRoot) {
@@ -386,20 +466,42 @@ function fetchOriginMain(repoRoot) {
   }
 }
 
-function readReleaseRecord(version, errors) {
-  const releaseRecordPath = path.join(
-    docsRoot,
-    "content",
-    "releases",
-    `${version}.md`,
-  );
+function fetchOriginBranch(repoRoot, branch) {
+  try {
+    git(repoRoot, [
+      "fetch",
+      "--no-tags",
+      "origin",
+      `+refs/heads/${branch}:refs/remotes/origin/${branch}`,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  if (!fs.existsSync(releaseRecordPath)) {
+function readReleaseRecord(version, errors, pendingRef = null) {
+  const relativeReleaseRecordPath = path.join("content", "releases", `${version}.md`);
+  const releaseRecordPath = path.join(docsRoot, relativeReleaseRecordPath);
+
+  if (!pendingRef && !fs.existsSync(releaseRecordPath)) {
     errors.push(`release record is missing: content/releases/${version}.md`);
     return null;
   }
 
-  const source = fs.readFileSync(releaseRecordPath, "utf8");
+  let source;
+  try {
+    source = pendingRef
+      ? git(docsRoot, ["show", `${pendingRef}:${relativeReleaseRecordPath}`])
+      : fs.readFileSync(releaseRecordPath, "utf8");
+  } catch {
+    errors.push(
+      pendingRef
+        ? `release record is missing from --pending-ref ${pendingRef}: content/releases/${version}.md`
+        : `release record is missing: content/releases/${version}.md`,
+    );
+    return null;
+  }
   const metadata = parseReleaseMetadataBlock(source, version, errors);
   const scopeSection = extractSection(source, "범위");
   const statusSection = extractSection(source, "릴리스 상태");
@@ -736,8 +838,12 @@ function resolveLocalCommit(repoRoot, commitRef) {
 }
 
 function gitCommitIsAncestorOfOriginMain(repoRoot, commit) {
+  return gitCommitIsAncestor(repoRoot, commit, "origin/main");
+}
+
+function gitCommitIsAncestor(repoRoot, ancestor, descendant) {
   try {
-    git(repoRoot, ["merge-base", "--is-ancestor", commit, "origin/main"]);
+    git(repoRoot, ["merge-base", "--is-ancestor", ancestor, descendant]);
     return true;
   } catch {
     return false;
@@ -774,6 +880,7 @@ function printReport({
   version,
   repoStates,
   errors,
+  pendingRef,
 }) {
   console.log("Release preflight");
   console.log(`workspace root: ${formatWorkspaceRoot(workspaceRoot, preflightRepoNames)}`);
@@ -781,12 +888,15 @@ function printReport({
   if (version) {
     console.log(`version: ${version}`);
   }
+  if (pendingRef) {
+    console.log(`docs record ref: pending ${pendingRef.slice(0, 12)}`);
+  }
 
   console.log("");
   console.log("Repositories");
   for (const state of repoStates) {
     console.log(
-      `- ${state.name}: branch=${state.branch ?? "N/A"}, head=${state.head ?? "N/A"}, origin/main=${state.originMain ?? "N/A"}, clean=${state.clean ? "yes" : "no"}`,
+      `- ${state.name}: branch=${state.branch ?? "N/A"}, head=${state.head ?? "N/A"}, origin/main=${state.originMain ?? "N/A"}, upstream=${state.upstream ?? "N/A"}, clean=${state.clean ? "yes" : "no"}`,
     );
   }
 
@@ -831,12 +941,13 @@ function formatPreflightRepoNames(preflightRepoNames) {
 
 function printUsage() {
   console.log(`Usage:
-  yarn release:preflight --version vX.Y.Z --workspace-root .. --include docs,coupler-api
+  yarn release:preflight --version vX.Y.Z --workspace-root .. --pending-ref <40-character-SHA>
 
 Options:
   --version <vX.Y.Z>       Required. Release record version to inspect.
   --workspace-root <path>  Workspace root containing service repositories.
   --include <repos>        Comma-separated repo refs to check. Values: docs, coupler-api, coupler-admin-web, coupler-mobile-app, api, admin, mobile, all.
+  --pending-ref <SHA>      Full pushed docs PR head SHA. Requires pending metadata and a clean non-main branch synced with origin upstream.
   --help                  Show this help.
 `);
 }

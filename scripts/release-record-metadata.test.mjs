@@ -18,6 +18,37 @@ const submittedCommit = "dddddddddddddddddddddddddddddddddddddddd";
 const checksum = "f".repeat(64);
 
 describe("release metadata scope results", () => {
+  it("allows pending scope placeholders and derives the deployable pending state", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "coupler-api"],
+      statuses: {
+        docs: "pending",
+        "coupler-api": "pending",
+      },
+      status: "pending",
+    });
+
+    const errors = validate(metadata);
+
+    assert.deepEqual(errors, []);
+    assert.equal(deriveReleaseStatusFromScopeResults(metadata), "pending");
+  });
+
+  it("derives pending when completed prerequisites are frozen with remaining pending scopes", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "pending",
+        "contracts-package": "released",
+        "coupler-api": "pending",
+      },
+      status: "pending",
+    });
+
+    assert.deepEqual(validate(metadata), []);
+    assert.equal(deriveReleaseStatusFromScopeResults(metadata), "pending");
+  });
+
   it("allows planned scope placeholders", () => {
     const errors = validate(
       buildMetadata({

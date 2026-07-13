@@ -94,8 +94,8 @@
 - `release-metadata.releaseScopes`는 실제 릴리즈 surface의 단일 SoT이며 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
 - `release-metadata.scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. key는 `releaseScopes`와 정확히 일치해야 하며, 각 scope의 `status`와 `evidence`만 보고 완료/rollback/대체 여부를 판단한다.
-- 문서 전체 `release-metadata.status`는 `scopeResults`에서 파생한 상태와 일치해야 한다. 일부 scope가 끝나고 일부 scope가 남아 있으면 전체 상태는 `in_progress`이며, 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 전체 상태는 `superseded`다.
-- `docs` scope의 `released` 판정은 릴리즈 기록이 docs tag 기준점에 포함되고, origin에서 확인 가능한 docs tag가 생성됐다는 뜻이다. GitHub Release 생성과 `docs-site-vX.Y.Z.tar.gz` artifact 첨부는 tag push 이후 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
+- 문서 전체 `release-metadata.status`는 `scopeResults`에서 파생한 상태와 일치해야 한다. 선행 완료 scope가 `released`이고 나머지가 `pending`이면 전체 상태는 `pending`, 장기 실행에서 일부 scope가 진행 중이면 `in_progress`, 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 `superseded`다.
+- `docs` scope의 `released` 판정은 최종 릴리즈 기록이 병합 가능한 상태로 확정되고 `versionMapping.docs.tag`에 병합 후 생성할 docs tag가 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
 - `db-migration`을 `released`로 닫을 때는 `scopeResults.db-migration.evidence.sqlRefs`, `gateResults`, `preflightLog`, `ledger.dev`, `ledger.prod`, `postcheckLog`, `rollbackPlan`을 구조화해 채운다. SQL은 `coupler-api` PR에 포함된 repo-relative `.sql` 파일 경로와 SHA-256 checksum으로 참조해야 하며, 콘솔 수동 실행문이나 채팅에 붙인 SQL만으로는 완료 증빙이 아니다.
@@ -105,14 +105,12 @@
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `release-metadata.extraRepoRefs`에 canonical repo name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
 - API contract cutover 포함 여부는 `release-metadata.apiContractCutover`가 `null`인지 object인지로만 판정한다. API 계약 변경이 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않으며, `검증 근거`에 `N/A - <사유>`만 남긴다. API 계약 변경이 있으면 `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package 줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
 - `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
-- 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
+- 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`pending`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck와 필요 시 corrective reissue로 막는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
-- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와 `requiresServiceWorkspace`를 계산한다. `preflightRepoNames`가 `docs`뿐이면 서비스 repo workspace 없이 docs repo와 릴리즈 기록만 검사하고, 서비스 레포가 포함되면 해당 repo의 `origin/main`을 fetch하고 `release-metadata.versionMapping` tag를 origin에서 조회해 clean `main`, `origin/main` 일치, 릴리즈 기록 상태, metadata 기본 구조, annotated tag 여부, tag/commit 기준점 일치, DB migration SQL 파일 존재와 SHA-256 checksum 일치를 확인한다.
-- 메이저 릴리즈에서는 `docs`가 릴리즈 제어판 역할을 한다. 즉, `docs/content/releases/vX.Y.Z.md`를 `main`에 먼저 반영하고 `docs` 태그를 선행 push해 초기 Release Note를 생성할 수 있다.
-- 단, 이 예외는 `docs`에만 적용한다. `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그는 여전히 실제 운영 배포와 검증 완료 후에만 생성한다.
-- `docs` 선행 태그로 생성된 Release Note는 "초기 배포 계획 + 체크리스트" 상태로 간주한다. 실배포가 끝나면 GitHub Release 본문을 최종 상태로 갱신한다.
+- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와 `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR head를 읽고, docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함, metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점, DB migration SQL/checksum을 확인한다. `--pending-ref`가 없는 기존 흐름은 모든 포함 레포의 clean `main == origin/main`을 계속 요구한다.
+- 장기·메이저 릴리즈도 열린 docs PR과 릴리즈 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙
 
@@ -123,19 +121,34 @@
 ## 릴리즈 기록 상태값
 
 - `planned`: 배포 계획 또는 초안이 작성됐지만 운영 반영이 완료되지 않은 상태
+- `pending`: 배포 범위와 기준 SHA가 고정되고 원격 PR head 및 경량 CI를 확인해 운영 반영을 기다리는 상태
 - `in_progress`: 일부 범위는 완료됐고 하나 이상의 배포/검증 범위가 아직 대기 중인 상태
-- `released`: 릴리즈 기록의 포함 범위가 모두 운영 반영/검증/태그/기록까지 완료된 상태
+- `released`: 포함 범위의 운영 반영/검증/서비스 태그/기록이 완료됐고, final PR merge 뒤 만들 docs 태그가 고정된 상태
 - `rolled_back`: 운영 반영 후 문제로 해당 릴리즈 기준점에서 되돌린 상태
 - `superseded`: 일부 대기 범위를 완료하지 않은 채 후속 릴리즈가 동일 또는 상위 범위를 대체해, 더 이상 해당 릴리즈를 완료 대상으로 추적하지 않는 상태
 - `superseded`로 닫을 때는 대체한 후속 릴리즈, 완료하지 않은 범위, 태그 생성 여부, 후속 추적 불필요 사유를 릴리즈 기록에 남긴다.
 
 ## 운영 상태 전이 기준
 
-- 릴리즈 기록은 `planned` 초안, `in_progress` 진행 기록, `released` 완료 기록, `superseded` 종료 기록으로 여러 번 갱신될 수 있다.
+- 일반적인 연속 운영 배포는 하나의 docs PR에서 `pending` 커밋과 `released` 커밋만 사용하고 마지막에 한 번 병합한다. `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안을 공유할 때만 선택적으로 사용한다.
+- `pending`은 배포 scope, 서비스 commit SHA, Store version/build, API contract comparison ref, 검증 시나리오, rollback 기준이 고정되어 운영 배포를 시작할 수 있는 상태다. `pending` 이후 이 고정 기준이 바뀌면 같은 실행으로 계속하지 않고 새 `pending` 기준점부터 다시 검증한다.
+- `in_progress`는 일부 범위가 이미 끝났지만 외부 승인이나 후속 범위가 남아 단일 실행에서 바로 `released`로 전환할 수 없는 장기 릴리스에 사용한다.
 - Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
 - Store 승인, 운영 출시, 기본 smoke, 모바일 릴리즈 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
 - 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
 - `docs` GitHub Release와 site artifact는 docs tag push 이후 생성되므로, 매 릴리즈마다 artifact URL을 릴리즈 기록에 되채우기 위해 재발행하지 않는다. Release workflow 실패, Release 본문 누락, artifact 누락, 사실 오류 정정이 있을 때만 `docs-only corrective reissue`를 사용한다.
+
+### 표준 단일 PR 상태 전이
+
+1. 대상 코드 PR과 품질 게이트를 먼저 끝내고 서비스 `origin/main` SHA를 고정한다.
+2. 하나의 docs 작업 브랜치에서 릴리즈 기록을 `pending`으로 작성해 첫 커밋을 push하고 Draft PR을 연다. 이 커밋은 배포 전 scope, SHA, 검증, rollback 계약이며 Draft 상태로 배포 중 오병합을 막는다.
+3. pending-only PR 경량 CI와 `yarn release:preflight --pending-ref <pending commit SHA>`를 통과한 뒤 PR은 병합하지 않은 채 운영 배포를 실행한다.
+4. 운영 smoke와 서비스 태그를 완료한 뒤 같은 PR에 실제 증빙을 채우고 `released` 두 번째 커밋을 push한다.
+5. PR transition gate는 `pending -> released` 사이 `releaseScopes`, `extraRepoRefs`, 서비스 commit SHA, Mobile Store version/build, API contract comparison ref 변경을 차단한다.
+6. 최종 전체 docs CI와 리뷰가 통과하면 PR을 Ready로 전환해 한 번만 `Rebase and merge`하고, 병합된 main 커밋에 docs annotated tag를 생성한다.
+7. docs tag 기반 Release workflow와 artifact는 postcheck로 확인한다.
+
+`planned` 커밋은 범위/기준점이 아직 고정되지 않은 초안 공유, 여러 작업자 교대, 장기 Store 심사 또는 DB 단계처럼 배포 제어판을 미리 공유해야 할 때만 같은 Draft PR에 선택적으로 추가한다. `planned`는 배포 시작 허가가 아니며 `--pending-ref` preflight 대상이 될 수 없다.
 
 ## 버전 올리는 기준 (SemVer)
 
@@ -143,13 +156,15 @@
 - `MINOR`: 기능 추가(하위 호환 유지)
 - `PATCH`: 버그 수정/핫픽스(하위 호환 유지)
 
-## 통합 메이저 릴리즈 실행 순서
+## 통합 메이저 릴리즈 장기 실행 순서 (선택)
 
 대상: `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`, `docs`, 운영 `RDS`
 
-### 0) 릴리즈 기록 문서 선반영
+### 0) 같은 PR에 선택적 planned 기록
 
-- `docs/content/releases/vX.Y.Z.md`를 먼저 작성하고 `main`에 병합한다.
+- 여러 작업자 교대, 장기 Store 심사, 운영 RDS 단계처럼 범위 확정 전 공유 제어판이 필요한 경우에만 `docs/content/releases/vX.Y.Z.md`의 `planned` 커밋을 작업 브랜치에 push하고 Draft PR을 연다.
+- `planned` PR은 병합하거나 docs 태그를 만들지 않는다. 범위와 기준점이 확정되면 같은 PR에 `pending` 커밋을 추가한다.
+- 한 작업 흐름에서 연속 실행하는 일반 릴리즈는 `planned`를 생략하고 `pending`부터 시작한다.
 - 문서에는 아래를 최소 포함한다.
     - 릴리즈 목표/범위
     - `RDS -> API/Admin EC2 -> Mobile -> RDS contract` 순서
@@ -157,21 +172,12 @@
     - 서비스 레포 목표 태그 또는 목표 commit SHA
     - 검증 시나리오와 롤백 기준
 
-### 1) docs 태그 push로 초기 Release Note 생성
+### 1) pending 기준점 고정
 
-- `docs` 레포에서만 아래 순서를 먼저 수행할 수 있다.
-
-```bash
-git checkout main
-git pull --ff-only
-TAG=v2.0.0
-git tag -a "${TAG}" -m "Release ${TAG}"
-git push origin "${TAG}"
-```
-
-- 이 단계의 목적은 docs GitHub Release를 "배포 제어판"으로 먼저 여는 것이다.
-- 이 시점 Release Note 상태는 `planned` 또는 `in_progress`로 둔다.
-- 서비스 레포 태그를 대신하는 행위가 아니다.
+- 배포 scope, 서비스 SHA, Store version/build, 계약 비교 ref, 검증과 rollback 기준을 확정한 `pending` 커밋을 같은 PR에 push한다.
+- pending-only 경량 CI와 `--pending-ref` preflight가 통과한 커밋만 배포 기준점으로 사용한다.
+- 열린 PR과 릴리즈 기록이 장기 실행의 공유 제어판이다. 최종 `released` 전에는 docs 태그와 GitHub Release를 만들지 않는다.
+- 일부 범위가 끝난 뒤 외부 승인이 남으면 같은 PR에서 `in_progress`로 기록하고 대기 범위를 명시한다.
 
 ### 2) 운영 RDS 선반영
 
@@ -205,17 +211,18 @@ git push origin "${TAG}"
 ### 6) 서비스 레포 태그 생성
 
 - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`는 실제 운영 배포와 검증이 완료된 커밋에 태그를 생성한다.
-- 서비스 레포 태그는 `docs` 선행 태그와 별개이며, 예외 없이 post-deploy 원칙을 따른다.
+- 서비스 레포 태그는 예외 없이 post-deploy 원칙을 따르며, docs 태그는 final PR merge 뒤 별도로 생성한다.
 
-### 7) docs Release Note 최종화
+### 7) 같은 PR 최종화와 docs Release 생성
 
-- 초기 생성된 `docs` GitHub Release 본문에 아래를 최종 반영한다.
+- 같은 PR의 릴리즈 기록에 아래를 최종 반영하고 `released` 커밋을 push한다.
     - 실제 반영 완료 시각
     - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 최종 태그/SHA
     - 운영 `RDS` 적용 SQL/Gate/로그 경로
     - 검증 결과와 롤백 기준
-- 초기 상태가 `planned` 또는 `in_progress`였다면, 모든 반영과 검증이 끝난 뒤 `released` 상태로 갱신한다.
-- 일부 범위가 대기 상태면 GitHub Release와 릴리즈 기록을 `in_progress`로 유지하고, 완료된 서비스 태그와 대기 중인 범위를 함께 표시한다.
+- 일부 범위가 대기 상태면 PR을 `in_progress`로 유지하고 완료 범위와 대기 범위를 함께 표시한다.
+- 모든 범위가 끝난 `released` 커밋의 전체 CI와 리뷰가 통과하면 PR을 Ready로 전환해 한 번만 병합한다.
+- 병합된 main 커밋에 docs 태그를 만들고 GitHub Release와 artifact를 postcheck한다.
 
 ## EC2 배포 (API/Admin)
 
@@ -305,8 +312,8 @@ git ls-remote --tags origin "${TAG}"
 
 ### 1) 통합 버전 기록 문서 준비 (2단계부터 적용)
 
-- `docs/content/releases/vX.Y.Z.md` 문서를 먼저 작성하고 `main`에 반영한다.
-- 메이저 릴리즈에서는 이 문서를 배포 전 체크리스트로 먼저 작성하고, `docs` 태그 push 후 생성된 Release Note의 기준 문서로 사용한다.
+- 표준 흐름은 하나의 PR에서 `pending`과 `released` 두 커밋을 만든 뒤 최종 기록만 `main`에 한 번 병합한다.
+- 범위 확정 전 공유가 필요한 `planned`도 같은 PR의 선택 커밋으로만 두며 먼저 병합하지 않는다.
 - 신규 릴리스 기록은 `버전 매핑` 섹션을 포함한다.
 - `버전 매핑`: `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 기준점
 - `coupler-mobile-app`: Store version/build, 릴리스 태그/커밋, 제출 마커 태그, NextPush label과 대상 Store binary
@@ -343,7 +350,6 @@ git push origin "${TAG}"
 - Release 본문에 `content/releases/v1.0.0.md` 링크가 포함됐는지 확인한다(2단계부터).
 - Release에 `docs-site-v1.0.0.tar.gz` artifact가 첨부됐는지 확인한다.
 - 위 항목은 tag push 이후 postcheck다. tag push 전에는 Release Note preview, `yarn validate:docs`, 문서 안정성 평가로 차단하고, postcheck 실패 시 corrective reissue로 정정한다.
-- 메이저 릴리즈에서 `docs` 태그를 선행 push한 경우, 서비스 반영 완료 후 GitHub Release 본문을 수동으로 최종 상태로 갱신한다.
 
 ### 4) 예외 처리 (2단계부터)
 

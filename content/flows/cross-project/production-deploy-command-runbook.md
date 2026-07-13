@@ -56,9 +56,36 @@
 릴리즈 전체 gate 판정은 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)을 먼저 따른다.
 이 문서는 preflight 실패 원인 확인, 실제 배포 명령, 운영 확인, 롤백 명령을 제공한다.
 
+표준 단일 PR 흐름은 docs 작업 브랜치에 `pending` 커밋을 push하고 Draft PR을 연 뒤 실행한다.
+
 ```bash
 cd docs
-yarn release:preflight --version vX.Y.Z --workspace-root .. --include docs,coupler-api
+PR_NUMBER=<docs PR 번호>
+PENDING_REF="$(git rev-parse HEAD)"
+
+test "$(git rev-parse @{upstream})" = "${PENDING_REF}"
+test "$(gh pr view "${PR_NUMBER}" --json headRefOid --jq .headRefOid)" = "${PENDING_REF}"
+test "$(gh pr view "${PR_NUMBER}" --json isDraft --jq .isDraft)" = "true"
+gh pr view "${PR_NUMBER}" --json state,isDraft,headRefOid,statusCheckRollup,url
+
+yarn release:preflight \
+  --version vX.Y.Z \
+  --workspace-root .. \
+  --pending-ref "${PENDING_REF}"
+```
+
+- `PENDING_REF`는 축약 SHA가 아닌 40자 commit SHA를 사용한다.
+- docs는 최신 `origin/main`을 포함한 clean non-main branch이고 `HEAD == origin upstream == PENDING_REF`여야 한다.
+- 전체 릴리즈 metadata는 `pending`이어야 한다. 배포 전 이미 끝난 prerequisite scope는 `released`, 나머지 실행 대상 scope는 `pending`일 수 있으며 파생 전체 상태가 `pending`과 일치해야 한다.
+- 서비스 레포는 계속 clean `main == origin/main`이어야 한다.
+- `planned` PR이나 push되지 않은 로컬 브랜치는 운영 배포 시작 기준으로 사용하지 않는다.
+- `pending`부터 최종 전체 CI 완료 전까지 PR은 Draft로 유지한다.
+
+`--pending-ref` 없는 기존 main preflight는 과거 terminal 기록 postcheck 또는 corrective reissue 호환용이다. 신규 릴리즈의 배포 시작 기준으로 사용하지 않는다.
+
+```bash
+cd docs
+yarn release:preflight --version vX.Y.Z --workspace-root ..
 ```
 
 ```bash
@@ -338,11 +365,11 @@ git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 여러 레포를 같은 릴리스 버전으로 닫을 때는 아래 순서로 기록한다.
 
 1. 운영 반영/검증이 끝난 서비스 레포부터 태그를 push한다.
-2. `docs/content/releases/vX.Y.Z.md`에 서비스별 태그/SHA와 검증 결과를 반영한다.
-3. docs 로컬 tag를 생성하고 Release Note preview를 만든다.
-4. preview 산출물과 릴리스 기록을 문서 안정성 평가로 리뷰한다.
-5. `No Findings`일 때만 `docs` `main`을 push해 Pages 기준 문서를 먼저 배포한다.
-6. `docs` 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
+2. 같은 docs PR의 `content/releases/vX.Y.Z.md`를 `released`로 바꾸고 서비스별 태그/SHA, 배포 시각, smoke, rollback 결과를 채운 두 번째 커밋을 push한다.
+3. PR transition gate에서 `pending` 이후 scope와 고정 기준이 바뀌지 않았는지 확인하고 전체 docs CI와 문서 안정성 평가를 `No Findings`로 닫는다.
+4. `gh pr ready "${PR_NUMBER}"`로 Ready 전환한 뒤 docs PR을 한 번만 `Rebase and merge`하고 local `main`을 `pull --ff-only`로 동기화한다. `Docs Validation`은 `ready_for_review` 이벤트를 구독하지 않으므로 Ready 전환만으로 CI를 중복 실행하지 않는다.
+5. 병합된 docs main 커밋에 로컬 annotated tag를 만들고 Release Note preview를 리뷰한다.
+6. `No Findings`일 때 docs 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
 
 NextPush-only 모바일 배포, 스토어 심사 중인 빌드, 모바일 릴리즈 태그 생성 기준은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
