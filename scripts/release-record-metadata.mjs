@@ -747,6 +747,13 @@ export function deriveReleaseStatusFromScopeResults(metadata) {
     return "planned";
   }
 
+  if (
+    statuses.some((status) => status === "pending") &&
+    statuses.every((status) => status === "pending" || status === "released")
+  ) {
+    return "pending";
+  }
+
   if (statuses.some((status) => status === "rolled_back")) {
     return "rolled_back";
   }

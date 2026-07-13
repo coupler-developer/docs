@@ -162,6 +162,160 @@ describe("release-preflight", () => {
     assert.match(result.stdout, /Result: PASS/);
   });
 
+  it("passes a pushed pending release PR head without requiring docs main", () => {
+    const workspace = createWorkspace();
+    git(workspace.docsRoot, ["checkout", "-b", "docs/test/single-pr-release"]);
+    writeReleaseRecord(workspace.docsRoot, "v9.9.0", [
+      docsPlannedMappingLine(),
+      "- `coupler-api`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-mobile-app`: Store `9.9.0 (900)`, 릴리스 태그 `N/A`, 커밋 `" + workspace.refs.mobile + "`, NextPush `N/A`",
+    ], {
+      status: "pending",
+      releaseScopes: ["docs", "mobile-nextpush"],
+      pendingScope: "Mobile NextPush 운영 배포와 검증",
+    });
+    const pendingRef = commitAndPushCurrentBranch(workspace.docsRoot);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--workspace-root",
+      tempRoot,
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /docs record ref: pending [0-9a-f]{12}/);
+    assert.match(result.stdout, /docs: branch=docs\/test\/single-pr-release/);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("rejects --pending-ref when the release record is not pending", () => {
+    const workspace = createWorkspace();
+    git(workspace.docsRoot, ["checkout", "-b", "docs/test/planned-release"]);
+    writeReleaseRecord(workspace.docsRoot, "v9.9.0", [
+      docsPlannedMappingLine(),
+      "- `coupler-api`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-mobile-app`: Store `9.9.0 (900)`, 릴리스 태그 `N/A`, 커밋 `" + workspace.refs.mobile + "`, NextPush `N/A`",
+    ], {
+      status: "planned",
+      releaseScopes: ["docs", "mobile-nextpush"],
+      pendingScope: "Mobile NextPush 운영 배포와 검증",
+    });
+    const plannedRef = commitAndPushCurrentBranch(workspace.docsRoot);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--workspace-root",
+      tempRoot,
+      "--pending-ref",
+      plannedRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /--pending-ref requires release-metadata status pending, got planned/);
+    assert.match(result.stdout, /Result: FAIL/);
+  });
+
+  it("rejects an unpushed pending release branch", () => {
+    const workspace = createWorkspace();
+    git(workspace.docsRoot, ["checkout", "-b", "docs/test/unpushed-release"]);
+    writeReleaseRecord(workspace.docsRoot, "v9.9.0", [
+      docsPlannedMappingLine(),
+      "- `coupler-api`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-mobile-app`: Store `9.9.0 (900)`, 릴리스 태그 `N/A`, 커밋 `" + workspace.refs.mobile + "`, NextPush `N/A`",
+    ], {
+      status: "pending",
+      releaseScopes: ["docs", "mobile-nextpush"],
+      pendingScope: "Mobile NextPush 운영 배포와 검증",
+    });
+    const pendingRef = commitCurrentBranch(workspace.docsRoot);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--workspace-root",
+      tempRoot,
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /docs: pending release branch must be pushed to an origin upstream/);
+    assert.match(result.stdout, /Result: FAIL/);
+  });
+
+  it("rejects local commits added after the pushed pending ref", () => {
+    const workspace = createWorkspace();
+    git(workspace.docsRoot, ["checkout", "-b", "docs/test/advanced-after-pending"]);
+    writeReleaseRecord(workspace.docsRoot, "v9.9.0", [
+      docsPlannedMappingLine(),
+      "- `coupler-api`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-mobile-app`: Store `9.9.0 (900)`, 릴리스 태그 `N/A`, 커밋 `" + workspace.refs.mobile + "`, NextPush `N/A`",
+    ], {
+      status: "pending",
+      releaseScopes: ["docs", "mobile-nextpush"],
+      pendingScope: "Mobile NextPush 운영 배포와 검증",
+    });
+    const pendingRef = commitAndPushCurrentBranch(workspace.docsRoot);
+    fs.writeFileSync(path.join(workspace.docsRoot, "AFTER_PENDING.md"), "# Changed after pending\n");
+    commitCurrentBranch(workspace.docsRoot);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--workspace-root",
+      tempRoot,
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /docs: --pending-ref must equal the checked-out docs HEAD/);
+    assert.match(result.stdout, /Result: FAIL/);
+  });
+
+  it("rejects a pushed pending release branch that is behind origin/main", () => {
+    const workspace = createWorkspace();
+    const releaseBranch = "docs/test/stale-pending-release";
+    git(workspace.docsRoot, ["checkout", "-b", releaseBranch]);
+    writeReleaseRecord(workspace.docsRoot, "v9.9.0", [
+      docsPlannedMappingLine(),
+      "- `coupler-api`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
+      "- `coupler-mobile-app`: Store `9.9.0 (900)`, 릴리스 태그 `N/A`, 커밋 `" + workspace.refs.mobile + "`, NextPush `N/A`",
+    ], {
+      status: "pending",
+      releaseScopes: ["docs", "mobile-nextpush"],
+      pendingScope: "Mobile NextPush 운영 배포와 검증",
+    });
+    const pendingRef = commitAndPushCurrentBranch(workspace.docsRoot);
+
+    git(workspace.docsRoot, ["checkout", "main"]);
+    fs.writeFileSync(path.join(workspace.docsRoot, "MAIN_ADVANCE.md"), "# Main advance\n");
+    commitAll(workspace.docsRoot);
+    git(workspace.docsRoot, ["checkout", releaseBranch]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--workspace-root",
+      tempRoot,
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /docs: pending release branch must include the latest origin\/main/);
+    assert.match(result.stdout, /Result: FAIL/);
+  });
+
   it("passes released DB migration preflight when SQL file exists and checksum matches", () => {
     const workspace = createWorkspace();
     const sqlRef = writeSqlFile(
@@ -1155,6 +1309,21 @@ function commitAll(repoRoot) {
   git(repoRoot, ["push", "-u", "origin", "main"]);
 
   return git(repoRoot, ["rev-parse", "HEAD"]);
+}
+
+function commitCurrentBranch(repoRoot) {
+  git(repoRoot, ["add", "."]);
+  git(repoRoot, ["commit", "-m", "test pending release"]);
+
+  return git(repoRoot, ["rev-parse", "HEAD"]);
+}
+
+function commitAndPushCurrentBranch(repoRoot) {
+  const commit = commitCurrentBranch(repoRoot);
+  const branch = git(repoRoot, ["branch", "--show-current"]);
+  git(repoRoot, ["push", "-u", "origin", branch]);
+
+  return commit;
 }
 
 function writeSqlFile(repoRoot, relativePath, content) {

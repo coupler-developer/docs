@@ -12,7 +12,8 @@
   },
   "scripts": {
     "release:preflight": "node scripts/release-preflight.mjs",
-    "test:release-preflight": "node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-preflight.test.mjs",
+    "test:release-preflight": "node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-transition.test.mjs scripts/validate-release-pr-transition.test.mjs scripts/release-validation-mode.test.mjs scripts/release-preflight.test.mjs",
+    "validate:release-pr-transition": "node scripts/validate-release-pr-transition.mjs",
     "test:technical-debt": "node --test scripts/validate-technical-debt.test.mjs",
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
     "validate:technical-debt": "node scripts/validate-technical-debt.mjs",
