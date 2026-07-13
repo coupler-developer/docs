@@ -630,7 +630,8 @@
 
 - [그룹미팅 시스템](../architecture/group-meeting-system.md)에 1차 DB/API 기준은 확정했지만,
   서비스 DB와 API/Admin/Mobile에는 아직 구현되지 않았다.
-- 11개 신규 테이블과 1개 VIEW의 migration SQL 및 dev/prod DB Migration Gate 증빙이 없다.
+- 11개 신규 테이블, 1개 VIEW, 그룹미팅 후기 보상용 `t_setting.id=25` 설정 row의 migration SQL 및
+  dev/prod DB Migration Gate 증빙이 없다.
 - 그룹미팅 API 계약, Admin 운영 화면, Mobile 행사·채팅·후기 흐름과 통합 테스트가 없다.
 - 예약 FCM 77~83의 서버 문구·`alarm_event`/`alarm_chat` 분기·Mobile 라우팅과 그룹미팅 Key 로그 문구가
   구현되지 않았다.
@@ -640,6 +641,8 @@
 - architecture 문서만으로는 그룹미팅 기능이 실행되지 않는다.
 - migration, 서버 권한·상태 전이, 클라이언트 계약을 서로 다른 기준으로 구현하면 중복 알림·중복 과금·
   정원 초과와 개인정보 접근 회귀가 생길 수 있다.
+- 기존 `t_setting.id=20`을 그룹미팅에도 재사용하면 2:2 후기 보상과 그룹미팅 후기 보상값을 독립적으로
+  운영할 수 없다.
 
 액션 후보
 
