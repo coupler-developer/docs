@@ -82,7 +82,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 
 - 위 표는 전체 타입 목록이 아니라 대표 타입 예시와 범주 요약이다.
 
-### 그룹미팅 예약 타입 (77-85, to-be)
+### 그룹미팅 예약 타입 (77-83, to-be)
 
 아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 구현 계약으로 예약했으며 현재 운영 코드에는 아직
 추가되지 않았다. 구현 직전 운영 상수에서 미사용 여부를 재검증한다.
@@ -91,13 +91,11 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | --- | --- | --- | --- |
 | 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | `alarm_event` |
 | 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | `alarm_event` |
-| 79 | `GROUP_MEETING_APPLICATION_APPROVAL_REVOKED` | 참여 확정 취소 | `alarm_event` |
-| 80 | `GROUP_MEETING_APPLICATION_REJECTED` | 신청 거절 | `alarm_event` |
-| 81 | `GROUP_MEETING_APPLICATION_CANCELED` | 신청자 취소 | `alarm_event` |
-| 82 | `GROUP_MEETING_EVENT_CONFIRMED` | 참가 최종 확정 | `alarm_event` |
-| 83 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` |
-| 84 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` |
-| 85 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` |
+| 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | `alarm_event` |
+| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | `alarm_event` |
+| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` |
+| 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` |
+| 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` |
 
 ## 발송 흐름
 
@@ -160,7 +158,7 @@ sequenceDiagram
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | member | INT | 수신자 ID |
-| type | TINYINT | 운영 FCM_TYPE 1-76, 그룹미팅 예약 77-85 |
+| type | TINYINT | 운영 FCM_TYPE 1-76, 그룹미팅 예약 77-83 |
 | content | VARCHAR | 알림 메시지 |
 | target | INT | 관련 ID (매칭/미팅/라운지) |
 | create_date | DATETIME | 발송 시간 |
