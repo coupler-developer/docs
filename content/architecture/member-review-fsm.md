@@ -117,8 +117,9 @@
 
 - 앱:
     - `v_member_review_status` 기준으로 심사 분기
-    - `status=-4`는 거절 회원으로 처리
+    - `status=-4`는 서버 내부에서 거절 회원으로 유지하되 사용자에게는 심사중 화면으로만 투영
     - 앱 진입 라우팅은 `decidePostLoginEntryRoute` 단일 함수로 처리한다
+    - 내부 거절 회원은 심사 단계와 관계없이 `SignupReviewScreen`으로 진입하며 거절 사실을 노출하지 않는다
     - 매칭 화면 분기는 `decideMatchingViewState`(화면 상태) + `buildMatchingLockPanelContent`(문구)로 분리한다
 - 어드민:
     - 상세 단계 상태는 `v_member_review_status` 기준으로 확인
