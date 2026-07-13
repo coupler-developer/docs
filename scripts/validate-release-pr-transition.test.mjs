@@ -54,6 +54,54 @@ describe("release PR transition validator", () => {
     );
   });
 
+  for (const terminalStatus of ["released", "rolled_back", "superseded"]) {
+    for (const activeStatus of ["planned", "pending", "in_progress"]) {
+      it(`rejects ${terminalStatus} to ${activeStatus} status regression`, () => {
+        writeRecord(metadataWithStatus(releasedMetadata(), terminalStatus));
+        commitAll(`${terminalStatus} release record`);
+        const base = git(["rev-parse", "HEAD"]);
+        git(["checkout", "-b", `docs/test/${terminalStatus}-to-${activeStatus}`]);
+        writeRecord(metadataWithStatus(pendingMetadata(), activeStatus));
+        commitAll(`${activeStatus} release regression`);
+
+        const result = runValidator(base);
+
+        assert.notEqual(result.status, 0);
+        assert.match(
+          result.stderr,
+          new RegExp(
+            `terminal release status cannot transition back to active \\(${terminalStatus} -> ${activeStatus}\\)`,
+          ),
+        );
+      });
+
+      it(`rejects ${terminalStatus} to ${activeStatus} to ${terminalStatus} history`, () => {
+        writeRecord(metadataWithStatus(releasedMetadata(), terminalStatus));
+        commitAll(`${terminalStatus} release record`);
+        const base = git(["rev-parse", "HEAD"]);
+        git([
+          "checkout",
+          "-b",
+          `docs/test/${terminalStatus}-via-${activeStatus}`,
+        ]);
+        writeRecord(metadataWithStatus(pendingMetadata(), activeStatus));
+        commitAll(`${activeStatus} release regression`);
+        writeRecord(metadataWithStatus(releasedMetadata(), terminalStatus));
+        commitAll(`restore ${terminalStatus} release status`);
+
+        const result = runValidator(base);
+
+        assert.notEqual(result.status, 0);
+        assert.match(
+          result.stderr,
+          new RegExp(
+            `terminal release status cannot transition back to active \\(${terminalStatus} -> ${activeStatus}\\)`,
+          ),
+        );
+      });
+    }
+  }
+
   it("rejects frozen service ref changes between pending and released", () => {
     const base = git(["rev-parse", "HEAD"]);
     git(["checkout", "-b", "docs/test/ref-change"]);
@@ -73,20 +121,22 @@ describe("release PR transition validator", () => {
     );
   });
 
-  it("keeps legacy updates valid when the release record already exists on main", () => {
-    writeRecord(releasedMetadata());
-    commitAll("existing released record");
-    const base = git(["rev-parse", "HEAD"]);
-    git(["checkout", "-b", "docs/test/corrective-update"]);
-    const corrected = releasedMetadata();
-    corrected.scopeResults = { docs: { status: "released", evidence: {} } };
-    writeRecord(corrected);
-    commitAll("correct release evidence");
+  for (const terminalStatus of ["released", "rolled_back", "superseded"]) {
+    it(`allows ${terminalStatus} corrective updates that stay terminal`, () => {
+      writeRecord(metadataWithStatus(releasedMetadata(), terminalStatus));
+      commitAll(`existing ${terminalStatus} record`);
+      const base = git(["rev-parse", "HEAD"]);
+      git(["checkout", "-b", `docs/test/${terminalStatus}-correction`]);
+      const corrected = metadataWithStatus(releasedMetadata(), terminalStatus);
+      corrected.scopeResults.docs.evidence = { correction: "updated evidence" };
+      writeRecord(corrected);
+      commitAll(`correct ${terminalStatus} evidence`);
 
-    const result = runValidator(base);
+      const result = runValidator(base);
 
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-  });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    });
+  }
 });
 
 function pendingMetadata() {
@@ -136,6 +186,27 @@ function releasedMetadata() {
     },
   };
   return metadata;
+}
+
+function metadataWithStatus(metadata, status) {
+  const result = structuredClone(metadata);
+  result.status = status;
+
+  for (const scopeResult of Object.values(result.scopeResults)) {
+    scopeResult.status = status;
+
+    if (status === "rolled_back") {
+      scopeResult.rollbackReason = "release was rolled back";
+    }
+
+    if (status === "superseded") {
+      scopeResult.supersededBy = "v9.9.1";
+      scopeResult.incompleteReason = "replaced by v9.9.1";
+      scopeResult.tagStatus = "not_created";
+    }
+  }
+
+  return result;
 }
 
 function writeRecord(metadata) {
