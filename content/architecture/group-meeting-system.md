@@ -101,9 +101,14 @@
 
 ## 정규화 결정
 
-- 해시태그는 검색/필터 조건이 아닌 화면 표시용 자유입력 문구이므로 event의 `hashtags` 한 컬럼에
-  공백 한 칸 구분 문자열로 저장한다. 태그 내부 공백은 허용하지 않고 server에서 trim, 중복 제거,
-  연속 공백 정규화와 개수/길이 제한을 검증한다.
+- 해시태그는 검색/필터 조건이 아닌 필수 화면 표시값이므로 event의 `hashtags VARCHAR(255) NOT NULL`
+  한 컬럼에 `#직장검증 #강남 #와인`처럼 ASCII 공백 한 칸으로 구분해 저장한다. 별도 태그 테이블과
+  배열/JSON 컬럼은 만들지 않는다.
+- Mobile은 `#단어` 입력 뒤 스페이스를 누르면 유효한 태그를 검정색 블록으로 확정한다. 각 token은 `#`으로
+  시작하고 `#` 뒤에 `#` 이외의 공백 없는 한 글자 이상이 있어야 한다. 태그 내부 공백, 선행/후행/연속 공백,
+  빈 token, 완전히 같은 token의 중복 입력은 Mobile과 API에서 거절한다.
+- server는 중복 제거, trim, 공백 정규화로 잘못된 입력을 보정하지 않고 canonical 문자열만 저장한다.
+  기획에 별도 개수나 개별 태그 길이 제한이 없으므로 전체 `VARCHAR(255)` 범위 외 제한은 추가하지 않는다.
 - application의 gender/alias snapshot은 현재 회원정보의 복제가 아니라 행사 당시 표시값을 보존하는
   시간축 데이터다. 현재 프로필 SoT로 사용하지 않는다.
 - Admin의 확정 취소는 application을 `APPROVED -> CANCELED`로 변경한다. CANCELED는 입금 확인 후
@@ -187,7 +192,7 @@
 | title | VARCHAR(255) | N | - | 행사명 |
 | thumbnail_path | VARCHAR(255) | N | - | 목록 이미지 상대경로 |
 | detail_text | TEXT | Y | NULL | 이미지 외 안내문 |
-| hashtags | VARCHAR(255) | Y | NULL | 자유입력 해시태그, 공백 한 칸으로 구분 |
+| hashtags | VARCHAR(255) | N | - | 필수 자유입력 해시태그, `#단어`를 공백 한 칸으로 구분 |
 | detail_image_version_id | INT | Y | NULL | 현재 ready 긴 이미지 |
 | event_at | DATETIME | N | - | 모임 일시 |
 | application_close_at | DATETIME | N | - | 신청 마감 시각 |
@@ -207,6 +212,8 @@
 - chat member의 행사-호스트 복합 FK를 위한 `UNIQUE(id, host_id)`
 - `UNIQUE(host_id, create_idempotency_key)`
 - 모집 시작은 별도 시각 컬럼 없이 `DRAFT -> OPEN` action log 시각으로 기록한다.
+- `DRAFT -> OPEN` 전이는 `detail_image_version_id`가 같은 행사에 attach된 ready version일 때만 허용한다.
+  DRAFT에서는 업로드·교체 작업을 위해 null을 허용한다.
 - `OPEN` 이후 title, 일시, 장소, 정원, 사진 공개 여부 변경은 신청자 영향 때문에 금지한다.
 
 ### 3. `t_group_meeting_event_detail_image_version`
@@ -450,7 +457,7 @@
 
 | 테이블 | CHECK |
 | --- | --- |
-| event | `status IN (-2,-1,0,1,2,3,4) AND version > 0 AND application_close_at <= event_at AND photo_public IN (0,1) AND male_capacity BETWEEN 2 AND 20 AND female_capacity BETWEEN 2 AND 20 AND CHAR_LENGTH(TRIM(title)) > 0 AND CHAR_LENGTH(TRIM(thumbnail_path)) > 0 AND CHAR_LENGTH(TRIM(location)) > 0 AND CHAR_LENGTH(TRIM(create_idempotency_key)) > 0 AND (hashtags IS NULL OR (CHAR_LENGTH(TRIM(hashtags)) > 0 AND hashtags = TRIM(hashtags) AND hashtags NOT LIKE '%  %'))` |
+| event | `status IN (-2,-1,0,1,2,3,4) AND version > 0 AND application_close_at <= event_at AND photo_public IN (0,1) AND male_capacity BETWEEN 2 AND 20 AND female_capacity BETWEEN 2 AND 20 AND CHAR_LENGTH(TRIM(title)) > 0 AND CHAR_LENGTH(TRIM(thumbnail_path)) > 0 AND CHAR_LENGTH(TRIM(location)) > 0 AND CHAR_LENGTH(TRIM(create_idempotency_key)) > 0 AND hashtags REGEXP '^#[^[:space:]#]+( #[^[:space:]#]+)*$'` |
 | detail version | `CHAR_LENGTH(TRIM(source_image_path)) > 0 AND source_width > 0 AND source_height > 0 AND target_width > 0 AND slice_height > 0 AND total_bytes >= 0 AND ((status = 'pending' AND processing_started_at IS NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'processing' AND processing_started_at IS NOT NULL AND completed_at IS NULL AND error_message IS NULL) OR (status = 'ready' AND processing_started_at IS NOT NULL AND completed_at IS NOT NULL AND error_message IS NULL AND slice_count > 0 AND total_bytes > 0) OR (status = 'failed' AND completed_at IS NOT NULL AND error_message IS NOT NULL AND CHAR_LENGTH(TRIM(error_message)) > 0) OR (status = 'discarded' AND completed_at IS NOT NULL AND (error_message IS NULL OR CHAR_LENGTH(TRIM(error_message)) > 0))) AND (processing_started_at IS NULL OR processing_started_at >= created_at) AND (completed_at IS NULL OR completed_at >= COALESCE(processing_started_at, created_at))` |
 | detail slice | `CHAR_LENGTH(TRIM(image_path)) > 0 AND width > 0 AND height > 0 AND byte_size > 0` |
 | application | `gender_snapshot IN ('M','F') AND CHAR_LENGTH(TRIM(alias_snapshot)) > 0 AND version > 0 AND status IN (-2,-1,0,1) AND ((status = 0 AND approved_at IS NULL) OR (status IN (-2,-1,1) AND approved_at IS NOT NULL))` |
@@ -771,6 +778,9 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 ## 필수 검증
 
 - 같은 host/create_idempotency_key와 reporter/idempotency_key 재요청이 행사/신고를 중복 생성하지 않는다.
+- 행사 생성/수정에서 hashtags의 null/빈 문자열, `#` 없는 token, 내부 공백, 선행/후행/연속 공백과 중복
+  token은 실패한다. 유효한 입력은 별도 정규화 없이 공백 한 칸 구분 문자열로 저장한다.
+- ready 상태의 같은 행사 detail image version이 없으면 DRAFT 행사를 OPEN으로 바꿀 수 없다.
 - 동일 회원의 행사 중복 신청과 동일 Mobile write 재전송이 한 번만 반영된다.
 - 행사 CONFIRMED 전 확정 취소는 application을 CANCELED로 바꾸고 approved_at을 유지하며
   version과 `APPLICATION_CANCELED` action log를 함께 반영한다. CONFIRMED 이후에는 실패한다.
