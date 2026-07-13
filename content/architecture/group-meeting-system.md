@@ -20,16 +20,22 @@
 - 호스트는 참가 정원에서 제외한다.
 - 남녀 정원은 각각 2명 이상 20명 이하로 고정한다.
 - 신청 자체에는 Key를 차감하지 않는다. 화면의 입금 확인은 외부 확인 후 Admin 승인으로 표현한다.
-- 사진 미공개 행사의 미니프로필은 기존 설정 `t_setting.id=16`, 사진 공개 행사의 사진프로필은
-  `t_setting.id=18`, 후기 보상은 `t_setting.id=20`의 서버 값을 사용한다. 거래 row에는 실제 적용한
-  값을 `t_member_key_log.key/key_total`로 남기며 클라이언트가 보낸 Key 값은 사용하지 않는다.
+- 호스트는 기존 CMS 회원정보 조회와 스마트 문자/CMS 큐레이터 채팅으로 입금을 요청한다. 이 연락 과정은
+  기존 기능을 사용하며 그룹미팅 전용 테이블이나 입금 요청 row를 만들지 않는다.
+- 승인 참가자가 다른 승인 참가자의 프로필을 최초 열람할 때 사진 미공개 행사는 기존 설정
+  `t_setting.id=16`, 사진 공개 행사는 `t_setting.id=18`의 서버 값을 사용한다. Mobile 호스트의 같은 행사
+  APPLIED/APPROVED 신청자 프로필 열람은 무료이며 Key 차감과 열람 거래 row를 만들지 않는다.
+- 종료 후기 최초 작성 보상은 신규 설정 `t_setting.id=25`의 서버 값을 사용한다. 유료 열람과 후기 보상
+  거래 row에는 실제 적용한 값을 `t_member_key_log.key/key_total`로 남기며 클라이언트가 보낸 Key 값은
+  사용하지 않는다.
 - 모임 확정은 남녀 승인 인원이 각각 2명 이상이면 Admin이 수행한다. 남은 APPLIED는 별도 미선정 상태로
   바꾸지 않고 행사 CONFIRMED 이후 미확정 마감으로 해석한다.
   확정 transaction에서는 채팅 구성원만 만든다.
 - 기존 2:2는 남녀 2명씩 총 4명 충원 시 채팅을 열지만, n대n은 설정 정원 전체 충원을 요구하지 않는다.
   개인의 참가 여부는 application APPROVED, 행사 진행 여부와 채팅 오픈은 event CONFIRMED로 구분한다.
-- Admin CMS의 운영 목적 프로필 조회는 무료이며 감사 로그를 남긴다. Mobile에서는 호스트와 승인
-  참가자 모두 다른 회원의 프로필을 최초 열람할 때 Key를 차감한다.
+- Admin CMS의 운영 목적 프로필 조회는 무료이며 감사 로그를 남긴다. Mobile 호스트도 자신이 개설한 행사의
+  APPLIED/APPROVED 신청자 프로필을 무료로 열람한다. 승인 참가자끼리 다른 참가자의 프로필을 최초 열람할
+  때만 Key를 차감한다.
 
 ## 기존 구조 재사용 기준
 
@@ -48,16 +54,24 @@
 `t_setting`은 Mobile의 설정 탭이 아니라 Admin에서 Key 비용과 보상값을 관리하는 서버 운영 설정이다.
 그룹미팅 화면은 설정을 보여주는 것이 아니라, 아래 행위가 발생할 때 API가 해당 값을 읽어 적용한다.
 
-| 설정 ID | 그룹미팅 용도 | 2026-07-08 운영값 예시 |
+| 설정 ID | 그룹미팅 용도 | 기준 값 |
 | --- | --- | --- |
-| 16 | 사진 미공개 행사의 미니프로필 최초 열람 비용 | -10 Key |
-| 18 | 사진 공개 행사의 사진프로필 최초 열람 비용 | -25 Key |
-| 20 | 종료 후기 최초 작성 보상 | +5 Key |
+| 16 | 승인 참가자의 사진 미공개 행사 미니프로필 최초 열람 비용 | -10 Key |
+| 18 | 승인 참가자의 사진 공개 행사 사진프로필 최초 열람 비용 | -25 Key |
+| 25 | 종료 후기 최초 작성 보상 | +5 Key 초기값 |
 
-- 1차는 기존 row를 read-only로 공유한다. id/value/title/content를 변경하지 않고 신규 row/테이블이나
-  event 가격 snapshot 컬럼도 만들지 않는다.
-- 실제 적용 금액과 잔액은 기존 `t_member_key_log`에 기록한다. 그룹미팅 Key 로그의 content는 API의 신규
-  그룹미팅 i18n 문구를 사용하며 `t_setting.title/content`를 사용자 문구로 재사용하지 않는다.
+- 그룹미팅 migration은 기존 16/18 row를 변경하지 않고 공유한다. 25번은
+  `id=25, value='5', title='단체미팅(Host) 후기 보상', content='후기작성 시 보상', admin='admin',
+  update_date=CURRENT_TIMESTAMP`로 신규 생성한다. 이후 Admin은 기존 설정 관리 방식으로 `value`를 변경할
+  수 있으며 API는 거래 시점의 서버 값을 읽는다.
+- 기존 Admin 설정 목록은 `t_setting` 전체 row를 조회하고 ID별 `value`를 수정하므로 25번 생성 뒤 같은
+  화면에 자동 노출된다. 그룹미팅 전용 설정 테이블이나 별도 편집 화면은 추가하지 않는다.
+- 16/18번 row가 없거나 `value`가 음의 정수가 아니면 유료 프로필 열람과 Key transaction을 함께
+  실패시킨다. 25번 row가 없거나 `value`가 양의 정수가 아니면 후기와 Key 보상을 함께 실패시킨다.
+  기존 20번은 `2:2 후기작성 보상` 전용으로 유지하며 그룹미팅에서 읽지 않는다.
+- 별도 설정 테이블이나 event 가격 snapshot 컬럼은 만들지 않는다. 실제 적용 금액과 잔액은 기존
+  `t_member_key_log`에 기록한다. 그룹미팅 Key 로그의 content는 API의 신규 그룹미팅 i18n 문구를 사용하며
+  `t_setting.title/content`를 사용자 문구로 재사용하지 않는다.
 
 ## DB 공통 기준
 
@@ -94,7 +108,7 @@
 | 5 | `t_group_meeting_application` | 신청과 참가 자격 SoT |
 | 6 | `t_group_meeting_chat_member` | 행사 채팅 구성원 principal과 unread 경계 |
 | 7 | `t_group_meeting_chat_message` | 행사별 호스트/참가자 채팅 메시지 |
-| 8 | `t_group_meeting_profile_view` | 미니/사진프로필 최초 열람과 과금 |
+| 8 | `t_group_meeting_profile_view` | 승인 참가자 간 미니/사진프로필 최초 열람과 과금 |
 | 9 | `t_group_meeting_review` | 종료 후기와 보상 snapshot |
 | 10 | `t_group_meeting_report` | 행사/회원 신고 |
 | 11 | `t_group_meeting_action_log` | 상태 변경과 운영 감사 통합 로그 |
@@ -122,8 +136,9 @@
   중복 저장하지 않는다.
 - chat member는 `host_id`와 `application_id` 중 하나만 채운다. `host_id`가 있으면 HOST,
   `application_id`가 있으면 PARTICIPANT로 판정해 role을 중복 저장하지 않는다.
-- profile view/review는 적용된 기존 `t_member_key_log.id`를 직접 참조한다. 변동량/잔액을 별도
-  그룹미팅 원장에 중복 저장하지 않으며 각 원천 UNIQUE가 재처리 멱등성의 최종 DB guard다.
+- 승인 참가자의 유료 profile view와 review는 적용된 기존 `t_member_key_log.id`를 직접 참조한다.
+  변동량/잔액을 별도 그룹미팅 원장에 중복 저장하지 않으며 각 원천 UNIQUE가 재처리 멱등성의 최종 DB
+  guard다. Mobile 호스트의 무료 열람은 profile view와 Key 원장을 만들지 않는다.
 - action log의 actor_id와 action/target_id는 삭제 후에도 남아야 하는 감사 snapshot이다.
   비즈니스 관계 판정에는 사용하지 않고 event_id와 원천 테이블을 기준으로 판정한다.
 - report의 reporter/target member ID도 신고 당시 감사 snapshot으로 보존하며 회원 FK를 두지 않는다.
@@ -335,8 +350,8 @@
 - `UNIQUE(viewer_member_id, target_application_id)`, `UNIQUE(member_key_log_id)`
 - 신규 열람 row의 `viewer_member_id`는 반드시 채운다. nullable은 회원 삭제 시 `ON DELETE SET NULL`을
   허용하기 위한 보관 예외이며 null viewer로 신규 insert하지 않는다.
-- Mobile 호스트는 APPLIED/APPROVED 신청자를, APPROVED 참가자는 다른 APPROVED 참가자를 열람할 수
-  있으며 본인은 열람/과금 대상이 아니다.
+- APPROVED 참가자는 같은 행사의 다른 APPROVED 참가자를 열람할 수 있으며 본인은 열람/과금 대상이 아니다.
+  Mobile 호스트의 APPLIED/APPROVED 신청자 무료 열람은 이 테이블에 저장하지 않는다.
 - 열람 대상 회원과 행사는 `target_application_id -> application.member_id/event_id`로 조회한다. 같은 값을
   profile view에 중복 저장하지 않는다.
 - target application의 event.photo_public=0이면 MINI/id16, 1이면 PHOTO/id18을 서버에서 선택한다.
@@ -695,18 +710,25 @@ stateDiagram-v2
 
 ### 프로필 열람
 
-1. target application과 event를 조회해 Mobile 호스트는 같은 행사의 APPLIED/APPROVED 신청자,
-   APPROVED 참가자는 다른 APPROVED 참가자만 target으로 허용한다.
-2. event.photo_public에 따라 `t_setting.id=16` 또는 `id=18`을 서버에서 읽고 viewer `t_member` row를
-   `SELECT ... FOR UPDATE`로 잠근 뒤 기존 profile view를 다시 확인하고 잔액을 검증한다.
-3. `t_member_key_log`, profile view의 `member_key_log_id`, 회원 Key를 한 transaction에 저장한다.
-4. unique 충돌은 transaction 전체를 rollback하고 기존 열람 성공을 반환해 재차감하지 않는다.
+1. Mobile 호스트는 `t_group_meeting_host.member_id`와 event.host_id가 일치할 때 OPEN/CLOSED 행사의
+   APPLIED/APPROVED 신청자를 무료로 열람할 수 있다. CONFIRMED 뒤에는 APPROVED 참가자만 허용하고,
+   DRAFT/CANCELED/FINISHED/DELETED에서는 열람을 금지한다. 이 경로는 `t_setting`, 회원 Key,
+   `t_member_key_log`, `t_group_meeting_profile_view`를 읽거나 변경하지 않는다.
+2. 참가자 경로는 viewer/target application과 event를 조회해 두 application이 같은 행사의 APPROVED이며
+   서로 다른 회원인지 검증한다. CANCELED/DELETED에서는 기존 열람을 포함한 프로필 반환을 금지한다.
+3. 기존 profile view가 있으면 OPEN/CLOSED/CONFIRMED/FINISHED에서 추가 차감 없이 반환한다. 신규 최초
+   열람과 Key 차감은 OPEN/CLOSED/CONFIRMED에서만 허용하고 FINISHED에서는 새로 구매할 수 없다.
+4. 신규 열람이면 event.photo_public에 따라 `t_setting.id=16` 또는 `id=18`을 서버에서 읽고 값이 음의
+   정수인지 확인한다. 유효하면 viewer `t_member` row를 `SELECT ... FOR UPDATE`로 잠근 뒤 기존 profile
+   view를 다시 확인하고 잔액을 검증한다.
+5. `t_member_key_log`, profile view의 `member_key_log_id`, 회원 Key를 한 transaction에 저장한다.
+6. unique 충돌은 transaction 전체를 rollback하고 기존 열람 성공을 반환해 재차감하지 않는다.
 
 ### 후기
 
 1. application을 기준으로 행사 FINISHED와 작성자의 APPROVED 또는 LEFT 이력, GOOD/BAD와 공백이 아닌
    필수 후기 content를 검증한다.
-2. `t_setting.id=20` 값을 서버에서 읽고 작성자의 `t_member` row를 `SELECT ... FOR UPDATE`로 잠근 뒤
+2. `t_setting.id=25` 값을 서버에서 읽고 작성자의 `t_member` row를 `SELECT ... FOR UPDATE`로 잠근 뒤
    기존 review를 다시 확인한다.
 3. `t_member_key_log`, review의 `member_key_log_id`, 회원 Key를 한 transaction에 저장한다.
 4. unique 충돌은 transaction 전체를 rollback하고 기존 성공을 반환해 중복 보상하지 않는다.
@@ -718,7 +740,7 @@ stateDiagram-v2
 - 외부 입금 상태: DB 결제 기능이 아니며 입금 확인 뒤 application APPROVED로 표현한다.
 - 행사/신청 상태 이력과 처리 사유: action log에서 조회한다.
 - unread 수: chat member의 last_read_message_id와 정상 message를 비교한다.
-- 프로필 열람/후기 Key 금액과 변경 후 잔액: t_setting에서 읽어 기존 `t_member_key_log`에 기록한다.
+- 참가자 프로필 열람/후기 Key 금액과 변경 후 잔액: t_setting에서 읽어 기존 `t_member_key_log`에 기록한다.
 
 ## 프론트 read model과 DB VIEW
 
@@ -740,9 +762,9 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 | API read model | 구성 원천 |
 | --- | --- |
 | `GroupMeetingEventListItem` | event + host/member 요약 + hashtags + application summary VIEW + 내 application status |
-| `GroupMeetingEventDetail` | event + ready image slices + application summary VIEW + 내 권한 + 서버 Key 설정 |
+| `GroupMeetingEventDetail` | event + ready image slices + application summary VIEW + 내 권한 + 참가자 열람/후기 서버 Key 설정 |
 | `GroupMeetingMyEventItem` | EventListItem + host/participant role |
-| `GroupMeetingApplicantItem` | application + 승인 프로필 요약 + 내가 열람한 profile view 여부 |
+| `GroupMeetingApplicantItem` | application + 신청자 프로필 요약 |
 | `GroupMeetingChatListItem` | application/event + last message + unread 수 |
 | `GroupMeetingChatMessageItem` | message + sender principal별 host 회원 nickname/application alias, 운영 삭제 표기 |
 | `GroupMeetingReviewState` | event FINISHED 여부 + application 자격 + 기존 review 여부 + reward Key |
@@ -760,7 +782,7 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 
 - 행사 목록/상세/내가 만든 모임/내가 참여한 모임
 - 신청/신청자 목록(호스트 회원)
-- 미니/사진프로필 최초 열람
+- 호스트의 신청자 프로필 무료 열람, 승인 참가자 간 미니/사진프로필 최초 유료 열람
 - 채팅방 목록, 메시지 목록/전송/읽음/퇴장
 - 행사/회원 신고, 종료 후기
 
@@ -795,9 +817,16 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 - 호스트가 아니면서 APPROVED가 아닌 회원과 LEFT 회원은 채팅을 읽거나 쓰지 못한다.
 - chat message는 호스트/참가자 sender와 client_message_id가 모두 있어야 하며 sender 없는 시스템 메시지는 실패한다.
 - 신규 메시지는 sender 자신의 unread에 포함되지 않고 sender에게 푸시/`t_alarm`을 생성하지 않는다.
-- 같은 대상의 프로필 재열람과 후기 재요청으로 Key가 중복 변경되지 않는다.
+- 호스트는 OPEN/CLOSED의 APPLIED/APPROVED와 CONFIRMED의 APPROVED만 무료로 열람할 수 있으며 Key,
+  `t_member_key_log`, profile view를 변경하지 않는다. 참가자의 신규 유료 열람은 OPEN/CLOSED/CONFIRMED의
+  같은 행사 APPROVED 간에만 허용하고, 기존 유료 열람은 FINISHED에서도 재차감 없이 반환한다.
+  CANCELED/DELETED에서는 신규·기존 프로필 반환이 모두 실패한다.
+- 승인 참가자의 같은 대상 프로필 재열람과 후기 재요청으로 Key가 중복 변경되지 않는다.
 - profile view/review의 `member_key_log_id` 누락이나 잠근 회원·설정 금액과 다른 Key 원장 연결은 실패한다.
+- 프로필 열람 설정 16/18번은 음의 정수, 후기 보상 설정 25번은 양의 정수가 아니면 해당 Key transaction
+  전체가 실패한다.
 - GOOD/BAD 모두 공백이 아닌 후기 content가 없으면 작성과 Key 보상이 실패한다.
+- 후기 보상은 20번이 아니라 25번 설정값과 정확히 일치해야 하며, 클라이언트 Key 값은 무시한다.
 - null viewer profile view insert는 실패하고 회원 삭제로 null 처리된 이력만 허용한다.
 - 호스트 연결, 참여 승인/확정 취소, 신고 처리, 메시지 삭제, 행사 취소는 사유를 포함한
   action log 없이 완료되지 않는다.
@@ -811,17 +840,17 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 
 ## Migration Gate 적용
 
-이 문서는 DB 설계 SoT이며 실제 11개 테이블과 1개 VIEW 생성은 migration SQL로 수행한다.
-기존 `t_setting` row는 읽기만 하며 변경 migration을 만들지 않는다.
+이 문서는 DB 설계 SoT이며 실제 11개 테이블과 1개 VIEW 생성 및 `t_setting.id=25` 설정 row 추가는
+migration SQL로 수행한다. 기존 `t_setting.id=16/18/20` row는 변경하지 않는다.
 미구현 상태와 후속 API/Admin/Mobile 작업은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
 `24) 그룹미팅 1차 구현 미착수`에서 추적한다.
 
 | Gate | 적용 | 검증 |
 | --- | --- | --- |
-| `DBM-GATE-000` | 필수 | CHECK와 복합 UNIQUE/FK 지원, 부모 테이블 타입/collation, FCM 77~83 미사용 확인 |
+| `DBM-GATE-000` | 필수 | CHECK와 복합 UNIQUE/FK 지원, 부모 테이블 타입/collation, FCM 77~83 미사용, `t_setting.id=16/18` 존재·음의 정수와 25 미사용 확인 |
 | `DBM-GATE-010` | 필수 | migration checksum과 dev/prod `schema_migrations` 기록 |
 | `DBM-GATE-100` | 필수 | 11개 테이블과 1개 VIEW, PK/UNIQUE/INDEX/FK/CHECK의 SHOW CREATE diff와 실패 guard |
-| `DBM-GATE-200` | N/A | 기존 데이터 backfill/보정 없음. `t_setting.id IN (16,18,20)`은 변경하지 않고 read-only 재사용 |
+| `DBM-GATE-200` | 필수 | `t_setting.id=25`, 초기 `value='5'`, title/content/admin을 정확히 1건 추가하고 중복 ID·잘못된 값에서 실패하는 guard 검증 |
 | `DBM-GATE-300` | N/A | 기존 read/write 기준을 변경하지 않음 |
 | `DBM-GATE-400` | N/A | 기존 객체 drop/contract 없음 |
 
