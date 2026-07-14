@@ -7,7 +7,7 @@
 - 충돌 시 우선 문서: [보안/접근통제 정책](../policy/security-access-control-policy.md), [결제 운영 정책](../policy/payment-ops-policy.md), [푸시알림 운영 정책](../policy/push-notification-policy.md), [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - 기준 성격: `to-be`
 
-제공된 화면 기획과 2026-07-08 기준 API/Admin/Mobile/DB를 대조한 1차 구현 기준이다.
+제공된 화면 기획과 2026-07-14 기준 API/Admin/Mobile/DB를 대조한 1차 구현·후속 연결 기준이다.
 기존 2:2 그룹미팅의 UI와 처리 패턴만 참고하고 `group_meeting` 도메인의 DB/API는 분리한다.
 
 ## 확정 범위
@@ -66,6 +66,8 @@
   수 있으며 API는 거래 시점의 서버 값을 읽는다.
 - 기존 Admin 설정 목록은 `t_setting` 전체 row를 조회하고 ID별 `value`를 수정하므로 25번 생성 뒤 같은
   화면에 자동 노출된다. 그룹미팅 전용 설정 테이블이나 별도 편집 화면은 추가하지 않는다.
+- 기존 Admin 설정 저장 API는 16/18번에 canonical 음의 정수, 25번에 canonical 양의 정수만 허용하며
+  공백·지수 표기·소수·잘못된 부호 값은 저장 전에 거절한다.
 - 16/18번 row가 없거나 `value`가 음의 정수가 아니면 유료 프로필 열람과 Key transaction을 함께
   실패시킨다. 25번 row가 없거나 `value`가 양의 정수가 아니면 후기와 Key 보상을 함께 실패시킨다.
   기존 20번은 `2:2 후기작성 보상` 전용으로 유지하며 그룹미팅에서 읽지 않는다.
@@ -851,8 +853,8 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 
 이 문서는 DB 설계 SoT이며 실제 11개 테이블과 1개 VIEW 생성 및 `t_setting.id=25` 설정 row 추가는
 migration SQL로 수행한다. 기존 `t_setting.id=16/18/20` row는 변경하지 않는다.
-미구현 상태와 후속 API/Admin/Mobile 작업은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`24) 그룹미팅 1차 구현 미착수`에서 추적한다.
+후속 Admin/Mobile 연결과 운영 배포는 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`24) 그룹미팅 Admin/Mobile 연결 및 배포 미완료`에서 추적한다.
 
 | Gate | 적용 | 검증 |
 | --- | --- | --- |
