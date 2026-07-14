@@ -67,6 +67,7 @@
 - [관리자 권한](architecture/admin-permission.md)
 - [크론 작업](architecture/cron-jobs.md) - 자동화 스케줄
 - [업로드/미디어 시스템](architecture/upload-media-system.md) - 파일 업로드, 저장, media_proxy
+- [테스트용 개발 데이터 시스템](architecture/development-test-data-system.md) - CMS 전체 component route 합성 데이터·화면 검증 구조
 
 ### FSM
 
@@ -97,6 +98,7 @@
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
 - [마케팅 앱 이벤트 정책](policy/marketing-app-events-policy.md) - Meta/Appsflyer 앱 이벤트 기록 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
+- [테스트용 개발 데이터 정책](policy/development-test-data-policy.md) - 개발계 합성 데이터 생성/검증/reset 기준
 - [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
@@ -113,6 +115,7 @@
 - [릴리즈 자동화 파이프라인](flows/cross-project/release-automation-pipeline.md) - 릴리즈 gate 순서와 read-only preflight 자동화 기준
 - [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
+- [테스트용 개발 데이터 운영 흐름](flows/cross-project/development-test-data-flow.md) - plan/apply/verify/coverage/reset 절차
 
 ### Releases
 
