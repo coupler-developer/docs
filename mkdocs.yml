@@ -99,6 +99,7 @@ nav:
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
       - 테스트/CI 전략: policy/testing-strategy.md
   - Flows:
+      - Kakao 네이티브 로그인 플로우: flows/cross-project/kakao-native-login-flow.md
       - 매칭 플로우: flows/cross-project/matching-flow.md
       - API 계약 변경 모바일 릴리즈 플로우: flows/cross-project/api-contract-mobile-release-flow.md
       - API 계약 cutover 최종 리뷰: flows/cross-project/api-contract-cutover-final-review.md
