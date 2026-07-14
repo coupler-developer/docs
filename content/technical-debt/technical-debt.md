@@ -336,6 +336,7 @@
 - Image Picker patch 제거 전에는 iOS에서 갤러리 선택 → cropper 표시 → crop 완료 → 대상 슬롯 반영을 메인/얼굴/전신 슬롯별로 수동 검증한다.
 - patch 제거가 가능하면 `patch-package`, `postinstall`, `patches/`를 함께 제거하고 회귀 검증 절차를 문서화한다.
 - 즉시 제거가 불가하면 "왜 필요한지", "어떤 버전 범위에서 필요한지", "재검증 시점"을 문서/추적 이슈로 남긴다.
+- 패치를 유지하거나 새로 추가하는 동안에는 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 Mobile 서드파티 소스 패치 증빙 기준을 적용한다.
 
 ---
 

@@ -217,7 +217,17 @@ MatchingScreen
 | `POST /match/call/reject` | 통화 거절 |
 | `POST /match/call/cancel` | 요청 취소 |
 | `POST /match/call/end` | 통화 종료 |
-| `GET /match/generateAgoraToken` | Agora 토큰 |
+| `GET /match/generateLiveKitToken` | 수락된 활성 통화의 LiveKit 참가 정보(`server_url`, `participant_token`) |
+
+LiveKit 참가 토큰은 해당 매칭 참여자이고 매칭 상태가 `CHAT_OPEN`이며, 최신 통화 요청이 수락된 활성 상태일 때만 발급한다. 토큰은 해당 매칭 room의 마이크 publish와 subscribe만 허용하고 유효기간은 1시간으로 제한한다.
+
+보이스콜은 LiveKit 단일 경로만 사용하고 구 provider endpoint·SDK·서버 토큰 의존성을 유지하지 않는다. 기능이 비활성인 동안 API `voice_call.enabled=false`로 신규 통화 요청, 수락, 토큰 발급을 차단한다. LiveKit 적용 Mobile Store binary와 운영 설정을 검증한 뒤 `voice_call.enabled=true`로 바꿔 재개한다. 거절·취소·종료 API는 남은 통화 상태를 정리할 수 있도록 유지한다.
+
+| 클라이언트 경계 | 오디오 세션 규칙 |
+|-----------------|------------------|
+| 앱 시작, 통화 요청, 벨 울림, 거절, 취소 | 오디오 세션을 활성화하지 않고 외부 재생 오디오를 변경하지 않는다. |
+| 통화 수락 후 LiveKit room 연결 직전 | 오디오 세션과 마이크를 활성화한다. iOS는 다른 오디오와 혼합하지 않아 통화 중 외부 음악을 중단한다. |
+| 통화 종료, 상대 퇴장, 연결 실패, 화면 이탈 | 마이크 비활성화, room disconnect, 오디오 세션 중지를 수행해 외부 오디오가 재개될 수 있게 한다. |
 
 ## 관련 문서
 
