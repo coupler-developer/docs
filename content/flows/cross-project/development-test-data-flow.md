@@ -5,9 +5,9 @@
 - 역할: `시나리오`
 - 문서 종류: `flow`
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../../policy/development-test-data-policy.md)
-- 기준 성격: `to-be`
+- 기준 성격: `as-is`
 
-현재 명령은 목표 인터페이스다. 구현 완료 전에는 수동 SQL로 이 흐름을 대체하지 않는다. 구현 잔여 범위는 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 시스템 미구현` 항목에서 추적한다.
+현재 CLI·정적 coverage·브라우저 smoke의 실제 실행 경계를 설명한다. 공유 개발계 배포와 live apply/reset 증빙 잔여 범위는 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
 
 ## 목적
 
@@ -40,47 +40,40 @@
 
 ```bash
 pnpm --dir coupler-api data-feed list
-pnpm --dir coupler-api data-feed contract --workspace-root .. --admin-root coupler-admin-web
+pnpm --dir coupler-api data-feed contract
+pnpm --dir coupler-api data-feed coverage --route-contract /absolute/path/to/coupler-admin-web/src/config/dev-data-route-contract.json
 pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at 2026-07-14T10:00:00+09:00
-pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --at 2026-07-14T10:00:00+09:00 --apply
-pnpm --dir coupler-api data-feed verify cms-all --namespace qa-cms --at 2026-07-14T10:00:00+09:00
-pnpm --dir coupler-api data-feed coverage --namespace qa-cms --workspace-root .. --admin-root coupler-admin-web
-pnpm --dir coupler-api data-feed ui-smoke --namespace qa-cms --workspace-root .. --admin-root coupler-admin-web
+pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at 2026-07-14T10:00:00+09:00 --expires-at 2026-07-21T10:00:00+09:00 --apply
+pnpm --dir coupler-api data-feed verify --namespace qa-cms
+DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE_STATE=/absolute/path/to/storage-state.json DEV_DATA_MEMBER_ID=123 yarn --cwd /absolute/path/to/coupler-admin-web test:dev-data-ui
 pnpm --dir coupler-api data-feed reset --namespace qa-cms
 pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ```
 
 - 모든 명령은 세 repository가 보이는 workspace root에서 실행한다.
-- CLI는 `--workspace-root`를 자신의 실행 directory 기준으로 해석하고 `--admin-root`를 그 아래 repository 경로로 제한한다.
-- `contract`는 write 없이 namespace 규칙, API branch obligation, DB schema contract, Admin component route exact set을 확인한다.
+- API CLI와 Admin browser runner는 서로의 repository를 자동 탐색하지 않는다. `coverage`에는 생성된 Admin route contract의 절대 경로를 넘기고, browser smoke는 Admin repository에서 실행한다.
+- `contract`는 write 없이 접속 DB의 feeder schema fingerprint를 확인한다. namespace 형식은 `plan`부터 검증하고 Admin component route exact set은 `check:dev-data-routes`와 `coverage`가 확인한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
-- `ui-smoke`는 Admin 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 session을 사용한다.
+- Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
 - 첫 번째 `reset`은 삭제 계획만 출력한다.
 - 실제 reset은 namespace와 같은 `--confirm` 값이 필요하다.
 
 ## Apply 메인 흐름
 
-1. `list`로 suite와 scenario version을 확인한다.
+1. `list`로 지원 suite ID를 확인한다.
 2. namespace, owner, 유지 종료일, reference time을 정한다.
-3. Namespace Validator가 형식·길이·금지문자·asset 경로 containment를 DB 접속 전에 확인한다.
-4. Environment Guard가 설정, environment, `DATABASE()`, 서버 식별값, host allowlist, schema version을 확인한다.
-5. DB Contract Verifier가 관련 table·column·view·FK와 schema fingerprint를 확인한다.
-6. branch verifier가 상태·전이·권한·filter·null·삭제·시간 obligation의 missing·stale 항목을 확인한다.
-7. coverage verifier가 Admin descriptor에서 계산한 component route 전체와 API scenario catalog의 미분류·미존재·stale 항목을 확인한다.
-8. `plan`으로 기준정보 상태와 create·update·keep 예상 건수를 출력한다.
-9. 작업자가 DB identity, namespace, suite, registry·schema version, 예상 건수, cron fence와 외부 호출 0건 계획을 검토한다.
-10. Run Registry가 global fence에 namespace를 ETag 조건부 추가한 뒤 active record를 `planning`으로 생성한다.
-11. CLI가 namespace advisory lock을 획득하고 registry를 `applying`으로 전환한다.
-12. 개발 환경 `/admin/cron/*` 공통 fence가 active run을 감지해 handler 전에 차단되는지 확인한다.
-13. 합성 asset checksum과 대상 경로 containment를 검증하고 namespace 경로에 동기화한다.
-14. 기준정보를 조회해 존재와 계약을 확인한다. 누락·불일치면 기존 값을 고치지 않고 중단한다.
-15. actor pool을 생성한 뒤 member, matching, meeting, lounge, revenue, statistics 순서로 scenario를 적용한다.
-16. 각 scenario 직후 DB 불변식과 연결 obligation을 검증하고 실패 시 해당 트랜잭션을 rollback한다.
-17. 전체 적용 뒤 Admin API를 route·audience·filter별로 조회한다.
-18. 기존 QA 관리자 session으로 `data-surface` 전체의 browser smoke와 `non-data` 전체의 인증·권한 smoke를 수행한다.
-19. DB·branch·route·API·UI coverage 100%, cron fence 정상, 외부 호출 0건, scenario 실패 0건일 때 registry를 `applied`로 전환한다.
-20. 잠금을 해제하고 run ID, 결과 요약, 유지 종료일을 registry와 작업 증빙에 기록한다.
+3. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
+4. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
+5. 작업자가 DB identity, namespace, suite, registry·schema version, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
+6. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, global fence와 active record를 ETag 조건부로 생성한다.
+7. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
+8. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
+9. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
+10. 전체 scenario 뒤 합성 asset checksum과 대상 경로 containment를 검증해 namespace 경로에 동기화한다.
+11. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
+12. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
+13. run ID, mutation count, 검증 결과와 유지 종료일을 registry와 작업 증빙에 기록한다.
 
 ## 도메인별 검증
 
@@ -120,14 +113,14 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ## Reset 메인 흐름
 
 1. Run Registry의 namespace, owner, active ETag와 DB root를 reconciliation한다.
-2. read-only reset plan으로 root, child, asset 삭제 예상 건수와 FK 순서를 출력한다.
+2. read-only reset plan으로 적용 scenario와 명시적으로 추적한 root row reference를 출력한다.
 3. namespace 밖 row 또는 소유권을 증명할 수 없는 row가 포함되면 중단한다.
 4. 작업자가 삭제 계획을 검토하고 namespace와 같은 `--confirm` 값을 입력한다.
 5. CLI가 namespace 잠금을 획득하고 registry를 `resetting`으로 조건부 전환한다.
 6. DB 트랜잭션을 시작하고 신고·로그·원장·관계 child를 FK-safe 순서로 삭제한다.
 7. 도메인 root와 마지막 actor root를 삭제한다.
 8. 같은 트랜잭션에서 root 0건, child orphan 0건, 다른 namespace와 기준정보 무변경을 검증한다.
-9. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 이전 상태로 되돌린다.
+9. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 `failed`로 남겨 fence를 유지한다.
 10. DB 검증이 통과하면 commit한 뒤 namespace media를 idempotent하게 삭제한다. 공용 asset과 기준정보는 유지한다.
 11. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 cron fence를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
 12. DB·asset 잔존 0건이면 active record를 history로 이동해 `cleaned`로 종료한다.
