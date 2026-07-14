@@ -7,7 +7,7 @@
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
 - 기준 성격: `to-be`
 
-현재 `coupler-api`에는 이 문서의 전체 생성 엔진과 관리자 탭 coverage 검증이 구현되어 있지 않다. 구현 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 시스템 미구현` 항목에서 추적한다.
+`coupler-api`의 생성 엔진·DB verifier와 `coupler-admin-web`의 관리자 route coverage·기본 browser smoke는 구현됐다. 이 문서는 route별 audience·filter·API 기대 결과까지 연결하는 목표 구조도 함께 정의한다. 공유 개발계 live 검증과 고도화 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
 
 ## 목적
 
@@ -419,11 +419,11 @@ coverage entry는 다음 축을 가진다.
 
 ## Apply와 reset 모델
 
-- `plan`은 변경 없이 create·update·keep·delete 예상 건수와 검증 계획을 계산한다.
+- `plan`은 변경 없이 DB identity, schema fingerprint, registry 상태, 기존 namespace root, 적용 scenario와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 mutation counter로 기록한다.
 - `apply`는 기준정보 검증 뒤 의존성 순서로 scenario를 실행한다.
-- 기존 namespace의 동일 version은 유지하고, version이 다르면 소유권 검증 후 해당 scenario만 교체한다.
+- 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다. 이 식별 계약이 하나라도 다르면 reset 후 새 namespace run으로 다시 적용한다.
 - `reset`은 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한 뒤 시작한다.
-- DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 이전 상태로 되돌린다.
+- DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 fence를 유지한다.
 - DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.
 - asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 cron fence를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.
 - DB·asset 잔존 0건을 확인한 뒤에만 active record를 history로 이동하고 `cleaned`로 종료한다.

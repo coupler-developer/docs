@@ -694,15 +694,15 @@
 
 ---
 
-## 26) 테스트용 개발 데이터 시스템 미구현 `P1` `L`
+## 26) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
 현상
 
-- [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과 [테스트용 개발 데이터 시스템](../architecture/development-test-data-system.md)은 목표 기준을 정의하지만, `coupler-api/tools/dev-data` 생성 엔진은 아직 없다.
-- 회원·매칭·기존 그룹미팅·라운지·결제·매출·통계 데이터를 같은 namespace로 반복 생성·검증·초기화하는 catalog와 suite가 없다.
-- `coupler-admin-web` 실제 component route 전체와 scenario ID를 연결하는 coverage descriptor, stale route 차단, 전체 데이터 화면 browser smoke가 없다. 2026-07-14 기준선은 54개 route와 52개 데이터 화면이다.
-- namespace 입력·경로 containment, 공유 Run Registry, DB contract fingerprint, cron fence가 없다.
-- 운영 DB 차단, 외부 알림·결제 호출 0건, 트랜잭션 기반 reset, orphan·asset 잔존 0건을 자동 검증하는 도구가 없다.
+- `coupler-api/tools/dev-data` 생성 엔진과 `coupler-admin-web` route coverage·browser smoke는 구현됐고 로컬 품질 gate를 통과했다.
+- 2026-07-14 기준선은 54개 component route, 52개 데이터 화면, 2개 non-data 화면이며 API·Admin catalog exact set이 일치한다.
+- 실제 공유 개발계에는 같은 배포의 API와 feeder가 읽는 비공개 `DEV_DATA_REGISTRY_DIR`, cron fence, apply enable 설정을 아직 배포·검증하지 않았다.
+- 공유 개발계 `cms-all` apply·verify와 인증된 Admin 52개 데이터 화면 browser smoke, 유지 기간 뒤 reset 증빙이 아직 없다.
+- 현재 Admin route contract는 route·suite·scenario·가시성 설명을 연결하지만 audience·주요 filter·API별 기대 row를 구조화하지 않는다. browser smoke도 non-empty 화면과 실패 API를 확인하는 기본 단계이며 `non-data` 2개 route의 인증·권한 smoke는 아직 없다.
 
 영향
 
@@ -714,14 +714,10 @@
 
 액션 후보
 
-- `coupler-api/tools/dev-data`에 환경·namespace guard, Run Registry, cron fence, DB contract, branch obligation, scenario·suite catalog, domain builder, DB/API verifier, asset sync, reset을 구현한다.
-- `member-all`, `matching-all`, `meeting-all`, `lounge-all`, `revenue-all`, `statistics-all`, `settings-all`, `manager-all`, `cms-all` suite와 canonical scenario를 구현한다.
-- 서버 상태 type의 exhaustive map과 policy interaction의 pairwise·명시 조합으로 missing·stale branch를 차단한다.
-- 안전 모듈 branch 100%와 DB·registry·lock·transaction·asset dependency fault-injection test를 추가한다.
-- `coupler-admin-web`에 stable route ID, 실제 component route exact classification, API verifier, 전체 데이터 화면 Playwright smoke를 추가한다. 초기 구현은 54개 route·52개 데이터 화면·2개 `non-data` 기준선에서 시작한다.
-- feeder 관련 table·column·view·FK 계약과 reset plan fingerprint를 migration gate에 연결한다.
-- API `tools`와 Admin `e2e`를 각 repository의 typecheck·lint·format·test 필수 경로에 포함하고 workspace catalog exact-set gate를 추가한다.
-- 공유 개발계에서 contract, dry-run, apply, verify, coverage, UI smoke, reset을 순서대로 검증하고 cron·외부 호출·orphan·namespace asset 잔존 0건을 확인한다.
+- 개발 API와 feeder가 함께 읽는 비공개 공유 filesystem에 Run Registry를 배포하고 development API의 cron fence를 활성화한다.
+- 공유 개발계에서 contract, dry-run, `cms-all` apply, verify, coverage, 인증된 Admin 52개 화면 smoke를 순서대로 검증한다.
+- 유지 기한 동안 cron handler와 외부 알림·결제 호출 0건을 확인하고, 종료 시 reset 후 orphan·namespace asset 0건을 증빙한다.
+- route contract를 audience·filter·API expectation까지 확장하고 데이터 화면의 row·card·상세 연결과 `non-data` 인증·권한을 route별로 검증한다.
 
 완료 기준
 
@@ -736,4 +732,4 @@
 - 운영 DB write와 데이터 유지 기간 cron·외부 알림·결제 호출이 fail-closed로 차단된다.
 - reset DB 삭제·검증이 단일 트랜잭션이고 asset cleanup은 idempotent하게 재시도된다.
 - reset 후 namespace root, child orphan, namespace media가 모두 0건이며 다른 namespace와 기준정보가 유지되고 registry가 `cleaned` history를 남긴다.
-- 구현·검증 완료 후 이 항목을 삭제하고 정책과 아키텍처의 기준 성격을 실제 상태에 맞게 갱신한다.
+- 공유 개발계 apply·UI smoke·reset과 route별 검증 고도화 완료 후 이 항목을 삭제한다.
