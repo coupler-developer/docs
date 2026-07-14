@@ -628,11 +628,19 @@
 
 현상
 
-- 그룹미팅 DB migration과 API 서버 구현은 아직 `main` 및 운영 DB/API에 반영되지 않아 운영 서비스에서
-  사용할 수 없다.
-- Admin 운영 화면과 Mobile 행사·신청·채팅·후기 화면이 구현되지 않았고, generated API 계약 패키지를
-  실제 요청 경계에서 소비하는 교차 레포 연결도 남아 있다.
+- 그룹미팅 DB migration SQL과 API 제공자 구현·소스 검증은 완료됐지만 공유 dev/prod DB·운영 API
+  적용/배포는 남아 있어 운영 서비스에서 사용할 수 없다. API 제공자에는 남녀 합계 30명 정원, 신청 없는
+  행사에 대한 Mobile 호스트 수정/삭제, CONFIRMED 개인 확정 취소·대체 승인, 24시간 자동 종료, 후기 후
+  채팅 차단과 미팅별 CMS 상세 조회 계약이 반영돼 있다.
+- Admin 운영 화면은 구현되지 않았다. CMS 왼쪽 대분류는 `미팅 내역` 하나만 두고, 채팅·후기·신고·프로필
+  조회 결제 내역은 각 미팅 상세의 event-scoped API를 소비해야 한다. 전역 혼합 목록과 패널티 화면은 만들지
+  않는다. Mobile Draft PR
+  [#154](https://github.com/coupler-developer/coupler-mobile-app/pull/154)에는 그룹미팅 탭·목록·상세·My Page·
+  검색 UI 골격이 있지만 mock 데이터와 임시 로컬 DTO를 사용하며 그룹미팅 API를 호출하지 않는다.
 - Mobile은 FCM 77~83의 행사 상세/채팅 라우팅과 `alarm_event`/`alarm_chat` 설정을 아직 처리하지 않는다.
+- Mobile 검색 UI는 별도 검색 API 없이 이미 내려받은 행사 목록을 로컬 필터링하는 1차 범위다.
+- API에는 `GET /admin/cron/finishGroupMeetings` 자동 종료 작업이 구현돼 있지만, 운영 외부 스케줄러의 호출
+  등록·주기와 실행 모니터링 검증은 배포 단계에 남아 있다.
 - DB/API/Admin/Mobile을 묶은 통합 검증, 배포 순서, 롤백 기준과 릴리스 기록이 없다.
 
 영향
@@ -644,10 +652,22 @@
 
 액션 후보
 
-- API 변경을 `main`에 병합하고 dev/prod DB Migration Gate를 거쳐 migration을 적용하되, Admin/Mobile이
-  사용하기 전까지 그룹미팅 write를 운영에서 호출하지 않는다.
-- Admin 운영 화면과 Mobile 행사·신청·채팅·후기 흐름을 generated API 계약으로 연결하고 각 레포의 표준
-  품질 게이트와 권한별 허용/거부 시나리오를 통과한다.
+- dev/prod DB Migration Gate를 거쳐 migration을 적용하고 API를 배포하되, Admin/Mobile이 사용하기 전까지
+  그룹미팅 write를 운영에서 호출하지 않는다.
+- Mobile PR #154를 최신 Mobile `main`에 rebase하고 API가 발행한 exact contracts package로 갱신한다.
+  generated response DTO는 API 경계에서 검증한 뒤 명시적 화면 ViewModel로 변환하고 mock과 wire shape를
+  흉내 낸 로컬 DTO는 제거한다. mock 목록이 보이는 현재 탭은 이 연결 전 운영에 노출하지 않는다.
+- 상세 화면은 목록 item 전체가 아니라 event ID로 이동해 `GET /group-meetings/{event_id}`를 다시 읽는다.
+  legacy `MEETING_MEMBER_STATUS`/`is_active`를 재사용하지 않고 event `status`, `my_application_status`,
+  detail `permissions`로 상세 접근과 신청/채팅/후기 CTA를 결정한다.
+- Admin은 미팅 내역 목록/상세와 상세 하위의 신청자·채팅·후기·신고·프로필 조회 결제 내역을 generated API
+  계약으로 연결한다. 기존 알림 드롭다운에는 `groupMeetingChatUserReport`를 연결해 미팅 내역으로 이동시키되
+  전역 신고 목록을 만들지 않는다.
+- Mobile 행사·신청·채팅·후기 흐름을 generated API 계약으로 연결한다. 특히 개인 확정 취소된 참가자의 종료
+  카드/메시지 차단, CONFIRMED 대체 참가자의 기존 채팅방 합류, 후기 완료 후 채팅 제거를 검증한다. 각 레포의
+  표준 품질 게이트와 권한별 허용/거부 시나리오를 통과한다.
+- 운영 외부 스케줄러가 `finishGroupMeetings`를 정기 호출하도록 등록하고, `event_at + 24시간` 경계·재호출
+  멱등성·실패 알림을 배포 검증에 포함한다.
 - FCM 77~83의 미사용 여부를 적용 직전에 다시 확인하고, 신규 타입 라우팅과 알림 설정을 처리하는 Mobile을
   먼저 배포한 뒤 DB -> API -> Admin 순서로 활성화한다.
 - 최초 프로필 열람 1회 과금, 호스트 무료 열람, 최초 후기 1회 보상, 동시 정원 승인, 알림 저장·발송 중복
