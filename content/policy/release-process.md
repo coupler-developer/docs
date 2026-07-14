@@ -66,13 +66,13 @@
 대상: `coupler-api/packages/contracts`
 
 - 계약 package의 목적, package manager 기준, registry/auth 설정, 소비자 전환 조건, version bump 기준은 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따른다.
-- API 공통 응답/에러 계약 또는 Swagger public request/success contract 변경이 있으면 `contracts package` 범위를 포함한다.
+- API 공통 응답/에러 계약 또는 Swagger public request/success contract 변경은 unreleased draft로 누적할 수 있다. 해당 계약을 Admin/Mobile 릴리즈 스냅샷으로 고정해 발행할 때만 `contracts package` 범위를 포함한다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 publish된 package version을 lockfile로 고정한다.
 - GitHub Packages publish name과 Admin/Mobile 코드 import name은 `@coupler-developer/coupler-api-contracts`다.
 - package source는 `coupler-api/packages/contracts/src/generated/`에서 생성하고, Admin/Mobile은 publish된 package dependency와 lockfile로만 소비한다.
-- API main에 계약 package 변경이 merge되면 `Release Contracts` workflow가 `pnpm check:contracts`, `pnpm pack:contracts`를 실행한 뒤 아직 publish되지 않은 package version만 publish한다.
-- 같은 version이 이미 publish된 경우 workflow는 재시도/문서 수정 상황으로 보고 publish를 skip한다. 계약 내용이 바뀌면 package version을 새로 올려야 한다.
-- API 운영 배포에 계약 변경이 포함되면 `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 API/Admin/Mobile 배포를 진행한다.
+- API 기능 PR은 generated contract를 `main`에 누적하되 package version을 바꾸지 않는다. `chore/{이름}/contracts-{버전}-발행` PR에서 누적 범위를 고정하고 version을 한 번 올리면 `Release Contracts` workflow가 `pnpm check:contracts`, `pnpm pack:contracts`를 실행한 뒤 새 version을 publish한다.
+- 같은 version이 이미 publish된 경우 workflow는 unreleased draft 누적 또는 재시도 상황으로 보고 publish를 skip한다. 발행할 누적 범위를 고정한 contract release PR에서만 package version을 새로 올린다.
+- 누적 draft를 소비자 릴리즈 스냅샷으로 발행하는 작업에는 `contracts package` 범위를 포함하고, `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 Admin/Mobile 소비 전환을 진행한다. 아직 소비자 릴리즈 범위에 포함하지 않은 additive draft만 있는 API 배포에는 package 발행을 요구하지 않는다.
 - Admin/Mobile package 반영은 publish 이후 `@coupler-developer/coupler-api-contracts` dependency와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다.
 
 ## 릴리즈 운영 모델

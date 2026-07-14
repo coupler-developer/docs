@@ -9,13 +9,13 @@
 
 ## 목적
 
-- 운영 모바일 앱이 남아 있는 상태에서 API 명세가 바뀌는 모바일 릴리즈를 기존 앱과 다음 앱 모두 깨지 않게 배포하는 흐름을 고정한다.
+- 사용자가 구버전 호환 필요성과 범위를 명시적으로 승인한 API 계약 변경에 한해 기존 앱과 다음 앱을 함께 지원하고 제거하는 예외 흐름을 고정한다.
 
 ## 범위
 
-- 시작 조건: 현재 운영 모바일 버전 또는 NextPush target binary가 남아 있고, 다음 Store binary 또는 NextPush bundle이 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약 중 하나 이상을 변경하는 상태
+- 시작 조건: 현재 작업에서 사용자가 구버전 호환 필요성과 범위를 명시적으로 승인했고, 현재 운영 모바일 버전 또는 NextPush target binary가 남아 있으며 다음 Store binary 또는 NextPush bundle이 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약 중 하나 이상을 변경하는 상태
 - 종료 조건: 다음 배포 검증이 끝나고, 호환 유지 또는 cutover 여부가 릴리즈 기록에 남은 상태
-- 제외 범위: 신규 SQL 작성, 스토어 심사/NextPush 플랫폼 정책 해석, API 계약 변경이 없는 모바일 UI-only 배포
+- 제외 범위: 명시적 승인이 없는 모든 transition/dual path, 신규 SQL 작성, 스토어 심사/NextPush 플랫폼 정책 해석, API 계약 변경이 없는 모바일 UI-only 배포
 
 ## 상위 규범 문서
 
@@ -37,6 +37,7 @@
 
 ## 핵심 원칙
 
+- 호환은 자동 안전장치가 아니다. 운영 구버전 존재, 배포 시차, 일반적인 회귀 우려만으로 호환을 추론하지 않으며 명시적 승인 없이는 이 흐름을 적용하지 않는다.
 - 모바일 API 계약 변경 릴리즈는 `호환 배포`와 `cutover 배포`를 분리한다.
 - Store 제출/심사 또는 NextPush 배포 전후의 운영 API/Admin/RDS는 기존 운영 앱과 다음 앱을 모두 지원해야 한다.
 - 기존 운영 앱을 깨는 PR은 다음 버전 배포 전 운영 배포 대상이 아니다.
@@ -58,10 +59,11 @@
 
 ### 0) 릴리즈 범위 고정
 
-1. `N`과 `N+1`의 배포 방식과 기준점을 고정한다. Store 배포는 version/build number와 제출 커밋, NextPush 배포는 app/deployment label, target binary version, 배포 커밋을 기록한다.
-2. 변경을 API 계약, Admin 영향, DB, Mobile UX로 나눠 기록한다.
-3. 변경을 `호환 배포` PR과 `cutover 배포` PR로 분리한다.
-4. DB 변경은 expand/backfill과 contract/drop을 분리하고, contract/drop은 cutover 이후 범위로 둔다.
+1. 사용자의 명시적 승인 원문 또는 작업 링크와 승인 범위를 기록한다. 근거가 없으면 호환 구현을 중단하고 단일 최종 구조로 돌아간다.
+2. `N`과 `N+1`의 배포 방식과 기준점을 고정한다. Store 배포는 version/build number와 제출 커밋, NextPush 배포는 app/deployment label, target binary version, 배포 커밋을 기록한다.
+3. 변경을 API 계약, Admin 영향, DB, Mobile UX로 나눠 기록한다.
+4. 변경을 `호환 배포` PR과 `cutover 배포` PR로 분리한다.
+5. DB 변경은 expand/backfill과 contract/drop을 분리하고, contract/drop은 cutover 이후 범위로 둔다.
 
 ### 1) 호환 PR 준비
 
@@ -107,7 +109,7 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 | --- | --- | --- |
 | Deployment | `N+1` Store 승인/운영 출시 또는 NextPush `Production` 배포/적용 확인 완료 | 스토어 콘솔, NextPush 이력, 릴리즈 기록 |
 | Legacy traffic | `N` 앱의 변경 도메인 legacy 요청이 강제 업데이트로 차단 완료 | 강제 업데이트 설정, min_version/force_update 검증 |
-| Contract artifact sync | [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의 published latest stable version과 Mobile/Admin exact dependency/lockfile version 일치 확인 완료 | API `pnpm check:contracts`, `pnpm pack:contracts`, package publish workflow, Mobile/Admin `package.json`/lockfile diff와 표준 품질 게이트 |
+| Contract artifact sync | 릴리즈 범위에 포함한 unreleased contract draft를 전용 contract release PR에서 한 번 발행하고, 해당 published stable version과 Mobile/Admin exact dependency/lockfile version 일치 확인 완료 | API `pnpm check:contracts`, `pnpm pack:contracts`, package publish workflow, Mobile/Admin `package.json`/lockfile diff와 표준 품질 게이트 |
 | Admin | 변경 도메인 데이터 처리와 운영자 액션 검증 완료 | Admin 수동 검증, 운영 로그 |
 | DB | contract/drop 대상의 의존성 0건과 DBM Gate 통과 | DB Migration Gate 로그 |
 | Rollback | cutover 실패 시 호환 배포로 되돌릴 기준점 확보 | 서비스 태그, 배포 SHA, DB 백업/복구 기준 |
@@ -136,7 +138,7 @@ cutover PR은 아래 조건을 모두 만족할 때만 merge와 운영 배포가
 - `N+1` 앱: 변경된 요청/응답 계약을 사용하는 핵심 흐름이 정상 동작한다.
 - Admin: 변경 데이터 조회와 운영자 액션이 정상 동작한다.
 - API: 배포 범위의 핵심 app/admin API 1개 이상과 에러 로그를 확인한다.
-- Contract artifact: `coupler-api`에서 `pnpm check:contracts`와 `pnpm pack:contracts`를 실행하고, release workflow가 publish한 `@coupler-developer/coupler-api-contracts` latest stable version을 기록한다. Admin/Mobile은 GitHub Packages registry/auth 설정, `package.json`, lockfile이 모두 해당 exact version을 가리키는지 확인하고 각 레포 표준 품질 게이트 결과를 기록한다. 한 consumer라도 version이 다르면 cutover Gate는 실패다. Cutover 증빙에는 비교한 API/Mobile/Admin ref와 package version을 함께 기록한다. 같은 이름 원격 브랜치가 있으면 그 ref를 사용하고, 일부 repo가 이미 main에 병합되어 브랜치가 삭제된 경우에는 해당 repo의 `main`을 비교 기준으로 기록한다. 단순 `main` fallback 통과만으로 cutover 증빙을 대체하지 않는다.
+- Contract artifact: API 기능 PR의 generated draft는 version bump 없이 누적한다. 소비자 릴리즈 범위를 고정할 때 `chore/{이름}/contracts-{버전}-발행` PR에서 누적 draft를 한 번 version bump하고, `coupler-api`의 `pnpm check:contracts`/`pnpm pack:contracts`와 release workflow가 publish한 `@coupler-developer/coupler-api-contracts` latest stable version을 기록한다. Admin/Mobile은 GitHub Packages registry/auth 설정, `package.json`, lockfile이 모두 해당 exact version을 가리키는지 확인하고 각 레포 표준 품질 게이트 결과를 기록한다. 한 consumer라도 version이 다르면 cutover Gate는 실패다. Cutover 증빙에는 비교한 API/Mobile/Admin ref와 package version을 함께 기록한다. 같은 이름 원격 브랜치가 있으면 그 ref를 사용하고, 일부 repo가 이미 main에 병합되어 브랜치가 삭제된 경우에는 해당 repo의 `main`을 비교 기준으로 기록한다. 단순 `main` fallback 통과만으로 cutover 증빙을 대체하지 않는다.
 - DB: expand/backfill과 contract/drop의 Gate, ledger, postcheck를 분리해 기록한다.
 - 릴리즈 기록: 호환 배포 SHA, Store/NextPush 배포 대상, 배포 상태, cutover Gate 결과를 기록한다.
 

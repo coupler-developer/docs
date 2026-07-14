@@ -39,17 +39,18 @@
 
 - 스펙 단일화: 요청/응답 필드명, enum, nullable 규칙은 한 가지 표현만 허용한다.
 - 책임 분리: 상세 기준은 본 문서 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 따른다.
-- 호환 장치 통제: 임시 호환 로직은 기본 금지이며, 불가피할 때만 Shadow Cutover 규칙(제거 조건/목표 시점/추적 이슈 포함)으로 제한한다.
-- 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시 호환/중간 산출물 계층)을 둘 수 없다. 호환이 필요하면 별도 호환 배포 작업으로 분리한다.
+- 호환 장치 통제: 임시 호환 로직은 기본 금지다. 현재 작업에서 사용자가 호환 필요성과 범위를 명시적으로 승인한 경우에만 별도 호환 배포 작업으로 분리하고 Shadow Cutover 규칙(제거 조건/목표 시점/추적 이슈 포함)을 적용한다. 운영 구버전 존재나 일반적인 안전성 추정만으로 승인을 대신할 수 없다.
+- 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시 호환/중간 산출물 계층)을 둘 수 없다. 명시적 승인이 없으면 호환을 추론해 추가하지 않고 단일 최종 구조로 구현한다.
 - 명세 가시성: 코드만 읽어도 의도가 파악되도록 네이밍/타입/에러 처리를 명시한다.
 
 ### 2-1) API 계약 변경과 Cutover 분리
 
-모바일 운영 버전이 남아 있는 상태에서 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약이 바뀌면 변경을 `호환 배포`와 `cutover 배포`로 분리한다.
-배포 순서는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
+기본 경로는 호환 계층 없는 단일 최종 계약이다. 모바일 운영 버전이 남아 있다는 사실만으로 `호환 배포`를 만들지 않는다.
+API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약 변경에 구버전 호환이 실제로 필요하면 구현 전에 사용자에게 영향과 대안을 보고하고 명시적 승인을 받아야 한다. 승인받은 별도 호환 작업만 `호환 배포`와 `cutover 배포`로 분리하며, 배포 순서는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
 
 호환 배포 코드 기준:
 
+- PR/작업 기록에 사용자의 명시적 승인 근거와 승인 범위를 남긴다. 이 근거가 없으면 호환 코드는 정책 위반이다.
 - 기존 모바일 버전과 다음 모바일 버전이 같은 운영 API/Admin/RDS에서 모두 동작해야 한다.
 - 기존 계약을 삭제하거나 의미 변경하지 않는다. 필요한 DB 변경은 additive expand/backfill 범위로 제한한다.
 - 호환 경로는 API 경계의 명시적 adapter, versioned DTO, dual-write, Shadow Cutover helper처럼 제거 범위가 보이는 구조로 둔다.
@@ -200,7 +201,7 @@ cutover 배포 코드 기준:
     - 제출 payload는 요청 스펙으로만 구성하고, 응답 스펙은 오직 서버 응답으로만 갱신한다
 - **API 입출력 경계에서는 DTO 계약 필드명을 그대로 사용한다**
     - 클라이언트는 요청 payload 작성/응답 파싱에서 계약 DTO 키를 변경하거나 별칭 키를 병행 처리하지 않는다
-    - Public request/success wire DTO는 contracts package generated type을 사용한다. 소비자는 API wire DTO를 재정의하지 않고 화면 ViewModel, 로컬 draft, 표시 모델만 별도로 정의한다
+    - 발행된 릴리즈 스냅샷의 Public request/success wire DTO는 contracts package generated type을 사용한다. 미발행 additive endpoint를 같은 릴리즈 작업에서 개발하는 동안에는 `unknown` 성공 data를 runtime 검사해 내부 모델로 변환할 수 있지만 wire DTO/generic assertion을 재정의하지 않으며, 소비자 릴리즈 전 contract snapshot에 포함한다
     - 화면 표시용 ViewModel/로컬 상태 가공은 허용하되, API 호출 계층으로 역유입시키지 않는다
     - DB 컬럼명과 API DTO명을 1:1로 강제하지 않는다. 서버 경계에서 매핑을 명시하고 외부 계약은 DTO로 고정한다
 - **서버 enum과 로컬 상태를 섞지 않기**
@@ -348,7 +349,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 제출 payload는 package generated public request DTO와 요청 스펙 필드만 사용한다(consumer-local wire DTO 및 응답 필드 재사용 금지).
 - 화면 컴포넌트에서 normalize/resolve/fallback로 계약 불일치를 보정하지 않는다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
-- 구/신 API 이중 경로를 동시에 유지하지 않는다. 불가피한 과도기에는 Shadow Cutover 규칙을 따른다.
+- 구/신 API 이중 경로를 동시에 유지하지 않는다. 사용자가 명시적으로 승인한 별도 호환 작업에만 Shadow Cutover 규칙을 적용한다.
 - typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
 
 ### Admin (coupler-admin-web)
