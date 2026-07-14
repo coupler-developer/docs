@@ -106,6 +106,7 @@
 
 ### Flows
 
+- [Kakao 네이티브 로그인 플로우](flows/cross-project/kakao-native-login-flow.md) - React Native 브리지, Kakao 네이티브 SDK, Coupler API 토큰 재검증
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
 - [API 계약 변경 모바일 릴리즈 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - API 명세 변경 시 기존 앱 호환과 다음 버전 cutover 분리 배포 절차
 - [API 계약 cutover 최종 리뷰](flows/cross-project/api-contract-cutover-final-review.md) - API/Admin/Mobile 동시 배포 계약 묶음의 검증 결과와 merge 조건
