@@ -16,16 +16,17 @@
 | 작업                      | 주기            | 설명                          |
 | ------------------------- | --------------- | ----------------------------- |
 | checkSignup               | 매일 13시, 17시 | 가입심사 미완료 알림          |
-| match2Day                 | 매일 13시       | D-2일 매칭 채팅 활성화        |
+| match2Day                 | 30분 간격       | D-2일 매칭 채팅 활성화        |
 | matchToday                | 매일 10시       | D-day 매칭 알림               |
 | checkReview               | 30분 간격       | 만남 3시간 후 후기 상태 전환  |
 | checkMeetMember           | 30분 간격       | 모임 30분 전 인원 미달 체크   |
-| checkMatch                | 매일            | 만료 매칭 자동 취소           |
+| checkMatch                | 1분 간격        | 만료 매칭 자동 취소           |
 | checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
 | checkMatchCall            | 30분 간격       | 만남 15분 전 보이스콜 활성화  |
+| checkDirectFinishMember   | 매일 0시 5분    | 직진만남일 10일 경과 처리     |
 | autoDeleteMember          | 매일            | 정책 기준 경과 후 데이터 삭제 |
-| remindMatchCard           | 매일            | 카드 만료 3시간 전 알림       |
-| sendAutoMatching          | 매일            | 예약 매칭 자동 발송           |
+| remindMatchCard           | 1분 간격        | 카드 만료 3시간 전 알림       |
+| sendAutoMatching          | 30분 간격       | 예약 매칭 자동 발송           |
 | cleanupOldProfileVersions | 매일            | 정책 기준 프로필 버전 정리    |
 
 ## 매칭 자동 상태 변경
@@ -121,6 +122,7 @@ GET /admin/cron/checkMeetMember
 GET /admin/cron/checkMatch
 GET /admin/cron/checkMember
 GET /admin/cron/checkMatchCall
+GET /admin/cron/checkDirectFinishMember
 GET /admin/cron/autoDeleteMember
 GET /admin/cron/remindMatchCard
 GET /admin/cron/sendAutoMatching
@@ -131,3 +133,8 @@ GET /admin/cron/cleanupOldProfileVersions
 
 - 외부 스케줄러(PM2, crontab 등)에서 HTTP 호출
 - 내부 node-cron 등 미사용
+
+## 관련 문서
+
+- 공유 개발계 합성 데이터 유지 기간의 목표 cron fence 기준: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
+- cron fence 미구현 추적: [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 시스템 미구현`

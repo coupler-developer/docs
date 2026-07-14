@@ -99,6 +99,7 @@
 - 외부 통신: axios mock 또는 MSW 도입 고려(현재 의존성 없음).
 - Chart.js는 “렌더링 성공 + 주요 props 처리” 수준의 얕은 테스트부터 시작한다.
 - React 목록은 공통 client의 요청/응답 계약, 페이지 이동, 검색, 정렬, 최신 요청 우선 반영과 row parser 실패 차단을 우선 검증한다.
+- TO-BE: 개발 데이터의 실제 route·filter 렌더 검증은 [테스트용 개발 데이터 정책](development-test-data-policy.md)에 따라 Playwright gate를 추가한다. 현재 미구현 상태와 표준 gate 편입은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 시스템 미구현`에서 추적한다.
 
 ### coupler-api (Express)
 
@@ -113,6 +114,8 @@
 - 외부 통신 테스트 필요 시 `supertest` 도입 고려(현재 의존성 없음).
 - 외부 연동(Firebase/SMS/메일): mock 처리로 실서비스 호출 차단.
 - DB 전략: 테스트용 데이터셋/트랜잭션 롤백/테이블 정리 중 하나를 고정하여 일관성 유지.
+- 공유 개발계 관리자 화면과 Mobile QA를 위한 합성 데이터는 단위·통합 테스트 fixture와 분리하며 [테스트용 개발 데이터 정책](development-test-data-policy.md)을 따른다.
+- TO-BE: `tools/dev-data`는 기본 typecheck뿐 아니라 API lint·format·Jest와 안전 모듈 branch 100% gate에 포함한다. 현재 미구현 상태는 같은 기술부채 항목에서 추적한다.
 
 ### coupler-mobile-app (React Native)
 

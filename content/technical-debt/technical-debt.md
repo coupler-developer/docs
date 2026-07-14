@@ -691,3 +691,49 @@
 - Admin/Mobile request payload가 package generated DTO를 사용하며 동일 wire shape의 consumer-local DTO, broad cast, alias fallback이 남아 있지 않다.
 - Package public runtime에 request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher가 추가되지 않았다.
 - API generated contract freshness와 Admin/Mobile 표준 품질 게이트가 통과하고 세 레포의 package exact version이 일치한다.
+
+---
+
+## 26) 테스트용 개발 데이터 시스템 미구현 `P1` `L`
+
+현상
+
+- [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과 [테스트용 개발 데이터 시스템](../architecture/development-test-data-system.md)은 목표 기준을 정의하지만, `coupler-api/tools/dev-data` 생성 엔진은 아직 없다.
+- 회원·매칭·기존 그룹미팅·라운지·결제·매출·통계 데이터를 같은 namespace로 반복 생성·검증·초기화하는 catalog와 suite가 없다.
+- `coupler-admin-web` 실제 component route 전체와 scenario ID를 연결하는 coverage descriptor, stale route 차단, 전체 데이터 화면 browser smoke가 없다. 2026-07-14 기준선은 54개 route와 52개 데이터 화면이다.
+- namespace 입력·경로 containment, 공유 Run Registry, DB contract fingerprint, cron fence가 없다.
+- 운영 DB 차단, 외부 알림·결제 호출 0건, 트랜잭션 기반 reset, orphan·asset 잔존 0건을 자동 검증하는 도구가 없다.
+
+영향
+
+- 개발계 화면별 데이터 준비가 수동 SQL과 기존 회원 재사용에 의존하면 상태 조합이 누락되거나 기존 데이터를 훼손할 수 있다.
+- 매칭·신고·패널티·매출처럼 여러 원장과 관계 테이블이 필요한 화면은 단일 row 수정만으로 실제 동작을 재현했다고 오판할 수 있다.
+- 관리자 탭 추가 시 필요한 데이터와 검증이 빠져도 자동으로 발견되지 않는다.
+- UI·상태·DB 계약이 추가·삭제·변경돼도 stale scenario가 남거나 실제 화면은 비어 있는데 API row만으로 통과할 수 있다.
+- 유지 기간 cron이나 부분 실패한 reset이 합성 상태·원장·asset을 예기치 않게 변경할 수 있다.
+
+액션 후보
+
+- `coupler-api/tools/dev-data`에 환경·namespace guard, Run Registry, cron fence, DB contract, branch obligation, scenario·suite catalog, domain builder, DB/API verifier, asset sync, reset을 구현한다.
+- `member-all`, `matching-all`, `meeting-all`, `lounge-all`, `revenue-all`, `statistics-all`, `settings-all`, `manager-all`, `cms-all` suite와 canonical scenario를 구현한다.
+- 서버 상태 type의 exhaustive map과 policy interaction의 pairwise·명시 조합으로 missing·stale branch를 차단한다.
+- 안전 모듈 branch 100%와 DB·registry·lock·transaction·asset dependency fault-injection test를 추가한다.
+- `coupler-admin-web`에 stable route ID, 실제 component route exact classification, API verifier, 전체 데이터 화면 Playwright smoke를 추가한다. 초기 구현은 54개 route·52개 데이터 화면·2개 `non-data` 기준선에서 시작한다.
+- feeder 관련 table·column·view·FK 계약과 reset plan fingerprint를 migration gate에 연결한다.
+- API `tools`와 Admin `e2e`를 각 repository의 typecheck·lint·format·test 필수 경로에 포함하고 workspace catalog exact-set gate를 추가한다.
+- 공유 개발계에서 contract, dry-run, apply, verify, coverage, UI smoke, reset을 순서대로 검증하고 cron·외부 호출·orphan·namespace asset 잔존 0건을 확인한다.
+
+완료 기준
+
+- [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)의 체크리스트가 코드와 자동 검증으로 충족된다.
+- 구현 시점 descriptor의 component route 전체가 exact classification되고, 모든 데이터 화면은 `scenario-backed` 또는 `reference-backed` API 결과와 browser render 결과를 실제로 제공한다. 모든 `non-data` 화면은 인증·권한 smoke와 근거를 가진다.
+- 전체 canonical catalog가 개발계에서 반복 실행해도 중복되지 않고, 상태·전이·권한·filter·시간 branch obligation 100%와 각 도메인 SoT를 만족한다.
+- 안전 모듈 branch coverage 100%와 dependency fault-injection test가 write·rollback·fence·재시도 결과를 검증한다.
+- UI route·상태 type 추가·삭제는 typecheck·stale coverage에서, feeder 관련 DB 변경은 schema contract·fingerprint에서 의도대로 실패한다.
+- API `tools`와 Admin `e2e`가 표준 typecheck·lint·format·test에서 누락되지 않고 workspace gate는 repository·catalog 부재를 skip하지 않는다.
+- namespace 형식·SQL parameter·asset containment가 자동 검증되고 Run Registry가 owner·유지 기한·run 상태를 영속화한다.
+- Run Registry history는 내부 계정 ID만 보존하고 개발 저장소의 90일 expiration lifecycle이 검증된다.
+- 운영 DB write와 데이터 유지 기간 cron·외부 알림·결제 호출이 fail-closed로 차단된다.
+- reset DB 삭제·검증이 단일 트랜잭션이고 asset cleanup은 idempotent하게 재시도된다.
+- reset 후 namespace root, child orphan, namespace media가 모두 0건이며 다른 namespace와 기준정보가 유지되고 registry가 `cleaned` history를 남긴다.
+- 구현·검증 완료 후 이 항목을 삭제하고 정책과 아키텍처의 기준 성격을 실제 상태에 맞게 갱신한다.
