@@ -229,6 +229,8 @@ LiveKit 참가 토큰은 해당 매칭 참여자이고 매칭 상태가 `CHAT_OP
 | 통화 수락 후 LiveKit room 연결 직전 | 오디오 세션과 마이크를 활성화한다. iOS는 다른 오디오와 혼합하지 않아 통화 중 외부 음악을 중단한다. |
 | 통화 종료, 상대 퇴장, 연결 실패, 화면 이탈 | 마이크 비활성화, room disconnect, 오디오 세션 중지를 수행해 외부 오디오가 재개될 수 있게 한다. |
 
+재발 방지는 Mobile과 API 표준 테스트 게이트에서 자동 검증한다. Mobile은 앱 시작 오디오 자동 활성화와 제거된 provider의 SDK·설정·호출 재유입을 차단하고, API는 제거된 provider의 패키지·비밀 키·endpoint 재유입, LiveKit 토큰 endpoint 중복, `voice_call.enabled` 기본값 변경을 차단한다. 보이스콜 provider나 오디오 세션 경계를 변경할 때는 이 guard와 본 문서를 같은 PR 묶음에서 갱신한다.
+
 ## 관련 문서
 
 - [matching-fsm.md](../../architecture/matching-fsm.md) - 상태 머신
