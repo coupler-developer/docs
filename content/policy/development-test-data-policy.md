@@ -201,7 +201,7 @@
 ### 13) dry-run, 검증, reset
 
 - 공유 개발계 명령은 기본적으로 dry-run하며 실제 write에는 명시적 `--apply`가 필요하다.
-- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, schema fingerprint, 생성·갱신·유지·삭제 예상 건수, cron fence와 외부 호출 0건 계획을 출력한다.
+- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
 - reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
