@@ -37,6 +37,8 @@
 - 보관 기한이 끝난 데이터는 지연 없이 삭제 또는 익명화한다.
 - 테스트/분석 목적으로 운영 원문 민감정보 복제를 금지한다.
 - 단, DB migration 검증을 위해 운영 원문 `dump`를 로컬에 일시 반입해야 할 때는 본 문서의 `운영 원문 dump 로컬 반입 예외`를 따른다.
+- 로컬·개발계 화면 검증용 데이터는 운영 원문을 변형하지 않은 합성 데이터만 사용하며, 생성·식별·초기화 기준은 [테스트용 개발 데이터 정책](development-test-data-policy.md)을 따른다.
+- 개발 데이터 run registry history는 비민감 운영 메타데이터로 분류하고 owner는 내부 계정 ID만 저장한다. history는 생성 후 90일 보관한 뒤 자동 삭제하며 이름·이메일·접속정보를 저장하지 않는다.
 
 ### 3) 접근 통제
 
@@ -118,3 +120,4 @@
 - [보안/접근통제 정책](security-access-control-policy.md)
 - [DB Migration Gate 정책](db-migration-gate-policy.md)
 - [배포/릴리즈 프로세스](release-process.md)
+- [테스트용 개발 데이터 정책](development-test-data-policy.md)
