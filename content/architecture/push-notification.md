@@ -123,8 +123,8 @@ sequenceDiagram
 |------|----------|------|
 | 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT 스킵 |
 | 매칭 알림 | `alarm_match = NO` | FCM 12-30 스킵 |
-| 그룹미팅 행사 알림(to-be) | `alarm_event = NO` | FCM 77-83/85 스킵 |
-| 그룹미팅 채팅 알림(to-be) | `alarm_chat = NO` | FCM 84 스킵 |
+| 그룹미팅 행사 알림(to-be) | `alarm_event = NO` | FCM 77~81, 83 스킵 |
+| 그룹미팅 채팅 알림(to-be) | `alarm_chat = NO` | FCM 82 스킵 |
 | 보이스톡 오픈 알림 숨김 | `MATCH_VOICE_CALL` | 전송/저장 스킵, 알림 목록 제외 |
 | FCM 토큰 | `fcm_token` 없음 | 전송 스킵 |
 | OFFLINE_MODE | 개발 환경 | 전송 스킵 |
