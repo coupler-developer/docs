@@ -1,0 +1,261 @@
+# 테스트용 개발 데이터 정책
+
+## 문서 역할
+
+- 역할: `규범`
+- 문서 종류: `policy`
+- 충돌 시 우선 문서: 이 문서
+- 기준 성격: `to-be`
+- 전환 범위: `coupler-api` 데이터 생성 도구와 `coupler-admin-web` 관리자 component route coverage 도입
+- 완료 조건: 개발 데이터 도구 구현, 전체 coverage 검증, 안전 가드 및 reset 검증 완료 후 `as-is`로 전환
+
+## 목적
+
+- 로컬·개발계에서 회원, 매칭, 그룹미팅, 라운지, 결제·매출, 통계 등 관리자 시스템 화면을 재현할 합성 데이터를 안전하고 반복 가능하게 제공한다.
+- 테스트 데이터 생성이 운영 데이터 복제, 실제 결제·알림, 기존 개발 데이터 훼손, 미분류 관리자 화면을 만들지 않도록 기준을 고정한다.
+
+## 적용 범위
+
+- 생성 도구: `coupler-api/tools/dev-data`
+- 소비 화면: `coupler-admin-web`의 component route 전체(데이터 탭·상세 화면·비데이터 화면 audit)
+- 보조 소비자: 동일 개발계 API를 사용하는 `coupler-mobile-app` QA 빌드
+- 허용 환경: 개인 로컬 DB, CI의 일회성 DB, 공유 개발계 DB
+
+다음은 이 정책의 범위가 아니다.
+
+- 단위 테스트 내부 mock·fixture
+- 운영 원문 dump를 이용한 테스트 데이터 생성
+- 기존 개발계 회원의 빈 컬럼 보정 또는 데이터 복구
+- DB schema migration과 운영 기준정보 변경
+- 부하·성능 시험용 대량 데이터
+
+## 단일 SoT
+
+- 테스트용 개발 데이터의 생성·식별·검증·초기화 규칙: 이 문서
+- 개인정보와 운영 원문 사용 금지: [데이터 거버넌스 정책](data-governance-policy.md)
+- 관리자 권한과 중요 액션 통제: [보안/접근통제 정책](security-access-control-policy.md)
+- 결제·환불 불변식: [결제 운영 정책](payment-ops-policy.md)
+- 회원 심사 상태: [회원 심사 단일 정책](member-review-policy.md)
+- 매칭 상태·키·일정: [매칭 운영 정책](matching-ops-policy.md)
+- DB schema 변경: [DB Migration Gate 정책](db-migration-gate-policy.md)
+- 구현 구조와 도메인 구성: [테스트용 개발 데이터 시스템](../architecture/development-test-data-system.md)
+- 실행·검증·초기화 순서: [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)
+
+## 용어
+
+| 용어 | 의미 |
+| --- | --- |
+| 합성 데이터 | 실제 회원·거래·운영 기록을 복제하거나 변형하지 않고 새로 만든 테스트 데이터 |
+| namespace | 한 번의 데이터 묶음을 식별하는 3~32자의 소문자 ASCII 식별자 |
+| 시나리오 | 한 화면 상태와 관련 불변식을 재현하는 최소 데이터 묶음 |
+| suite | 여러 시나리오를 목적별로 묶은 실행 단위 |
+| run registry | namespace별 owner·유지 기한·적용 상태·catalog/schema version을 보존하는 개발 전용 기록 저장소 |
+| 기준정보 | 설정, 별칭, 장소처럼 여러 시나리오가 공유하며 임의 reset 대상이 아닌 데이터 |
+| coverage manifest | 관리자 화면별 필수 시나리오와 검증 방법을 빠짐없이 연결한 목록 |
+| branch obligation | 상태·전이·권한·filter·시간 경계처럼 최소 한 시나리오가 반드시 충족해야 하는 분기 조건 |
+| canonical 시나리오 | 도메인 정책과 허용 상태 조합을 만족하는 정상 데이터 |
+| negative 시나리오 | fail-closed 검증을 위해 의도적으로 계약을 위반한 데이터 |
+| root | namespace 소유권을 직접 표시하는 최상위 생성 행 |
+| child | root의 회원·매칭·게시글 식별자로 역추적되는 관계 행 |
+| orphan | 소유 root가 삭제됐지만 남아 있는 생성 child |
+| asset | 프로필·게시글·그룹미팅 화면에 사용하는 합성 미디어 파일 |
+
+## 필수 규칙
+
+### 1) 소유 위치와 실행 경계
+
+- DB write를 수행하는 생성 엔진은 DB schema와 상태 상수를 소유한 `coupler-api/tools/dev-data`에 둔다.
+- 별도 repository, Mobile, Admin 브라우저 코드에 DB 접속정보나 생성 SQL을 두지 않는다.
+- `coupler-admin-web`에는 탭별 coverage descriptor와 검증 테스트만 두며 DB write 기능을 두지 않는다.
+- 운영 API route와 Admin 버튼으로 `apply` 또는 `reset`을 노출하지 않는다.
+- 생성 도구는 운영 서버 시작 경로와 import graph에서 분리하고 명시적 CLI 명령으로만 실행한다.
+- API `tools/dev-data`와 Admin browser smoke는 각 repository의 표준 typecheck·lint·format·test 필수 경로에 포함하며 별도 경로라는 이유로 skip하지 않는다.
+
+### 2) 환경 식별과 fail-closed
+
+- 실행 전 설정의 개발 데이터 활성화 값, 환경명, 실제 DB 식별값을 모두 확인한다.
+- 실제 DB 식별값은 최소 `DATABASE()`, 서버 식별값, host allowlist를 비교한다.
+- 허용값 누락, 불일치, 조회 실패는 기본 허용하지 않고 즉시 중단한다.
+- 운영 DB로 식별되면 identity 확인 query 뒤 즉시 종료하며 비즈니스 테이블 조회와 write를 모두 금지한다.
+- 운영 차단을 우회하는 `--force`, `--skip-guard` 같은 옵션을 만들지 않는다.
+- 공유 개발계의 `apply`와 `reset`은 namespace 단위 잠금을 획득한 경우에만 실행한다.
+
+### 3) 데이터 출처와 개인정보
+
+- 회원·결제·신고·상담·미디어 데이터는 합성 데이터만 사용한다.
+- 운영 원문, 운영 dump, 실제 회원을 익명화·마스킹·변형한 값을 seed로 사용하지 않는다.
+- 이메일은 예약된 예시 도메인, 전화번호와 외부 식별자는 발송·결제가 불가능한 합성 형식을 사용한다.
+- 로그인에 사용할 수 있는 원문 비밀번호, 인증 토큰, FCM token, 실제 영수증, 실제 주문번호, 주민식별정보를 저장하지 않는다.
+- 합성 데이터라도 로그에는 비밀번호·토큰·접속정보를 출력하지 않는다.
+
+### 4) namespace와 소유권
+
+- 공유 개발계 write 명령은 namespace를 필수 입력으로 받는다.
+- namespace는 `^[a-z][a-z0-9-]{2,31}$`를 만족해야 하며 입력을 소문자 변환하거나 잘라서 보정하지 않는다.
+- `.`, `..`, `/`, `\\`, percent-encoding, 공백, Unicode 동형 문자가 포함된 namespace는 DB나 저장소에 접근하기 전에 거부한다.
+- namespace와 scenario ID는 query parameter로만 사용하고 SQL 식별자나 SQL 문자열을 조립하는 데 사용하지 않는다.
+- 미디어 경로는 기준 directory와 대상 경로를 정규화한 뒤 대상이 기준 directory 내부인지 확인하며, containment 검증 실패 시 apply와 reset을 모두 중단한다.
+- 생성한 모든 root는 namespace와 scenario ID로 역추적할 수 있어야 한다.
+- 기존 행과 식별자가 충돌하면 기존 행을 수정하지 않고 중단한다.
+- reset 대상은 해당 namespace가 소유한 root와 그 root에서 생성한 child로 제한한다.
+- namespace 밖 행이 삭제 후보에 포함되면 reset 전체를 중단한다.
+- 기준정보는 `ensure` 대상으로만 취급하며 일반 `reset`에서 삭제하거나 기존 값을 덮어쓰지 않는다.
+- 공유 개발계는 apply 전에 run registry에 namespace를 조건부 생성하고, 이미 존재하거나 registry가 불가용하면 DB write를 시작하지 않는다.
+- 공유 registry backend는 read-after-write consistency와 ETag 조건부 갱신을 보장해야 하며, 보장할 수 없는 저장소는 지원하지 않는다.
+- owner, suite, catalog version, schema fingerprint, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
+- owner는 내부 계정 ID만 사용하고 history 보관·삭제는 [데이터 거버넌스 정책](data-governance-policy.md)의 90일 기준을 따른다.
+- run registry에는 접속정보, token, 실제 개인정보, 비밀번호, 영수증을 저장하지 않는다.
+
+### 5) 반복 실행과 트랜잭션
+
+- 같은 schema version, namespace, scenario version의 반복 실행은 같은 논리 결과를 만들어야 한다.
+- 각 시나리오는 독립 트랜잭션으로 적용하고 실패한 시나리오는 전부 rollback한다.
+- suite 일부가 실패하면 성공으로 보고하지 않고 실패 시나리오와 이미 적용된 시나리오를 구분해 출력한다.
+- 동일 namespace 동시 실행은 금지하고 DB advisory lock 또는 동등한 잠금으로 차단한다.
+- 시간 의존 데이터는 한 실행에서 확정한 `reference_time`과 `Asia/Seoul` timezone을 공통 사용한다.
+- reset의 DB child·root 삭제와 DB 잔존 검증은 단일 트랜잭션에서 실행하고 하나라도 실패하면 전부 rollback한다.
+- DB commit 뒤 수행하는 asset 정리는 idempotent하게 재시도할 수 있어야 하며, 실패하면 run을 `cleanup_failed`로 유지하고 성공으로 보고하지 않는다.
+
+### 6) 외부 부작용 차단
+
+- 데이터 생성과 유지 기간 동안 FCM, SMS, 이메일, Kakao, 결제사, App Store, Play Store, 분석 SDK를 호출하지 않는다.
+- 운영·앱 controller를 직접 호출해 데이터를 만들지 않는다.
+- 도메인 서비스를 재사용할 때는 외부 연동 adapter를 호출하지 않는 대체 구현으로 교체하고 호출 0건을 검증한다.
+- 생성 회원의 push token과 외부 인증값은 비워 두고, 전송 가능한 연락처를 사용하지 않는다.
+- 자동 만료·cron 대상이 되는 진행 시나리오는 검증 시간 동안 만료되지 않게 만들고, 만료 결과 시나리오는 이미 terminal 상태로 생성한다.
+- 공유 개발계 apply 전에 개발 환경의 `/admin/cron/*` 전체에 cron fence가 적용됐는지 자동 검증한다.
+- run registry의 global fence index에 active namespace가 하나라도 있거나 index를 읽지 못하면 개발 환경 cron route는 도메인 query와 외부 호출 전에 fail-closed로 건너뛴다. `planning`, `applying`, `applied`, `resetting`, `cleanup_failed`, `failed`와 만료됐지만 정리되지 않은 run은 index에서 제거하지 않는다.
+- cron fence는 router 공통 경계에 한 번 적용해 새 cron route가 기본적으로 보호되게 하고, route test는 fence보다 먼저 등록된 handler가 없음을 검증한다.
+- 개발 환경 cron route에서 registry 조회가 실패해도 cron을 실행하지 않으며, production startup은 개발 데이터 registry나 cron fence 활성화 설정이 있으면 실패해야 한다.
+- cron 자체 동작을 검증하는 시나리오는 개인 로컬·일회성 CI DB에서만 실행하며 공유 개발계 `cms-all`과 동시에 실행하지 않는다.
+- 허용된 외부 write는 환경 검증 뒤 사용하는 개발 전용 media와 private run registry뿐이며, 둘 다 운영 bucket·prefix와 분리한다.
+
+### 7) 도메인 정합성
+
+- canonical 시나리오는 도메인 정책의 상태, 원장, 관계, 시간 불변식을 모두 만족해야 한다.
+- 파생 집계 화면은 집계 row를 직접 조작하지 않고 회원가입, 로그인, 결제, 매칭 같은 원천 사건으로 채운다.
+- 회원 심사 결과는 `v_member_review_status`, 매칭 상태는 `t_match.match_status`, 키 잔액은 `t_member.key`와 `t_member_key_log`처럼 각 도메인의 SoT로 검증한다.
+- 신고 처리, 환불, 패널티는 접수 전·접수 대기·처리 완료·만료 상태를 분리한다.
+- negative 시나리오는 개인 로컬·일회성 CI DB에서만 허용하고, 공유 개발계 적용과 `cms-all` suite 포함을 금지한다.
+- 상태 상수는 서버 export에서 type을 도출하고 `satisfies Record<상태 type, scenario ID[]>` 또는 동등한 exhaustive map으로 모든 값을 branch obligation에 연결한다.
+- 허용 전이와 금지 전이, 권한, 주요 filter, null·empty·삭제, 시간 직전·정각·직후, 외부 부작용 여부를 독립 coverage 축으로 관리한다.
+- 가능한 모든 축의 Cartesian product를 생성하지 않는다. 각 단일 축 값은 100% 포함하고, 서로 영향을 주는 두 축은 pairwise로 포함하며, 도메인 정책이 3개 이상 축의 결합 규칙을 정의하면 해당 조합을 명시 scenario로 추가한다.
+- 상태·권한·filter가 추가되면 missing obligation으로, 삭제되면 stale scenario로 typecheck 또는 coverage test가 실패해야 한다.
+- Environment Guard, Namespace Validator, Run Registry, lock, transaction, cron fence, coverage, reset 같은 안전 모듈은 허용·거부·dependency failure 분기를 모두 unit test하고 해당 모듈의 branch coverage 100%를 요구한다.
+- DB 연결 실패, registry 불가용·ETag 충돌, lock 충돌, scenario rollback, DB commit 실패, asset cleanup 실패는 local·CI fault-injection test로 검증한다.
+
+### 8) 관리자 시스템 전체 coverage
+
+- `coupler-admin-web/src/config/page-route.tsx`에서 component가 연결된 route 전체를 관리자 화면 모집단으로 사용한다.
+- 각 route는 변경되지 않는 `routeId`와 `data-surface`, `non-data` 중 하나의 화면 종류를 가져야 한다.
+- `data-surface` route는 coverage manifest에서 `scenario-backed`, `reference-backed`, `live-only` 중 하나로 정확히 분류한다.
+- `non-data` route는 데이터가 필요하지 않은 이유와 인증·권한 검증 방법을 기록한다.
+- `live-only`는 외부 연동이나 운영 전용 기능이라 합성 데이터로 재현할 수 없는 경우만 허용하며 이유와 대체 검증을 필수로 기록한다.
+- 목록·통계·상세처럼 데이터를 표시하는 노출 탭에는 `live-only`를 사용할 수 없고 `scenario-backed` 또는 `reference-backed` 데이터가 실제로 보여야 한다.
+- route 객체의 literal `routeId` union과 화면 audit를 `satisfies Record<AdminRouteId, ScreenAudit>`, 데이터 coverage를 `satisfies Record<DataRouteId, CoverageEntry>` 또는 동등한 두 exact map으로 연결한다.
+- route 추가·삭제·화면 종류 변경은 TypeScript typecheck에서 missing·stale entry로 실패하고, path·filter·권한 변경은 coverage test에서 실패해야 한다.
+- 미분류 route, 존재하지 않는 scenario ID, 검증 방법이 없는 entry, 이유 없는 `live-only`·`non-data`가 하나라도 있으면 coverage 실패다.
+- 필터가 다른 동일 route는 사용자에게 별도 탭으로 노출되면 각각 coverage entry를 둔다.
+- 목록 탭은 최소 1개 row 노출만으로 끝내지 않고, 화면이 구분하는 actionable·terminal·empty boundary 상태를 포함한다.
+- 상태 상수나 관리자 route가 추가되면 catalog와 coverage 검증이 함께 실패하도록 정적 테스트를 둔다.
+- DB 불변식과 Admin API 결과가 통과한 뒤 실제 브라우저에서 route·audience·주요 filter별 화면을 열어 table row, card 값, 상세 연결, console error·오류 overlay 부재를 확인한다.
+- browser smoke는 기존 QA super admin·일반 매니저 session을 비밀 저장소에서 주입하고, 로그인 가능한 합성 관리자 생성이나 인증정보 파일 commit을 금지한다.
+- 브라우저 smoke가 실패하거나 실행되지 않으면 “화면에서 보임” coverage는 성공으로 판정하지 않는다.
+
+### 9) 필수 suite
+
+| suite | 필수 범위 |
+| --- | --- |
+| `member-all` | 심사 단계, 등급, 정상·홀딩·차단·탈퇴·거절, 초대, 추천인, 컨시어지 |
+| `matching-all` | 모든 매칭 진행·취소 상태, 큐레이터, 예약, 일정, 채팅, 후기, 연락처, 직진만남, 신고, 환불 |
+| `meeting-all` | 모집, 참여, 확정, 채팅, 완료, 후기, 신고, 패널티 |
+| `lounge-all` | 카테고리, 정상·베스트·삭제 글, 댓글·대댓글·삭제 tombstone, 좋아요, 신고, 회원 차단, 패널티 |
+| `revenue-all` | 결제 상태, 유료·무료 키 원장, 환불, 일·주·월 매출, 랭킹 |
+| `statistics-all` | 시간대·일·주·월별 가입, 로그인, 성별, 인증, 매칭 지표 |
+| `settings-all` | 버전, 약관, 별칭, 공지, 가입 메시지 등 화면 조회에 필요한 기준정보 검증 |
+| `manager-all` | 권한별 매니저 목록, 담당 회원 연결, 로그인 불가능한 합성 표시 행 |
+| `cms-all` | 위 suite 전체, 관리자 component route exact coverage, 데이터 화면 브라우저 smoke 검증 |
+
+### 10) 결제와 관리자 권한 데이터
+
+- 합성 결제는 실제 provider API를 호출하지 않고 실제 주문번호·영수증 형식을 재사용하지 않는다.
+- 합성 결제의 잔액과 원장은 [결제 운영 정책](payment-ops-policy.md)의 트랜잭션 불변식을 만족해야 한다.
+- 합성 결제는 개발계 매출과 운영 매출을 혼동하지 않게 namespace와 합성 order ID로 식별한다.
+- feeder는 로그인 가능한 관리자 계정, 권한 상승, 공유 비밀번호를 만들지 않는다.
+- 관리자·매니저 목록용 행이 필요하면 충분히 긴 무작위 비밀값을 생성해 hash만 저장한 뒤 원문을 즉시 폐기하고, 기존 QA 관리자의 권한을 수정하지 않는다.
+
+### 11) 미디어
+
+- 프로필, 라운지, 그룹미팅 미디어는 repository에 포함된 소형 합성 asset만 사용한다.
+- 실제 회원 사진, 운영 업로드 경로, 외부 임시 URL을 재사용하지 않는다.
+- asset은 checksum으로 검증하고 개발 미디어 저장소의 namespace 경로에만 배치한다.
+- reset은 해당 namespace asset만 삭제하며 공용 placeholder와 기존 업로드를 삭제하지 않는다.
+
+### 12) DB migration과 데이터 보정 경계
+
+- 테스트 데이터 insert·update·delete 이력을 `schema_migrations`에 기록하지 않는다.
+- feeder 구현을 위해 schema, index, constraint, 기준정보 계약을 바꿔야 하면 별도 DB migration 작업으로 분리하고 DB Migration Gate를 적용한다.
+- 기존 개발계 행의 결측·오류를 발견해도 feeder가 보정하지 않고 별도 data repair 작업으로 보고한다.
+- DB schema version이 scenario catalog의 지원 범위 밖이면 부분 적용하지 않고 즉시 중단한다.
+
+### 13) dry-run, 검증, reset
+
+- 공유 개발계 명령은 기본적으로 dry-run하며 실제 write에는 명시적 `--apply`가 필요하다.
+- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, schema fingerprint, 생성·갱신·유지·삭제 예상 건수, cron fence와 외부 호출 0건 계획을 출력한다.
+- apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
+- reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다.
+- reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
+
+## 운영 절차
+
+1. 변경 요청에서 대상 suite, namespace, 환경, reference time, 예상 규모를 고정한다.
+2. catalog·coverage·DB identity를 검증하고 dry-run 결과를 검토한다.
+3. namespace 잠금을 획득하고 기준정보 확인 후 시나리오를 트랜잭션 단위로 적용한다.
+4. DB 불변식, branch obligation, 관리자 API, 브라우저 화면, 전체 route coverage, 유지 기간 외부 호출 0건을 검증한다.
+5. 유지 기한이 끝나면 같은 namespace로 reset하고 orphan·미디어 잔존 0건을 확인한다.
+
+상세 명령 순서와 실패 대응은 [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)을 따른다.
+
+## 증빙/추적
+
+- 작업 또는 PR에는 다음을 남긴다.
+    - 대상 환경의 비밀값을 제외한 DB identity 요약
+    - namespace, suite, scenario catalog version, schema version, reference time
+    - run ID, owner, 유지 종료일, registry version·상태
+    - dry-run과 apply의 생성·갱신·유지 건수
+    - branch·route·API·브라우저 coverage 결과와 미분류·`live-only`·`non-data` 목록
+    - cron fence와 유지 기간 외부 호출 0건 검증 결과
+    - reset 실행 여부와 orphan·미디어 잔존 건수
+- 공유 개발계 데이터는 owner와 유지 종료일을 기록한다.
+- 실제 개인정보, 접속정보, 비밀번호, token, 영수증은 증빙에 포함하지 않는다.
+
+## 체크리스트
+
+- [ ] 생성 엔진이 `coupler-api/tools/dev-data`에만 있는가?
+- [ ] API `tools`와 Admin `e2e`가 표준 typecheck·lint·format·test에 포함되는가?
+- [ ] 운영 DB 우회 옵션 없이 fail-closed로 차단되는가?
+- [ ] 운영 원문이나 실제 개인정보를 사용하지 않았는가?
+- [ ] namespace 소유권과 반복 실행 결과가 검증되는가?
+- [ ] namespace 형식·SQL parameter·asset 경로 containment가 fail-closed로 검증되는가?
+- [ ] run registry가 owner·유지 기한·상태를 공유 환경에 영속화하는가?
+- [ ] 외부 알림·결제·분석 호출이 0건인가?
+- [ ] 공유 개발계 데이터 유지 기간에 cron fence가 계속 적용되는가?
+- [ ] canonical 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
+- [ ] 상태·전이·권한·filter·시간 경계 branch obligation이 100% 충족되는가?
+- [ ] 안전 모듈 branch 100%와 dependency fault-injection test가 통과하는가?
+- [ ] 관리자 component route가 100% 분류되고 데이터 화면이 브라우저에서 검증되는가?
+- [ ] 결제·매출·통계가 원천 사건에서 집계되는가?
+- [ ] reset DB 삭제가 단일 트랜잭션이며 asset 실패를 idempotent하게 재시도하는가?
+- [ ] reset이 namespace 밖 데이터와 공용 기준정보를 건드리지 않는가?
+- [ ] schema 변경과 기존 데이터 보정이 별도 작업으로 분리됐는가?
+- [ ] apply 후 coverage와 reset 후 orphan 검증 근거가 남았는가?
+
+## 관련 문서
+
+- [테스트용 개발 데이터 시스템](../architecture/development-test-data-system.md)
+- [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)
+- [데이터 거버넌스 정책](data-governance-policy.md)
+- [보안/접근통제 정책](security-access-control-policy.md)
+- [테스트/CI 전략](testing-strategy.md)
+- [Cron 작업](../architecture/cron-jobs.md)
+- [DB Migration Gate 정책](db-migration-gate-policy.md)
