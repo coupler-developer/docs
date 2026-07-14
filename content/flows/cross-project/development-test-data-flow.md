@@ -95,16 +95,12 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 | 설정 | 필수 기준정보 조회와 기존 활성값 무변경 |
 | 매니저 | 권한별 목록·담당 회원 조회, 권한 무변경, 로그인 가능 합성 계정 0건 |
 
-## Refresh 흐름
+## 반복 실행과 갱신 흐름
 
-1. Run Registry에서 기존 namespace의 owner, ETag, catalog version, schema fingerprint, 유지 종료일을 조회한다.
-2. registry root와 DB root가 일치하는지 reconciliation하고 불일치면 refresh를 중단한다.
-3. `plan`으로 유지·교체 scenario와 시간 bucket 변경을 확인한다.
-4. namespace lock과 registry 조건부 write를 획득한 뒤 소유권이 확인된 scenario만 트랜잭션으로 교체한다.
-5. 다른 namespace와 기준정보가 유지됐는지 확인하고 변경 scenario, 전체 branch·route·API·UI coverage를 다시 검증한다.
-6. 성공하면 새 ETag와 scenario version을 기록하고, 실패하면 registry를 이전 적용 상태 또는 `failed`로 남긴다.
-
-반복 apply를 refresh로 사용하며 수동 SQL update는 사용하지 않는다.
+1. 같은 owner·suite·catalog/schema version·reference time의 반복 `apply`는 prepared scenario를 reconciliation하고, 이미 `applied`면 데이터를 재생성하지 않고 verifier만 다시 실행한다.
+2. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace를 먼저 `reset`하고 새 `plan`·`apply`를 실행한다.
+3. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
+4. reset과 새 apply 사이에는 global cron fence 상태와 root 0건을 확인한다.
 
 ## UI·상태·DB 변경 반영 흐름
 
@@ -136,7 +132,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 11. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 cron fence를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
 12. DB·asset 잔존 0건이면 active record를 history로 이동해 `cleaned`로 종료한다.
 13. history 저장을 재조회해 확인한 뒤 global fence에서 namespace를 ETag 조건부 제거한다.
-14. history·fence finalization이 실패하면 DB·asset을 재생성하지 않고 active record와 fence를 유지해 finalization만 재시도한다.
+14. history write나 fence 제거가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 cleaned active record만 남겨 같은 reset이 finalization을 재시도한다.
 15. 잠금을 해제하고 실제 삭제 건수, 잔존 건수, history record를 출력한다.
 
 ## 예외 흐름
@@ -155,7 +151,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 ### Run Registry 불일치
 
-- registry가 불가용하거나 ETag 충돌, active record·DB root 불일치가 있으면 apply·refresh·reset을 시작하지 않는다.
+- registry가 불가용하거나 ETag 충돌, active record·DB root 불일치가 있으면 apply·verify·reset을 시작하지 않는다.
 - registry와 DB를 각각 read-only로 조사해 `registry-only`, `db-only`, `version-mismatch`로 구분한다.
 - 자동 추정으로 소유권을 바꾸지 않고 ownership resolver를 수정한 뒤 reconciliation과 plan을 다시 수행한다.
 - DB·asset cleanup 뒤 registry finalization만 실패한 경우 합성 데이터를 복원하지 않고 history 저장과 fence 제거만 재시도한다.

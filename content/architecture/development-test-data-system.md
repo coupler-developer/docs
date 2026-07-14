@@ -158,18 +158,18 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 | `scenarios` | 적용 scenario ID와 version 목록 |
 | `counts` | 생성·유지·삭제·잔존 건수 |
 
-- 공유 개발계 registry는 외부 공개나 media proxy 노출이 없는 개발 저장소에 둔다.
-    - global cron fence: `dev-data/_registry/fence.json`
-    - active run: `dev-data/_registry/active/{namespace}.json`
-    - history: `dev-data/_registry/history/{namespace}/{runId}.json`
-- local·CI는 동일 interface의 `.dev-data/registry/{namespace}.json` adapter를 사용한다.
+- 공유 개발계 registry는 API와 feeder가 함께 읽는 비공개 공유 filesystem의 절대 경로 `DEV_DATA_REGISTRY_DIR`에 둔다.
+    - global cron fence: `{registryRoot}/fence.json`
+    - active run: `{registryRoot}/active/{namespace}.json`
+    - history: `{registryRoot}/history/{namespace}/{runId}.json`
+- local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
 - backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
-- reset은 history 저장까지 성공한 뒤 global fence에서 namespace를 제거한다.
-- DB·asset cleanup 뒤 history write나 fence update가 실패하면 합성 row를 복원하지 않고 active record와 fence를 유지한 채 registry finalization만 재시도한다.
-- 공유 개발 저장소는 history prefix에 생성 후 90일 expiration lifecycle을 적용하고, local·CI adapter는 test teardown에서 history를 제거한다. lifecycle 설정과 삭제 결과는 비민감 운영 증빙으로 남긴다.
+- reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
+- history write나 fence update가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 합성 데이터와 fence는 이미 제거된 cleaned record를 남겨 같은 reset이 finalization을 재시도할 수 있게 한다.
+- apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거하며 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
 - registry active/history prefix는 namespace asset인 `uploads/dev-data/{namespace}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
-- registry가 불가용하거나 active record와 DB root가 불일치하면 apply·refresh·reset을 중단하고 reconciliation 결과를 출력한다.
+- registry가 불가용하거나 active record와 DB root가 불일치하면 apply·verify·reset을 중단하고 reconciliation 결과를 출력한다.
 
 ## 데이터 계층
 
@@ -184,7 +184,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - 기존 개발계 회원을 재사용하지 않고 합성 회원과 비로그인 매니저 표시 행을 만든다.
 - 시나리오 간 상태 오염을 막기 위해 상태 전이·신고·결제 시나리오는 전용 actor를 기본으로 사용한다.
 - 여러 상세 팝업을 한 번에 확인하는 목적에만 명시적 anchor actor를 사용한다.
-- 합성 회원 식별자는 `devdata+{namespace}+{actorKey}@example.invalid` 형식을 사용한다. `actorKey`는 `scenarioId:version:role:index`의 SHA-256 앞 12자리로 만들어 길이 제한과 충돌을 함께 관리한다.
+- 합성 회원 식별자는 `devdata+{namespaceKey}+{actorKey}@example.invalid` 형식을 사용한다. `namespaceKey`는 검증된 원본 namespace의 SHA-256 앞 10자리, `actorKey`는 catalog role의 SHA-256 앞 12자리다. 전체 길이는 47자로 `t_member.email varchar(50)` 계약 안에 두고, 원본 namespace·run과의 대응은 Run Registry가 보존한다.
 
 ### 3) Scenario 데이터
 
