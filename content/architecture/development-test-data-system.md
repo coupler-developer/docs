@@ -97,7 +97,7 @@ coupler-admin-web/
 | Domain Builder | 합성 root·child를 트랜잭션으로 생성 |
 | Ownership Resolver | namespace root에서 생성 child와 asset을 역추적 |
 | CMS Coverage Verifier | component route, scenario, API 검증의 missing·stale 항목 확인 |
-| Admin Browser Smoke | 실제 route에서 row·card·상세 연결과 렌더 오류 부재 확인 |
+| Admin Browser Smoke | suite 소유 API의 non-empty 응답, table·chart·metric 표면과 렌더 오류 부재 확인 |
 | Asset Sync | checksum이 고정된 합성 미디어를 개발 저장소에 배치·정리 |
 
 ## 데이터 흐름
@@ -412,6 +412,8 @@ coverage entry는 다음 축을 가진다.
 ## 시간과 통계 데이터
 
 - `reference_time`은 실행 시작 시 한 번 정하고 모든 builder와 verifier에 전달한다.
+- 공유 개발계 RDS의 global·session timezone은 `Asia/Seoul`이어야 하며 `plan`은 `CURRENT_DATE()`와 `reference_time`의 서울 날짜가 같은지 확인한다.
+- feeder의 SQL `DATE`·`DATETIME` 문자열은 실행 프로세스의 OS timezone과 무관하게 `Asia/Seoul`로 변환한다. registry의 ISO timestamp는 절대 시각 보존을 위해 UTC ISO 형식을 유지한다.
 - 진행 상태는 reference time 이후 충분한 만료 시각을 사용한다.
 - terminal 상태는 이미 종료된 상태와 고정된 종료 사유를 저장한다.
 - 통계 suite는 오늘, 어제, 주간, 월간 경계를 모두 포함하고 timezone은 `Asia/Seoul`로 고정한다.

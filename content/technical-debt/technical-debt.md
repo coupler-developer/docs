@@ -702,7 +702,7 @@
 - 2026-07-14 기준선은 54개 component route, 52개 데이터 화면, 2개 non-data 화면이며 API·Admin catalog exact set이 일치한다.
 - 실제 공유 개발계에는 같은 배포의 API와 feeder가 읽는 비공개 `DEV_DATA_REGISTRY_DIR`, cron fence, apply enable 설정을 아직 배포·검증하지 않았다.
 - 공유 개발계 `cms-all` apply·verify와 인증된 Admin 52개 데이터 화면 browser smoke, 유지 기간 뒤 reset 증빙이 아직 없다.
-- 현재 Admin route contract는 route·suite·scenario·가시성 설명을 연결하지만 audience·주요 filter·API별 기대 row를 구조화하지 않는다. browser smoke도 non-empty 화면과 실패 API를 확인하는 기본 단계이며 `non-data` 2개 route의 인증·권한 smoke는 아직 없다.
+- 현재 Admin route contract는 route·suite·scenario·가시성 설명을 연결하지만 audience·주요 filter·API별 기대 row를 구조화하지 않는다. browser smoke는 suite 소유 API의 non-empty payload와 table·chart·metric 표면, page·console·API 오류를 확인하지만 route별 filter·row identity와 `non-data` 2개 route의 인증·권한 smoke는 아직 없다.
 
 영향
 

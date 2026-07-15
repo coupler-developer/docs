@@ -42,8 +42,11 @@
 pnpm --dir coupler-api data-feed list
 pnpm --dir coupler-api data-feed contract
 pnpm --dir coupler-api data-feed coverage --route-contract /absolute/path/to/coupler-admin-web/src/config/dev-data-route-contract.json
-pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at 2026-07-14T10:00:00+09:00
-pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at 2026-07-14T10:00:00+09:00 --expires-at 2026-07-21T10:00:00+09:00 --apply
+# 아래 두 값은 실행 시점의 RDS CURRENT_DATE() (Asia/Seoul)와 유지 기한으로 치환한다.
+REFERENCE_TIME='YYYY-MM-DDT10:00:00+09:00'
+EXPIRES_AT='YYYY-MM-DDT10:00:00+09:00'
+pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at "$REFERENCE_TIME"
+pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --apply
 pnpm --dir coupler-api data-feed verify --namespace qa-cms
 DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE_STATE=/absolute/path/to/storage-state.json DEV_DATA_MEMBER_ID=123 yarn --cwd /absolute/path/to/coupler-admin-web test:dev-data-ui
 pnpm --dir coupler-api data-feed reset --namespace qa-cms
@@ -148,6 +151,14 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 - registry와 DB를 각각 read-only로 조사해 `registry-only`, `db-only`, `version-mismatch`로 구분한다.
 - 자동 추정으로 소유권을 바꾸지 않고 ownership resolver를 수정한 뒤 reconciliation과 plan을 다시 수행한다.
 - DB·asset cleanup 뒤 registry finalization만 실패한 경우 합성 데이터를 복원하지 않고 history 저장과 fence 제거만 재시도한다.
+
+### Run Registry lock 잔존
+
+- `_locks/registry.lock`은 feeder 프로세스가 종료될 때 제거하는 디렉터리 잠금이며 자동 만료시키지 않는다.
+- `Run Registry lock is already held`가 발생하면 같은 registry root를 사용하는 모든 feeder 실행기와 배치 작업이 종료됐는지 먼저 확인한다. 실행 중인 작업이 하나라도 있거나 확인할 수 없으면 잠금을 제거하지 않는다.
+- 실행 중인 작업이 없음을 확인한 뒤 잠금 디렉터리가 비어 있을 때만 `rmdir "$DEV_DATA_REGISTRY_DIR/_locks/registry.lock"`로 해당 디렉터리만 제거한다. `fence.json`, `active`, `history`는 수정하지 않는다.
+- `rmdir`가 실패하거나 잠금 디렉터리에 파일이 있으면 강제 삭제하지 않고 registry 저장소 담당자가 원인을 조사한다.
+- 제거 뒤 곧바로 `plan`을 다시 실행해 registry 상태, DB root, schema fingerprint가 일치하는지 read-only로 확인한다. 불일치하면 apply로 진행하지 않고 reconciliation한다.
 
 ### DB contract 실패
 
