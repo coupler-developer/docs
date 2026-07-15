@@ -116,6 +116,7 @@
 - [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
 - [테스트용 개발 데이터 운영 흐름](flows/cross-project/development-test-data-flow.md) - plan/apply/verify/coverage/reset 절차
+- [개발계 cron 운영 흐름](flows/cross-project/development-cron-operation-flow.md) - 인증·외부 발송 차단·scheduler 설치·rollback 절차
 
 ### Releases
 

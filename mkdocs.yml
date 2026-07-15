@@ -109,6 +109,7 @@ nav:
       - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
       - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
       - 테스트용 개발 데이터 운영 흐름: flows/cross-project/development-test-data-flow.md
+      - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
   - Releases:
       - 2.2.7 릴리스 실행 기록: releases/v2.2.7.md
       - 2.2.6 릴리스 실행 기록: releases/v2.2.6.md
