@@ -76,7 +76,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 |----|------|------|
 | 53 | MATCH_VOICE_CALL | 보이스톡 오픈 알림(모바일 알림 노출 제외) |
 | 67 | CONCIERGE_CHAT | 큐레이터 채팅 |
-| 68 | ADMIN_FREE_KEY | 무료 키 지급 |
+| 66 | ADMIN_FREE_KEY | 관리자 Key 지급/차감 |
 | 70 | MATCH_CHAT_OPEN | 채팅방 오픈 |
 | 75 | SIGNUP_FULL_MEMBER_OK | 정회원 가입심사 최종 승인 |
 
@@ -174,7 +174,7 @@ sequenceDiagram
 |------|------|----------|
 | Admin cron | 스케줄 작업 | D-DAY, 만남 당일, 카드 만료 |
 | Match 도메인 | 매칭 액션 | 프로필 수락, 채팅, 일정 |
-| Admin member | 회원 관리 | 심사 승인, 무료키 지급 |
+| Admin member | 회원 관리 | 심사 승인, 관리자 Key 지급/차감 |
 | Lounge 도메인 | 라운지 | 댓글, 베스트 |
 
 ## 다국어 지원
