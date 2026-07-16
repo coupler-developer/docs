@@ -40,6 +40,7 @@
 
 ```bash
 pnpm --dir coupler-api data-feed list
+pnpm --dir coupler-api data-feed init-registry
 pnpm --dir coupler-api data-feed contract
 pnpm --dir coupler-api data-feed coverage --route-contract /absolute/path/to/coupler-admin-web/src/config/dev-data-route-contract.json
 # 아래 두 값은 실행 시점의 RDS CURRENT_DATE() (Asia/Seoul)와 유지 기한으로 치환한다.
@@ -56,6 +57,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 - 모든 명령은 세 repository가 보이는 workspace root에서 실행한다.
 - API CLI와 Admin browser runner는 서로의 repository를 자동 탐색하지 않는다. `coverage`에는 생성된 Admin route contract의 절대 경로를 넘기고, browser smoke는 Admin repository에서 실행한다.
 - `contract`는 write 없이 접속 DB의 feeder schema fingerprint를 확인한다. namespace 형식은 `plan`부터 검증하고 Admin component route exact set은 `check:dev-data-routes`와 `coverage`가 확인한다.
+- `init-registry`는 DB에 연결하지 않고 private Run Registry의 최초 directory와 빈 fence만 만든다. active record가 있는데 fence가 없으면 재생성하지 않는다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
@@ -69,7 +71,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 3. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
 4. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
 5. 작업자가 DB identity, namespace, suite, registry·schema version, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
-6. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, global fence와 active record를 ETag 조건부로 생성한다.
+6. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
 7. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
 8. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
 9. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
@@ -154,8 +156,8 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 ### Run Registry lock 잔존
 
-- `_locks/registry.lock`은 feeder 프로세스가 종료될 때 제거하는 디렉터리 잠금이며 자동 만료시키지 않는다.
-- `Run Registry lock is already held`가 발생하면 같은 registry root를 사용하는 모든 feeder 실행기와 배치 작업이 종료됐는지 먼저 확인한다. 실행 중인 작업이 하나라도 있거나 확인할 수 없으면 잠금을 제거하지 않는다.
+- `_locks/registry.lock`은 feeder 또는 cron API가 짧은 원자 구간 뒤 제거하는 디렉터리 잠금이며 자동 만료시키지 않는다. 정상 경합은 bounded retry하고, 상한을 넘은 고착만 `Run Registry lock is already held`로 실패한다.
+- 오류가 계속되면 같은 registry root를 사용하는 모든 feeder 실행기와 cron API 작업이 종료됐는지 먼저 확인한다. 실행 중인 작업이 하나라도 있거나 확인할 수 없으면 잠금을 제거하지 않는다.
 - 실행 중인 작업이 없음을 확인한 뒤 잠금 디렉터리가 비어 있을 때만 `rmdir "$DEV_DATA_REGISTRY_DIR/_locks/registry.lock"`로 해당 디렉터리만 제거한다. `fence.json`, `active`, `history`는 수정하지 않는다.
 - `rmdir`가 실패하거나 잠금 디렉터리에 파일이 있으면 강제 삭제하지 않고 registry 저장소 담당자가 원인을 조사한다.
 - 제거 뒤 곧바로 `plan`을 다시 실행해 registry 상태, DB root, schema fingerprint가 일치하는지 read-only로 확인한다. 불일치하면 apply로 진행하지 않고 reconciliation한다.
@@ -205,6 +207,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ### Cron fence 실패
 
 - active run이 있는데 cron handler가 실행되거나 fence 상태를 확인할 수 없으면 apply와 cron 호출을 모두 중단한다.
+- active cron lease가 있는데 feeder claim이 성공하거나 같은 job lease가 중복 생성돼도 동일하게 중단한다.
 - router 공통 middleware 순서와 registry adapter를 수정하고 cron route 등록 test를 통과하기 전 공유 개발계 데이터를 유지하지 않는다.
 - 만료됐지만 정리되지 않은 run은 자동 해제하지 않고 reset 또는 reconciliation이 끝날 때까지 fence를 유지한다.
 

@@ -125,6 +125,8 @@
 - 자동 만료·cron 대상이 되는 진행 시나리오는 검증 시간 동안 만료되지 않게 만들고, 만료 결과 시나리오는 이미 terminal 상태로 생성한다.
 - 공유 개발계 apply 전에 개발 환경의 `/admin/cron/*` 전체에 cron fence가 적용됐는지 자동 검증한다.
 - run registry의 global fence index에 active namespace가 하나라도 있거나 index를 읽지 못하면 개발 환경 cron route는 도메인 query와 외부 호출 전에 fail-closed로 건너뛴다. `planning`, `applying`, `applied`, `resetting`, `cleanup_failed`, `failed`와 만료됐지만 정리되지 않은 run은 index에서 제거하지 않는다.
+- cron route는 global fence가 비어 있음을 확인한 같은 registry mutex 안에서 job별 lease를 생성하고, handler가 반환한 비동기 작업이 끝난 뒤에만 lease를 해제한다. 같은 job의 active lease가 있으면 중복 실행하지 않는다.
+- feeder의 apply claim은 같은 registry mutex 안에서 active cron lease가 0건임을 확인한 뒤 global fence를 생성한다. cron lease가 하나라도 있거나 lease·mutex 상태를 읽지 못하면 DB write를 시작하지 않는다.
 - cron fence는 router 공통 경계에 한 번 적용해 새 cron route가 기본적으로 보호되게 하고, route test는 fence보다 먼저 등록된 handler가 없음을 검증한다.
 - 개발 환경 cron route에서 registry 조회가 실패해도 cron을 실행하지 않으며, production startup은 개발 데이터 registry나 cron fence 활성화 설정이 있으면 실패해야 한다.
 - cron 자체 동작을 검증하는 시나리오는 개인 로컬·일회성 CI DB에서만 실행하며 공유 개발계 `cms-all`과 동시에 실행하지 않는다.
@@ -141,7 +143,7 @@
 - 허용 전이와 금지 전이, 권한, 주요 filter, null·empty·삭제, 시간 직전·정각·직후, 외부 부작용 여부를 독립 coverage 축으로 관리한다.
 - 가능한 모든 축의 Cartesian product를 생성하지 않는다. 각 단일 축 값은 100% 포함하고, 서로 영향을 주는 두 축은 pairwise로 포함하며, 도메인 정책이 3개 이상 축의 결합 규칙을 정의하면 해당 조합을 명시 scenario로 추가한다.
 - 상태·권한·filter가 추가되면 missing obligation으로, 삭제되면 stale scenario로 typecheck 또는 coverage test가 실패해야 한다.
-- Environment Guard, Namespace Validator, Run Registry, lock, transaction, cron fence, coverage, reset 같은 안전 모듈은 허용·거부·dependency failure 분기를 모두 unit test하고 해당 모듈의 branch coverage 100%를 요구한다.
+- Environment Guard, Namespace Validator, Run Registry, lock, cron lease, transaction, cron fence, coverage, reset 같은 안전 모듈은 허용·거부·dependency failure 분기를 모두 unit test하고 해당 모듈의 branch coverage 100%를 요구한다.
 - DB 연결 실패, registry 불가용·ETag 충돌, lock 충돌, scenario rollback, DB commit 실패, asset cleanup 실패는 local·CI fault-injection test로 검증한다.
 
 ### 8) 관리자 시스템 전체 coverage
