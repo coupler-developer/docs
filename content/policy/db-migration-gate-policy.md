@@ -12,7 +12,8 @@
 - DB 마이그레이션 검증을 `Gate ID` 기반으로 추적 가능하게 고정한다.
 - 실행자/리뷰어/에이전트가 동일 근거로 합격/실패를 판정하게 한다.
 - fail-closed 원칙으로 중간 상태 배포를 차단한다.
-- 운영 `dump`를 baseline으로 삼고, 본 문서의 실행 검증 파이프라인 순서로 동일 SQL 검증/반영 절차를 고정한다.
+- private 서비스 저장소의 schema-only baseline과 append-only migration을 물리 스키마 SoT로 고정한다.
+- 생성된 schema lock과 실제 replay 결과를 비교해 물리 스키마 drift를 자동 차단한다.
 - 각 DB 내부에 적용 완료 이력을 남겨 "어디까지 마이그레이션되었는가"를 파일명/기억이 아니라 DB 조회로 확인하게 한다.
 
 ## 적용 범위
@@ -21,6 +22,22 @@
 - 데이터 이관(backfill)
 - 읽기 기준 변경(cutover)
 - 레거시 제거(contract)
+
+## 저장소별 단일 기준
+
+- 공개 docs는 논리 엔티티, 관계, 소유권, 분류, 불변 조건, 생명주기만 설명한다. 서비스 업무 스키마의 전체
+  물리 테이블·컬럼 catalog와 실행 가능한 DDL을 복제하지 않는다.
+- 본 정책의 migration ledger 계약과 Gate 검증을 위한 최소 범용 SQL은 거버넌스 예시이며 서비스 업무
+  스키마 SoT로 보지 않는다.
+- private 서비스 저장소는 아래 물리 schema contract를 단일 기준으로 관리한다.
+    - 특정 main commit의 운영 구조를 schema-only read로 캡처한 `baseline`
+    - baseline 이후 migration 파일과 분류·checksum catalog
+    - baseline과 replay 대상 migration으로 생성한 현재 `schema lock`
+- baseline과 schema lock은 생성물이며 직접 편집하지 않는다. 변경은 migration 추가와 재생성 명령으로만
+  반영한다.
+- 실제 개발계/운영계 적용 완료 상태는 각 DB의 migration ledger를 단일 기준으로 사용한다. 저장소의
+  catalog와 DB ledger는 목적이 다르며 서로 대체하지 않는다.
+- Wiki, Notion, 수기 스프레드시트, 별도 테이블·컬럼 설명 문서는 물리 schema SoT로 인정하지 않는다.
 
 ## Gate ID 규칙
 
@@ -48,7 +65,9 @@
 - 단일 컬럼·인덱스처럼 범위가 작은 변경은 별도 architecture 문서 대신 PR에 같은 판정과 N/A 근거를 남길 수
   있지만, 설계 관점 자체를 생략할 수는 없다.
 - 각 마이그레이션 SQL 헤더에 `Gate IDs:`를 명시한다.
-- baseline은 운영 `dump`를 로컬 MySQL에 복원한 상태를 기준으로 한다.
+- 일반 DDL 검증 baseline은 private schema-only baseline을 사용한다.
+- 운영 원문 `dump`는 backfill·cutover·contract의 데이터 보존을 schema-only baseline과 합성 fixture로 검증할
+  수 없을 때만 [데이터 거버넌스 정책](data-governance-policy.md)의 예외 절차로 사용한다.
 - 각 postcheck SQL은 적용 대상 Gate별 카운터와 최종 guard 결과를 출력한다.
 - guard 실패는 `SIGNAL SQLSTATE '45000'` 또는 의도된 실패 쿼리로 즉시 중단한다.
 - Gate 통과 근거 로그 파일 경로를 PR/리뷰 코멘트에 남긴다.
@@ -60,7 +79,8 @@
 - 운영 read-only preflight는 DB 식별값, 적용 이력, 대상 객체 정의/카운터 조회 결과를 로그로 남긴다.
 - 운영/개발계에 적용 완료된 SQL 파일은 append-only로 취급한다. 수정이 필요하면 기존 파일을 고치지 말고 새 번호의 SQL 파일을 추가한다.
 - 개발계/운영계 DB에 적용하는 각 SQL 파일은 성공 후 `schema_migrations`에 기록한다. postcheck-only SQL도 실행 순서에 포함되면 동일하게 기록한다.
-- 일회성 로컬 검증 DB는 `schema_migrations` 기록 대신 복원 `dump`, 실행 SQL 목록, postcheck 결과, 데이터 보존 검증 로그로 증빙할 수 있다.
+- 일회성 로컬 검증 DB는 migration ledger 기록 대신 baseline commit, 실행 SQL 목록, schema lock 비교,
+  postcheck 결과로 증빙할 수 있다.
 - 개발계/운영계 쓰기 작업이 실패하거나 실행이 중단되면 동일 SQL 세트를 즉시 재실행하지 않는다. 먼저 실제 대상 DB에서 DB 식별값, 적용 완료 row, 적용 대상 객체/컬럼/데이터 상태, 실패 SQL 로그를 확인해 `미적용`, `부분 적용`, `성공 후 ledger 누락` 중 하나로 분류한다.
 - `미적용`이고 해당 SQL이 아직 개발계/운영계 어느 공유 DB에도 성공 적용되거나 ledger 기록되지 않았다면 기존 Draft SQL을 수정해 실행 검증 파이프라인 순서로 다시 검증한다.
 - `부분 적용`이거나 이미 한 공유 DB에라도 성공 적용된 SQL이면 기존 SQL 파일을 수정하지 않고 새 번호의 복구/재개 SQL 파일을 추가한다. 새 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
@@ -68,10 +88,35 @@
 
 ### SQL 산출물 위치
 
-- 서비스 레포에 합의된 영구 migration 경로 또는 tool이 있을 때만 그 경로에 SQL을 추가한다. 적용 완료 SQL은 제거하지 않는다.
-- 합의된 영구 경로가 없으면 DB 변경을 이유로 feature PR에서 새 migration 디렉터리를 만들지 않는다.
+- 서비스 레포의 합의된 영구 migration 경로에만 SQL을 추가한다. 적용 완료 SQL은 제거하거나 수정하지 않는다.
+- baseline, migration catalog, schema lock은 같은 private 서비스 저장소의 합의된 schema contract 경로에서
+  관리한다.
 - 수동 SQL은 운영 실행 산출물로 관리하고, PR/릴리즈에는 SQL 원문 또는 승인된 산출물 경로, SHA-256 checksum, Gate 로그, `schema_migrations` row를 남긴다.
-- 새 영구 경로가 필요하면 feature 변경과 분리해 레포 구조 결정으로 먼저 합의한다.
+- 다른 서비스에 새 영구 경로가 필요하면 feature 변경과 분리해 레포 구조 결정으로 먼저 합의한다.
+
+### Migration catalog와 schema lock
+
+- migration catalog는 migration 디렉터리의 파일 목록과 정확히 일치해야 한다. 누락 파일과 미존재 파일
+  참조를 모두 실패 처리한다.
+- 각 catalog entry는 파일 checksum, 변경 종류, schema 영향 여부, 빈 DB replay 여부, baseline 포함 여부를
+  기록한다.
+- 공유 DB에 적용됐거나 ledger에 기록된 migration 파일과 기존 catalog entry는 append-only다. checksum,
+  분류, replay 판정을 바꾸지 않고 새 번호의 후속 migration을 추가한다.
+- schema 영향이 있는 신규 migration은 빈 로컬 DB에서 baseline 이후 replay 가능해야 하고 schema lock을
+  갱신해야 한다.
+- 신규 테이블은 책임이 드러나는 table `COMMENT`, 신규·정의 변경 컬럼은 목적이 드러나는 column `COMMENT`를
+  포함해야 한다. 이름을 반복하는 대신 필요한 값 범위·단위·NULL 의미·생성/갱신 주체를 짧고 자연스럽게
+  설명한다.
+- contract check는 baseline 이후 신규 테이블·수정된 table `COMMENT`와 신규·정의 변경 컬럼의 빈 `COMMENT`
+  및 문자 깨짐을 실패 처리한다. 업무 의미와 표현 명확성은 DB 설계 리뷰에서 판정한다.
+- 기존 `COMMENT` 누락·오탈자·문자 깨짐은 baseline/lock을 직접 고치지 않고 별도 append-only migration과
+  schema lock 갱신으로 정정한다.
+- data-only migration은 fixture 없이 빈 DB에서 재생하지 않는다. schema lock을 변경하지 않고 별도
+  backfill/postcheck Gate로 검증한다.
+- baseline에 이미 포함된 과거 migration은 checksum과 분류를 catalog에 보존하되 baseline 뒤에 중복
+  replay하지 않는다.
+- baseline 교체는 일반 feature 변경과 분리한다. schema-only 캡처, source main commit, 기존 migration
+  포함 범위, 새 baseline replay 결과를 함께 리뷰한다.
 
 ### DB와 애플리케이션 배포 순서
 
@@ -141,7 +186,7 @@ VALUES (
   @@server_id,
   @@version,
   CURRENT_USER(),
-  't_member annual_income nullable add'
+  'member annual income nullable expansion'
 );
 ```
 
@@ -180,6 +225,10 @@ ORDER BY id;
 - 하나의 Gate라도 실패하면 해당 Stage는 미완료다.
 - 적용 대상 Gate 중 하나라도 미실행/미기록이면 미완료다.
 - `No Findings`는 적용 대상 필수 Gate 전부 통과 + 비적용 Gate 전부 `N/A` 근거 완료일 때만 선언한다.
+- migration catalog/checksum 불일치, baseline/lock 직접 편집, schema-effect migration의 lock 미갱신,
+  baseline replay 결과와 schema lock drift 중 하나라도 있으면 승인하지 않는다.
+- 모든 DB 변경은 공개 논리 문서 영향을 판정한다. 관계·소유권·분류·불변 조건·생명주기·외부 계약이
+  바뀌면 연결된 docs PR이 없을 때 승인하지 않고, 물리 구현만 바뀌면 `논리 문서 영향 없음` 근거를 남긴다.
 - `DBM-GATE-010` 적용 대상 DB에서 적용 완료 row 또는 동등한 migration tool ledger가 없으면 ledger 통제 완료로 판정하지 않는다.
 - `schema_migrations`의 `target_env`와 실제 DB 식별값이 실행 대상과 맞지 않으면 즉시 중단한다.
 - `DBM-GATE-400`이 적용되는 변경은 이번 변경에서 제거 대상으로 명시한 레거시 잔존 0건까지 확인해야만 `No Findings`다.
@@ -189,16 +238,45 @@ ORDER BY id;
 
 ## 실행 검증 파이프라인 (간단)
 
-1. `Local Baseline 검증`: 최신 운영 `dump`를 로컬 MySQL에 복원하고 precheck SQL을 먼저 실행한다. `DBM-GATE-000` 또는 baseline gate 미통과 시 즉시 중단한다.
-2. `Local 마이그레이션 검증`: 운영 `dump` 기준 로컬 DB에 신규 DDL/backfill/cutover/contract SQL을 순서대로 실행하고, `DBM-GATE-100/200/300/400` 통과 전까지 수정-재실행을 반복한다.
-3. `운영 read-only preflight`: 운영계 DB 식별값, 적용 이력, 대상 객체 정의/카운터를 조회해 운영 차이를 먼저 확인한다. 쓰기 작업은 금지한다.
-4. `개발계 이력 확인`: 개발계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 적용 예정 SQL의 중복/체크섬 불일치가 없는지 확인한다. ledger가 없으면 즉시 중단한다.
-5. `개발계 반영`: 로컬에서 통과한 동일 SQL 세트를 개발계 DB에 동일 순서로 적용하고, 카운터/해시/guard 결과가 동일 결론(`No Findings`)인지 확인한 뒤 `target_env='dev'`로 기록한다.
-6. `운영계 이력 확인`: 운영계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 개발계와 동일한 기준으로 중복/체크섬 불일치를 확인한다. ledger가 없으면 즉시 중단한다.
-7. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영 실패 또는 중단 시 즉시 중단하고, 작성 규칙의 실패/중단 분류에 따라 후속 조치를 결정한다. 재검증이 필요한 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
-8. `운영계 postcheck`: 운영계 반영 직후 동일 Gate 기준 postcheck SQL을 실행해 최종 guard 결과를 확인한다. 성공 후 `target_env='prod'`로 ledger에 기록한다.
-9. `근거 기록`: PR/리뷰에 운영 read-only preflight 로그 경로(`DB 식별값 + 적용 이력 + 대상 객체 정의/카운터`)를 남긴다. 적용 대상 Gate별 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations row 또는 migration tool ledger`를 남기고, 비적용 Gate는 `Gate ID + N/A 사유 + 근거 경로`를 남긴다.
-10. `승인 조건`: Local 검증, 운영 read-only preflight, 개발계 DB 검증 근거 중 하나라도 없으면 승인하지 않는다. 운영 반영 완료 판정은 운영계 postcheck 로그와 ledger 기록을 함께 확인한다.
+1. `정적 contract 검증`: migration 파일과 catalog의 목록·checksum·분류를 비교하고 baseline/lock의 직접
+   편집과 기존 migration 변경을 차단한다.
+2. `Local Schema Replay`: 빈 로컬 MariaDB에 private schema-only baseline과 replay 대상 migration을
+   순서대로 실행하고 실제 구조와 schema lock을 비교한다. `DBM-GATE-000/100` 또는 schema drift 검사
+   미통과 시 즉시 중단한다.
+3. `Local 데이터 검증`: backfill·cutover·contract는 합성 fixture를 우선 사용해
+   `DBM-GATE-200/300/400`을 검증한다. 불가피한 운영 원문 dump 반입은 데이터 거버넌스 예외 절차와 삭제
+   증빙을 적용한다.
+4. `운영 read-only preflight`: 운영계 DB 식별값, 적용 이력, 대상 객체 정의/카운터를 조회해 운영 차이를
+   먼저 확인한다. 쓰기 작업은 금지한다.
+5. `개발계 이력 확인`: 개발계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해 적용
+   예정 SQL의 중복/체크섬 불일치가 없는지 확인한다. ledger가 없으면 즉시 중단한다.
+6. `개발계 반영`: 로컬에서 통과한 동일 SQL 세트를 개발계 DB에 동일 순서로 적용하고,
+   카운터/해시/guard 결과가 동일 결론(`No Findings`)인지 확인한 뒤 `target_env='dev'`로 기록한다.
+7. `운영계 이력 확인`: 운영계 DB의 `schema_migrations` 또는 동등한 migration tool ledger를 조회해
+   개발계와 동일한 기준으로 중복/체크섬 불일치를 확인한다. ledger가 없으면 즉시 중단한다.
+8. `운영계 반영`: Local+개발계 검증 완료 후에만 운영계 MySQL에 동일 SQL 세트를 반영한다. 운영계 반영
+   실패 또는 중단 시 즉시 중단하고, 작성 규칙의 실패/중단 분류에 따라 후속 조치를 결정한다. 재검증이
+   필요한 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
+9. `운영계 postcheck`: 운영계 반영 직후 동일 Gate 기준 postcheck SQL을 실행해 최종 guard 결과를 확인한다.
+   성공 후 `target_env='prod'`로 ledger에 기록한다.
+10. `근거 기록`: PR/리뷰에 운영 read-only preflight 로그 경로(`DB 식별값 + 적용 이력 + 대상 객체
+    정의/카운터`)를 남긴다. 적용 대상 Gate별 `Gate ID + SQL 파일 경로 + 로그 경로 + schema_migrations
+    row 또는 migration tool ledger`를 남기고, 비적용 Gate는 `Gate ID + N/A 사유 + 근거 경로`를 남긴다.
+11. `승인 조건`: 정적 contract 검증, Local Schema Replay, 운영 read-only preflight, 개발계 DB 검증 근거 중
+    하나라도 없으면 승인하지 않는다. 운영 반영 완료 판정은 운영계 postcheck 로그와 ledger 기록을 함께
+    확인한다.
+
+## 표준 자동 검증
+
+- private 서비스 저장소의 schema contract check는 모든 PR에서 migration catalog, checksum, baseline/lock
+  canonical form, 기존 migration 불변성을 검사한다.
+- 리뷰어는 같은 작업 단위의 공개 논리 문서 영향 판정과 연결된 docs PR 또는 `논리 문서 영향 없음` 근거를
+  확인한다.
+- DB 관련 경로가 바뀐 PR은 CI의 임시 MariaDB에서 baseline과 replay 대상 migration을 실행하고 실제 구조와
+  schema lock이 일치해야 한다.
+- 로컬 replay 명령은 localhost 전용 DB와 명시적 reset 플래그가 함께 있을 때만 실행되도록 fail-closed로
+  구현한다.
+- schema contract check는 서비스 저장소의 표준 테스트 명령에도 포함해 전용 workflow 우회를 막는다.
 
 ## 에이전트/리뷰어 추적 규칙
 
