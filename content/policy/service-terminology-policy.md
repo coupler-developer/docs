@@ -27,7 +27,7 @@
 
 - 서비스 용어의 사용자 노출 기준은 이 문서를 단일 기준으로 사용한다.
 - 회원 심사 및 `manager_required_auth` 계열 필드 의미는 [회원 심사 단일 정책](member-review-policy.md)을 따른다.
-- 기존 `ritzy` 식별자 잔존 정리는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `ritzy -> coupler 네이밍 전환 잔존` 항목을 따른다.
+- 기존 `ritzy` 식별자 잔존 정리는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `ritzy -> coupler 네이밍/운영 잔존 정리` 항목을 따른다.
 
 ## 용어 사전
 

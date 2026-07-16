@@ -851,8 +851,9 @@ API DTO는 Swagger/contracts에 필수 응답으로 정의한다.
 
 이 문서는 DB 설계 SoT이며 실제 11개 테이블과 1개 VIEW 생성 및 `t_setting.id=25` 설정 row 추가는
 migration SQL로 수행한다. 기존 `t_setting.id=16/18/20` row는 변경하지 않는다.
-미구현 상태와 후속 API/Admin/Mobile 작업은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`24) 그룹미팅 1차 구현 미착수`에서 추적한다.
+남은 dev/prod migration, API/Admin stable 계약 정렬, Mobile·운영 scheduler 통합은
+[기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`그룹미팅 Mobile 및 출시 통합 미완료`에서 추적한다.
 
 | Gate | 적용 | 검증 |
 | --- | --- | --- |

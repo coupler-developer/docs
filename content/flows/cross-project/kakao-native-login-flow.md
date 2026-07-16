@@ -172,4 +172,4 @@ sequenceDiagram
 - [레포지토리 요약](../../architecture/repo-overview.md)
 - [회원 라이프사이클](../../architecture/member-lifecycle.md)
 - [회원 심사 단일 정책](../../policy/member-review-policy.md)
-- [기술 부채 정리](../../technical-debt/technical-debt.md)의 `Mobile Kakao 초대하기 전송 성공 판정 미분리`
+- [기술 부채 정리](../../technical-debt/technical-debt.md)의 `Mobile Kakao 초대 완료 문구와 실제 전송 의미 불일치`

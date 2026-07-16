@@ -99,7 +99,7 @@
 - 외부 통신: axios mock 또는 MSW 도입 고려(현재 의존성 없음).
 - Chart.js는 “렌더링 성공 + 주요 props 처리” 수준의 얕은 테스트부터 시작한다.
 - React 목록은 공통 client의 요청/응답 계약, 페이지 이동, 검색, 정렬, 최신 요청 우선 반영과 row parser 실패 차단을 우선 검증한다.
-- TO-BE: 개발 데이터의 실제 route·filter 렌더 검증은 [테스트용 개발 데이터 정책](development-test-data-policy.md)에 따라 Playwright gate를 추가한다. 현재 미구현 상태와 표준 gate 편입은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 시스템 미구현`에서 추적한다.
+- TO-BE: 기존 Playwright smoke를 route·filter 검증까지 확장하고 표준 gate에 포함한다. 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료`에서 추적한다.
 
 ### coupler-api (Express)
 
