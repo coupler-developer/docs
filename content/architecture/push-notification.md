@@ -10,6 +10,35 @@
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 이 문서의 타입 섹션은 대표 타입과 범주를 설명하는 요약본이며, 전체 타입 인벤토리를 1:1로 열거하지 않는다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `notification`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `notification.preference` | 알림 설정 | child | state | 회원의 채팅·매칭·행사 알림 수신 선택 | 내부 | 회원 계정과 함께 유지하고 변경 시 현재값 갱신 |
+| `notification.delivery` | 알림 발송 이력 | child | history | 수신자, 알림 종류, 표시 문구와 이동 대상 | 민감 | 알림함·운영 확인 기간 동안 보존 후 정리 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `member.member` | owns | `notification.preference` | 1:1 | 회원 계정 삭제 시 설정도 함께 정리 |
+| `member.member` | owns | `notification.delivery` | 1:N | 회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능 |
+| `notification.delivery` | references | `matching.match` | N:1 | 이동 대상이 매칭이면 해당 문맥을 참조 |
+| `notification.delivery` | references | `legacy-meeting.meeting` | N:1 | 이동 대상이 기존 미팅이면 해당 문맥을 참조 |
+| `notification.delivery` | references | `lounge.post` | N:1 | 이동 대상이 라운지면 해당 문맥을 참조 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `NOTIFICATION-INV-001` | `notification.delivery` | 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
+| `NOTIFICATION-INV-002` | `notification.delivery` | 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+| `NOTIFICATION-INV-003` | `notification.preference` | 서버는 알림 종류별 설정을 단일 기준으로 판정한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
+
 ## FCM 알림 타입 요약
 
 ### 회원가입 관련 (1-4)
@@ -153,15 +182,10 @@ sequenceDiagram
 }
 ```
 
-## 알림 저장 (t_alarm)
+## 알림 저장
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| member | INT | 수신자 ID |
-| type | TINYINT | 운영 FCM_TYPE 1-76, 그룹미팅 예약 77-83 |
-| content | VARCHAR | 알림 메시지 |
-| target | INT | 관련 ID (매칭/미팅/라운지) |
-| create_date | DATETIME | 발송 시간 |
+발송된 사용자 알림은 `notification.delivery`로 저장한다. 수신자, 알림 종류, 사용자에게 표시한 문구와 이동
+대상만 보존하며, FCM 토큰이나 원천 도메인의 민감 본문은 알림 이력에 복제하지 않는다.
 
 운영 집계 호환 규칙:
 
