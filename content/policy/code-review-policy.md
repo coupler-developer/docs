@@ -116,6 +116,7 @@
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
+- [ ] 성공 `data` 내부 필드를 읽는 소비자 변경이면 operation별 generated DTO를 API 호출 경계에 적용하고, 화면 변환은 exact DTO → ViewModel 단방향이며 local wire DTO·cast·fallback normalize가 없음을 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
 - [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
@@ -240,6 +241,9 @@
 
 - JSON API 성공/실패 envelope 추가/수정, Mobile/Admin 응답 boundary 수정은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 리뷰한다.
 - 신규 API 또는 성공 `data`의 구조를 직접 수정한 API는 Swagger/OpenAPI에 실제 wire shape와 같은 operation별 success DTO가 있고 contracts package가 이를 생성하는지 확인한다. Mobile/Admin이 해당 `data` 내부 필드를 읽으면 generated success DTO를 API 호출 경계에서 사용하지 않는 local response DTO를 finding으로 기록한다.
+- exact generated DTO → 선택적 ViewModel 단방향 mapping만 허용한다. mapper 입력을 `unknown`, `Record<string, unknown>`, broad local type으로 넓히거나 ViewModel을 request·다른 operation DTO로 역사용하면 local wire DTO로 판정한다.
+- 숫자·문자열 coercion, 누락값 기본값, 미지원 enum 필터링으로 wire 위반을 숨기면 finding으로 기록한다. 사용자 입력·navigation param·Native URI·표시 포맷 변환은 제외한다.
+- structured success fixture는 `satisfies` 또는 동등한 compile-time assertion을 사용하고, 계약 enum의 상태 분기는 가능한 경우 exhaustive check로 고정한다.
 - 현재 diff가 읽거나 수정하지 않는 기존 loose success schema와 consumer-local response DTO는 `기존 부채`로 분류하고 일괄 정리를 병합 조건으로 만들지 않는다. 다만 직접 수정한 operation에서 같은 패턴을 새로 추가하거나 확산하면 finding으로 기록한다.
 - 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough는 success DTO 소비 리뷰를 `N/A`로 둘 수 있다. 필드 접근, local shape 선언, cast 또는 fallback이 있으면 passthrough 예외가 아니다.
 - API 실패 응답 추가/수정, Mobile/Admin 실패 분기 수정, 운영 로그 상관관계 변경은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 리뷰한다.

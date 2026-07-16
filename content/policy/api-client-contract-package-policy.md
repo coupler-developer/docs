@@ -59,10 +59,10 @@
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
 - API public request/success wire shape는 Swagger/OpenAPI에서 한 번만 정의하고 API generator가 package type으로 생성한다. 필드의 비즈니스 의미와 도메인 제약은 각 도메인 정책에서 정의한다. Admin/Mobile은 같은 wire DTO를 local type/interface로 다시 정의하지 않는다.
 - 신규 operation 또는 성공 `data`의 필드·필수 여부·nullable·배열/단수 구조를 직접 변경하는 operation은 같은 변경 단위에서 Swagger/OpenAPI success DTO를 실제 wire shape와 일치시키고 generated contract freshness를 통과해야 한다.
-- Mobile/Admin이 성공 `data`의 내부 필드를 읽어 화면 상태나 비즈니스 분기에 사용하는 operation은 package generated success DTO를 API 호출 경계에 적용하고 화면 ViewModel로 명시 변환한다.
+- Mobile/Admin의 성공 `data` 소비 구조는 아래 `소비자 DTO와 ViewModel 경계`를 따른다.
 - 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough 경로는 operation별 success DTO 소비 전환 대상에서 제외할 수 있다. 이 예외는 필드 접근·로컬 shape 선언·cast·fallback이 없다는 근거가 있어야 하며, passthrough를 이유로 신규 loose schema를 추가해서는 안 된다.
 - Package request DTO는 type-only 계약이며 path/query/body 위치, required/optional, nullable, 배열/단수 구조를 보존해야 한다. DB row, 서버 내부 DTO, 화면 ViewModel, 로컬 draft는 package public DTO로 승격하지 않는다.
-- 소비자는 package request DTO로 payload를 구성하고 package success DTO를 화면 ViewModel로 명시 변환한다. ViewModel이 API 호출 계층으로 역유입되거나 local wire DTO가 package 계약을 덮어쓰면 안 된다.
+- 소비자는 package request DTO로 payload를 구성한다. 화면 ViewModel과 로컬 draft는 API 호출 계층으로 역유입하지 않는다.
 - 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에 exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는 완료가 아니다.
 - 최종 구조 리뷰에서는 API package source와 Admin/Mobile dependency·lockfile을 하나의 동시 배포 계약 묶음으로 비교한다. 세 레포의 exact version과 실제 runtime 공개 표면이 같으면 함께 배포 가능한 최종 계약으로 판정하며, 이 코드 판정 자체에 Store/NextPush 이력이나 legacy traffic 운영 증빙을 요구하지 않는다.
 - 운영 배포 증빙은 구버전 소비자 호환 경로나 URL-encoded parser 같은 legacy 입력 경로를 실제 제거할 때 별도 Cutover Gate로 확인한다. 브랜치 이름에 `cutover`가 있다는 이유만으로 package 정렬 리뷰에 운영 Gate를 추가하지 않는다.
@@ -93,6 +93,19 @@
 - Request DTO type 공유는 request transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 package public runtime으로 승격하지 않는다. Canonical client request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload `multipart/form-data`로 고정하고, Mobile/Admin request boundary와 API Swagger/parser가 같은 결론을 가리켜야 한다.
 - API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package public request/success DTO 또는 명시 ViewModel mapping을 사용하고, API wire shape를 local DTO, cast, alias fallback, normalize로 보정하지 않는다.
+
+### 소비자 DTO와 ViewModel 경계
+
+| 계층 | 입력 | 출력 | 허용 책임 |
+| --- | --- | --- | --- |
+| API 호출 경계 | `unknown` envelope | operation별 generated success DTO | envelope 검증, `ok` 분기, operation 타입 연결 |
+| 선택적 ViewModel mapper | generated success DTO | 화면 전용 ViewModel | 표시명, 파생값, UI 상태 계산 |
+| 화면 | generated DTO 또는 ViewModel | 렌더링 | 표시와 사용자 상호작용 |
+
+- 파생값이 없으면 generated DTO를 직접 사용한다. ViewModel은 필요한 화면에만 두며 API 요청이나 다른 operation DTO로 역사용하지 않는다.
+- mapper 입력을 `unknown`, `Record<string, unknown>`, consumer-local wire type으로 넓히거나 숫자·문자열 coercion, 누락값 기본값, enum 치환·필터링으로 wire 위반을 숨기지 않는다. 계약 위반은 실패·로그 처리하거나 승인된 호환 예외로 분리한다.
+- 사용자 입력, navigation param, Native media URI, 날짜·금액 표시 포맷은 API wire 보정이 아니므로 허용한다.
+- structured success fixture는 `satisfies ApiOperationSuccessData<'METHOD /path'>` 또는 동등한 operation DTO type으로 계약 일치를 확인한다.
 
 ## 공개 표면 폐쇄 원칙
 

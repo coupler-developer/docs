@@ -155,13 +155,14 @@ type CommentParentRef =
 | `GET /lounge/myList` | `LoungeMyListResult` |
 | `GET /lounge/detail` | `LoungeDetailResult` |
 | `GET /lounge/comment/list` | `LoungeCommentListResult` |
+| `GET /lounge/noticeList` | 공지 DTO 배열 |
+| `POST /lounge/visit` | `{ visit_cnt: number }` |
 
 - 게시글 목록과 상세, 댓글은 서로 다른 실제 응답 shape를 사용하므로 하나의 optional DTO로 합치지 않는다.
 - 앱 노출 `status`는 `1 | -1 | -2`이며 `ADMIN_FORCE_DELETED(-3)`는 success DTO에 포함하지 않는다.
-- 게시글 `photo`는 배열이 아니라 쉼표로 구분된 문자열이며 tombstone이면 빈 문자열이다.
-- 실제 응답에서 항상 생성하는 필드는 Swagger `required`와 generated contract에서도 필수다.
-- Mobile은 operation별 generated success DTO를 API 호출 경계에서 사용하고 화면 전용 ViewModel로
-  명시 변환한다.
+- 게시글 `photo`는 배열이 아니라 `#`으로 구분된 문자열이며 tombstone이면 빈 문자열이다.
+- 실제 응답에서 항상 생성하는 필드는 Swagger `required`와 generated contract에서도 필수이며, 공지 필드와 조회수 응답의 `visit_cnt`도 같은 기준을 적용한다.
+- Mobile은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)에 따라 operation별 generated success DTO를 직접 사용하고, 화면 파생값이 있을 때만 exact DTO → ViewModel mapping을 둔다.
 
 ### 댓글 작성 parent 허용 기준
 
