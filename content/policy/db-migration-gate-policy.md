@@ -116,7 +116,8 @@
 - baseline에 이미 포함된 과거 migration은 checksum과 분류를 catalog에 보존하되 baseline 뒤에 중복
   replay하지 않는다.
 - baseline 교체는 일반 feature 변경과 분리한다. schema-only 캡처, source main commit, 기존 migration
-  포함 범위, 새 baseline replay 결과를 함께 리뷰한다.
+  포함 범위, 새 baseline replay 결과를 함께 리뷰한다. 캡처 대상 DB의 migration ledger와 catalog는
+  migration 파일명 exact-set, checksum, `target_env=prod`, DB identity가 모두 일치해야 한다.
 
 ### DB와 애플리케이션 배포 순서
 
