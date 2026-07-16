@@ -120,6 +120,15 @@
     - **Lifecycle Owner**: `transition`, `임시`, `호환`, `fallback` 제거 조건과 부채/추적 연결
 - 조건부 추가 관점은 변경 내용이 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리즈/데이터 거버넌스/다중 레포 계약 기준, 절차, 판정 근거를 직접 바꾸는 경우에만 적용한다.
 - 조건부 추가 관점이 적용되면 [코드 리뷰 정책](code-review-policy.md)의 관련 관점만 선택하고, 적용하지 않은 관점은 `N/A` 근거를 남긴다.
+- 문서 거버넌스, taxonomy, 문서 메타데이터, 템플릿 또는 docs 구조 검증을 강화하는 변경에는
+  **Taxonomy Migration Readiness Reviewer**를 조건부 추가 관점으로 적용한다.
+    - 목표 taxonomy와 이번 변경의 비포함 범위를 먼저 고정한다.
+    - 구현 시점의 기존 문서 전체를 대상으로 역할/문서 종류/도메인 SoT/기준 성격/추적 문서 적합성 baseline을 확인한다.
+    - 기존 문서가 새 기준에 맞지 않으면 즉시 hard gate를 활성화하지 않고 불일치를 기술부채로 추적한다.
+    - hard gate는 목표 taxonomy 적용 대상인 기존 문서의 불일치와 이관용 allowlist가 모두 0건이 된 뒤 활성화한다.
+    - 과거 릴리스 기록의 역사적 사실을 taxonomy 정리를 이유로 소급 변경하지 않으며, 메타데이터 이관이 필요하면
+      별도 이관 범위를 먼저 확정한다. 적용하지 않을 문서는 예외 목록이 아니라 목표 taxonomy의 비포함 범위와
+      근거로 명시한다.
 - DB 관점이 적용되면 공개 논리 모델 영향, private schema contract 갱신, migration 불변성, schema lock drift,
   DB-local ledger 영향을 함께 판정한다.
 - 관점별 상세 로그/일반 의견은 남기지 않고, 판정/근거와 병합된 Finding만 기록한다.
@@ -132,6 +141,7 @@
     - `transition`, `임시`, `호환`, `fallback`에 제거 조건 또는 미적용 근거 있음
     - 시간이 지나면 바뀌는 사실에 최신 근거 있음
     - To-Be 또는 임시 구조에 부채/추적 문서 연결 있음
+    - taxonomy/메타데이터/검증 hard gate 변경에 기존 문서 baseline, 단계적 활성화, 적용 범위의 이관 완료 조건 있음
     - 개인 사용자명 또는 로컬 절대경로가 남아 있지 않음
 - 최종 판정은 `No Findings`, `Finding`, `기존 부채`, `N/A`만 사용한다.
 - `Exit Gate`는 마지막 수정 이후 docs 검증을 다시 통과하고, Scope Gate/기본 문서 관점/조건부 추가 관점/필수 확인 항목이 `No Findings`, 근거 있는 `N/A`, 또는 변경 범위 밖 `기존 부채`이며, 열린 Finding이 0건일 때만 `No Findings`로 판정한다.
