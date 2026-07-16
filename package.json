@@ -16,11 +16,14 @@
     "validate:release-pr-transition": "node scripts/validate-release-pr-transition.mjs",
     "test:technical-debt": "node --test scripts/validate-technical-debt.test.mjs",
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
+    "generate:logical-data-model-catalog": "node scripts/validate-logical-data-model.mjs --write-catalog",
+    "validate:logical-data-model": "node scripts/validate-logical-data-model.mjs",
     "validate:technical-debt": "node scripts/validate-technical-debt.mjs",
     "validate:release-records": "node scripts/validate-release-records.mjs",
     "validate:api-error-docs": "node scripts/validate-api-error-docs.mjs",
     "build:docs": "node scripts/run-mkdocs-build.mjs",
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
-    "validate:docs": "yarn validate:docs-structure && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:technical-debt && yarn test:release-preflight && yarn lint:md && yarn build:docs"
+    "test:logical-data-model": "node --test scripts/validate-logical-data-model.test.mjs",
+    "validate:docs": "yarn validate:docs-structure && yarn validate:logical-data-model && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:logical-data-model && yarn test:technical-debt && yarn test:release-preflight && yarn lint:md && yarn build:docs"
   }
 }
