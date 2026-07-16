@@ -1,0 +1,734 @@
+{
+  "version": 1,
+  "source": {
+    "index": "content/architecture/logical-data-model-index.md"
+  },
+  "domains": [
+    {
+      "id": "admin-access",
+      "name": "관리자 접근",
+      "ownerDocument": "content/architecture/admin-permission.md",
+      "entityIds": [
+        "admin-access.operator"
+      ]
+    },
+    {
+      "id": "analytics",
+      "name": "분석",
+      "ownerDocument": "content/architecture/analytics-system.md",
+      "entityIds": [
+        "analytics.login-statistic"
+      ]
+    },
+    {
+      "id": "club-manager",
+      "name": "클럽매니저",
+      "ownerDocument": "content/architecture/club-manager-system.md",
+      "entityIds": [
+        "club-manager.assignment",
+        "club-manager.detail-profile-slice",
+        "club-manager.detail-profile-version",
+        "club-manager.manager"
+      ]
+    },
+    {
+      "id": "conversation",
+      "name": "대화",
+      "ownerDocument": "content/architecture/chat-system.md",
+      "entityIds": [
+        "conversation.message",
+        "conversation.participant",
+        "conversation.thread"
+      ]
+    },
+    {
+      "id": "group-meeting",
+      "name": "그룹미팅",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "entityIds": [
+        "group-meeting.action-history",
+        "group-meeting.application",
+        "group-meeting.detail-slice",
+        "group-meeting.detail-version",
+        "group-meeting.event",
+        "group-meeting.host",
+        "group-meeting.participant",
+        "group-meeting.review"
+      ]
+    },
+    {
+      "id": "key-wallet",
+      "name": "Key 지갑",
+      "ownerDocument": "content/architecture/matching-key-system.md",
+      "entityIds": [
+        "key-wallet.entry",
+        "key-wallet.profile-access",
+        "key-wallet.wallet"
+      ]
+    },
+    {
+      "id": "legacy-meeting",
+      "name": "기존 2:2 미팅",
+      "ownerDocument": "content/architecture/meeting-system.md",
+      "entityIds": [
+        "legacy-meeting.meeting",
+        "legacy-meeting.participation",
+        "legacy-meeting.rating",
+        "legacy-meeting.review"
+      ]
+    },
+    {
+      "id": "lounge",
+      "name": "라운지",
+      "ownerDocument": "content/architecture/lounge-system.md",
+      "entityIds": [
+        "lounge.comment",
+        "lounge.comment-reaction",
+        "lounge.post",
+        "lounge.post-reaction"
+      ]
+    },
+    {
+      "id": "matching",
+      "name": "1:1 매칭",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "entityIds": [
+        "matching.call",
+        "matching.event-history",
+        "matching.match",
+        "matching.reservation",
+        "matching.reservation-policy",
+        "matching.review",
+        "matching.schedule"
+      ]
+    },
+    {
+      "id": "member",
+      "name": "회원",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "entityIds": [
+        "member.invitation",
+        "member.member",
+        "member.profile",
+        "member.recommendation",
+        "member.signup-welcome",
+        "member.sleep-history",
+        "member.status-history"
+      ]
+    },
+    {
+      "id": "member-review",
+      "name": "회원 심사",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "entityIds": [
+        "member-review.auth-evidence",
+        "member-review.auth-request",
+        "member-review.auth-request-item",
+        "member-review.auth-state",
+        "member-review.overview-projection",
+        "member-review.profile-image",
+        "member-review.profile-version",
+        "member-review.required-auth-policy",
+        "member-review.review-request",
+        "member-review.stage-snapshot",
+        "member-review.status-projection"
+      ]
+    },
+    {
+      "id": "moderation",
+      "name": "신고·제재",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "entityIds": [
+        "moderation.block",
+        "moderation.content-report",
+        "moderation.hide",
+        "moderation.member-report",
+        "moderation.penalty"
+      ]
+    },
+    {
+      "id": "notification",
+      "name": "알림",
+      "ownerDocument": "content/architecture/push-notification.md",
+      "entityIds": [
+        "notification.delivery",
+        "notification.preference"
+      ]
+    },
+    {
+      "id": "payment",
+      "name": "결제",
+      "ownerDocument": "content/architecture/payment-system.md",
+      "entityIds": [
+        "payment.purchase"
+      ]
+    },
+    {
+      "id": "platform-config",
+      "name": "플랫폼 기준정보",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "entityIds": [
+        "platform-config.alias",
+        "platform-config.app-release",
+        "platform-config.meeting-place",
+        "platform-config.notice",
+        "platform-config.setting",
+        "platform-config.signup-message"
+      ]
+    },
+    {
+      "id": "support",
+      "name": "고객지원",
+      "ownerDocument": "content/architecture/support-system.md",
+      "entityIds": [
+        "support.request"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "id": "admin-access.operator",
+      "domainId": "admin-access",
+      "ownerDocument": "content/architecture/admin-permission.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "analytics.login-statistic",
+      "domainId": "analytics",
+      "ownerDocument": "content/architecture/analytics-system.md",
+      "kind": "root",
+      "recordRole": "projection",
+      "classification": "내부"
+    },
+    {
+      "id": "club-manager.assignment",
+      "domainId": "club-manager",
+      "ownerDocument": "content/architecture/club-manager-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "club-manager.detail-profile-slice",
+      "domainId": "club-manager",
+      "ownerDocument": "content/architecture/club-manager-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "내부"
+    },
+    {
+      "id": "club-manager.detail-profile-version",
+      "domainId": "club-manager",
+      "ownerDocument": "content/architecture/club-manager-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "내부"
+    },
+    {
+      "id": "club-manager.manager",
+      "domainId": "club-manager",
+      "ownerDocument": "content/architecture/club-manager-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "conversation.message",
+      "domainId": "conversation",
+      "ownerDocument": "content/architecture/chat-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "conversation.participant",
+      "domainId": "conversation",
+      "ownerDocument": "content/architecture/chat-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "conversation.thread",
+      "domainId": "conversation",
+      "ownerDocument": "content/architecture/chat-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "group-meeting.action-history",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "group-meeting.application",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "group-meeting.detail-slice",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "내부"
+    },
+    {
+      "id": "group-meeting.detail-version",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "내부"
+    },
+    {
+      "id": "group-meeting.event",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "group-meeting.host",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "group-meeting.participant",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "group-meeting.review",
+      "domainId": "group-meeting",
+      "ownerDocument": "content/architecture/group-meeting-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "key-wallet.entry",
+      "domainId": "key-wallet",
+      "ownerDocument": "content/architecture/matching-key-system.md",
+      "kind": "child",
+      "recordRole": "ledger",
+      "classification": "내부"
+    },
+    {
+      "id": "key-wallet.profile-access",
+      "domainId": "key-wallet",
+      "ownerDocument": "content/architecture/matching-key-system.md",
+      "kind": "child",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "key-wallet.wallet",
+      "domainId": "key-wallet",
+      "ownerDocument": "content/architecture/matching-key-system.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "legacy-meeting.meeting",
+      "domainId": "legacy-meeting",
+      "ownerDocument": "content/architecture/meeting-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "legacy-meeting.participation",
+      "domainId": "legacy-meeting",
+      "ownerDocument": "content/architecture/meeting-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "legacy-meeting.rating",
+      "domainId": "legacy-meeting",
+      "ownerDocument": "content/architecture/meeting-system.md",
+      "kind": "relation",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "legacy-meeting.review",
+      "domainId": "legacy-meeting",
+      "ownerDocument": "content/architecture/meeting-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "lounge.comment",
+      "domainId": "lounge",
+      "ownerDocument": "content/architecture/lounge-system.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "lounge.comment-reaction",
+      "domainId": "lounge",
+      "ownerDocument": "content/architecture/lounge-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "lounge.post",
+      "domainId": "lounge",
+      "ownerDocument": "content/architecture/lounge-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "lounge.post-reaction",
+      "domainId": "lounge",
+      "ownerDocument": "content/architecture/lounge-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "matching.call",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "matching.event-history",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "matching.match",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "matching.reservation",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "root",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "matching.reservation-policy",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "matching.review",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "matching.schedule",
+      "domainId": "matching",
+      "ownerDocument": "content/architecture/matching-system.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "member-review.auth-evidence",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.auth-request",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "root",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.auth-request-item",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.auth-state",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.overview-projection",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "root",
+      "recordRole": "projection",
+      "classification": "내부"
+    },
+    {
+      "id": "member-review.profile-image",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.profile-version",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "root",
+      "recordRole": "snapshot",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.required-auth-policy",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "member-review.review-request",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "root",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "member-review.stage-snapshot",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "child",
+      "recordRole": "snapshot",
+      "classification": "내부"
+    },
+    {
+      "id": "member-review.status-projection",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "kind": "root",
+      "recordRole": "projection",
+      "classification": "내부"
+    },
+    {
+      "id": "member.invitation",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "relation",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "member.member",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "member.profile",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "member.recommendation",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "relation",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "member.signup-welcome",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "member.sleep-history",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "내부"
+    },
+    {
+      "id": "member.status-history",
+      "domainId": "member",
+      "ownerDocument": "content/architecture/member-lifecycle.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "moderation.block",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "moderation.content-report",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "moderation.hide",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "kind": "relation",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "moderation.member-report",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "moderation.penalty",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "kind": "child",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "notification.delivery",
+      "domainId": "notification",
+      "ownerDocument": "content/architecture/push-notification.md",
+      "kind": "child",
+      "recordRole": "history",
+      "classification": "민감"
+    },
+    {
+      "id": "notification.preference",
+      "domainId": "notification",
+      "ownerDocument": "content/architecture/push-notification.md",
+      "kind": "child",
+      "recordRole": "state",
+      "classification": "내부"
+    },
+    {
+      "id": "payment.purchase",
+      "domainId": "payment",
+      "ownerDocument": "content/architecture/payment-system.md",
+      "kind": "root",
+      "recordRole": "ledger",
+      "classification": "민감"
+    },
+    {
+      "id": "platform-config.alias",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "platform-config.app-release",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "platform-config.meeting-place",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "일반"
+    },
+    {
+      "id": "platform-config.notice",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "일반"
+    },
+    {
+      "id": "platform-config.setting",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "platform-config.signup-message",
+      "domainId": "platform-config",
+      "ownerDocument": "content/architecture/platform-config-system.md",
+      "kind": "root",
+      "recordRole": "reference",
+      "classification": "내부"
+    },
+    {
+      "id": "support.request",
+      "domainId": "support",
+      "ownerDocument": "content/architecture/support-system.md",
+      "kind": "root",
+      "recordRole": "state",
+      "classification": "민감"
+    }
+  ]
+}
