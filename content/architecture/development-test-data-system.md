@@ -86,7 +86,7 @@ coupler-admin-web/
 
 | 구성요소 | 책임 |
 | --- | --- |
-| CLI | `list`, `plan`, `apply`, `verify`, `coverage`, `reset` 명령 제공 |
+| CLI | `list`, `active`, `plan`, `apply`, `verify`, `coverage`, `reset` 명령 제공 |
 | Environment Guard | 설정과 실제 DB identity를 비교하고 운영·미지원 schema 차단 |
 | Namespace Validator | 형식·길이·SQL parameter 사용·asset 경로 containment 검증 |
 | Namespace Lock | 동일 namespace 동시 실행 차단 |
@@ -175,6 +175,14 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - registry active/history prefix는 namespace asset인 `uploads/dev-data/{namespace}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
 - registry가 불가용하거나 active record와 DB root가 불일치하면 apply·verify·reset을 중단하고 reconciliation 결과를 출력한다.
 - 최초 `init-registry`는 DB에 연결하지 않고 빈 registry만 만든다. fence가 유실됐는데 active record가 남은 상태는 빈 fence로 덮지 않고 복구 대상으로 중단한다.
+- `active` inventory는 registry mutex 안에서 active directory 전체를 읽고 namespace, suite, owner, 상태, 유지 종료일과 count를 출력한다. 예상하지 못한 파일이나 유효하지 않은 suite·상태·시각 metadata가 있으면 일부 목록을 반환하지 않고 전체를 실패시킨다.
+- fence-only namespace와 unfenced active record는 부분 claim·registry 손상 상태로 분류해 inventory와 신규 claim을 차단한다. 단, DB·asset 정리가 끝나고 마지막 active unlink만 재시도하는 `cleaned` record는 fence 없이 남을 수 있다.
+- registry root의 active scope는 다음 두 모드 중 하나로 결정되며 별도 설정값을 두지 않는다.
+    - 통합 모드: `cms-all` 하나만 active
+    - 분할 모드: 서로 다른 도메인 suite를 각각 하나씩 active
+- `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
+- 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
+- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 canonical catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
 
 ## 데이터 계층
 
@@ -432,8 +440,11 @@ coverage entry는 다음 축을 가진다.
 
 ## Apply와 reset 모델
 
-- `plan`은 변경 없이 DB identity, schema fingerprint, registry 상태, 기존 namespace root, 적용 scenario와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 mutation counter로 기록한다.
+- `active`는 DB 접속 없이 현재 namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다.
+- `plan`은 변경 없이 DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root, 적용 scenario와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 mutation counter로 기록한다.
 - `apply`는 기준정보 검증 뒤 의존성 순서로 scenario를 실행한다.
+- 새 namespace claim은 registry mutex 안에서 overlapping active scope를 다시 검사한다. `plan` 뒤 다른 실행이 먼저 claim하면 후속 apply는 DB write 전에 실패한다.
+- claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
 - 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다. 이 식별 계약이 하나라도 다르면 reset 후 새 namespace run으로 다시 적용한다.
 - `reset`은 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한 뒤 시작한다.
 - DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 fence를 유지한다.

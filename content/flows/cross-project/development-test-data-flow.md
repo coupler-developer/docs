@@ -41,6 +41,7 @@
 ```bash
 pnpm --dir coupler-api data-feed list
 pnpm --dir coupler-api data-feed init-registry
+pnpm --dir coupler-api data-feed active
 pnpm --dir coupler-api data-feed contract
 pnpm --dir coupler-api data-feed coverage --route-contract /absolute/path/to/coupler-admin-web/src/config/dev-data-route-contract.json
 # 아래 두 값은 실행 시점의 RDS CURRENT_DATE() (Asia/Seoul)와 유지 기한으로 치환한다.
@@ -58,6 +59,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 - API CLI와 Admin browser runner는 서로의 repository를 자동 탐색하지 않는다. `coverage`에는 생성된 Admin route contract의 절대 경로를 넘기고, browser smoke는 Admin repository에서 실행한다.
 - `contract`는 write 없이 접속 DB의 feeder schema fingerprint를 확인한다. namespace 형식은 `plan`부터 검증하고 Admin component route exact set은 `check:dev-data-routes`와 `coverage`가 확인한다.
 - `init-registry`는 DB에 연결하지 않고 private Run Registry의 최초 directory와 빈 fence만 만든다. active record가 있는데 fence가 없으면 재생성하지 않는다.
+- `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다. registry metadata, active directory entry, global fence와 active record의 양방향 정합성이 유효하지 않으면 fail-closed한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
@@ -67,18 +69,19 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ## Apply 메인 흐름
 
 1. `list`로 지원 suite ID를 확인한다.
-2. namespace, owner, 유지 종료일, reference time을 정한다.
-3. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
-4. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
-5. 작업자가 DB identity, namespace, suite, registry·schema version, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
-6. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
-7. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
-8. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
-9. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
-10. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 고유 경로로 복사해 `profiles/`·`videos/` namespace 경로에 동기화한다.
-11. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
-12. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
-13. run ID, mutation count, 검증 결과와 유지 종료일을 registry와 작업 증빙에 기록한다.
+2. `active`로 기존 namespace의 owner·suite·scope·상태·유지 종료일을 확인한다.
+3. namespace, owner, 유지 종료일, reference time을 정한다.
+4. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
+5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
+6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
+7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 overlapping active scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
+8. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
+9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
+10. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
+11. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 고유 경로로 복사해 `profiles/`·`videos/` namespace 경로에 동기화한다.
+12. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
+13. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
+14. run ID, mutation count, 검증 결과와 유지 종료일을 registry와 작업 증빙에 기록한다.
 
 ## 도메인별 검증
 
@@ -96,9 +99,11 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ## 반복 실행과 갱신 흐름
 
 1. 같은 owner·suite·catalog/schema version·reference time의 반복 `apply`는 prepared scenario를 reconciliation하고, 이미 `applied`면 데이터를 재생성하지 않고 verifier만 다시 실행한다.
-2. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace를 먼저 `reset`하고 새 `plan`·`apply`를 실행한다.
-3. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
-4. reset과 새 apply 사이에는 global cron fence 상태와 root 0건을 확인한다.
+2. 새 namespace의 `cms-all`은 다른 active run이 없어야 하고, 도메인 suite는 동일 suite의 active run이 없어야 한다. 서로 다른 도메인 suite만 분할 모드로 함께 유지한다.
+3. 동일 도메인에 추가 화면 상태가 필요하면 병렬 namespace를 만들지 않고 canonical scenario·verifier를 보강한다.
+4. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace를 먼저 `reset`하고 새 `plan`·`apply`를 실행한다.
+5. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
+6. reset과 새 apply 사이에는 global cron fence 상태와 root 0건을 확인한다.
 
 ## UI·상태·DB 변경 반영 흐름
 
@@ -150,9 +155,16 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ### Run Registry 불일치
 
 - registry가 불가용하거나 ETag 충돌, active record·DB root 불일치가 있으면 apply·verify·reset을 시작하지 않는다.
-- registry와 DB를 각각 read-only로 조사해 `registry-only`, `db-only`, `version-mismatch`로 구분한다.
+- registry와 DB를 각각 read-only로 조사해 `fence-only`, `unfenced-active`, `registry-only`, `db-only`, `version-mismatch`로 구분한다.
 - 자동 추정으로 소유권을 바꾸지 않고 ownership resolver를 수정한 뒤 reconciliation과 plan을 다시 수행한다.
 - DB·asset cleanup 뒤 registry finalization만 실패한 경우 합성 데이터를 복원하지 않고 history 저장과 fence 제거만 재시도한다.
+
+### Active scope 충돌
+
+- `cms-all`과 다른 active run, 또는 동일 도메인 suite의 서로 다른 namespace가 함께 claim되려 하면 DB write 전에 중단한다.
+- `active`로 기존 namespace의 owner·상태·유지 종료일을 확인하고 기존 owner와 협의해 해당 namespace를 명시적으로 reset한 뒤 새 plan부터 실행한다.
+- 만료됐다는 이유로 active record나 namespace row를 자동 삭제하지 않는다.
+- 서로 다른 도메인 suite를 함께 유지해야 하면 분할 모드를 사용하고, 통합 `cms-all`과 섞지 않는다.
 
 ### Run Registry lock 잔존
 
