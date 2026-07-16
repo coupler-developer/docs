@@ -144,6 +144,25 @@ type CommentParentRef =
 - 대댓글(`parent > 0`)은 parent 댓글의 삭제 여부와 무관하게 대댓글 버튼을 표시하지 않는다.
 - 정상 대댓글의 신고 아이콘은 원댓글과 같은 기준으로 표시한다.
 
+## 앱 응답 계약
+
+라운지 앱 응답의 public wire DTO는 API Swagger/OpenAPI가 단일 기준이며
+`@coupler-developer/coupler-api-contracts`의 operation별 success DTO로 생성한다.
+
+| 엔드포인트 | success `data` DTO |
+| --- | --- |
+| `GET /lounge/list` | `LoungeListResult` |
+| `GET /lounge/myList` | `LoungeMyListResult` |
+| `GET /lounge/detail` | `LoungeDetailResult` |
+| `GET /lounge/comment/list` | `LoungeCommentListResult` |
+
+- 게시글 목록과 상세, 댓글은 서로 다른 실제 응답 shape를 사용하므로 하나의 optional DTO로 합치지 않는다.
+- 앱 노출 `status`는 `1 | -1 | -2`이며 `ADMIN_FORCE_DELETED(-3)`는 success DTO에 포함하지 않는다.
+- 게시글 `photo`는 배열이 아니라 쉼표로 구분된 문자열이며 tombstone이면 빈 문자열이다.
+- 실제 응답에서 항상 생성하는 필드는 Swagger `required`와 generated contract에서도 필수다.
+- Mobile은 operation별 generated success DTO를 API 호출 경계에서 사용하고 화면 전용 ViewModel로
+  명시 변환한다.
+
 ### 댓글 작성 parent 허용 기준
 
 `POST /lounge/comment/add`의 `parent`는 아래 기준으로만 허용한다.

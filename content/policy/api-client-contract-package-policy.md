@@ -22,7 +22,6 @@
 
 - JSON API 응답 envelope 자체의 wire 구조 변경
 - request method/path/media type 검증 runtime, request serializer, URL encoder, operation dispatcher
-- operation별 request/success DTO schema 작성 기준
 - 실패 `ErrorData` taxonomy 작성 기준
 
 ## 단일 SoT
@@ -51,6 +50,7 @@
 - 현재 published package는 operation별 success DTO type과 response/error runtime을 제공하지만 operation별 public request DTO type은 제공하지 않는다.
 - Public request DTO type 생성과 Admin/Mobile local request wire DTO 제거는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API public request DTO 생성/소비 전환 미완료`에서 추적한다.
 - 전환 완료 전 기존 local request DTO는 기존 부채로 분류한다. 신규 또는 직접 수정하는 operation은 Swagger/OpenAPI request schema를 먼저 고정하고, package generated request DTO를 사용할 수 있는 범위부터 local wire DTO를 추가하지 않는다.
+- 기존 `unknown`, loose success schema, consumer-local response DTO는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API success DTO schema 정리 미완료`로 관리한다. 현재 변경이 읽거나 수정하지 않는 기존 endpoint를 같은 PR에서 일괄 정리하지 않는다.
 
 ## 필수 규칙
 
@@ -58,6 +58,9 @@
 - package infra PR은 wire 응답 구조를 바꾸지 않는다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
 - API public request/success wire shape는 Swagger/OpenAPI에서 한 번만 정의하고 API generator가 package type으로 생성한다. 필드의 비즈니스 의미와 도메인 제약은 각 도메인 정책에서 정의한다. Admin/Mobile은 같은 wire DTO를 local type/interface로 다시 정의하지 않는다.
+- 신규 operation 또는 성공 `data`의 필드·필수 여부·nullable·배열/단수 구조를 직접 변경하는 operation은 같은 변경 단위에서 Swagger/OpenAPI success DTO를 실제 wire shape와 일치시키고 generated contract freshness를 통과해야 한다.
+- Mobile/Admin이 성공 `data`의 내부 필드를 읽어 화면 상태나 비즈니스 분기에 사용하는 operation은 package generated success DTO를 API 호출 경계에 적용하고 화면 ViewModel로 명시 변환한다.
+- 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough 경로는 operation별 success DTO 소비 전환 대상에서 제외할 수 있다. 이 예외는 필드 접근·로컬 shape 선언·cast·fallback이 없다는 근거가 있어야 하며, passthrough를 이유로 신규 loose schema를 추가해서는 안 된다.
 - Package request DTO는 type-only 계약이며 path/query/body 위치, required/optional, nullable, 배열/단수 구조를 보존해야 한다. DB row, 서버 내부 DTO, 화면 ViewModel, 로컬 draft는 package public DTO로 승격하지 않는다.
 - 소비자는 package request DTO로 payload를 구성하고 package success DTO를 화면 ViewModel로 명시 변환한다. ViewModel이 API 호출 계층으로 역유입되거나 local wire DTO가 package 계약을 덮어쓰면 안 된다.
 - 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에 exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는 완료가 아니다.
@@ -176,7 +179,10 @@
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
 - [ ] API public request/success DTO가 Swagger/OpenAPI에서 한 번만 정의되고 package type으로 생성되는가?
+- [ ] 신규 또는 직접 수정한 structured success `data`가 실제 wire shape와 같은 required/optional/nullable/배열 구조로 정의되고 generated contract freshness를 통과하는가?
 - [ ] 소비자 request payload와 success data가 package generated DTO를 사용하며 동일 wire shape의 local DTO를 재정의하지 않는가?
+- [ ] 기존 loose/local DTO를 이번 변경이 만들거나 확산하지 않았으며, 미수정 잔여분은 기존 기술 부채로 분리했는가?
+- [ ] success DTO 적용을 `N/A`로 둔 opaque JSON passthrough는 소비자가 내부 필드를 읽지 않고 그대로 전달·보관한다는 코드 근거가 있는가?
 - [ ] type-only request DTO 공유가 request runtime validator/serializer/dispatcher 공개로 확장되지 않았는가?
 - [ ] public response/envelope 타입과 runtime guard가 generated error runtime의 strict `ErrorData`를 실패 계약으로 쓰는가?
 - [ ] `response` public runtime이 `isApiEnvelope` 하나이고 소비자 facade가 `isEnvelope` 외의 파생 envelope guard를 추가하지 않았는가?

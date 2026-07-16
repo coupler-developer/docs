@@ -239,6 +239,9 @@
 ### 공통 응답/에러 계약 리뷰 기준
 
 - JSON API 성공/실패 envelope 추가/수정, Mobile/Admin 응답 boundary 수정은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 리뷰한다.
+- 신규 API 또는 성공 `data`의 구조를 직접 수정한 API는 Swagger/OpenAPI에 실제 wire shape와 같은 operation별 success DTO가 있고 contracts package가 이를 생성하는지 확인한다. Mobile/Admin이 해당 `data` 내부 필드를 읽으면 generated success DTO를 API 호출 경계에서 사용하지 않는 local response DTO를 finding으로 기록한다.
+- 현재 diff가 읽거나 수정하지 않는 기존 loose success schema와 consumer-local response DTO는 `기존 부채`로 분류하고 일괄 정리를 병합 조건으로 만들지 않는다. 다만 직접 수정한 operation에서 같은 패턴을 새로 추가하거나 확산하면 finding으로 기록한다.
+- 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough는 success DTO 소비 리뷰를 `N/A`로 둘 수 있다. 필드 접근, local shape 선언, cast 또는 fallback이 있으면 passthrough 예외가 아니다.
 - API 실패 응답 추가/수정, Mobile/Admin 실패 분기 수정, 운영 로그 상관관계 변경은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 리뷰한다.
 - 서버는 계약된 JSON API 성공을 `{ ok: true, data }`, 실패를 `{ ok: false, error: ErrorData }` envelope로 반환하고, 신규 실패 응답은 공통 factory/mapper 경계로 생성해야 한다. 컨트롤러/도메인 로직에서 실패 응답 JSON을 직접 조립하면 finding으로 기록한다.
 - HTTP non-2xx는 API error taxonomy 밖의 transport/protocol/proxy 실패로만 사용해야 한다. 서버가 `ErrorData`를 HTTP 4xx/5xx와 함께 반환하거나, Mobile/Admin이 HTTP status를 `error_action`/`error_code`로 변환하면 finding으로 기록한다.
@@ -279,6 +282,7 @@
 - [ ] 변경 범위 안에서 더 단순한 문서/코드 구조, SoT, 책임 경계, 파일 배치로 정리할 수 있는데도 중복/우회/임시 구조를 새로 만들거나 넓히지 않았는가?
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
 - [ ] 응답/에러 처리가 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), [엔지니어링 가드레일](engineering-guardrails.md)의 응답/에러 처리 기준을 따르는가?
+- [ ] 신규 또는 직접 수정한 structured success `data`의 Swagger/OpenAPI DTO, generated contract, 소비자 API 경계 타입이 일치하며 기존 부채와 opaque JSON passthrough 예외를 구분했는가?
 - [ ] 테스트 변경 판정이 충분한가? (`추가`/`갱신`/`미변경` 근거, 중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
