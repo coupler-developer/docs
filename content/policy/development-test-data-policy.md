@@ -101,6 +101,15 @@
 - namespace 밖 행이 삭제 후보에 포함되면 reset 전체를 중단한다.
 - 기준정보는 `ensure` 대상으로만 취급하며 일반 `reset`에서 삭제하거나 기존 값을 덮어쓰지 않는다.
 - 공유 개발계는 apply 전에 run registry에 namespace를 조건부 생성하고, 이미 존재하거나 registry가 불가용하면 DB write를 시작하지 않는다.
+- 하나의 registry root는 `cms-all` 단독 active 모드와 도메인별 분할 active 모드를 동시에 사용하지 않는다.
+    - `cms-all`은 모든 도메인 suite와 scope가 겹치므로 다른 active run이 하나라도 있으면 새 namespace로 claim할 수 없다.
+    - 도메인 suite는 동일 suite의 active run과만 충돌하며, 서로 다른 도메인 suite는 각각 최대 1개씩 함께 유지할 수 있다.
+    - 동일 namespace의 owner·suite·catalog/schema version·reference time이 같은 반복 apply는 신규 claim이 아니라 기존 run 검증으로 처리한다.
+    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 canonical scenario와 verifier를 보강한 뒤 기존 namespace를 reset·재적용한다.
+- scope 충돌 검사는 run registry mutex 안에서 active record 전체를 읽고 claim 직전에 다시 수행한다. `plan` 결과만으로 claim 가능성을 확정하지 않는다.
+- global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
+- 만료됐거나 `failed`, `cleanup_failed`, `cleaned` finalization 대기 상태인 active record도 명시적 reset·finalization 전에는 새 overlapping suite를 차단한다.
+- scope 충돌을 우회하는 `--force`, 병렬 허용 옵션, 만료 시 자동 삭제를 제공하지 않는다.
 - 공유 registry backend는 read-after-write consistency와 ETag 조건부 갱신을 보장해야 하며, 보장할 수 없는 저장소는 지원하지 않는다.
 - owner, suite, catalog version, schema fingerprint, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
 - owner는 내부 계정 ID만 사용하고 history 보관·삭제는 [데이터 거버넌스 정책](data-governance-policy.md)의 90일 기준을 따른다.
@@ -208,7 +217,8 @@
 ### 13) dry-run, 검증, reset
 
 - 공유 개발계 명령은 기본적으로 dry-run하며 실제 write에는 명시적 `--apply`가 필요하다.
-- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
+- `active`는 DB에 연결하지 않고 현재 active namespace의 owner, suite, scope, 상태, 기준 시각, 유지 종료일, 만료 여부, 검증 count를 출력한다.
+- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
 - reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
@@ -216,7 +226,7 @@
 ## 운영 절차
 
 1. 변경 요청에서 대상 suite, namespace, 환경, reference time, 예상 규모를 고정한다.
-2. catalog·coverage·DB identity를 검증하고 dry-run 결과를 검토한다.
+2. active inventory, catalog·coverage·DB identity를 검증하고 dry-run의 scope 충돌 결과를 검토한다.
 3. namespace 잠금을 획득하고 기준정보 확인 후 시나리오를 트랜잭션 단위로 적용한다.
 4. DB 불변식, branch obligation, 관리자 API, 브라우저 화면, 전체 route coverage, 유지 기간 외부 호출 0건을 검증한다.
 5. 유지 기한이 끝나면 같은 namespace로 reset하고 orphan·미디어 잔존 0건을 확인한다.
@@ -243,6 +253,8 @@
 - [ ] 운영 DB 우회 옵션 없이 fail-closed로 차단되는가?
 - [ ] 운영 원문이나 실제 개인정보를 사용하지 않았는가?
 - [ ] namespace 소유권과 반복 실행 결과가 검증되는가?
+- [ ] `cms-all`과 도메인별 active scope가 registry mutex 안에서 중복 claim되지 않는가?
+- [ ] 만료·실패·finalization 대기 run이 자동 삭제되지 않고 active inventory와 충돌 결과에 남는가?
 - [ ] namespace 형식·SQL parameter·asset 경로 containment가 fail-closed로 검증되는가?
 - [ ] run registry가 owner·유지 기한·상태를 공유 환경에 영속화하는가?
 - [ ] 외부 알림·결제·분석 호출이 0건인가?
