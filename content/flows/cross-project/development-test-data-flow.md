@@ -32,7 +32,7 @@
 | 개발 데이터 CLI | 환경 차단, 잠금, 트랜잭션, 검증, 결과 출력 |
 | Run Registry | global cron fence, active run, history와 ETag 직렬화 제공 |
 | 개발 DB | 합성 데이터 저장과 namespace 잠금 제공 |
-| 개발 미디어 저장소 | checksum이 고정된 합성 asset 보관 |
+| 개발 미디어 저장소 | checksum이 고정된 기준 asset과 actor별 namespace 프로필·영상 보관 |
 | 관리자 시스템 | 실제 탭·filter별 조회 결과 제공 |
 | Admin browser runner | 기존 QA role session으로 route·filter별 실제 렌더 검증 |
 
@@ -75,7 +75,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 7. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
 8. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
 9. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
-10. 전체 scenario 뒤 합성 asset checksum과 대상 경로 containment를 검증해 namespace 경로에 동기화한다.
+10. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 고유 경로로 복사해 `profiles/`·`videos/` namespace 경로에 동기화한다.
 11. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
 12. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
 13. run ID, mutation count, 검증 결과와 유지 종료일을 registry와 작업 증빙에 기록한다.
@@ -84,9 +84,9 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 | 도메인 | 최소 postcheck |
 | --- | --- |
-| 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐가 같은 결론 |
+| 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
-| 기존 그룹미팅 | 참여 상태, 채팅, 후기, 신고, 패널티 목록 노출 |
+| 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
@@ -239,11 +239,13 @@ environment=development
 namespace=qa-cms
 run_id=qa-cms-20260714t100000k0900
 suite=cms-all
-catalog_version=1
+catalog_version=2
 schema_fingerprint=sha256:7d2f2e0c1b40
 reference_time=2026-07-14T10:00:00+09:00
 scenarios=all-pass
 branch_coverage=100%
+profile_media=PASS
+meeting_admin_chat_join=PASS
 route_classification=54/54
 data_surface_coverage=52/52
 ui_render_coverage=52/52

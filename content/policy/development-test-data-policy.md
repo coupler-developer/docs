@@ -137,6 +137,8 @@
 - canonical 시나리오는 도메인 정책의 상태, 원장, 관계, 시간 불변식을 모두 만족해야 한다.
 - 파생 집계 화면은 집계 row를 직접 조작하지 않고 회원가입, 로그인, 결제, 매칭 같은 원천 사건으로 채운다.
 - 회원 심사 결과는 `v_member_review_status`, 매칭 상태는 `t_match.match_status`, 키 잔액은 `t_member.key`와 `t_member_key_log`처럼 각 도메인의 SoT로 검증한다.
+- 기존 2:2 그룹미팅은 주최자도 승인된 `t_meeting_member`로 존재해야 하며, `t_meeting.male_cnt`·`female_cnt`는 승인된 멤버의 실제 성별 건수와 일치해야 한다.
+- 기존 2:2 그룹미팅 채팅 작성자는 같은 미팅의 멤버십을 가져야 하며, 원본 `t_meeting_chat` 건수와 Admin 목록의 멤버십 join 노출 건수가 일치해야 한다.
 - 신고 처리, 환불, 패널티는 접수 전·접수 대기·처리 완료·만료 상태를 분리한다.
 - negative 시나리오는 개인 로컬·일회성 CI DB에서만 허용하고, 공유 개발계 적용과 `cms-all` suite 포함을 금지한다.
 - 상태 상수는 서버 export에서 type을 도출하고 `satisfies Record<상태 type, scenario ID[]>` 또는 동등한 exhaustive map으로 모든 값을 branch obligation에 연결한다.
@@ -190,7 +192,10 @@
 
 - 프로필, 라운지, 그룹미팅 미디어는 repository에 포함된 소형 합성 asset만 사용한다.
 - 실제 회원 사진, 운영 업로드 경로, 외부 임시 URL을 재사용하지 않는다.
-- asset은 checksum으로 검증하고 개발 미디어 저장소의 namespace 경로에만 배치한다.
+- 합성 회원 프로필은 최소 3개의 서로 다른 이미지 경로를 사용하고, 화면에서 합성 데이터와 actor를 구분할 수 있는 테스트 표식을 포함한다. 모든 회원이 하나의 공용 placeholder를 공유하면 안 된다.
+- 프로필 영상은 선택적으로 생성하되 영상 보유 회원마다 고유한 namespace 경로를 사용하고, repository의 성별·인물별 소형 합성 영상 중 하나와 결정적으로 연결한다.
+- 기준 asset과 동기화된 영상은 checksum으로 검증하고 `uploads/dev-data/{namespace}/profiles/`, `uploads/dev-data/{namespace}/videos/` 아래에만 배치한다.
+- verifier는 회원별 대표 프로필 경로의 고유성, 프로필 이미지 최소 수·고유 경로 수, 영상 경로 고유성과 양수 건수를 검증한다.
 - reset은 해당 namespace asset만 삭제하며 공용 placeholder와 기존 업로드를 삭제하지 않는다.
 
 ### 12) DB migration과 데이터 보정 경계
@@ -243,6 +248,8 @@
 - [ ] 외부 알림·결제·분석 호출이 0건인가?
 - [ ] 공유 개발계 데이터 유지 기간에 cron fence가 계속 적용되는가?
 - [ ] canonical 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
+- [ ] 기존 그룹미팅의 주최자 멤버십·성별 인원수·Admin 채팅 join이 원본 데이터와 일치하는가?
+- [ ] 합성 프로필이 회원별로 구분되고 이미지 최소 수·영상 경로·checksum 검증을 통과하는가?
 - [ ] 상태·전이·권한·filter·시간 경계 branch obligation이 100% 충족되는가?
 - [ ] 안전 모듈 branch 100%와 dependency fault-injection test가 통과하는가?
 - [ ] 관리자 component route가 100% 분류되고 데이터 화면이 브라우저에서 검증되는가?
