@@ -10,6 +10,37 @@
 라운지 커뮤니티 아키텍처를 정리한 문서이다.
 현재 범위에서는 라운지의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `lounge`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `lounge.post` | 라운지 게시글 | root | state | 작성자, 공개 범위, 본문과 게시 상태 | 민감 | 삭제 후 tombstone 또는 운영 이력을 남기고 원문은 정책에 따라 정리 |
+| `lounge.comment` | 라운지 댓글 | child | state | 게시글의 직접 부모 관계와 댓글 상태 | 민감 | 스레드 보존이 필요하면 삭제 tombstone 유지 |
+| `lounge.post-reaction` | 게시글 반응 | relation | state | 회원의 게시글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 게시글 정리 시 삭제 |
+| `lounge.comment-reaction` | 댓글 반응 | relation | state | 회원의 댓글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 댓글 정리 시 삭제 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `lounge.post` | references | `member.member` | N:1 | 작성자 개인정보 정리 뒤 별칭 또는 비식별 표시 사용 |
+| `lounge.post` | owns | `lounge.comment` | 1:N | 게시글 삭제 정책과 댓글 스레드 보존 정책을 함께 적용 |
+| `lounge.post-reaction` | associates | `member.member` | N:M | 동일 회원의 동일 게시글 반응은 하나만 존재 |
+| `lounge.comment-reaction` | associates | `member.member` | N:M | 동일 회원의 동일 댓글 반응은 하나만 존재 |
+| `lounge.comment` | references | `lounge.comment` | N:1 | 직접 부모만 참조하며 삭제된 최상위 댓글은 tombstone으로 유지 가능 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `LOUNGE-INV-001` | `lounge.comment` | 댓글의 직접 부모는 같은 게시글에 속해야 한다 | 이 문서 |
+| `LOUNGE-INV-002` | `lounge.comment` | 삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다 | 이 문서 |
+| `LOUNGE-INV-003` | `lounge.post-reaction` | 저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+
 ## 게시글 상태
 
 | 값  | 상수    | 의미 |
@@ -165,31 +196,3 @@ flowchart TD
 
 수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.
 이 문서는 라운지 parent 구조와 표시 기준만 설명하고, 댓글/대댓글 발송 대상은 정책 문서에서만 정의한다.
-
-## 데이터 모델
-
-### t_lounge
-
-| 필드        | 설명                 |
-| ----------- | -------------------- |
-| member      | 작성자 ID            |
-| category    | 카테고리             |
-| title       | 제목                 |
-| content     | 내용                 |
-| photo       | 첨부 이미지 (# 구분) |
-| mini_public | 프로필 공개 여부     |
-| best        | 베스트 여부          |
-| alias       | 비공개 시 닉네임     |
-| visit_cnt   | 조회수               |
-| like_cnt    | 좋아요 수            |
-| cmt_cnt     | 저장 댓글 수 캐시 필드 |
-
-### t_lounge_cmt
-
-| 필드    | 설명                   |
-| ------- | ---------------------- |
-| lounge  | 게시글 ID              |
-| member  | 작성자 ID              |
-| parent  | 직접 부모 댓글 ID (0=없음) |
-| content | 댓글 내용              |
-| alias   | 비공개 시 닉네임       |

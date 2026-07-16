@@ -58,17 +58,25 @@ nav:
   - Workspace AGENTS: AGENTS.md
   - Architecture:
       - 레포지토리 요약: architecture/repo-overview.md
+      - 논리 데이터 모델 인덱스: architecture/logical-data-model-index.md
       - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md
       - 회원 라이프사이클: architecture/member-lifecycle.md
+      - 회원 심사 시스템: architecture/member-review-system.md
+      - 클럽매니저 시스템: architecture/club-manager-system.md
+      - 매칭 시스템: architecture/matching-system.md
       - 매칭 키 시스템: architecture/matching-key-system.md
       - 매칭 스케줄 알고리즘: architecture/matching-schedule-algorithm.md
       - 기존 2대2 그룹미팅 시스템: architecture/meeting-system.md
       - 그룹미팅 시스템: architecture/group-meeting-system.md
       - 라운지 시스템: architecture/lounge-system.md
       - 채팅 시스템: architecture/chat-system.md
+      - 신고·제재 시스템: architecture/moderation-system.md
       - 결제 시스템: architecture/payment-system.md
       - 푸시 알림: architecture/push-notification.md
+      - 고객지원 시스템: architecture/support-system.md
       - 관리자 권한: architecture/admin-permission.md
+      - 플랫폼 기준정보 시스템: architecture/platform-config-system.md
+      - 분석 시스템: architecture/analytics-system.md
       - 크론 작업: architecture/cron-jobs.md
       - 업로드/미디어 시스템: architecture/upload-media-system.md
       - 테스트용 개발 데이터 시스템: architecture/development-test-data-system.md
@@ -97,6 +105,7 @@ nav:
       - 서비스 용어 정책: policy/service-terminology-policy.md
       - 코드 리뷰 정책: policy/code-review-policy.md
       - DB Migration Gate 정책: policy/db-migration-gate-policy.md
+      - 논리 데이터 모델 정책: policy/logical-data-model-policy.md
       - 문서 거버넌스 정책: policy/document-governance-policy.md
       - 엔지니어링 가드레일: policy/engineering-guardrails.md
       - 테스트/CI 전략: policy/testing-strategy.md

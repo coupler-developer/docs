@@ -13,60 +13,21 @@
 
 ## 구조 요약
 
-- 회원 생애주기 상태는 `t_member.status`가 단일 기준이다.
-- 심사 단계 상태의 읽기/판정 기준은 `v_member_review_status`가 단일 기준이다.
-- `t_member_review_stage_snapshot`은 동기화/호환용 스냅샷 테이블이며, 비즈니스 판정 SoT로 사용하지 않는다.
-- 최종 거절은 단계 상태가 아니라 `t_member.status = -4`로만 표현한다.
+- 회원 생애주기 상태는 `member.member`가 단일 기준이다.
+- 심사 단계 상태의 읽기 기준은 `member-review.status-projection`이다.
+- `member-review.stage-snapshot`은 동기화·호환용이며 비즈니스 판정 SoT로 사용하지 않는다.
+- 최종 거절은 심사 단계가 아니라 회원 생애주기의 `REJECTED`로만 표현한다.
 - 반려/재심사는 단계별 상태(`RETURN`, `REAPPLY`)로 표현한다.
 
-## 저장 구조
+## 데이터 모델과 조회 역할
 
-### 1) 회원 생애주기
-
-- 테이블: `t_member`
-- 컬럼: `status`
-- 값:
-    - `-4`: 심사 거절
-    - `-3`: 탈퇴
-    - `-2`: 차단
-    - `-1`: 홀딩
-    - `0`: 심사중
-    - `1`: 정상
-
-### 2) 심사 단계 상태 스냅샷(호환용)
-
-- 테이블: `t_member_review_stage_snapshot`
-- PK: `(member_id, stage_code)` (회원당 3행)
-- `stage_code`: `BASIC_INFO`, `REQUIRED_AUTH`, `INTRO` (DB 내부 스냅샷 키, API 응답 필드 아님)
-- `stage_status`: `UNSUBMITTED`, `PENDING`, `RETURN`, `REAPPLY`, `APPROVED`
-    - `UNSUBMITTED`: 미제출 상태. 회원이 비활성(HOLD/BLOCK/LEAVE)이거나 해당 단계 데이터가 아직 없을 때 기본값
-- `stage_status_entered_at`: 해당 단계 현재 상태 진입시각
-- `snapshot_updated_at`: 행 갱신시각
-- 참고: 최종 상태 판정은 이 테이블 직접 조회가 아니라 `v_member_review_status` 조회를 기준으로 한다.
-
-## 조회 뷰 역할
-
-### `v_member_review_status` (API/모바일 기준 뷰)
-
-- 회원당 1행 요약
-- 포함 정보:
-    - `member_status`
-    - `member_level` (`PRE_MEMBER`/`GENERAL_MEMBER`/`SEMI_MEMBER`/`FULL_MEMBER`/`SPECIAL_MEMBER`)
-    - `basic_info_status`, `required_auth_status`, `intro_status`
-    - 단계별 `*_entered_at`
-- API/모바일은 이 뷰를 기준으로 현재 심사 상태를 해석한다.
-- 이 문서에서 심사 상태 SoV(Service Output View)는 `v_member_review_status`를 의미한다.
-- API 응답 계약에서는 단계 상태를 `data.access_context.review_status` 객체로 전달한다.
-
-### `v_member_review_overview` (운영 보조 집계 뷰)
-
-- 운영 판단 보조용 확장 요약
-- 포함 정보:
-    - `current_focus_stage`
-    - 현재 반려/재심사 플래그(`has_issue_current`)
-    - 단계별 현재 플래그(`*_pending_current`, `*_return_current`, `*_reapply_current`)
-    - 단계별 이력 집계(`*_history_cnt`)
-- 심사 상태 읽기 SoT를 대체하지 않는다.
+- 심사 요청, 인증 증거, 프로필 버전과 조회 모델의 소유권은
+  [회원 심사 시스템](member-review-system.md)의 `member-review` 논리 모델을 따른다.
+- 회원 생애주기는 [회원 라이프사이클](member-lifecycle.md)의 `member.member`가 소유한다.
+- API·Mobile은 `member-review.status-projection`을 기준으로 현재 심사 상태를 해석한다.
+- Admin 운영 큐는 `member-review.overview-projection`을 보조 조회로 사용하되 심사 판정 원천을 대체하지
+  않는다.
+- `member-review.stage-snapshot`은 표시·호환용 snapshot이며 비즈니스 판정 SoT로 사용하지 않는다.
 
 ## 상태 해석 규칙
 

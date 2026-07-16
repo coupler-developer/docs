@@ -35,6 +35,8 @@
 - DB 접속 정보, 계정, 권한, host/topology, 운영 row 또는 민감 데이터가 포함된 dump는 `민감`으로 분류한다.
 - 공개 docs에는 논리 엔티티·관계·소유권·분류·불변 조건·보관/삭제 생명주기만 기록한다. 서비스 업무
   스키마의 전체 테이블·컬럼 설명, 실행 가능한 DDL, 운영 row 샘플은 공개하지 않는다.
+- 공개 논리 엔티티의 분류는 [논리 데이터 모델 정책](logical-data-model-policy.md)의 소유 문서 표에서
+  엔티티가 포함하는 데이터 중 가장 높은 등급으로 기록한다.
 - 물리 식별자 이름 자체를 접근 통제 수단으로 간주하지 않는다. 비공개 schema 관리와 별개로 인증, 권한,
   네트워크 통제, 암호화, 감사 로그를 적용한다.
 
@@ -131,5 +133,6 @@
 - [로그 정책](log-policy.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
 - [DB Migration Gate 정책](db-migration-gate-policy.md)
+- [논리 데이터 모델 정책](logical-data-model-policy.md)
 - [배포/릴리즈 프로세스](release-process.md)
 - [테스트용 개발 데이터 정책](development-test-data-policy.md)

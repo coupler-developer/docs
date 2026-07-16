@@ -22,6 +22,8 @@
 - 기술 규칙과 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다.
 - docs 검증 게이트와 표준 검증 명령은 [테스트/CI 전략](testing-strategy.md)을 단일 기준으로 사용한다.
 - DB 공개 범위와 데이터 분류는 [데이터 거버넌스 정책](data-governance-policy.md)을 단일 기준으로 사용한다.
+- 공개 논리 데이터 모델의 도메인 소유권, ID와 taxonomy는
+  [논리 데이터 모델 정책](logical-data-model-policy.md)을 단일 기준으로 사용한다.
 - 물리 DB 변경, migration, schema drift 판정은
   [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
 
@@ -64,6 +66,8 @@
 ## DB 문서 경계
 
 - 공개 docs는 도메인 엔티티, 관계, 소유권, 데이터 분류, 불변 조건, 생명주기, 논리 상태 전이만 설명한다.
+- 공개 논리 모델은 [논리 데이터 모델 인덱스](../architecture/logical-data-model-index.md)의 도메인별 소유
+  문서에서 한 번만 정의하고, 다른 문서는 논리 ID로 참조한다.
 - 공개 docs에 서비스 업무 스키마의 전체 테이블·컬럼 사전, 실행 가능한 DDL, schema baseline/lock,
   인덱스·FK 전체 목록, DB 접속 정보 또는 운영 row 샘플을 두지 않는다.
 - migration ledger 계약, Gate 판정, 로컬 안전장치처럼 DB 거버넌스를 설명하는 최소 범용 SQL 예시는 허용한다.
@@ -89,6 +93,8 @@
   schema lock 검증을 통과해야 한다.
 - DB 변경이 도메인 관계, 소유권, 데이터 분류, 불변 조건, 보관·삭제 생명주기 또는 외부 계약을 바꾸면 공개
   논리 문서를 연결된 docs PR에서 함께 갱신한다.
+- 새 물리 객체를 추가하거나 기존 객체를 분할·통합하면 private 논리 모델 매핑에서 공개 논리 ID,
+  내부 운영 객체, 파생 조회 객체 중 하나로 반드시 분류한다.
 - DB 변경이 물리 이름, 인덱스, 저장 타입, 내부 정규화처럼 공개 논리 계약을 바꾸지 않으면 공개 docs를 억지로
   수정하지 않고 `논리 문서 영향 없음` 근거와 private schema 검증 결과를 남긴다.
 
@@ -153,3 +159,4 @@
 - [엔지니어링 가드레일](engineering-guardrails.md)
 - [테스트/CI 전략](testing-strategy.md)
 - [코드 리뷰 정책](code-review-policy.md)
+- [논리 데이터 모델 정책](logical-data-model-policy.md)

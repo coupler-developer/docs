@@ -11,6 +11,35 @@
 
 정확한 차감/환불 기준의 원문 SoT는 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `key-wallet`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `key-wallet.wallet` | Key 지갑 | child | state | 회원이 현재 사용할 수 있는 Key 잔액 | 내부 | 회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴 |
+| `key-wallet.entry` | Key 변동 원장 | child | ledger | 지급·차감·환불과 변경 후 잔액 | 내부 | append-only 서비스 이용·정산 이력으로 보존 |
+| `key-wallet.profile-access` | 프로필 열람 거래 | child | ledger | 회원 간 최초 프로필 열람과 Key 차감 연결 | 민감 | 중복 과금 방지를 위해 열람 문맥과 원장 연결을 보존 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `member.member` | owns | `key-wallet.wallet` | 1:1 | 회원 계정마다 하나의 현재 지갑만 유지 |
+| `key-wallet.wallet` | owns | `key-wallet.entry` | 1:N | 원장 삭제 없이 잔액 변동을 보존 |
+| `key-wallet.profile-access` | references | `key-wallet.entry` | 1:1 | 성공한 유료 열람은 정확히 하나의 차감 원장과 연결 |
+| `key-wallet.profile-access` | associates | `member.member` | N:M | 같은 문맥의 동일 대상 최초 열람을 중복 과금하지 않음 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `KEY-WALLET-INV-001` | `key-wallet.wallet` | 현재 잔액은 원장의 순차 적용 결과와 일치해야 한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+| `KEY-WALLET-INV-002` | `key-wallet.entry` | 변동량과 변경 후 잔액은 하나의 transaction에서 확정한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+| `KEY-WALLET-INV-003` | `key-wallet.profile-access` | 동일 열람자·대상·서비스 문맥의 최초 열람은 한 번만 과금한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+
 ## 정산 구조 요약
 
 - 키 차감/환불 판단은 서버가 수행하고, 결과는 `t_member_key_log`와 `t_member.key`에 반영한다.
@@ -43,13 +72,5 @@
 
 ## 키 잔액 추적
 
-모든 키 변동은 `t_member_key_log` 테이블에 기록된다.
-
-| 필드 | 의미 |
-| --- | --- |
-| `member` | 회원 ID |
-| `key` | 키 변동량 |
-| `key_total` | 변경 후 잔액 |
-| `content` | 로그 문구 |
-| `type` | `KEY_LOG.NORMAL` 또는 `KEY_LOG.FREE_KEY` |
-| `create_date` | 발생 시각 |
+모든 Key 변동은 `key-wallet.entry`로 기록하고 `key-wallet.wallet`의 현재 잔액과 같은 transaction에서
+갱신한다. 물리 저장 구조와 컬럼 설명은 private schema contract를 기준으로 한다.

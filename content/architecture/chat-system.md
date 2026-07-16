@@ -11,13 +11,43 @@
 현재 범위에서는 채팅 시스템의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
 매칭 채팅의 상태 전이, 키 차감, 일정 판정은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `conversation`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `conversation.thread` | 대화방 | root | state | 상담·매칭·미팅 문맥의 참여자와 대화 가능 상태 | 내부 | 원천 서비스 문맥의 종료·보관 정책을 따름 |
+| `conversation.participant` | 대화 참여자 | relation | state | 대화방의 회원·운영자 참여 자격과 읽음 경계 | 내부 | 퇴장 뒤에도 메시지 표시 이력을 위해 비식별 보존 가능 |
+| `conversation.message` | 대화 메시지 | child | history | 일반·시스템 메시지와 발송 시각·표시 상태 | 민감 | 신고·CS 기간 동안 보존하고 개인정보 정리 시 비식별화 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `conversation.thread` | owns | `conversation.participant` | 1:N | 원천 서비스 자격을 잃어도 과거 참여 이력은 보존 가능 |
+| `conversation.thread` | owns | `conversation.message` | 1:N | 메시지는 대화방 문맥 없이 존재할 수 없음 |
+| `conversation.thread` | references | `matching.match` | N:1 | 매칭 종료 상태가 대화 가능 여부를 결정 |
+| `conversation.thread` | references | `legacy-meeting.meeting` | N:1 | 기존 미팅 참가 상태가 대화 가능 여부를 결정 |
+| `conversation.thread` | references | `support.request` | N:1 | 고객지원 상담 문맥으로 연결 가능 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `CONVERSATION-INV-001` | `conversation.message` | 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+| `CONVERSATION-INV-002` | `conversation.thread` | 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+| `CONVERSATION-INV-003` | `conversation.message` | 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
 ## 채팅 종류
 
-| 종류 | 테이블 | 참여자 | 설명 |
-|------|--------|--------|------|
-| 큐레이터 채팅 | t_concierge | 관리자 ↔ 회원 | 1:1 고객 상담 |
-| 매칭 채팅 | t_match_chat | 남성 ↔ 여성 | 1:1 매칭 채팅 |
-| 미팅 채팅 | t_meeting_chat | 4명 (남2, 여2) | 2:2 그룹 채팅 |
+| 종류 | 원천 문맥 | 참여자 | 설명 |
+| --- | --- | --- | --- |
+| 큐레이터 채팅 | 고객지원·회원 상담 | 관리자 ↔ 회원 | 1:1 고객 상담 |
+| 매칭 채팅 | `matching.match` | 매칭 회원 2명 | 1:1 매칭 채팅 |
+| 미팅 채팅 | `legacy-meeting.meeting` | 확정 참가자 | 기존 2:2 그룹 채팅 |
 
 ## 메시지 타입 (MSG_TYPE)
 

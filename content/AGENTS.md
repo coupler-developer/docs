@@ -55,17 +55,25 @@
 ### Architecture
 
 - [레포지토리 요약](architecture/repo-overview.md)
+- [논리 데이터 모델 인덱스](architecture/logical-data-model-index.md) - 도메인 ID와 데이터 소유 문서
 - [coupler-mobile-app to-be 아키텍처](architecture/mobile-app-to-be.md)
 - [회원 라이프사이클](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
+- [회원 심사 시스템](architecture/member-review-system.md) - 심사 요청·증거·프로필 버전
+- [클럽매니저 시스템](architecture/club-manager-system.md) - 클럽매니저·회원 배정·상세 프로필
+- [매칭 시스템](architecture/matching-system.md) - 1:1 매칭 저장 책임
 - [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
 - [매칭 스케줄 알고리즘](architecture/matching-schedule-algorithm.md)
 - [기존 2:2 그룹미팅 시스템](architecture/meeting-system.md) - 구현·배포된 레거시 계약
 - [그룹미팅 시스템](architecture/group-meeting-system.md) - n대n 그룹미팅 to-be 기획
 - [라운지 시스템](architecture/lounge-system.md) - 커뮤니티
 - [채팅 시스템](architecture/chat-system.md)
+- [신고·제재 시스템](architecture/moderation-system.md) - 신고·차단·숨김·패널티
 - [결제 시스템](architecture/payment-system.md) - 키 충전 및 인앱결제
 - [푸시 알림](architecture/push-notification.md) - FCM
+- [고객지원 시스템](architecture/support-system.md) - 고객센터 문의·답변
 - [관리자 권한](architecture/admin-permission.md)
+- [플랫폼 기준정보 시스템](architecture/platform-config-system.md) - 설정·앱 버전·공지·기준정보
+- [분석 시스템](architecture/analytics-system.md) - 운영 통계 조회 모델
 - [크론 작업](architecture/cron-jobs.md) - 자동화 스케줄
 - [업로드/미디어 시스템](architecture/upload-media-system.md) - 파일 업로드, 저장, media_proxy
 - [테스트용 개발 데이터 시스템](architecture/development-test-data-system.md) - CMS 전체 component route 합성 데이터·화면 검증 구조
@@ -103,6 +111,7 @@
 - [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
+- [논리 데이터 모델 정책](policy/logical-data-model-policy.md) - 공개 논리 모델 taxonomy와 private 매핑
 - [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍
 - [테스트/CI 전략](policy/testing-strategy.md) - 레포별 테스트 및 CI 기준

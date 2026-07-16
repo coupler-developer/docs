@@ -9,6 +9,31 @@
 
 키 충전 및 인앱결제 관련 아키텍처를 정리한 문서이다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `payment`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `payment.purchase` | 인앱결제 거래 | root | ledger | 플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과 | 민감 | 정산·환불·분쟁 대응 기간 동안 append-only 거래 이력 보존 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `payment.purchase` | references | `member.member` | N:1 | 회원 개인정보 정리 뒤에도 비식별 정산 이력은 보존 |
+| `payment.purchase` | references | `key-wallet.entry` | 1:N | 성공·환불 결과에 해당하는 Key 변동 원장을 연결 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `PAYMENT-INV-001` | `payment.purchase` | 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+| `PAYMENT-INV-002` | `payment.purchase` | 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+| `PAYMENT-INV-003` | `payment.purchase` | 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
 ## 결제 아이템 (IAP_ITEM)
 
 > SKU 식별자(`ritzy.iap.item*`)는 스토어에 등록된 프로덕션 값이므로 변경하지 않는다.
@@ -87,34 +112,6 @@ flowchart LR
 | `GET /admin/iap/sta` | 오늘/어제/이번주/이번달 결제액/환불액 |
 | `GET /admin/iap/log` | 결제 기록 목록 (페이징, 검색) |
 | `GET /admin/iap/free-key-log` | 무료키 지급 내역 |
-
-## 데이터 모델
-
-### t_iap (결제 기록)
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | INT | 기본키 |
-| member | INT | 회원 ID (FK) |
-| order_id | VARCHAR | 거래 ID |
-| purchase_data | TEXT | 결제 데이터 (JSON) |
-| purchase_signature | TEXT | 서명 데이터 |
-| ip | VARCHAR | 클라이언트 IP |
-| price | INT | 결제 금액 |
-| point | INT | 지급된 키 |
-| status | INT | 결제 상태 |
-| path | VARCHAR | 결제 경로 (google/apple/onestore) |
-| create_date | DATETIME | 거래 시간 |
-
-### t_member_key_log (키 변동 로그)
-
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| member_id | INT | 회원 ID |
-| match_id | INT | 매칭 ID (선택) |
-| type | INT | 로그 타입 |
-| key | INT | 변동량 (+/-) |
-| created_date | DATETIME | 발생 시각 |
 
 ## 현재 문서화된 검증 범위
 

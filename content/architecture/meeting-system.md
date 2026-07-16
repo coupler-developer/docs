@@ -12,6 +12,36 @@
 `/meeting/*`, `MEET_*`는 호환성을 위해 유지하는 기존 계약이다.
 현재 범위에서는 미팅의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `legacy-meeting`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `legacy-meeting.meeting` | 기존 2:2 미팅 | root | state | 행사 모집·확정·종료와 현재 표시 정보 | 민감 | 기존 호환 계약으로 보존하며 종료·삭제 이력 유지 |
+| `legacy-meeting.participation` | 기존 미팅 참가 | relation | state | 회원의 신청·승인·퇴장과 행사 당시 별칭 | 민감 | 행사 종료 뒤 참가 이력으로 보존 |
+| `legacy-meeting.review` | 기존 미팅 후기 | child | history | 행사 결과와 후기 내용 | 민감 | 개인정보 정리 뒤 비식별 보존 가능 |
+| `legacy-meeting.rating` | 기존 미팅 별점 | relation | history | 작성 회원과 대상 회원 사이의 별점 | 민감 | 운영·신고 확인 기간 동안 보존 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `legacy-meeting.meeting` | references | `member.member` | N:1 | 주최 회원 개인정보 정리 뒤 행사 이력은 보존 |
+| `legacy-meeting.meeting` | owns | `legacy-meeting.participation` | 1:N | 참가 이력은 행사와 함께 보존 |
+| `legacy-meeting.meeting` | owns | `legacy-meeting.review` | 1:N | 후기 중복 기준을 유지하고 원문은 정책에 따라 정리 |
+| `legacy-meeting.rating` | associates | `member.member` | N:M | 작성자와 대상자를 행사 문맥에서 검증 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `LEGACY-MEETING-INV-001` | `legacy-meeting.meeting` | 기존 2:2와 신규 그룹미팅의 상태·데이터 계약을 혼용하지 않는다 | [논리 데이터 모델 정책](../policy/logical-data-model-policy.md) |
+| `LEGACY-MEETING-INV-002` | `legacy-meeting.participation` | 채팅 개설에 사용하는 확정 참가자는 서로 다른 네 회원이어야 한다 | 이 문서 |
+| `LEGACY-MEETING-INV-003` | `legacy-meeting.rating` | 별점 작성자와 대상자는 같은 행사에 참여한 서로 다른 회원이어야 한다 | 이 문서 |
+
 ## 미팅 상태
 
 ### 모임 상태 (t_meeting.status)
@@ -131,31 +161,3 @@ stateDiagram-v2
 | 35-36 | MEET*2_HOUR_PASSED*\* | 2시간 경과        |
 | 37    | MEET_SEND_CHAT        | 채팅 전송         |
 | 58    | MEET_DELETED          | 모임 삭제         |
-
-## 데이터 모델
-
-### t_meeting
-
-| 필드         | 설명          |
-| ------------ | ------------- |
-| member       | 주최자 ID     |
-| status       | 모임 상태     |
-| chat_open    | 채팅방 상태   |
-| photo_public | 사진공개 여부 |
-| title        | 모임 제목     |
-| money        | 회비          |
-| mood         | 분위기        |
-| location     | 장소          |
-| date         | 예정 시간     |
-| male_cnt     | 남성 수       |
-| female_cnt   | 여성 수       |
-
-### t_meeting_member
-
-| 필드    | 설명        |
-| ------- | ----------- |
-| meeting | 모임 ID     |
-| member  | 회원 ID     |
-| status  | 멤버 상태   |
-| alias   | 랜덤 닉네임 |
-| key     | 소비 키     |

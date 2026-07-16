@@ -9,6 +9,32 @@
 
 관리자 권한 레벨 및 접근 제어 아키텍처를 정리한 문서이다.
 
+## 논리 데이터 모델
+
+- 도메인 ID: `admin-access`
+
+### 논리 엔티티
+
+| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `admin-access.operator` | 관리자 계정 | root | state | 관리자 인증 식별자, 권한 수준과 현재 접근 상태 | 민감 | 퇴사·권한 회수 뒤 로그인은 차단하고 업무 이력의 행위자 참조는 보존 |
+
+### 관계
+
+| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- |
+| `admin-access.operator` | associates | `club-manager.manager` | 1:1 | 클럽매니저 운영 계정 연결은 명시적으로 관리 |
+| `admin-access.operator` | references | `member-review.review-request` | N:M | 심사 처리 권한과 담당 범위 안에서만 접근 |
+| `admin-access.operator` | references | `moderation.member-report` | N:M | 신고 처리 권한과 처리 사유를 별도 감사 근거로 남김 |
+
+### 불변조건
+
+| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+| --- | --- | --- | --- |
+| `ADMIN-ACCESS-INV-001` | `admin-access.operator` | Super Admin 전용 작업은 일반 클럽매니저 권한으로 수행할 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+| `ADMIN-ACCESS-INV-002` | `admin-access.operator` | 클럽매니저는 담당 회원과 담당 데이터 범위만 조회·수정할 수 있다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+| `ADMIN-ACCESS-INV-003` | `admin-access.operator` | 비밀번호와 토큰 원문을 로그나 공개 문서에 남기지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
 ## 권한 레벨
 
 | 레벨 | super 값 | 명칭 | 설명 |
