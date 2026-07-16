@@ -47,7 +47,9 @@
 
 ## 전환 상태
 
-- 현재 published package는 operation별 success DTO type과 response/error runtime을 제공하지만 operation별 public request DTO type은 제공하지 않는다.
+- 현재 generated contract는 operation별 success DTO type과 response/error runtime을 제공한다.
+  직접 수정한 일부 operation에는 named request body DTO도 제공하지만, path/query/body 위치까지
+  묶은 operation별 public request DTO map은 아직 완성되지 않았다.
 - Public request DTO type 생성과 Admin/Mobile local request wire DTO 제거는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API public request DTO 생성/소비 전환 미완료`에서 추적한다.
 - 전환 완료 전 기존 local request DTO는 기존 부채로 분류한다. 신규 또는 직접 수정하는 operation은 Swagger/OpenAPI request schema를 먼저 고정하고, package generated request DTO를 사용할 수 있는 범위부터 local wire DTO를 추가하지 않는다.
 - 기존 `unknown`, loose success schema, consumer-local response DTO는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API success DTO schema 정리 미완료`로 관리한다. 현재 변경이 읽거나 수정하지 않는 기존 endpoint를 같은 PR에서 일괄 정리하지 않는다.

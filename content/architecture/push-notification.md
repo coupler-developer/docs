@@ -90,7 +90,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 35-36 | MEET_2_HOUR_PASSED_* | 2시간 경과 |
 | 37 | MEET_SEND_CHAT | 채팅 전송 |
 
-### 라운지 관련 (38-41)
+### 라운지 관련 (38-41, 68)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
@@ -98,8 +98,9 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | 39 | LOUNGE_NEW_CHILD_COMMENT | 대댓글 |
 | 40 | LOUNGE_BEST | 베스트 선정 |
 | 41 | LOUNGE_BLAME | 신고 |
+| 68 | LOUNGE_LIKE | 게시글 좋아요 수 변경 |
 
-### 기타 (42-75)
+### 기타 대표 타입 (42-75)
 
 | 값 | 상수 | 의미 |
 |----|------|------|
@@ -181,6 +182,10 @@ sequenceDiagram
   token: 'device_fcm_token'
 }
 ```
+
+라운지 foreground 동기화는 FCM `custom_data`를 모바일 진입점에서 한 번 검증한 뒤 typed domain event로 전달한다.
+화면은 FCM 원본 JSON을 직접 파싱하거나 숫자 변환 fallback을 수행하지 않는다. 타입별 필드 계약은
+[푸시알림 운영 정책](../policy/push-notification-policy.md)의 `라운지 custom_data 계약`을 따른다.
 
 ## 알림 저장
 

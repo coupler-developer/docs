@@ -242,6 +242,9 @@
 - JSON API 성공/실패 envelope 추가/수정, Mobile/Admin 응답 boundary 수정은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 리뷰한다.
 - 신규 API 또는 성공 `data`의 구조를 직접 수정한 API는 Swagger/OpenAPI에 실제 wire shape와 같은 operation별 success DTO가 있고 contracts package가 이를 생성하는지 확인한다. Mobile/Admin이 해당 `data` 내부 필드를 읽으면 generated success DTO를 API 호출 경계에서 사용하지 않는 local response DTO를 finding으로 기록한다.
 - exact generated DTO → 선택적 ViewModel 단방향 mapping만 허용한다. mapper 입력을 `unknown`, `Record<string, unknown>`, broad local type으로 넓히거나 ViewModel을 request·다른 operation DTO로 역사용하면 local wire DTO로 판정한다.
+- API 서버 응답값이 이미 generated DTO와 일치하는데 같은 필드를 다시 복사하거나 `requireString`/`requireInteger`로 재검증하는 identity `toXxxDto` wrapper가 추가되면 중복 SoT와 불필요한 구조로 finding을 기록한다. 이 경우 정확한 Repository/read model 타입과 `satisfies <GeneratedDto>` 직접 결합을 우선한다.
+- Presenter/Mapper는 삭제 문구·익명화·권한별 표시처럼 의미를 만들거나 DB flat row를 중첩 DTO로 바꾸는 실제 투영이 있을 때만 허용한다. 입력은 exact typed source여야 하며 `unknown` 입력의 수동 DTO parser를 Presenter로 부르지 않는다.
+- `SELECT *` 또는 broad DB row를 타입 단정만 해서 success `data`로 직접 반환하면 내부 필드 노출 가능성을 finding으로 기록한다. 필요한 컬럼의 query projection 또는 명시적 typed Mapper가 있는지 확인한다.
 - 숫자·문자열 coercion, 누락값 기본값, 미지원 enum 필터링으로 wire 위반을 숨기면 finding으로 기록한다. 사용자 입력·navigation param·Native URI·표시 포맷 변환은 제외한다.
 - structured success fixture는 `satisfies` 또는 동등한 compile-time assertion을 사용하고, 계약 enum의 상태 분기는 가능한 경우 exhaustive check로 고정한다.
 - 현재 diff가 읽거나 수정하지 않는 기존 loose success schema와 consumer-local response DTO는 `기존 부채`로 분류하고 일괄 정리를 병합 조건으로 만들지 않는다. 다만 직접 수정한 operation에서 같은 패턴을 새로 추가하거나 확산하면 finding으로 기록한다.
@@ -287,6 +290,8 @@
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
 - [ ] 응답/에러 처리가 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), [엔지니어링 가드레일](engineering-guardrails.md)의 응답/에러 처리 기준을 따르는가?
 - [ ] 신규 또는 직접 수정한 structured success `data`의 Swagger/OpenAPI DTO, generated contract, 소비자 API 경계 타입이 일치하며 기존 부채와 opaque JSON passthrough 예외를 구분했는가?
+- [ ] generated DTO와 동일한 identity `toXxxDto` wrapper·수동 필드 validator가 없고, 실제 의미/구조 변환이 있는 typed Presenter/Mapper만 남아 있는가?
+- [ ] API success query가 필요한 컬럼만 조회하거나 명시적 Mapper로 내부 컬럼을 제거하며, `SELECT *` 결과가 타입 단정만으로 외부 응답에 노출되지 않는가?
 - [ ] 테스트 변경 판정이 충분한가? (`추가`/`갱신`/`미변경` 근거, 중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
