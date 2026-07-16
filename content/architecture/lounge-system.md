@@ -164,6 +164,14 @@ type CommentParentRef =
 - 실제 응답에서 항상 생성하는 필드는 Swagger `required`와 generated contract에서도 필수이며, 공지 필드와 조회수 응답의 `visit_cnt`도 같은 기준을 적용한다.
 - Mobile은 [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)에 따라 operation별 generated success DTO를 직접 사용하고, 화면 파생값이 있을 때만 exact DTO → ViewModel mapping을 둔다.
 
+## CMS 응답 계약
+
+CMS 라운지 목록·댓글·상세·신고 목록도 같은 contracts package의 operation DTO를 직접 사용한다.
+게시글/댓글 신고 목록 row는 `report_status`와 콘텐츠 상태를 구분하고, `reporter`, `target`,
+`post` 또는 `comment`로 중첩한다. DB 조회 결과의 flat alias는 API canonical mapper 밖으로
+노출하지 않는다. 신고 처리 완료 API는 신고 row의 `report_status`만 변경하며 콘텐츠
+신고삭제·강제삭제 API와 별도 계약으로 유지한다.
+
 ### 댓글 작성 parent 허용 기준
 
 `POST /lounge/comment/add`의 `parent`는 아래 기준으로만 허용한다.
