@@ -17,7 +17,7 @@
 - 대상:
 - 직접 연결 문서: `<명시 링크 | 관련 문서 | 같은 도메인 규범 | 영향받는 인덱스/nav/템플릿/검증 스크립트>`
 - 제외:
-- 조건부 추가 관점: `<없음 | 적용: 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리즈/데이터 거버넌스/다중 레포 계약 중 해당 항목>`
+- 조건부 추가 관점: `<없음 | 적용: 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리즈/데이터 거버넌스/다중 레포 계약/Taxonomy Migration Readiness 중 해당 항목>`
 - N/A 근거:
 - 기준 문서:
 
@@ -51,7 +51,8 @@
 | Domain Implementer |  |  |
 | QA / Evidence Reviewer |  |  |
 | Lifecycle Owner |  |  |
-| 조건부 추가 관점 |  |  |
+| Taxonomy Migration Readiness Reviewer (조건부) |  |  |
+| 기타 조건부 추가 관점 |  |  |
 | Finding 병합 |  |  |
 | Exit Gate |  |  |
 
@@ -64,6 +65,7 @@
 | `transition`/`임시`/`호환`/`fallback` 제거 조건 또는 미적용 근거 있음 |  |  |
 | 시간 의존 사실 최신 근거 있음 |  |  |
 | To-Be/임시 구조 부채 또는 추적 문서 연결 있음 |  |  |
+| taxonomy/메타데이터/검증 hard gate 변경에 기존 문서 baseline, 단계적 활성화, 적용 범위의 이관 완료 조건 있음 |  |  |
 | 개인 사용자명 또는 로컬 절대경로 없음 |  |  |
 
 ## Findings
