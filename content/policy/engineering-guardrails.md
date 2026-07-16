@@ -302,6 +302,9 @@ cutover 배포 코드 기준:
 - **명명과 타입 정합성**: 테이블은 책임이 드러나는 단수 snake_case, FK는 `<대상>_id`, 시각은 `_at`,
   boolean은 의미가 드러나는 이름을 사용한다. 부모 PK signed/unsigned, 길이, charset/collation과 맞추고
   예약어·기존 객체·API/enum 식별자 충돌을 확인한다.
+- **스키마 설명 단일화**: 신규 테이블과 신규·정의 변경 컬럼의 의미는 DB native `COMMENT`에 기록하고
+  private schema lock으로 검증한다. 이름만 반복하지 말고 필요한 값 범위·단위·NULL 의미·생성/갱신 주체를
+  짧고 자연스럽게 설명하며, 별도 테이블·컬럼 사전을 중복 관리하지 않는다.
 - **무결성과 동시성**: PK/FK/UNIQUE/CHECK, 상태 전이, 멱등성, lock/transaction 경계를 함께 설계한다.
   API validation만으로 DB 불변식을 대신하지 않으며 교차 row 조건은 서버 transaction과 통합 테스트로 고정한다.
 - **조회 근거**: 실제 목록/상세/집계/배치 쿼리에서 필요한 인덱스만 둔다. 호출자별·파라미터별 값은 repository
@@ -314,7 +317,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 - [ ] 기획 기능이 저장/계산/재사용 SoT 중 하나에 빠짐없이 연결됐다.
 - [ ] 테이블·컬럼·VIEW 각각에 현재 범위의 사용 근거가 있고 미래 기능 선반영이 없다.
-- [ ] 명명, 타입, FK, UNIQUE/CHECK, 인덱스, transaction이 실제 운영 스키마와 충돌하지 않는다.
+- [ ] 명명, 타입, `COMMENT`, FK, UNIQUE/CHECK, 인덱스, transaction이 실제 운영 스키마와 충돌하지 않는다.
 - [ ] 개인정보 생명주기와 기존 API/Admin/Mobile/배치/알림/설정 영향이 기록됐다.
 - [ ] 열린 finding이 없으며 미구현 범위는 기술 부채 또는 후속 구현 항목으로 추적된다.
 
