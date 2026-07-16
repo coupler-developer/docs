@@ -162,6 +162,8 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - global cron fence: `{registryRoot}/fence.json`
     - active run: `{registryRoot}/active/{namespace}.json`
     - history: `{registryRoot}/history/{namespace}/{runId}.json`
+    - active cron lease: `{registryRoot}/_cron_leases/{jobId}.{leaseId}.json`
+    - shared registry mutex: `{registryRoot}/_locks/registry.lock`
 - local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
 - backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
@@ -170,6 +172,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거하며 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
 - registry active/history prefix는 namespace asset인 `uploads/dev-data/{namespace}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
 - registry가 불가용하거나 active record와 DB root가 불일치하면 apply·verify·reset을 중단하고 reconciliation 결과를 출력한다.
+- 최초 `init-registry`는 DB에 연결하지 않고 빈 registry만 만든다. fence가 유실됐는데 active record가 남은 상태는 빈 fence로 덮지 않고 복구 대상으로 중단한다.
 
 ## 데이터 계층
 
@@ -393,12 +396,14 @@ coverage entry는 다음 축을 가진다.
 
 ## 공유 개발계 cron fence
 
-- `routes/admin/cron.ts` router의 첫 middleware가 개발 환경 Run Registry의 global fence index를 확인한다.
+- `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 global fence index를 확인한다.
 - active run이 있으면 모든 cron handler를 실행하지 않고 `dev_data_fenced` 결과를 남기며 DB domain query와 외부 adapter 호출은 0건이어야 한다.
+- fence가 비어 있으면 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하며 같은 job의 중복 호출은 실행하지 않는다.
+- feeder claim은 같은 mutex 안에서 cron lease 0건을 확인한 뒤 fence를 생성한다. 따라서 cron 진입과 feeder 진입 중 하나만 먼저 성공하고 상대 작업은 fail-closed한다.
 - 개발 환경에서 registry를 읽지 못해도 cron을 실행하지 않는다.
 - production에서는 feeder와 registry adapter가 활성화되지 않으며 cron fence도 적용되지 않는다. production startup은 관련 enable 설정이 하나라도 있으면 실패한다.
 - run이 만료돼도 `cleaned`가 아니면 fence를 자동 해제하지 않는다. reset 또는 소유권 reconciliation 완료 뒤에만 해제한다.
-- cron route 등록 테스트는 router 공통 fence보다 앞에 handler가 없음을 확인한다.
+- cron route 등록 테스트는 모든 handler가 공통 fence 뒤에 있고 lease wrapper로 감싸졌음을 확인한다.
 
 ## Admin browser smoke 구현
 
