@@ -43,13 +43,43 @@
 | `LOUNGE-INV-002` | `lounge.comment` | 삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다 | 이 문서 |
 | `LOUNGE-INV-003` | `lounge.post-reaction` | 저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
 
-## 게시글 상태
+## 게시글/댓글 상태 SoT
 
-| 값  | 상수    | 의미 |
-| --- | ------- | ---- |
-| 0   | PENDING | 대기 |
-| 1   | NORMAL  | 정상 |
-| -1  | DELETED | 삭제 |
+`t_lounge.status`와 `t_lounge_cmt.status`는 라운지 콘텐츠의 현재 상태를 나타내는 단일 축이다.
+별도 `deletion_type` 컬럼을 두지 않으며, 신고 접수 상태와 관리자 감사 이력은 각각 신고 테이블과
+감사 로그 테이블이 담당한다.
+
+| 값 | 상수 | 의미 | 앱 노출 |
+| --- | --- | --- | --- |
+| 1 | `NORMAL` | 정상 | 원문과 액션 노출 |
+| -1 | `AUTHOR_DELETED` | 작성자 삭제 | tombstone 노출 |
+| -2 | `ADMIN_REPORT_DELETED` | 관리자 신고삭제 | tombstone 노출 |
+| -3 | `ADMIN_FORCE_DELETED` | 관리자 강제삭제 | 목록/상세에서 제외 |
+
+- 작성자 삭제는 `NORMAL -> AUTHOR_DELETED`만 허용한다.
+- 관리자 신고삭제는 `NORMAL -> ADMIN_REPORT_DELETED`만 허용한다.
+- 관리자 강제삭제는 `NORMAL`, `AUTHOR_DELETED`, `ADMIN_REPORT_DELETED`에서
+  `ADMIN_FORCE_DELETED`로 전환할 수 있다.
+- `ADMIN_FORCE_DELETED`는 최종 상태이며 복구 API를 제공하지 않는다.
+- 관리자 신고삭제/강제삭제 시 같은 콘텐츠의 처리 전 신고(`status = 0`)는 처리됨(`status = 1`)으로
+  함께 전환한다.
+
+### 삭제 표시/액션 기준
+
+| 대상 | 상태 | 표시 문구 | 원문/첨부 | 기존 통계/댓글 | 새 액션 |
+| --- | --- | --- | --- | --- | --- |
+| 게시글 | `AUTHOR_DELETED` | `삭제된 글입니다` | 숨김 | 유지 | 금지 |
+| 게시글 | `ADMIN_REPORT_DELETED` | `신고된 글입니다` | 숨김 | 유지 | 금지 |
+| 게시글 | `ADMIN_FORCE_DELETED` | 표시 없음 | 표시 없음 | 표시 없음 | 금지 |
+| 댓글 | `AUTHOR_DELETED` | `삭제된 댓글입니다.` | 숨김 | 작성 시각/스레드 위치 유지 | 좋아요·신고·삭제 금지 |
+| 댓글 | `ADMIN_REPORT_DELETED` | `신고된 댓글입니다.` | 숨김 | 작성 시각/스레드 위치 유지 | 좋아요·신고·삭제 금지 |
+| 댓글 | `ADMIN_FORCE_DELETED` | 표시 없음 | 표시 없음 | 노출 자식만 승격 | 금지 |
+
+- tombstone 게시글 상세에서는 기존 댓글을 읽을 수 있지만 조회수 증가, 좋아요, 신고, 댓글 작성,
+  작성자 프로필 열기 같은 새 상호작용은 허용하지 않는다.
+- 일반 텍스트 목록은 tombstone 게시글을 포함한다.
+- 검색은 숨겨진 원문 제목이 검색되지 않도록 `NORMAL`만 대상으로 한다.
+- 갤러리 목록은 노출할 첨부가 있는 `NORMAL` 게시글만 대상으로 한다.
 
 ## 카테고리
 
@@ -91,8 +121,8 @@ type CommentParentRef =
 
 ## 댓글 표시와 작성 기준
 
-댓글 화면은 댓글 상태(`status`)와 0-depth 여부(`parent = 0`)를 분리해서 표시한다.
-신고 가능 여부는 `/lounge/comment/blame` 서버 판정을 기준으로 한다.
+댓글 화면은 라운지 콘텐츠 상태와 0-depth 여부(`parent = 0`)를 분리해서 표시한다.
+신고/좋아요/삭제 가능 여부는 서버의 `NORMAL` 판정을 기준으로 한다.
 
 ### 모바일 표시 기준
 
@@ -100,13 +130,16 @@ type CommentParentRef =
 | --- | --- | --- | --- | --- | --- |
 | `NORMAL` | `0` | 표시 | 표시 | 내가 쓴 댓글이 아니면 표시 | 0-depth 댓글 |
 | `NORMAL` | `> 0` | 표시 | 숨김 | 내가 쓴 댓글이 아니면 표시 | 대댓글 |
-| `DELETED` | `0` | 숨김 | 표시 | 숨김 | 0-depth 댓글의 작성자 표시명/아이콘과 `삭제된 댓글입니다`만 표시 |
-| `DELETED` | `> 0` | 숨김 | 숨김 | 숨김 | 대댓글 표시선, 작성자 표시명/아이콘, `삭제된 댓글입니다`만 표시 |
+| `AUTHOR_DELETED` | `0` | tombstone/시간 표시 | 표시 | 숨김 | 작성자 표시명/아이콘과 `삭제된 댓글입니다.` 표시 |
+| `AUTHOR_DELETED` | `> 0` | tombstone/시간 표시 | 숨김 | 숨김 | 대댓글 표시선과 `삭제된 댓글입니다.` 표시 |
+| `ADMIN_REPORT_DELETED` | `0` | tombstone/시간 표시 | 표시 | 숨김 | 작성자 표시명/아이콘과 `신고된 댓글입니다.` 표시 |
+| `ADMIN_REPORT_DELETED` | `> 0` | tombstone/시간 표시 | 숨김 | 숨김 | 대댓글 표시선과 `신고된 댓글입니다.` 표시 |
+| `ADMIN_FORCE_DELETED` | 무관 | 표시하지 않음 | 숨김 | 숨김 | 노출 가능한 자식을 가장 가까운 노출 부모 또는 최상위로 승격 |
 
-- 삭제 상태 댓글은 스레드 위치 보존용 tombstone으로 목록에 남긴다.
-- 삭제 상태 댓글은 원문, 작성 시간, 좋아요, 삭제, 신고 액션을 노출하지 않는다.
+- 작성자 삭제와 관리자 신고삭제 댓글은 스레드 위치 보존용 tombstone으로 목록에 남긴다.
+- tombstone 댓글은 원문과 좋아요/삭제/신고 액션을 숨기고 원래 작성 시각은 유지한다.
 - 대댓글 버튼은 댓글 상태와 무관하게 0-depth 댓글(`parent = 0`)에만 표시한다.
-- `/lounge/comment/blame`은 삭제 상태 댓글을 `not_found`로 처리하므로 삭제 댓글과 삭제 대댓글에는 신고 아이콘을 표시하지 않는다.
+- tombstone 게시글 상세에서는 댓글의 대댓글/좋아요/삭제/신고 액션도 비활성화한다.
 - 현재 모바일 앱은 0-depth 댓글(`parent = 0`)에만 대댓글 작성 액션을 제공한다.
 - 대댓글(`parent > 0`)은 parent 댓글의 삭제 여부와 무관하게 대댓글 버튼을 표시하지 않는다.
 - 정상 대댓글의 신고 아이콘은 원댓글과 같은 기준으로 표시한다.
@@ -119,18 +152,20 @@ type CommentParentRef =
 | --- | --- | --- | --- | --- |
 | `0` | - | - | 허용 | 0-depth 댓글 작성 |
 | 댓글 ID | `NORMAL` | 무관 | 허용 | 정상 댓글에 대한 답글 작성 |
-| 댓글 ID | `DELETED` | `0` | 허용 | 삭제된 0-depth 댓글에 이어 답글 작성 |
-| 댓글 ID | `DELETED` | `> 0` | 거부 | 삭제된 대댓글에는 답글 작성 불가 |
+| 댓글 ID | `AUTHOR_DELETED`/`ADMIN_REPORT_DELETED` | `0` | 허용 | 노출 tombstone인 0-depth 댓글에 이어 답글 작성 |
+| 댓글 ID | `AUTHOR_DELETED`/`ADMIN_REPORT_DELETED` | `> 0` | 거부 | tombstone 대댓글에는 답글 작성 불가 |
+| 댓글 ID | `ADMIN_FORCE_DELETED` | 무관 | 거부 | 앱/API 대상에서 제외 |
 
 - 모바일 앱은 대댓글 버튼을 0-depth 댓글에만 노출하므로 앱에서 새로 생성되는 답글은 1-depth로 제한된다.
 - API는 정상 댓글(`status = NORMAL`)을 parent로 사용할 때 depth를 추가로 제한하지 않는다.
-- 삭제 상태 댓글을 parent로 사용할 때는 삭제된 0-depth 댓글만 허용한다.
+- tombstone 댓글을 parent로 사용할 때는 0-depth 댓글만 허용한다.
 
 ## 댓글 수 표시 기준
 
 - API 응답과 화면에 표시되는 `cmt_cnt`는 로그인한 사용자가 실제로 볼 수 있는 댓글 수를 의미한다.
 - `t_member_hide`에 `type = 'LOUNGE'`로 등록된 작성자의 댓글은 댓글 목록과 `cmt_cnt`에서 제외한다.
-- 삭제 상태 댓글은 `cmt_cnt`에 포함하지 않는다.
+- 앱에 노출되는 `NORMAL`, `AUTHOR_DELETED`, `ADMIN_REPORT_DELETED` 댓글은 `cmt_cnt`에 포함하고,
+  `ADMIN_FORCE_DELETED` 댓글만 제외한다.
 - 같은 기준을 글 목록, 내 글 목록, 글 상세에 동일하게 적용한다.
 
 ## API 엔드포인트
@@ -162,6 +197,19 @@ type CommentParentRef =
 | GET    | `/lounge/comment/delete` | 댓글 삭제   |
 | POST   | `/lounge/comment/like`   | 댓글 좋아요 |
 | POST   | `/lounge/comment/blame`  | 댓글 신고   |
+
+### 관리자 삭제
+
+| 메서드 | 엔드포인트 | 설명 |
+| --- | --- | --- |
+| POST | `/admin/lounge/{id}/report-delete` | 게시글 신고삭제 |
+| POST | `/admin/lounge/{id}/force-delete` | 게시글 강제삭제 |
+| POST | `/admin/lounge/comment/{id}/report-delete` | 댓글 신고삭제 |
+| POST | `/admin/lounge/comment/{id}/force-delete` | 댓글 강제삭제 |
+
+- 네 API는 슈퍼관리자만 호출할 수 있고 최대 500자의 `reason`을 필수로 받는다.
+- CMS의 기존 `삭제` 버튼은 `강제삭제`로 대체하며, `신고삭제` 버튼을 별도로 제공한다.
+- 상태 전이, 미처리 신고 처리, 감사 로그 저장은 한 DB 트랜잭션으로 수행한다.
 
 ## 베스트 선정
 
@@ -198,3 +246,64 @@ flowchart TD
 
 수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.
 이 문서는 라운지 parent 구조와 표시 기준만 설명하고, 댓글/대댓글 발송 대상은 정책 문서에서만 정의한다.
+## 데이터 모델
+
+### t_lounge
+
+| 필드        | 설명                 |
+| ----------- | -------------------- |
+| member      | 작성자 ID            |
+| category    | 카테고리             |
+| title       | 제목                 |
+| content     | 내용                 |
+| photo       | 첨부 이미지 (# 구분) |
+| mini_public | 프로필 공개 여부     |
+| best        | 베스트 여부          |
+| alias       | 비공개 시 닉네임     |
+| visit_cnt   | 조회수               |
+| like_cnt    | 좋아요 수            |
+| cmt_cnt     | 레거시 저장 댓글 수 캐시. 앱 응답은 viewer별 노출 댓글 수를 다시 계산한다. |
+| status      | 라운지 콘텐츠 현재 상태 SoT |
+
+### t_lounge_cmt
+
+| 필드    | 설명                   |
+| ------- | ---------------------- |
+| lounge  | 게시글 ID              |
+| member  | 작성자 ID              |
+| parent  | 직접 부모 댓글 ID (0=없음) |
+| content | 댓글 내용              |
+| alias   | 비공개 시 닉네임       |
+| status  | 라운지 댓글 현재 상태 SoT |
+
+### t_lounge_moderation_log
+
+관리자 삭제 행위의 운영 감사 전용 원장이다. 콘텐츠 현재 상태를 판정하는 테이블이 아니다.
+
+| 필드 | 설명 |
+| --- | --- |
+| target_type/target_id | `LOUNGE` 또는 `COMMENT` 대상과 콘텐츠 ID |
+| admin_id | 행위 관리자 |
+| previous_status/next_status | 변경 전후 콘텐츠 상태 |
+| reason | 관리자 입력 사유 |
+| created_at | 행위 시각 |
+
+- 감사 로그 기본 키 `id`를 API의 `audit_id`와 운영 로그 연결 키로 사용한다.
+- `request_id`는 별도로 저장하지 않는다. CMS가 멱등 키를 보내지 않는 현재 구조에서 서버가 임의 생성한
+  요청 ID는 중복 실행을 막지 못하고 감사 로그 기본 키와 역할이 겹친다.
+- 관리자, 사유, 변경 전후 상태 같은 감사 필드는 `t_lounge`/`t_lounge_cmt`에 추가하지 않는다.
+- 콘텐츠가 나중에 정리되더라도 감사 기록을 보존할 수 있도록 콘텐츠/관리자 FK에 의존하지 않는다.
+
+## 레거시 전환
+
+- 기존 `t_lounge.status = -1` 게시글은 현재 앱에서 흔적 없이 숨겨지므로
+  `ADMIN_FORCE_DELETED(-3)`로 일괄 전환한다.
+- 기존 `t_lounge_cmt.status = -1` 댓글은 현재 tombstone으로 표시되므로
+  `AUTHOR_DELETED(-1)`로 유지한다.
+- 과거 삭제 행위가 작성자 삭제인지 관리자 삭제인지 판별할 근거가 없으므로 추정해서 복원하지 않는다.
+- 기존 API는 게시글 `status = -1`만 삭제로 판정하므로 `-1 -> -3` backfill 뒤에도 기존 API 트래픽을
+  계속 받으면 직접 상세 요청에서 원문이 노출될 수 있다. 따라서 이 변경은 일반적인 DB 선반영이 아니다.
+- cutover 시 API 트래픽을 drain한 상태에서 migration `79~81`과 호환 API를 적용·검증하고, 새 API가
+  준비된 뒤에만 트래픽을 다시 연다. 그 다음 CMS, Mobile 순서로 배포한다.
+- 구버전 앱도 새 API가 원문을 제거한 DTO를 반환하므로 데이터가 노출되지는 않지만, 신규 상태별 스타일과
+  액션 제한은 Mobile 배포 후 완성된다.
