@@ -22,30 +22,36 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `member-review.review-request` | 회원 심사 요청 | root | ledger | 기본정보·소개정보 심사 요청과 판정 이력 | 민감 | 요청 순서를 보존하고 정책에 따라 개인정보를 정리 |
-| `member-review.auth-state` | 회원 인증 상태 | child | state | 인증 종류별 현재 판정과 반려 사유 | 민감 | 회원 계정과 함께 유지하고 재심사로 변경 |
-| `member-review.auth-request` | 인증 심사 요청 | root | ledger | 필수 인증 제출·재제출·판정 생명주기 | 민감 | 이전 요청 연결을 보존하고 완료 요청은 이력 유지 |
-| `member-review.auth-request-item` | 인증 심사 항목 | child | ledger | 요청 안의 인증 종류별 판정 | 민감 | 상위 인증 요청과 함께 보존 |
-| `member-review.auth-evidence` | 인증 증거 | child | snapshot | 심사 시점의 인증 이미지와 개별 판정 | 민감 | 보관 기한 후 삭제 또는 비식별화 |
-| `member-review.profile-version` | 프로필 버전 | root | snapshot | 제출 시점의 프로필 이미지·영상 세트 | 민감 | 활성 버전은 유지하고 이전 버전은 정책에 따라 정리 |
-| `member-review.profile-image` | 프로필 이미지 | child | snapshot | 프로필 버전의 이미지와 이미지별 판정 | 민감 | 상위 버전의 보관 정책을 따름 |
-| `member-review.required-auth-policy` | 필수 인증 정책 | child | reference | 회원에게 적용되는 필수 인증 종류 | 내부 | 배정·운영 정책 변경 시 갱신 |
-| `member-review.stage-snapshot` | 심사 단계 스냅샷 | child | snapshot | 화면·호환을 위한 단계별 현재 상태 복사본 | 내부 | 재계산 가능한 보조 데이터로 유지 |
-| `member-review.status-projection` | 심사 상태 조회 모델 | root | projection | API와 Mobile의 회원별 심사 상태 요약 | 내부 | 원천 데이터 변경 시 재계산 |
-| `member-review.overview-projection` | 심사 운영 조회 모델 | root | projection | Admin 큐와 단계 이력 집계 | 내부 | 원천 데이터 변경 시 재계산 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `member-review.review-request` | 회원 심사 요청 | root | entity | ledger | 기본정보·소개정보 심사 요청과 판정 이력 | 민감 | 요청 순서를 보존하고 정책에 따라 개인정보를 정리 |
+| `member-review.auth-state` | 회원 인증 상태 | child | entity | state | 인증 종류별 현재 판정과 반려 사유 | 민감 | 회원 계정과 함께 유지하고 재심사로 변경 |
+| `member-review.auth-request` | 인증 심사 요청 | root | entity | ledger | 필수 인증 제출·재제출·판정 생명주기 | 민감 | 이전 요청 연결을 보존하고 완료 요청은 이력 유지 |
+| `member-review.auth-request-item` | 인증 심사 항목 | child | entity | ledger | 요청 안의 인증 종류별 판정 | 민감 | 상위 인증 요청과 함께 보존 |
+| `member-review.auth-evidence` | 인증 증거 | child | entity | snapshot | 심사 시점의 인증 이미지와 개별 판정 | 민감 | 보관 기한 후 삭제 또는 비식별화 |
+| `member-review.profile-version` | 프로필 버전 | root | entity | snapshot | 제출 시점의 프로필 이미지·영상 세트 | 민감 | 활성 버전은 유지하고 이전 버전은 정책에 따라 정리 |
+| `member-review.profile-image` | 프로필 이미지 | child | entity | snapshot | 프로필 버전의 이미지와 이미지별 판정 | 민감 | 상위 버전의 보관 정책을 따름 |
+| `member-review.required-auth-policy` | 필수 인증 정책 | child | entity | reference | 회원에게 적용되는 필수 인증 종류 | 내부 | 배정·운영 정책 변경 시 갱신 |
+| `member-review.stage-snapshot` | 심사 단계 스냅샷 | child | entity | snapshot | 화면·호환을 위한 단계별 현재 상태 복사본 | 내부 | 재계산 가능한 보조 데이터로 유지 |
+| `member-review.status-projection` | 심사 상태 조회 모델 | root | entity | projection | API와 Mobile의 회원별 심사 상태 요약 | 내부 | 원천 데이터 변경 시 재계산 |
+| `member-review.overview-projection` | 심사 운영 조회 모델 | root | entity | projection | Admin 큐와 단계 이력 집계 | 내부 | 원천 데이터 변경 시 재계산 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `member.member` | owns | `member-review.auth-state` | 1:N | 회원 개인정보 정리 정책을 함께 적용 |
-| `member-review.auth-request` | owns | `member-review.auth-request-item` | 1:N | 요청 삭제 없이 항목 이력을 보존 |
-| `member-review.auth-request-item` | owns | `member-review.auth-evidence` | 1:N | 증거만 보관 기한에 따라 정리 가능 |
-| `member-review.profile-version` | owns | `member-review.profile-image` | 1:N | 현재 활성 버전은 삭제하지 않음 |
-| `member-review.status-projection` | derives-from | `member-review.review-request` | 1:N | 원천 요청과 현재 회원 상태에서 계산 |
-| `member-review.overview-projection` | derives-from | `member-review.auth-request` | 1:N | 운영 집계이며 쓰기 기준으로 사용하지 않음 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `member-review.review-request` | `member` | references | `member.member` | N:1 | 제출 회원의 현재 상태와 요청 당시 snapshot을 구분해 보존 |
+| `member.member` | `auth-states` | owns | `member-review.auth-state` | 1:N | 회원 개인정보 정리 정책을 함께 적용 |
+| `member-review.auth-request` | `member` | references | `member.member` | N:1 | 회원과 요청 종류별 활성 요청을 하나로 제한 |
+| `member-review.auth-request` | `items` | owns | `member-review.auth-request-item` | 1:N | 요청 삭제 없이 항목 이력을 보존 |
+| `member-review.auth-request-item` | `evidence` | owns | `member-review.auth-evidence` | 1:N | 증거만 보관 기한에 따라 정리 가능 |
+| `member-review.profile-version` | `member` | references | `member.member` | N:1 | 회원이 참조하는 현재 버전은 승인·활성 상태여야 함 |
+| `member-review.profile-version` | `images` | owns | `member-review.profile-image` | 1:N | 현재 활성 버전은 삭제하지 않음 |
+| `member.member` | `required-auth-policies` | owns | `member-review.required-auth-policy` | 1:N | 회원에게 적용되는 현재 필수 인증 종류와 변경 근거를 유지 |
+| `member.member` | `review-stage-snapshots` | owns | `member-review.stage-snapshot` | 1:N | 원천 심사 상태와 불일치하면 재계산 |
+| `member-review.status-projection` | `review-requests` | derives-from | `member-review.review-request` | 1:N | 원천 요청과 현재 회원 상태에서 계산 |
+| `member-review.status-projection` | `stage-snapshots` | derives-from | `member-review.stage-snapshot` | 1:N | 호환용 snapshot은 판정 원천으로 사용하지 않음 |
+| `member-review.overview-projection` | `auth-requests` | derives-from | `member-review.auth-request` | 1:N | 운영 집계이며 쓰기 기준으로 사용하지 않음 |
 
 ### 불변조건
 

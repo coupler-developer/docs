@@ -17,20 +17,21 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `key-wallet.wallet` | Key 지갑 | child | state | 회원이 현재 사용할 수 있는 Key 잔액 | 내부 | 회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴 |
-| `key-wallet.entry` | Key 변동 원장 | child | ledger | 지급·차감·환불과 변경 후 잔액 | 내부 | append-only 서비스 이용·정산 이력으로 보존 |
-| `key-wallet.profile-access` | 프로필 열람 거래 | child | ledger | 회원 간 최초 프로필 열람과 Key 차감 연결 | 민감 | 중복 과금 방지를 위해 열람 문맥과 원장 연결을 보존 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `key-wallet.wallet` | Key 지갑 | child | entity | state | 회원이 현재 사용할 수 있는 Key 잔액 | 내부 | 회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴 |
+| `key-wallet.entry` | Key 변동 원장 | child | entity | ledger | 지급·차감·환불과 변경 후 잔액 | 내부 | append-only 서비스 이용·정산 이력으로 보존 |
+| `key-wallet.profile-access` | 프로필 열람 거래 | root | association | ledger | 열람 회원·대상 회원과 최초 Key 차감의 연결 | 민감 | 중복 과금 방지를 위해 열람 문맥과 원장 연결을 보존 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `member.member` | owns | `key-wallet.wallet` | 1:1 | 회원 계정마다 하나의 현재 지갑만 유지 |
-| `key-wallet.wallet` | owns | `key-wallet.entry` | 1:N | 원장 삭제 없이 잔액 변동을 보존 |
-| `key-wallet.profile-access` | references | `key-wallet.entry` | 1:1 | 성공한 유료 열람은 정확히 하나의 차감 원장과 연결 |
-| `key-wallet.profile-access` | associates | `member.member` | N:M | 같은 문맥의 동일 대상 최초 열람을 중복 과금하지 않음 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `member.member` | `key-wallet` | owns | `key-wallet.wallet` | 1:1 | 회원 계정마다 하나의 현재 지갑만 유지 |
+| `key-wallet.wallet` | `entries` | owns | `key-wallet.entry` | 1:N | 원장 삭제 없이 잔액 변동을 보존 |
+| `key-wallet.profile-access` | `debit-entry` | references | `key-wallet.entry` | 1:1 | 성공한 유료 열람은 정확히 하나의 차감 원장과 연결 |
+| `key-wallet.profile-access` | `viewer` | references | `member.member` | N:1 | 열람 회원과 서비스 문맥별 최초 과금을 판정 |
+| `key-wallet.profile-access` | `subject` | references | `member.member` | N:1 | 대상 회원이 같아도 서비스 문맥이 다르면 별도 거래로 판정 가능 |
 
 ### 불변조건
 

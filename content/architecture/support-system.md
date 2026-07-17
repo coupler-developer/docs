@@ -16,16 +16,16 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `support.request` | 고객지원 문의 | root | state | 회원 문의, 앱 버전, 답변과 처리 상태 | 민감 | CS 처리와 분쟁 대응 기간 동안 보존 후 정리 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `support.request` | 고객지원 문의 | root | entity | state | 회원 문의, 앱 버전, 답변과 처리 상태 | 민감 | CS 처리와 분쟁 대응 기간 동안 보존 후 정리 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `support.request` | references | `member.member` | N:1 | 회원 삭제 뒤 직접 식별정보를 비식별화할 수 있음 |
-| `support.request` | associates | `conversation.thread` | 1:N | 연속 상담 대화가 있으면 문의 문맥으로 연결 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `support.request` | `requester` | references | `member.member` | N:1 | 회원 삭제 뒤 직접 식별정보를 비식별화할 수 있음 |
+| `support.request` | `threads` | associates | `conversation.thread` | 1:N | 연속 상담 대화가 있으면 문의 문맥으로 연결 |
 
 ### 불변조건
 

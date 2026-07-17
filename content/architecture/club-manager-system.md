@@ -22,20 +22,21 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `club-manager.manager` | 클럽매니저 | root | state | 클럽매니저 계정과 현재 공개 프로필 | 민감 | 운영 계정 비활성 이후에도 배정 이력을 보존 |
-| `club-manager.assignment` | 회원 배정 | relation | state | 회원과 담당 클럽매니저의 운영 관계 | 내부 | 재배정 시 현재 관계를 갱신하고 변경 근거를 보존 |
-| `club-manager.detail-profile-version` | 상세 프로필 버전 | child | snapshot | 상세 이미지 원본과 변환 상태 | 내부 | 현재 버전은 유지하고 실패·이전 버전은 정리 가능 |
-| `club-manager.detail-profile-slice` | 상세 프로필 조각 | child | snapshot | 상세 프로필 버전의 표시용 이미지 조각 | 내부 | 상위 버전 정리 시 함께 삭제 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `club-manager.manager` | 클럽매니저 | root | entity | state | 클럽매니저 계정과 현재 공개 프로필 | 민감 | 운영 계정 비활성 이후에도 배정 이력을 보존 |
+| `club-manager.assignment` | 회원 배정 | root | association | state | 회원과 담당 클럽매니저의 운영 관계 | 내부 | 재배정 시 현재 관계를 갱신하고 변경 근거를 보존 |
+| `club-manager.detail-profile-version` | 상세 프로필 버전 | child | entity | snapshot | 상세 이미지 원본과 변환 상태 | 내부 | 현재 버전은 유지하고 실패·이전 버전은 정리 가능 |
+| `club-manager.detail-profile-slice` | 상세 프로필 조각 | child | entity | snapshot | 상세 프로필 버전의 표시용 이미지 조각 | 내부 | 상위 버전 정리 시 함께 삭제 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `club-manager.manager` | associates | `member.member` | N:M | 현재 배정은 하나로 제한하고 이력 근거를 보존 |
-| `club-manager.manager` | owns | `club-manager.detail-profile-version` | 1:N | 현재 활성 버전은 삭제하지 않음 |
-| `club-manager.detail-profile-version` | owns | `club-manager.detail-profile-slice` | 1:N | 버전 정리 시 조각과 파일을 함께 정리 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `club-manager.assignment` | `manager` | references | `club-manager.manager` | N:1 | 담당 계정 비활성 뒤에도 과거 배정 근거는 보존 |
+| `club-manager.assignment` | `member` | references | `member.member` | N:1 | 회원별 동일 배정 유형의 현재 관계는 하나로 제한 |
+| `club-manager.manager` | `detail-profile-versions` | owns | `club-manager.detail-profile-version` | 1:N | 현재 활성 버전은 삭제하지 않음 |
+| `club-manager.detail-profile-version` | `slices` | owns | `club-manager.detail-profile-slice` | 1:N | 버전 정리 시 조각과 파일을 함께 정리 |
 
 ### 불변조건
 

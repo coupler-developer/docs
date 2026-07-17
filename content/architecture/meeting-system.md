@@ -18,21 +18,25 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `legacy-meeting.meeting` | 기존 2:2 미팅 | root | state | 행사 모집·확정·종료와 현재 표시 정보 | 민감 | 기존 호환 계약으로 보존하며 종료·삭제 이력 유지 |
-| `legacy-meeting.participation` | 기존 미팅 참가 | relation | state | 회원의 신청·승인·퇴장과 행사 당시 별칭 | 민감 | 행사 종료 뒤 참가 이력으로 보존 |
-| `legacy-meeting.review` | 기존 미팅 후기 | child | history | 행사 결과와 후기 내용 | 민감 | 개인정보 정리 뒤 비식별 보존 가능 |
-| `legacy-meeting.rating` | 기존 미팅 별점 | relation | history | 작성 회원과 대상 회원 사이의 별점 | 민감 | 운영·신고 확인 기간 동안 보존 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `legacy-meeting.meeting` | 기존 2:2 미팅 | root | entity | state | 행사 모집·확정·종료와 현재 표시 정보 | 민감 | 기존 호환 계약으로 보존하며 종료·삭제 이력 유지 |
+| `legacy-meeting.participation` | 기존 미팅 참가 | child | association | state | 회원의 신청·승인·퇴장과 행사 당시 별칭 | 민감 | 행사 종료 뒤 참가 이력으로 보존 |
+| `legacy-meeting.review` | 기존 미팅 후기 | child | entity | history | 행사 결과와 후기 내용 | 민감 | 개인정보 정리 뒤 비식별 보존 가능 |
+| `legacy-meeting.rating` | 기존 미팅 별점 | child | association | history | 작성 회원과 대상 회원 사이의 별점 | 민감 | 운영·신고 확인 기간 동안 보존 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `legacy-meeting.meeting` | references | `member.member` | N:1 | 주최 회원 개인정보 정리 뒤 행사 이력은 보존 |
-| `legacy-meeting.meeting` | owns | `legacy-meeting.participation` | 1:N | 참가 이력은 행사와 함께 보존 |
-| `legacy-meeting.meeting` | owns | `legacy-meeting.review` | 1:N | 후기 중복 기준을 유지하고 원문은 정책에 따라 정리 |
-| `legacy-meeting.rating` | associates | `member.member` | N:M | 작성자와 대상자를 행사 문맥에서 검증 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `legacy-meeting.meeting` | `host` | references | `member.member` | N:1 | 주최 회원 개인정보 정리 뒤 행사 이력은 보존 |
+| `legacy-meeting.meeting` | `participations` | owns | `legacy-meeting.participation` | 1:N | 참가 이력은 행사와 함께 보존 |
+| `legacy-meeting.participation` | `member` | references | `member.member` | N:1 | 한 회원은 같은 행사에 하나의 현재 참가 상태만 가짐 |
+| `legacy-meeting.meeting` | `reviews` | owns | `legacy-meeting.review` | 1:N | 후기 중복 기준을 유지하고 원문은 정책에 따라 정리 |
+| `legacy-meeting.review` | `author` | references | `member.member` | N:1 | 종료 행사에 유효하게 참여한 회원만 작성 가능 |
+| `legacy-meeting.meeting` | `ratings` | owns | `legacy-meeting.rating` | 1:N | 별점은 행사 문맥 없이 존재할 수 없음 |
+| `legacy-meeting.rating` | `author` | references | `member.member` | N:1 | 작성자는 해당 행사 참여자여야 함 |
+| `legacy-meeting.rating` | `subject` | references | `member.member` | N:1 | 대상자는 작성자와 다른 해당 행사 참여자여야 함 |
 
 ### 불변조건
 
