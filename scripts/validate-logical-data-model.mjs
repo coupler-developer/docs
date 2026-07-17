@@ -53,6 +53,7 @@ const invariantHeaders = [
   "기준 문서",
 ];
 const domainHeaders = ["도메인 ID", "표시명", "책임 범위", "소유 문서"];
+const modelSubheadings = ["논리 엔티티", "관계", "불변조건"];
 
 const defaultRoot = process.cwd();
 const defaultIndexPath = path.join(
@@ -191,12 +192,36 @@ export function validateLogicalDataModel({
     }
 
     const modelSection = extractSection(ownerSource, "## 논리 데이터 모델");
-    const declaredDomainId =
-      modelSection.match(/^- 도메인 ID:\s*`([^`]+)`\s*$/mu)?.[1] ?? "";
-    if (declaredDomainId !== domain.id) {
+    const declaredDomainIds = [...modelSection.matchAll(/^- 도메인 ID:\s*`([^`]+)`\s*$/gmu)];
+    if (declaredDomainIds.length !== 1) {
+      errors.push(
+        `${domain.ownerDocument}: 도메인 ID 선언은 정확히 1개여야 합니다. 현재 ${declaredDomainIds.length}개`,
+      );
+    }
+    const declaredDomainId = declaredDomainIds[0]?.[1] ?? "";
+    if (declaredDomainIds.length === 1 && declaredDomainId !== domain.id) {
       errors.push(
         `${domain.ownerDocument}: 도메인 ID가 인덱스와 다릅니다. expected=${domain.id}, actual=${declaredDomainId || "(없음)"}`,
       );
+    }
+
+    const actualSubheadings = [...modelSection.matchAll(/^###\s+(.+?)\s*$/gmu)].map(
+      (match) => match[1],
+    );
+    if (canonicalJson(actualSubheadings) !== canonicalJson(modelSubheadings)) {
+      errors.push(
+        `${domain.ownerDocument}: 논리 데이터 모델 하위 절은 논리 엔티티 -> 관계 -> 불변조건 순서로 각각 정확히 1개여야 합니다. actual=${actualSubheadings.join(" -> ") || "(없음)"}`,
+      );
+    }
+
+    const firstSubheadingOffset = modelSection.search(/^###\s+/mu);
+    const domainIdOffset = declaredDomainIds[0]?.index ?? -1;
+    if (
+      declaredDomainIds.length === 1 &&
+      firstSubheadingOffset >= 0 &&
+      domainIdOffset > firstSubheadingOffset
+    ) {
+      errors.push(`${domain.ownerDocument}: 도메인 ID 선언은 논리 엔티티 절보다 앞에 있어야 합니다.`);
     }
 
     const status =
