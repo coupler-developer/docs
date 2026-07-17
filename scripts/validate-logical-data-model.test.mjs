@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
   canonicalJson,
   validateLogicalDataModel,
 } from "./validate-logical-data-model.mjs";
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const makeIndex = ({ planned = false, includeSample = true } = {}) => `# ${
   planned ? "예정 " : ""
@@ -146,6 +149,24 @@ test("현행 표준 논리 모델과 생성 catalog를 허용한다", () => {
   });
 });
 
+test("architecture 템플릿이 표준 논리 모델 구조를 유지한다", () => {
+  const template = fs.readFileSync(
+    path.join(repositoryRoot, "content", "templates", "architecture-template.md"),
+    "utf8",
+  );
+
+  assert.match(template, /^- 도메인 ID: `<domain-id>`$/mu);
+  assert.match(
+    template,
+    /^\| 논리 ID \| 표시명 \| 생명주기 역할 \| 엔티티 형태 \| 기록 역할 \| 책임 \| 최고 데이터 분류 \| 생명주기 \|$/mu,
+  );
+  assert.match(
+    template,
+    /^\| 출발 논리 ID \| 관계 역할 \| 관계 유형 \| 도착 논리 ID \| 카디널리티 \| 소유·삭제 규칙 \|$/mu,
+  );
+  assert.doesNotMatch(template, /구조 유형|<root, child, relation>/u);
+});
+
 test("예정 레지스트리의 단계가 catalog에 보존된다", () => {
   withFixture(
     makeOwner({ status: "to-be" }),
@@ -213,6 +234,32 @@ test("인덱스와 소유 문서의 현행·예정 단계 불일치를 거부한
     assert.ok(
       validateLogicalDataModel(options).errors.some((error) =>
         /기준 성격이 등록 인덱스와 다릅니다/.test(error),
+      ),
+    );
+  });
+});
+
+test("논리 모델 하위 절의 중복과 순서 drift를 거부한다", () => {
+  const duplicatedSection = makeOwner().replace(
+    "### 관계",
+    "### 논리 엔티티\n\n### 관계",
+  );
+  withFixture(duplicatedSection, (options) => {
+    assert.ok(
+      validateLogicalDataModel(options).errors.some((error) =>
+        /하위 절은 논리 엔티티 -> 관계 -> 불변조건 순서/.test(error),
+      ),
+    );
+  });
+
+  const misplacedDomainId = makeOwner().replace(
+    "- 도메인 ID: `sample`\n\n### 논리 엔티티",
+    "### 논리 엔티티\n\n- 도메인 ID: `sample`",
+  );
+  withFixture(misplacedDomainId, (options) => {
+    assert.ok(
+      validateLogicalDataModel(options).errors.some((error) =>
+        /도메인 ID 선언은 논리 엔티티 절보다 앞/.test(error),
       ),
     );
   });
