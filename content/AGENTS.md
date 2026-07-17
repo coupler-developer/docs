@@ -40,6 +40,9 @@
     - 마지막 파일 변경 이후 push 대상 범위의 최종 판정이 `No Findings`가 아니거나 열린 Finding이 있으면 push하지 않고 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 먼저 보고한다
     - 사용자 승인으로 계속 진행하더라도 push 직전에는 `git status`, push 대상 커밋/태그 범위, 문서 동기화 여부, 적용 품질 게이트 결과를 다시 확인하고 보고한다
     - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 별도 명시 승인 없이는 실행하지 않는다
+- 브랜치 push, PR 생성·업데이트, "PR 올려줘" 요청은 GitHub reviewer 요청·지정 권한을 포함하지 않는다
+    - 사용자가 reviewer 개인 또는 팀을 별도로 명시해 승인하기 전에는 `Request reviewer`를 실행하거나 reviewer를 추가·재요청·교체·제거하지 않는다
+    - 적합한 reviewer를 에이전트가 임의로 추정하지 않으며, 기존 reviewer 상태를 read-only로 확인하더라도 사용자 승인 없이 변경하지 않는다
 - 사용자가 "관련 워크트리와 브렌치 정리해줘" 또는 같은 의미의 요청을 하면 `content/policy/git-sync-rebase-policy.md`의 `관련 워크트리와 브랜치 정리 절차`를 따른다
 - 지시/리뷰에 `DBM-GATE-*`가 포함되면 `content/policy/db-migration-gate-policy.md`를 추가 열람하고 Gate ID 기준으로 근거를 제시한다
 - 테스트 파일(`__tests__`, `*.test.*`, `__snapshots__`) 변경은 `content/policy/testing-strategy.md`의 `테스트 변경 판정` 기준을 따른다

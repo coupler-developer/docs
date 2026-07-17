@@ -210,6 +210,14 @@
 - CI, GitHub Actions, secret, package registry, 권한, 배포, 릴리즈 자동화 변경은 외부 영향 범위와 비코드 설정 필요 여부를 함께 리뷰한다.
 - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 일반 push 게이트와 별개로 명시 승인을 받아야 한다.
 
+### PR reviewer 요청 승인 게이트
+
+- 브랜치 push, PR 생성·업데이트, "PR 올려줘", "PR까지 처리해줘" 요청은 GitHub reviewer 요청·지정 권한을 포함하지 않는다.
+- 사용자가 reviewer 개인 또는 팀을 별도로 명시해 승인한 경우에만 GitHub `Request reviewer`, `gh pr edit --add-reviewer`, REST/GraphQL requested reviewer 변경을 실행한다.
+- reviewer 후보를 코드 소유권, 최근 커밋, 기존 PR, 조직 membership으로 임의 추정해 자동 요청하지 않는다.
+- 기존 reviewer의 추가·재요청·교체·제거도 별도 승인 대상이다. 상태 확인과 보고만 read-only로 수행할 수 있다.
+- reviewer 승인이 없으면 PR은 reviewer 미지정 상태로 생성·갱신하고, reviewer 요청을 완료 조건이나 후속 기본 작업으로 처리하지 않는다.
+
 ### GitHub 원격 상태 확인과 gh 인증 판정
 
 - PR, check, workflow, release, 원격 branch처럼 GitHub 웹 상태를 확인할 때는 브라우저 화면 추측보다 `gh` CLI/API 결과를 우선한다.
