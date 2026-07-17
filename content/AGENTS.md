@@ -2,7 +2,7 @@
 
 - 이 문서에는 문서 인덱스와 에이전트 최소 운영 규칙만 포함한다
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
-- 문서 추가/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
+- 문서 추가/삭제/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
 - 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/document-governance-policy.md`를 단일 SoT로 따른다
 - 템플릿 문서는 `content/templates/`에 둔다
 - 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
@@ -11,7 +11,8 @@
 - `technical-debt`에는 미해결 항목만 유지한다. 완료 기준을 충족한 항목은 같은 작업 단위에서 삭제하고, 다른 축의 잔여 작업은 기존/신규 부채로 분리하며, 완료 이력은 PR 또는 릴리스 기록에 남긴다
 - `content/technical-debt/technical-debt.md`의 각 항목은 `현상`, `영향`, `조치`, `완료`를 간결하게 유지한다. 필요한 근거·예외는 추가할 수 있고 상세 이력은 링크된 문서, PR, 릴리스 기록에 둔다
 - 문서 역할 기준의 단일 SoT는 `content/policy/document-governance-policy.md`를 따른다
-- 문서 작성/수정/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
+- 문서 작성/수정/삭제/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
+- `policy` 문서 추가·수정·삭제·리뷰 시에는 `content/policy/document-governance-policy.md`의 `정책 Composition Gate`를 적용해 대상 정책 전체(삭제는 삭제 전 본문), 정방향·역방향 규범 참조, 책임/우선순위, 상태·단계별 Exit Gate를 확인한다
 - 사용자와 명시적으로 합의하지 않았거나, 처음 온 사람이 추측해야 하는 임의 축약어/내부 은어를 쓰지 않는다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
     - `content/technical-debt/technical-debt.md`
@@ -34,7 +35,7 @@
       논리 모델 finding으로 판정한다
 - 커밋 생성/수정 요청을 받으면 staging 또는 commit 전에 `content/policy/code-review-policy.md`, `content/policy/git-branch-strategy.md`, `content/policy/commit-convention.md`를 함께 확인한다
     - 현재 세션에서 마지막 파일 변경 이후 같은 변경 범위를 리뷰한 기록이 없거나 최종 판정이 `No Findings`가 아니면 즉시 멈추고 사용자에게 계속 진행 여부를 물어본다
-    - 사용자가 진행을 승인하더라도 커밋 전에는 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 다시 보고한다
+    - 사용자가 진행을 승인하더라도 커밋 전에는 리뷰 범위, 열린 Finding, 마지막 변경 이후 검증 상태를 다시 보고한다
     - 현재 브랜치가 `main` 또는 `develop`이면 커밋하지 않고 사용자에게 작업 브랜치 생성을 먼저 확인한다
     - 커밋 전 브랜치 적합성은 `content/policy/git-branch-strategy.md`를 함께 확인한다
     - `git status`와 diff를 확인해 사용자 변경, 생성물, 무관 파일이 섞였는지 분리한다
@@ -43,7 +44,7 @@
     - 커밋 직후 메시지 포맷 확인은 커밋 컨벤션 정책의 CLI 작성 규칙을 따른다
 - 브랜치 생성/이름 변경이 필요하면 실행 전에 `content/policy/git-branch-strategy.md`를 확인하고, 브랜치 이름이 해당 규칙을 따르는지 점검한다
 - 원격 push, PR 생성, 기존 PR 브랜치 갱신, 태그 push 요청을 받으면 push 전에 `content/policy/code-review-policy.md`의 `Push 전 자체 리뷰 게이트`를 적용한다
-    - 마지막 파일 변경 이후 push 대상 범위의 최종 판정이 `No Findings`가 아니거나 열린 Finding이 있으면 push하지 않고 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 먼저 보고한다
+    - 마지막 파일 변경 이후 push 대상 범위의 최종 판정이 `No Findings`가 아니거나 열린 Finding이 있으면 push하지 않고 리뷰 범위, 열린 Finding, 마지막 변경 이후 검증 상태를 먼저 보고한다
     - 사용자 승인으로 계속 진행하더라도 push 직전에는 `git status`, push 대상 커밋/태그 범위, 문서 동기화 여부, 적용 품질 게이트 결과를 다시 확인하고 보고한다
     - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 별도 명시 승인 없이는 실행하지 않는다
 - 브랜치 push, PR 생성·업데이트, "PR 올려줘" 요청은 GitHub reviewer 요청·지정 권한을 포함하지 않는다
