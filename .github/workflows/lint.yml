@@ -57,6 +57,10 @@ jobs:
         if: steps.validation_mode.outputs.mode == 'full'
         run: node scripts/validate-docs-structure.mjs
 
+      - name: Test docs structure validation
+        if: steps.validation_mode.outputs.mode == 'full'
+        run: node --test scripts/validate-docs-structure.test.mjs
+
       - name: Validate API error docs
         if: steps.validation_mode.outputs.mode == 'full'
         run: node scripts/validate-api-error-docs.mjs
