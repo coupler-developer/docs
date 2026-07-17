@@ -199,19 +199,22 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - shared registry mutex: `{registryRoot}/_locks/registry.lock`
 - local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
 - backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
+- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·canonical timestamp와 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·시각·scenario·row reference·count를 같은 기준으로 검증한다.
+- init 재진입, readiness, inventory, claim, 상태 update, finalization과 개발 cron lease 생성은 registry mutex 안에서 fence와 active directory 전체 snapshot의 형식·양방향 소유권·active scope 충돌을 먼저 검증한다. 한 record만 유효하다는 이유로 손상된 나머지 snapshot을 무시하고 진행하지 않는다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
 - reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
-- history write나 fence update가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 합성 데이터와 fence는 이미 제거된 cleaned record를 남겨 같은 reset이 finalization을 재시도할 수 있게 한다.
-- apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거하며 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
+- history write나 fence update가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 합성 데이터와 fence는 이미 제거된 cleaned record를 남기고, 같은 reset은 DB·asset cleanup을 반복하지 않고 ETag와 현재 record가 일치할 때 finalization만 재시도한다.
+- apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거한다. cleanup도 동일한 run record parser와 `{runId}.json` 파일 소유권을 검증하고 손상된 history를 임의 삭제하지 않으며, 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
 - registry active/history prefix는 namespace asset인 `uploads/dev-data/{namespace}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
 - registry가 불가용하거나 active record와 DB root가 불일치하면 apply·verify·reset을 중단하고 reconciliation 결과를 출력한다.
 - 최초 `init-registry`는 DB에 연결하지 않고 빈 registry만 만든다. fence가 유실됐는데 active record가 남은 상태는 빈 fence로 덮지 않고 복구 대상으로 중단한다.
-- `active` inventory는 registry mutex 안에서 active directory 전체를 읽고 namespace, suite, owner, 상태, 유지 종료일과 count를 출력한다. 예상하지 못한 파일이나 유효하지 않은 suite·상태·시각 metadata가 있으면 일부 목록을 반환하지 않고 전체를 실패시킨다.
+- `active` inventory는 registry mutex 안에서 active directory 전체를 읽고 namespace, suite, owner, 상태, 유지 종료일과 count를 출력한다. 예상하지 못한 파일, 중복 fence namespace, 유효하지 않은 fence 시각·active metadata 또는 active record 상호 간 scope 충돌이 있으면 일부 목록을 반환하지 않고 전체를 실패시킨다.
 - fence-only namespace와 unfenced active record는 부분 claim·registry 손상 상태로 분류해 inventory와 신규 claim을 차단한다. 단, DB·asset 정리가 끝나고 마지막 active unlink만 재시도하는 `cleaned` record는 fence 없이 남을 수 있다.
 - registry root의 active scope는 다음 두 모드 중 하나로 결정되며 별도 설정값을 두지 않는다.
     - 통합 모드: `cms-all` 하나만 active
     - 분할 모드: 서로 다른 도메인 suite를 각각 하나씩 active
 - `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
+- claim 뒤 run ID, namespace/key, owner, suite, catalog/schema fingerprint, reference/expiry/created time은 바꾸지 않는다. update는 `updatedAt` 단조 증가와 apply·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
 - 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
 - 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 canonical catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
 
@@ -444,7 +447,7 @@ coverage entry는 다음 축을 가진다.
 - `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 fence index와 active record를 함께 확인한다.
 - `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기는 변경·정리 구간이다. cron handler를 시작하지 않고 `x-dev-cron-result: maintenance` 성공 응답을 반환하며 dispatcher는 이를 `SKIP`으로 기록한다.
 - `applied`, `failed`, `cleanup_failed`는 안정 상태다. active namespace key로 합성 회원 root와 연결 meeting을 조회하고 13개 cron job에 `REAL_ONLY` 정책을 적용한다. 정상 개발 데이터는 기존 도메인 로직으로 처리하고 합성 member·match·meeting·reservation·profile target은 변경하지 않는다.
-- Run Registry 소유권이 없는 합성 root, 유효하지 않은 active record, 읽을 수 없는 registry는 handler 전에 실패한다. 소유권을 추측하거나 전체 개발 데이터를 실행 대상으로 되돌리지 않는다.
+- Run Registry 소유권이 없는 합성 root, 유효하지 않은 fence·active record·active scope 집합, 읽을 수 없는 registry는 handler 전에 실패한다. cron은 feeder와 같은 contract parser를 사용하며 소유권을 추측하거나 전체 개발 데이터를 실행 대상으로 되돌리지 않는다.
 - cron 진입은 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하고 같은 job의 중복 호출은 `already-running` `SKIP`으로 처리한다.
 - feeder의 새 claim과 `applying`·`resetting` 상태 전환은 같은 mutex 안에서 active cron lease 0건을 확인한다. 따라서 cron과 합성 데이터 DB 변경 중 하나만 먼저 시작할 수 있다.
 - production에서는 target policy를 별도로 만들지 않고 기존 `ALL_TARGETS` 동작을 유지한다. production startup은 `DEV_CRON_*` 또는 feeder·registry enable 설정이 하나라도 있으면 실패한다.
