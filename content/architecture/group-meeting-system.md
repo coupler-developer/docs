@@ -210,7 +210,7 @@ CHECK로 append-only 교체하고, 82번 migration이 11개 테이블과 전체 
   runtime 검증, 운영 전환 조건을 모두 충족한 뒤에만 as-is로 승격한다.
 
 남은 Mobile/출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`24) 그룹미팅 Mobile 및 출시 통합 미완료`에서 추적한다.
+`22) 그룹미팅 Mobile 및 출시 통합 미완료`에서 추적한다.
 
 ## 관련 문서
 
