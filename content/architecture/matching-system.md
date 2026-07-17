@@ -30,7 +30,7 @@
 | `matching.call` | 매칭 통화 | child | entity | history | 통화 요청·수락과 통화 시간 | 민감 | 운영·분쟁 처리 기간 동안 보존 |
 | `matching.review` | 매칭 후기 | child | association | history | 작성 회원과 대상 회원의 만남 결과·후기 연결 | 민감 | 개인정보 정리 후 비식별 이력만 보존 가능 |
 | `matching.event-history` | 매칭 이벤트 이력 | child | entity | history | 상태 변경, Key 처리와 운영 메시지 | 내부 | append-only 이력으로 보존 |
-| `matching.reservation` | 매칭 후보 예약 | root | entity | history | 자동 매칭 후보와 실패 사유 | 내부 | 실행 결과 확인 기간 동안 보존 |
+| `matching.reservation` | 매칭 후보 예약 | root | entity | state | 발송 전 자동 매칭 후보와 현재 실패 사유 | 내부 | 발송 성공 또는 운영자 삭제 시 제거하고 실패 후보는 재시도·삭제 전까지 유지 |
 | `matching.reservation-policy` | 매칭 예약 기준 | root | entity | reference | 자동 매칭 횟수·연령·등급 범위 | 내부 | 운영 설정 변경 시 갱신 |
 
 ### 관계
@@ -45,7 +45,8 @@
 | `matching.review` | `author` | references | `member.member` | N:1 | 작성자는 해당 매칭 참여자여야 함 |
 | `matching.review` | `subject` | references | `member.member` | N:1 | 대상자는 작성자와 다른 해당 매칭 참여자여야 함 |
 | `matching.match` | `event-history` | owns | `matching.event-history` | 1:N | 원천 매칭 삭제 없이 이력을 유지 |
-| `matching.reservation` | `policy` | references | `matching.reservation-policy` | N:1 | 실행 시점에 적용한 기준을 운영 로그로 추적 |
+| `matching.reservation` | `female-candidate` | references | `member.member` | N:1 | 예약 발송 전 여성 후보를 참조 |
+| `matching.reservation` | `male-candidate` | references | `member.member` | N:1 | 예약 발송 전 남성 후보를 참조 |
 
 ### 불변조건
 
@@ -54,6 +55,7 @@
 | `MATCHING-INV-001` | `matching.match` | 동일 매칭의 두 참여 회원은 같을 수 없다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
 | `MATCHING-INV-002` | `matching.schedule` | 확정 일정은 허용된 제안·수락 상태 전이를 거쳐야 한다 | [매칭 일정 제안 알고리즘](matching-schedule-algorithm.md) |
 | `MATCHING-INV-003` | `matching.event-history` | 상태 변경과 Key 정산 이력은 원천 상태 변경과 같은 결론을 가져야 한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+| `MATCHING-INV-004` | `matching.reservation` | 예약 후보는 발송 전 작업 상태이며 발송 완료 또는 운영자 삭제 시 제거된다 | 이 문서 |
 
 ## 관련 문서
 
