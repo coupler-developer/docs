@@ -363,21 +363,23 @@ flowchart TD
 
 ### t_lounge_moderation_log
 
-관리자 삭제 행위의 운영 감사 전용 원장이다. 콘텐츠 현재 상태를 판정하는 테이블이 아니다.
+작성자와 관리자의 삭제 상태 전이를 추가 전용으로 보존하는 운영 감사 원장이다. 콘텐츠 현재 상태를
+판정하는 테이블이 아니다.
 
 | 필드 | 설명 |
 | --- | --- |
 | target_type/target_id | `LOUNGE` 또는 `COMMENT` 대상과 콘텐츠 ID |
-| admin_id | 행위 관리자 |
+| admin_id/member_id | 관리자 또는 작성자 행위자. 한 이력에는 하나만 존재 |
 | previous_status/next_status | 변경 전후 콘텐츠 상태 |
-| reason | 관리자 입력 사유 |
+| reason | 관리자 입력 사유. 작성자 삭제는 값 없음 |
 | created_at | 행위 시각 |
 
-- 감사 로그 기본 키 `id`를 API의 `audit_id`와 운영 로그 연결 키로 사용한다.
+- 삭제 이력 기본 키 `id`는 CMS `deletion_history` 항목의 `id`이고, 관리자 삭제 명령 응답에서는
+  `audit_id`로 반환해 운영 로그와 연결한다.
 - `request_id`는 별도로 저장하지 않는다. CMS가 멱등 키를 보내지 않는 현재 구조에서 서버가 임의 생성한
   요청 ID는 중복 실행을 막지 못하고 감사 로그 기본 키와 역할이 겹친다.
-- 관리자, 사유, 변경 전후 상태 같은 감사 필드는 `t_lounge`/`t_lounge_cmt`에 추가하지 않는다.
-- 콘텐츠가 나중에 정리되더라도 감사 기록을 보존할 수 있도록 콘텐츠/관리자 FK에 의존하지 않는다.
+- 행위자, 사유, 변경 전후 상태 같은 감사 필드는 `t_lounge`/`t_lounge_cmt`에 추가하지 않는다.
+- 콘텐츠가 나중에 정리되더라도 감사 기록을 보존할 수 있도록 콘텐츠/행위자 FK에 의존하지 않는다.
 
 ## 레거시 전환
 
@@ -396,7 +398,7 @@ flowchart TD
 - 새 API는 기존 CMS의 라운지 `DELETE` 경로와 flat 신고 응답을 제공하지 않으므로 기존 CMS와 새 API를
   열린 트래픽에서 섞지 않는다.
 - cutover 시 API와 CMS 사용 트래픽을 drain하고 호환 API와 CMS 산출물을 배치한다. API 바이너리는 DB보다
-  먼저 배치할 수 있지만, migration `79~81` 적용·postcheck·ledger와 API/CMS 시나리오 검증이 끝나기
+  먼저 배치할 수 있지만, migration `79~82` 적용·postcheck·ledger와 API/CMS 시나리오 검증이 끝나기
   전에는 트래픽을 다시 열지 않는다.
 - Mobile은 cutover 전에 배포할 수 있다. 구버전 앱도 새 API가 원문을 제거한 DTO를 반환하므로 데이터가
   노출되지는 않지만, 신규 상태별 스타일과 액션 제한은 Mobile 배포 후 완성된다.
