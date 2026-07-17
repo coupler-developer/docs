@@ -203,6 +203,12 @@ cutover 배포 코드 기준:
     - Public request/success wire DTO는 contracts package generated type을 사용한다. 소비자는 API wire DTO를 재정의하지 않고 화면 ViewModel, 로컬 draft, 표시 모델만 별도로 정의한다
     - 화면 표시용 ViewModel/로컬 상태 가공은 허용하되, API 호출 계층으로 역유입시키지 않는다
     - DB 컬럼명과 API DTO명을 1:1로 강제하지 않는다. 서버 경계에서 매핑을 명시하고 외부 계약은 DTO로 고정한다
+- **응답 DTO와 Presenter/Mapper를 구분한다**
+    - Operation별 generated success DTO는 public wire 계약의 단일 타입 기준이다. 서버 내부 값이 이미 정확한 타입과 필드 집합이면 object literal에 `satisfies <GeneratedDto>`를 적용하거나 해당 DTO 타입으로 반환하고, 같은 필드를 다시 복사·검사하는 `toXxxDto` identity wrapper를 만들지 않는다.
+    - Presenter/Mapper는 삭제 문구·익명화·표시 권한처럼 응답 의미를 만들거나 DB flat row를 중첩 DTO로 투영하는 실제 변환이 있을 때만 둔다. 함수명은 `presentXxx` 또는 `mapXxx`처럼 책임을 드러내고 입력은 정확한 typed read model/DTO로 제한한다.
+    - Presenter/Mapper 입력을 `unknown`, `Record<string, unknown>`으로 넓힌 뒤 generated DTO 필드를 `requireString`/`requireInteger`처럼 수동 재검증하지 않는다. 이는 generated DTO와 별도의 수동 runtime schema를 만드는 중복 SoT로 본다.
+    - 런타임 검증은 외부 API·서드파티 SDK·raw JSON처럼 실제 비신뢰 경계에서만 수행한다. Operation DTO runtime 검증이 필요하면 OpenAPI에서 생성된 단일 schema를 사용하며 generated DTO 필드를 손으로 반복 정의하지 않는다.
+    - API Repository query는 가능한 한 응답 또는 내부 read model에 필요한 컬럼만 명시적으로 조회한다. `SELECT *` 결과를 타입 단정해 직접 응답하지 않으며, 내부 컬럼이 포함될 수 있으면 query projection 또는 명시적 Presenter/Mapper로 제거한다.
 - **서버 enum과 로컬 상태를 섞지 않기**
     - 서버 상태코드는 서버 enum 그대로만 사용한다
     - 로컬 UI 전용 draft/임시 상태는 별도 로컬 enum/필드로 분리한다
@@ -339,6 +345,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 - 비즈니스 상태 전이/자격 판정/권한 판정은 API 서버만 수행한다.
 - 요청 DTO와 응답 DTO를 분리하고, 필드 alias fallback(`a ?? b`)로 계약 불일치를 숨기지 않는다.
+- 이미 generated DTO와 일치하는 응답은 `satisfies`/정확한 반환 타입으로 직접 전달하고 identity `toXxxDto` wrapper를 두지 않는다. 의미·구조 변환이 있는 응답만 typed Presenter/Mapper를 사용한다.
 - 컨트롤러는 오케스트레이션에 집중하고 핵심 규칙은 service/usecase 계층으로 고정한다.
 - 다중 엔티티 갱신은 트랜잭션 경계를 명시하고 부분 성공 상태를 남기지 않는다.
 - 클라이언트 임시 정책을 서버에 하드코딩하지 않는다(플랫폼 분기 금지, 계약 기반 처리).

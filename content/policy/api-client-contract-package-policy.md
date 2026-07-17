@@ -22,7 +22,6 @@
 
 - JSON API 응답 envelope 자체의 wire 구조 변경
 - request method/path/media type 검증 runtime, request serializer, URL encoder, operation dispatcher
-- operation별 request/success DTO schema 작성 기준
 - 실패 `ErrorData` taxonomy 작성 기준
 
 ## 단일 SoT
@@ -42,15 +41,20 @@
 - Package source target: `coupler-api/packages/contracts`
 - Published package: GitHub Packages에 발행하는 `@coupler-developer/coupler-api-contracts`
 - Published latest stable version: API `main`의 canonical generated contract를 반영해 GitHub Packages에 가장 최근 발행한 prerelease가 아닌 version
+- Published PR preview version: open Draft API PR의 정확한 head를 소비자와 검증하기 위해
+  `x.y.z-pr.<api-pr>.<run-id>.<attempt>` 형식과 `pr-<api-pr>` dist-tag로 발행한 임시 version
 - Active consumer: 계약 package를 dependency로 사용하는 `coupler-admin-web`와 `coupler-mobile-app`
 - Legacy generated copy: Admin/Mobile의 `src/api/generated/*` 복사본
 - Public wire DTO: API 경계의 path/query/body 요청 값과 성공 응답 `data`를 표현하는 DTO. DB row, 서버 내부 usecase 모델, 화면 ViewModel, 로컬 draft는 포함하지 않는다.
 
 ## 전환 상태
 
-- 현재 published package는 operation별 success DTO type과 response/error runtime을 제공하지만 operation별 public request DTO type은 제공하지 않는다.
+- 현재 generated contract는 operation별 success DTO type과 response/error runtime을 제공한다.
+  직접 수정한 일부 operation에는 named request body DTO도 제공하지만, path/query/body 위치까지
+  묶은 operation별 public request DTO map은 아직 완성되지 않았다.
 - Public request DTO type 생성과 Admin/Mobile local request wire DTO 제거는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API public request DTO 생성/소비 전환 미완료`에서 추적한다.
 - 전환 완료 전 기존 local request DTO는 기존 부채로 분류한다. 신규 또는 직접 수정하는 operation은 Swagger/OpenAPI request schema를 먼저 고정하고, package generated request DTO를 사용할 수 있는 범위부터 local wire DTO를 추가하지 않는다.
+- 기존 `unknown`, loose success schema, consumer-local response DTO는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API success DTO schema 정리 미완료`로 관리한다. 현재 변경이 읽거나 수정하지 않는 기존 endpoint를 같은 PR에서 일괄 정리하지 않는다.
 
 ## 필수 규칙
 
@@ -58,9 +62,29 @@
 - package infra PR은 wire 응답 구조를 바꾸지 않는다.
 - 계약 package의 source of truth는 `coupler-api`다. Admin/Mobile은 package를 생성하지 않고 발행된 version을 lockfile로 고정한다.
 - API public request/success wire shape는 Swagger/OpenAPI에서 한 번만 정의하고 API generator가 package type으로 생성한다. 필드의 비즈니스 의미와 도메인 제약은 각 도메인 정책에서 정의한다. Admin/Mobile은 같은 wire DTO를 local type/interface로 다시 정의하지 않는다.
+- 신규 operation 또는 성공 `data`의 필드·필수 여부·nullable·배열/단수 구조를 직접 변경하는 operation은 같은 변경 단위에서 Swagger/OpenAPI success DTO를 실제 wire shape와 일치시키고 generated contract freshness를 통과해야 한다.
+- Mobile/Admin의 성공 `data` 소비 구조는 아래 `소비자 DTO와 ViewModel 경계`를 따른다.
+- 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough 경로는 operation별 success DTO 소비 전환 대상에서 제외할 수 있다. 이 예외는 필드 접근·로컬 shape 선언·cast·fallback이 없다는 근거가 있어야 하며, passthrough를 이유로 신규 loose schema를 추가해서는 안 된다.
 - Package request DTO는 type-only 계약이며 path/query/body 위치, required/optional, nullable, 배열/단수 구조를 보존해야 한다. DB row, 서버 내부 DTO, 화면 ViewModel, 로컬 draft는 package public DTO로 승격하지 않는다.
-- 소비자는 package request DTO로 payload를 구성하고 package success DTO를 화면 ViewModel로 명시 변환한다. ViewModel이 API 호출 계층으로 역유입되거나 local wire DTO가 package 계약을 덮어쓰면 안 된다.
-- 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에 exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는 완료가 아니다.
+- 소비자는 package request DTO로 payload를 구성한다. 화면 ViewModel과 로컬 draft는 API 호출 계층으로 역유입하지 않는다.
+- `main`과 Ready 상태의 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에
+  exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는
+  완료가 아니다.
+- Admin/Mobile Draft PR은 교차 컴파일 검증에 한해 published PR preview version을 dependency와 lockfile에
+  exact pin할 수 있다. PR 본문에는 API PR 번호, preview version, 검증한 API head SHA를 남긴다.
+- PR preview는 소비자 검증용 prerelease이며 stable 발행, 계약 정렬, cutover 또는 운영 배포 완료 증거가 아니다.
+  소비자 PR을 Ready로 전환하기 전에 published latest stable version으로 교체하고 lockfile과 전체 품질
+  게이트를 다시 검증한다.
+- PR preview는 API `main` ref의 수동 `Release Contracts Preview` workflow로만 발행한다. workflow는
+  입력한 번호가 같은 레포의 `main` 대상 open Draft PR인지 확인하고 API에서 얻은 head SHA를 정확히
+  checkout한다.
+- API source의 stable version은 preview 발행을 위해 변경하지 않는다. workflow runner에서만
+  `x.y.z-pr.<api-pr>.<run-id>.<attempt>`로 바꾸며, 각 version은 재사용하지 않는다.
+- PR preview는 `pr-<api-pr>` dist-tag로 발행하고 `latest`를 변경하지 않는다. 정식 `Release Contracts`
+  workflow는 수동 dispatch를 제공하지 않고 `main` push에서만 stable version을 발행한다.
+- Preview checkout은 Git credential을 보존하지 않는다. PR 코드를 검사·pack하는 prepare job에는 package
+  write 권한을 주지 않고, 별도 publish job이 Draft 상태와 head SHA 및 tarball metadata를 다시 검증한 뒤
+  lifecycle script를 끄고 발행한다.
 - 최종 구조 리뷰에서는 API package source와 Admin/Mobile dependency·lockfile을 하나의 동시 배포 계약 묶음으로 비교한다. 세 레포의 exact version과 실제 runtime 공개 표면이 같으면 함께 배포 가능한 최종 계약으로 판정하며, 이 코드 판정 자체에 Store/NextPush 이력이나 legacy traffic 운영 증빙을 요구하지 않는다.
 - 운영 배포 증빙은 구버전 소비자 호환 경로나 URL-encoded parser 같은 legacy 입력 경로를 실제 제거할 때 별도 Cutover Gate로 확인한다. 브랜치 이름에 `cutover`가 있다는 이유만으로 package 정렬 리뷰에 운영 Gate를 추가하지 않는다.
 - 변경된 계약 symbol을 특정 consumer가 직접 import하지 않더라도 version 갱신 대상에서 제외하지 않는다. 계약 package는 active consumer가 함께 고정하는 공용 계약 스냅샷이다.
@@ -68,7 +92,9 @@
 - 소비자 version 지연은 별도 호환 릴리즈로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer, 현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 cutover 완료로 판정하지 않는다.
 - package 이름은 `@coupler-developer/coupler-api-contracts`로 고정한다. 별도 import alias를 두지 않는다.
 - API repo의 package 발행/검증 명령은 API repo의 `packageManager`와 lockfile 기준을 따른다. 현재 기준은 `pnpm`/`pnpm-lock.yaml`이다.
-- API repo의 `Release Contracts` publish 권한은 GitHub Actions 기본 `github.token`과 workflow `packages: write` 권한으로 고정한다. 이 package 발행만을 위해 별도 PAT secret을 만들거나 fallback으로 두지 않는다.
+- API repo의 stable/preview publish 권한은 GitHub Actions 기본 `github.token`과 workflow
+  `packages: write` 권한으로 고정한다. 이 package 발행만을 위해 별도 PAT secret을 만들거나 fallback으로
+  두지 않는다.
 - Admin/Mobile 소비자 설치 인증은 package 발행 권한과 분리한다. 현재 소비자 CI 설치는 GitHub Packages package settings의 `Manage Actions access`에 해당 consumer repo가 `Read` 권한으로 등록된 상태를 전제로, GitHub Actions 기본 `github.token`과 workflow `packages: read` 권한을 사용한다.
 - package 설치만을 위해 새 PAT, 새 token secret, 새 fallback token을 만들지 않는다.
 - 새 token secret이 필요하다고 판단되면 먼저 package `Manage Actions access`, `github.token` 권한, org/repo 권한 제약을 조사하고, 대체 불가 사유와 권한 범위, 만료/회수 계획을 PR/릴리즈 기록에 남긴 뒤 명시 승인을 받아야 한다.
@@ -82,6 +108,9 @@
 - 로컬 인증 절차 문서는 `gh auth status`, 필요 시 `gh auth login -p ssh`, `gh auth refresh -s read:packages`, `npm config set --location=user ...` 순서를 포함한다.
 - 로컬 인증 누락으로 `yarn install`이 실패하는 것은 package 계약 전환의 협업 차단 이슈로 본다. 소비자 전환 PR은 README 또는 개발자 문서에 로컬 인증 절차를 포함해야 한다.
 - 실제 발행 전 소비자 전환 PR에는 `file:`, local tarball, git dependency 같은 임시 dependency를 커밋하지 않는다.
+- Published PR preview exact pin은 위 임시 dependency 금지의 예외지만 Draft PR에서만 허용한다.
+- Admin/Mobile CI는 `ready_for_review`와 `main` push를 구독하고 Ready, main 또는 수동 실행에서 prerelease
+  dependency를 발견하면 실패해야 한다.
 - Admin/Mobile은 legacy generated copy를 재도입하지 않는다.
 - Admin/Mobile이 package dependency와 lockfile로 전환되는 cutover PR에서는 legacy generated copy와 copy exact match 검증 CI를 함께 제거한다.
 - 발행된 package version은 재사용하지 않는다. 계약 산출물이 바뀌면 새 version을 발행하고 소비자 lockfile에 반영한다.
@@ -90,6 +119,19 @@
 - Request DTO type 공유는 request transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 package public runtime으로 승격하지 않는다. Canonical client request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload `multipart/form-data`로 고정하고, Mobile/Admin request boundary와 API Swagger/parser가 같은 결론을 가리켜야 한다.
 - API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package public request/success DTO 또는 명시 ViewModel mapping을 사용하고, API wire shape를 local DTO, cast, alias fallback, normalize로 보정하지 않는다.
+
+### 소비자 DTO와 ViewModel 경계
+
+| 계층 | 입력 | 출력 | 허용 책임 |
+| --- | --- | --- | --- |
+| API 호출 경계 | `unknown` envelope | operation별 generated success DTO | envelope 검증, `ok` 분기, operation 타입 연결 |
+| 선택적 ViewModel mapper | generated success DTO | 화면 전용 ViewModel | 표시명, 파생값, UI 상태 계산 |
+| 화면 | generated DTO 또는 ViewModel | 렌더링 | 표시와 사용자 상호작용 |
+
+- 파생값이 없으면 generated DTO를 직접 사용한다. ViewModel은 필요한 화면에만 두며 API 요청이나 다른 operation DTO로 역사용하지 않는다.
+- mapper 입력을 `unknown`, `Record<string, unknown>`, consumer-local wire type으로 넓히거나 숫자·문자열 coercion, 누락값 기본값, enum 치환·필터링으로 wire 위반을 숨기지 않는다. 계약 위반은 실패·로그 처리하거나 승인된 호환 예외로 분리한다.
+- 사용자 입력, navigation param, Native media URI, 날짜·금액 표시 포맷은 API wire 보정이 아니므로 허용한다.
+- structured success fixture는 `satisfies ApiOperationSuccessData<'METHOD /path'>` 또는 동등한 operation DTO type으로 계약 일치를 확인한다.
 
 ## 공개 표면 폐쇄 원칙
 
@@ -134,6 +176,18 @@
 5. Package와 Admin/Mobile response facade의 public runtime symbol이 각각의 정확한 allowlist를 벗어나지 않는지 CI로 확인한다.
 6. PR과 릴리즈 기록에 package infra가 wire 계약 변경, 소비자 전환 완료, public request/success DTO 완료를 의미하지 않는다고 기록한다.
 
+### Draft PR prerelease 검증
+
+1. API 계약 source version을 다음 stable `x.y.z`로 올리고 API Draft PR의 계약 검증을 통과시킨다.
+2. API `main` ref에서 `Release Contracts Preview`를 수동 실행하고 API PR 번호를 입력한다.
+3. workflow가 open Draft 상태, `main` base, 같은 repo를 확인하고 API의 head SHA를 정확히 checkout한 뒤
+   `x.y.z-pr.<api-pr>.<run-id>.<attempt>`를 `pr-<api-pr>` tag로 발행한다.
+4. Admin/Mobile Draft PR은 해당 preview version을 dependency와 lockfile에 exact pin하고 표준 품질 게이트를
+   실행한다.
+5. API 변경을 다시 publish하면 새 preview version을 사용하며 기존 version을 덮어쓰지 않는다.
+6. API `main`에서 stable이 발행된 뒤 소비자 dependency와 lockfile을 stable로 교체하고 다시 검증한 후
+   Ready로 전환한다.
+
 ### 첫 발행
 
 1. API repo에서 generated contract freshness 검증을 통과시킨다.
@@ -176,7 +230,10 @@
 - [ ] package 변경이 wire 응답 구조 변경과 섞이지 않았는가?
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
 - [ ] API public request/success DTO가 Swagger/OpenAPI에서 한 번만 정의되고 package type으로 생성되는가?
+- [ ] 신규 또는 직접 수정한 structured success `data`가 실제 wire shape와 같은 required/optional/nullable/배열 구조로 정의되고 generated contract freshness를 통과하는가?
 - [ ] 소비자 request payload와 success data가 package generated DTO를 사용하며 동일 wire shape의 local DTO를 재정의하지 않는가?
+- [ ] 기존 loose/local DTO를 이번 변경이 만들거나 확산하지 않았으며, 미수정 잔여분은 기존 기술 부채로 분리했는가?
+- [ ] success DTO 적용을 `N/A`로 둔 opaque JSON passthrough는 소비자가 내부 필드를 읽지 않고 그대로 전달·보관한다는 코드 근거가 있는가?
 - [ ] type-only request DTO 공유가 request runtime validator/serializer/dispatcher 공개로 확장되지 않았는가?
 - [ ] public response/envelope 타입과 runtime guard가 generated error runtime의 strict `ErrorData`를 실패 계약으로 쓰는가?
 - [ ] `response` public runtime이 `isApiEnvelope` 하나이고 소비자 facade가 `isEnvelope` 외의 파생 envelope guard를 추가하지 않았는가?
@@ -185,6 +242,12 @@
 - [ ] API repo에서 `pnpm`/`pnpm-lock.yaml` 기준을 지키고 `package-lock.json`을 만들지 않았는가?
 - [ ] Admin/Mobile legacy generated copy를 재도입하지 않았는가?
 - [ ] 소비자 전환은 GitHub Packages registry/auth 설정, 발행된 package version, lockfile을 기준으로 하는가?
+- [ ] Preview workflow가 `main` ref에서 open Draft API PR의 정확한 head를 checkout하고 고유 prerelease
+      version을 쓰는가?
+- [ ] Preview checkout이 credential을 보존하지 않고 publish 단계에서 lifecycle script를 실행하지 않는가?
+- [ ] Preview dist-tag가 `pr-<api-pr>`이며 `latest`를 변경하지 않는가?
+- [ ] Admin/Mobile Draft의 preview exact pin이 API PR/version/SHA 증빙을 남겼는가?
+- [ ] Ready 또는 `main`에 prerelease dependency가 남지 않도록 CI가 차단하는가?
 - [ ] 소비자 CI package install은 GitHub Packages `Manage Actions access`의 consumer repo `Read` 권한, workflow `packages: read`, `NODE_AUTH_TOKEN: ${{ github.token }}` 기준으로 구성되어 있는가?
 - [ ] 새 token secret 예외가 있다면 기존 권한 조사, 대체 불가 사유, 권한 범위, 만료/회수 계획, 명시 승인이 기록되어 있는가?
 - [ ] 로컬 개발자 `yarn install`을 위한 GitHub Packages 인증 절차가 README 또는 개발자 문서에 기록되어 있는가?

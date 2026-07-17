@@ -31,6 +31,20 @@
 - 신규 타입을 추가할 때는 서버 상수/문구, 모바일 상수/라우팅, `t_alarm` 저장/운영 집계 범위를 함께 갱신한다.
 - 타입 ID 재사용은 금지한다.
 - 미정의 타입 수신 시 조용히 무시하지 않고 오류/경고 로그를 남긴다.
+- 서버는 타입별 `custom_data` 필드를 계약된 JSON 원시 타입으로 발행한다. 숫자 필드는 숫자로 보내며 문자열 숫자나
+  대체 필드를 함께 발행하지 않는다.
+- 모바일은 FCM JSON 진입점에서 타입별 `custom_data`를 한 번만 검증해 typed domain event로 변환한다. 이후 화면과
+  상태 소비자는 같은 event payload 타입을 직접 사용하며 `toNumber`, 문자열 숫자 변환, 기본값 fallback 또는 반복
+  runtime guard로 wire shape를 보정하지 않는다.
+- 외부 payload가 계약을 위반하면 경고 로그를 남기고 해당 이벤트를 적용하지 않는다. 임의 기본값으로 계속 진행하지
+  않는다.
+
+#### 라운지 `custom_data` 계약
+
+| FCM 타입 | 필수 payload | 선택 payload |
+| --- | --- | --- |
+| `LOUNGE_NEW_COMMENT(38)` | `target: positive integer` | `count: non-negative integer`, `title: string` |
+| `LOUNGE_LIKE(68)` | `target: positive integer`, `count: non-negative integer` | 없음 |
 
 ### 2) 발송 조건 통제
 

@@ -158,8 +158,8 @@
 
 - 현상: Mobile/Admin 소비 endpoint에 `unknown`, loose object, optional 필수 필드가 남아 있다.
 - 영향: local cast·normalize로 응답 drift를 숨긴다.
-- 조치: 소비 endpoint부터 Swagger success DTO와 generated contract를 구체화한다.
-- 완료: 소비 success data 명시 타입, local 계약 보정 0건.
+- 조치: 신규·직접 수정 operation부터 Swagger success DTO와 generated contract를 구체화한다. 내부 필드를 읽지 않고 값 전체를 전달·보관하는 opaque JSON passthrough는 제외한다.
+- 완료: 구조를 읽는 소비 success data의 명시 타입과 exact DTO 소비, local 계약 보정 0건.
 
 ## 22) 그룹미팅 Mobile 및 출시 통합 미완료 `P1` `L`
 
@@ -170,7 +170,7 @@
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
-- 현상: 일부 operation만 request DTO를 제공하고 소비자 local wire type이 남아 있다.
+- 현상: contracts package는 직접 수정한 일부 named request DTO만 제공하고 소비자 local wire type이 남아 있다.
 - 영향: request 필드 drift가 compile 단계에서 차단되지 않는다.
 - 조치: Swagger에서 type-only request DTO를 생성하고 Admin/Mobile local DTO를 제거한다.
 - 완료: 소비 operation request schema 명시, 세 레포 exact package, local wire DTO 0건.

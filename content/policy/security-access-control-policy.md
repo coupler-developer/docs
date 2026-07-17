@@ -40,7 +40,10 @@
 ### 3) 운영 액션 통제
 
 - 승인/반려/제재/무료키 지급 등 운영 액션은 사유 입력을 필수로 강제한다.
-- 중요 액션은 `actor`, `target`, `reason`, `timestamp`, `request_id`를 함께 기록한다.
+- 중요 액션은 `actor`, `target`, `reason`, `timestamp`와 영속 감사 레코드 식별자(`audit_id` 등)를
+  함께 기록한다. 요청 계층에 canonical correlation ID가 이미 있으면 구조화 로그에도 함께 기록하되,
+  추적 목적만으로 감사 원장에 `request_id` 컬럼을 추가하지 않는다. 중복 실행 방지가 필요하면 별도
+  idempotency key와 저장소 유일성 제약을 명시적으로 설계한다.
 - 권한 상향(부여)과 권한 하향(회수)은 이력 로그를 남기고, 로그 없는 변경은 금지한다.
 
 ### 4) 실패 처리 (Fail-closed)
