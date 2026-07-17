@@ -100,7 +100,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 1. 같은 owner·suite·catalog/schema version·reference time의 반복 `apply`는 prepared scenario를 reconciliation하고, 이미 `applied`면 데이터를 재생성하지 않고 verifier만 다시 실행한다.
 2. 새 namespace의 `cms-all`은 다른 active run이 없어야 하고, 도메인 suite는 동일 suite의 active run이 없어야 한다. 서로 다른 도메인 suite만 분할 모드로 함께 유지한다.
-3. 동일 도메인에 추가 화면 상태가 필요하면 병렬 namespace를 만들지 않고 canonical scenario·verifier를 보강한다.
+3. 동일 도메인에 추가 화면 상태가 필요하면 병렬 namespace를 만들지 않고 정상 시나리오·verifier를 보강한다.
 4. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace를 먼저 `reset`하고 새 `plan`·`apply`를 실행한다.
 5. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
 6. reset과 새 apply 사이에는 global cron fence 상태와 root 0건을 확인한다.
@@ -111,7 +111,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 1. Admin component route를 추가·삭제·변경하면 `routeId` exact map과 coverage test를 실행한다.
 2. missing·stale route를 정리하고 필요한 scenario와 API expectation을 갱신한다.
-3. 서버 상태 상수를 바꾸면 exhaustive branch map typecheck와 canonical·negative obligation test를 실행한다.
+3. 서버 상태 상수를 바꾸면 exhaustive branch map typecheck와 정상·의도적 위반 obligation test를 실행한다.
 4. migration이 feeder 관련 table·column·view·FK를 바꾸면 DB contract, ownership query, reset plan, scenario version을 함께 갱신한다.
 5. API의 read-only catalog JSON과 Admin coverage JSON을 workspace gate에서 비교한다.
 6. local·CI에서 안전 모듈 branch 100%와 DB·registry·lock·transaction·asset fault-injection test를 실행한다.
@@ -233,7 +233,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ## Negative 시나리오 흐름
 
 1. 개인 로컬 또는 일회성 CI DB인지 확인한다.
-2. canonical suite와 다른 namespace를 사용한다.
+2. 정상 시나리오 suite와 다른 namespace를 사용한다.
 3. 하나의 계약 위반만 만들고 기대하는 fail-closed 결과를 명시한다.
 4. 검증 직후 자동 rollback 또는 reset한다.
 5. 공유 개발계와 `cms-all`에는 적용하지 않는다.

@@ -163,7 +163,7 @@ coverage는 단순 row 존재 여부가 아니라 `branch obligation -> route ->
 | `id` | 변경되지 않는 kebab-case 식별자 |
 | `version` | 생성 shape 또는 기대 결과 변경 버전 |
 | `suite` | 소속 실행 단위 |
-| `kind` | `canonical` 또는 `negative` |
+| `kind` | 정상 또는 의도적 위반 시나리오 분류 |
 | `requires` | 선행 기준정보와 scenario ID |
 | `roots` | namespace 소유권을 표시하는 root entity |
 | `obligations` | 충족하는 상태·전이·권한·filter·시간 경계 ID |
@@ -199,7 +199,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - shared registry mutex: `{registryRoot}/_locks/registry.lock`
 - local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
 - backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
-- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·canonical timestamp와 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·시각·scenario·row reference·count를 같은 기준으로 검증한다.
+- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·UTC ISO 8601 표준 형식의 시각과 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·시각·scenario·row reference·count를 같은 기준으로 검증한다.
 - init 재진입, readiness, inventory, claim, 상태 update, finalization과 개발 cron lease 생성은 registry mutex 안에서 fence와 active directory 전체 snapshot의 형식·양방향 소유권·active scope 충돌을 먼저 검증한다. 한 record만 유효하다는 이유로 손상된 나머지 snapshot을 무시하고 진행하지 않는다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
 - reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
@@ -216,7 +216,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
 - claim 뒤 run ID, namespace/key, owner, suite, catalog/schema fingerprint, reference/expiry/created time은 바꾸지 않는다. update는 `updatedAt` 단조 증가와 apply·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
 - 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
-- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 canonical catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
+- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 정상 시나리오 catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
 
 ## 데이터 계층
 
@@ -272,7 +272,7 @@ scenario 수를 무작정 Cartesian product로 늘리지 않고 정책 분기를
 - enum 추가는 missing property, enum 삭제는 excess property 또는 stale catalog test로 실패한다.
 - 모든 단일 축은 100%, 상호작용하는 두 축은 pairwise 100%를 요구한다.
 - 3개 이상 축의 결합 결과가 정책에 명시된 경우 pairwise로 대체하지 않고 전용 scenario를 둔다.
-- 상태 값·허용 전이·화면 분기는 공유 개발계 canonical obligation으로, 금지 전이·잘못된 FK·원장 불일치는 local·CI negative obligation으로 분리한다. 전체 구현 완료는 두 catalog가 각자 100%여야 하지만 `cms-all`은 canonical만 적용한다.
+- 상태 값·허용 전이·화면 분기는 공유 개발계 정상 시나리오 obligation으로, 금지 전이·잘못된 FK·원장 불일치는 local·CI 의도적 위반 obligation으로 분리한다. 전체 구현 완료는 두 catalog가 각자 100%여야 하지만 `cms-all`은 정상 시나리오만 적용한다.
 - 안전 모듈은 domain scenario 수와 별개로 Jest branch coverage 100%와 fault-injection matrix를 적용한다. code coverage 숫자만 맞추지 않고 각 실패에서 write 0건, rollback, fence 유지, 재시도 상태를 assertion한다.
 
 ## DB 계약과 변경 감지
@@ -421,7 +421,7 @@ coverage entry는 다음 축을 가진다.
 | component route 추가 | `DataRouteId` exact map missing entry | route kind, coverage entry, scenario, browser smoke |
 | route 삭제 | coverage excess/stale entry | coverage와 smoke 제거, 필요 없는 scenario 검토 |
 | path·filter·권한 변경 | route descriptor snapshot·API/UI smoke 실패 | verifier, audience, filter expectation |
-| 상태 상수 추가 | exhaustive branch map typecheck 실패 | obligation과 canonical scenario |
+| 상태 상수 추가 | exhaustive branch map typecheck 실패 | obligation과 정상 시나리오 |
 | 상태 상수 삭제 | stale obligation·scenario test 실패 | catalog와 연결 route 정리 |
 | table·column·view 변경 | schema fingerprint·DB contract 실패 | builder, ownership query, verifier, scenario version |
 | FK 변경 | reset-plan contract 실패 | FK-safe 삭제 순서와 orphan verifier |
