@@ -27,6 +27,9 @@
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람 외 명령 실행/코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
+- 지시/리뷰가 docs 변경의 안정성 평가, 문서 최종 리뷰 또는 문서 추가·수정·삭제 검토를 요구하면
+  `content/policy/document-governance-policy.md`의 `문서 안정성 평가`를 추가 열람하고 Scope Gate부터
+  Exit Gate까지 적용한다. 구조 검증이나 CI 통과만으로 안정성 평가를 완료하지 않는다
 - 지시/리뷰에 `논리 데이터 모델`이 포함되면 `content/policy/logical-data-model-policy.md`의
   `충실도 리뷰 판정`을 추가 열람하고 공개 논리 모델 충실도와 물리 DB 설계·운영 안전성을 먼저 분리한다
     - 공개 논리 모델에 물리 컬럼, PK/FK/UNIQUE/CHECK, 인덱스 또는 전체 SQL 의존성이 없다는 이유만으로
@@ -123,7 +126,7 @@
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
 - [논리 데이터 모델 정책](policy/logical-data-model-policy.md) - 공개 논리 모델 taxonomy와 private 매핑
-- [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
+- [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화·안정성 평가 기준
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍
 - [테스트/CI 전략](policy/testing-strategy.md) - 레포별 테스트 및 CI 기준
 
