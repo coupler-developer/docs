@@ -74,6 +74,13 @@
 - 같은 version이 이미 publish된 경우 workflow는 재시도/문서 수정 상황으로 보고 publish를 skip한다. 계약 내용이 바뀌면 package version을 새로 올려야 한다.
 - API 운영 배포에 계약 변경이 포함되면 `Release Contracts` workflow 성공과 publish된 package version을 릴리즈 기록에 먼저 남긴 뒤 API/Admin/Mobile 배포를 진행한다.
 - Admin/Mobile package 반영은 publish 이후 `@coupler-developer/coupler-api-contracts` dependency와 lockfile을 같은 version으로 갱신하고 각 레포 표준 품질 게이트를 통과시킨다.
+- API/Admin/Mobile의 merge 전 교차 컴파일은 `Release Contracts Preview`가 발행한
+  `x.y.z-pr.<api-pr>.<run-id>.<attempt>` prerelease로 검증할 수 있다. Preview는 open Draft API PR의
+  번호를 `main` ref의 수동 workflow에 입력해 정확한 head에서 발행하고 `latest`를 변경하지 않는다.
+- Admin/Mobile Draft PR만 preview exact pin을 허용한다. Preview 검증은 릴리즈 또는 cutover 증빙이 아니며,
+  Ready 전 stable exact version과 lockfile로 교체해 전체 품질 게이트를 다시 통과시킨다.
+- Stable `Release Contracts`는 수동 dispatch 없이 `main` push에서만 실행하고, preview/stable 모두 기존
+  GitHub Actions `github.token` 권한을 사용한다.
 
 ## 릴리즈 운영 모델
 

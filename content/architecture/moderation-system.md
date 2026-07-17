@@ -12,6 +12,7 @@
 ## 범위
 
 - 회원 신고와 라운지·미팅 콘텐츠 신고
+- 콘텐츠 관리자 처리 감사 이력
 - 연락처 차단과 콘텐츠 숨김
 - 운영자가 부여하는 기간성 패널티
 - 신고 대상 콘텐츠의 본문과 생명주기는 각 원천 도메인이 소유한다.
@@ -29,6 +30,7 @@
 | `moderation.block` | 연락처 차단 | child | entity | state | 회원이 회피하려는 연락처 식별자 | 민감 | 회원 요청 또는 개인정보 정리 시 삭제 |
 | `moderation.hide` | 회원 숨김 | root | association | state | 회원별 작성자 노출 제외와 적용 문맥 | 내부 | 사용자가 해제하거나 원천 문맥 종료 시 정리 |
 | `moderation.penalty` | 패널티 이력 | child | entity | ledger | 이용 제한 종류·기간·사유 | 민감 | 적용·해제 이력을 append-only로 보존 |
+| `moderation.content-action-history` | 콘텐츠 관리자 처리 이력 | root | entity | history | 관리자 처리 대상, 행위자, 사유와 상태 전이 감사 기록 | 민감 | 추가 전용으로 보존하고 원천 콘텐츠 삭제와 독립적으로 유지 |
 
 ### 관계
 
@@ -44,6 +46,9 @@
 | `moderation.hide` | `viewer` | references | `member.member` | N:1 | 숨김 주체가 소유하며 대상에게 역관계를 강제하지 않음 |
 | `moderation.hide` | `hidden-member` | references | `member.member` | N:1 | 적용 문맥에서 숨김 대상 회원의 콘텐츠를 제외 |
 | `member.member` | `penalties` | owns | `moderation.penalty` | 1:N | 회원 상태와 별도로 기간성 제재 이력을 유지 |
+| `moderation.content-action-history` | `actor` | references | `member.member` | N:1 | 행위 관리자 식별자를 보존하되 원천 콘텐츠 상태 판정에는 사용하지 않음 |
+| `moderation.content-action-history` | `post-target` | references | `lounge.post` | N:1 | 게시글 처리 행은 게시글 대상 식별자를 기록하고 대상 삭제 뒤에도 이력을 유지 |
+| `moderation.content-action-history` | `comment-target` | references | `lounge.comment` | N:1 | 댓글 처리 행은 댓글 대상 식별자를 기록하고 대상 삭제 뒤에도 이력을 유지 |
 
 ### 불변조건
 
@@ -52,6 +57,8 @@
 | `MODERATION-INV-001` | `moderation.member-report` | 신고자와 대상 회원은 같을 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
 | `MODERATION-INV-002` | `moderation.content-report` | 신고 대상은 존재하는 하나의 원천 콘텐츠 문맥으로 해석돼야 한다 | [논리 데이터 모델 정책](../policy/logical-data-model-policy.md) |
 | `MODERATION-INV-003` | `moderation.penalty` | 패널티 적용 기간과 사유 없이 회원 이용을 제한하지 않는다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+| `MODERATION-INV-004` | `moderation.content-action-history` | 처리 이력은 게시글 또는 댓글 대상 중 하나만 가리키며 대상 종류와 식별자가 일치해야 한다 | [논리 데이터 모델 정책](../policy/logical-data-model-policy.md) |
+| `MODERATION-INV-005` | `moderation.content-action-history` | 처리 이력은 추가 전용 감사 기록이며 현재 상태는 원천 콘텐츠 도메인이 판정한다 | [라운지 시스템](lounge-system.md) |
 
 ## 관련 문서
 

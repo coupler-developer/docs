@@ -165,6 +165,7 @@
       "stage": "as-is",
       "entityIds": [
         "moderation.block",
+        "moderation.content-action-history",
         "moderation.content-report",
         "moderation.hide",
         "moderation.member-report",
@@ -757,6 +758,16 @@
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
+      "classification": "민감"
+    },
+    {
+      "id": "moderation.content-action-history",
+      "domainId": "moderation",
+      "ownerDocument": "content/architecture/moderation-system.md",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
+      "recordRole": "history",
       "classification": "민감"
     },
     {

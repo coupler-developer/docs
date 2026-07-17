@@ -313,6 +313,7 @@ flowchart TD
 
 수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.
 이 문서는 라운지 parent 구조와 표시 기준만 설명하고, 댓글/대댓글 발송 대상은 정책 문서에서만 정의한다.
+
 ## 데이터 모델
 
 ### t_lounge
@@ -370,8 +371,11 @@ flowchart TD
 - 과거 삭제 행위가 작성자 삭제인지 관리자 삭제인지 판별할 근거가 없으므로 추정해서 복원하지 않는다.
 - 기존 API는 게시글 `status = -1`만 삭제로 판정하므로 `-1 -> -3` backfill 뒤에도 기존 API 트래픽을
   계속 받으면 직접 상세 요청에서 원문이 노출될 수 있다. 따라서 이 변경은 일반적인 DB 선반영이 아니다.
-- cutover 전에 API PR을 병합해 contracts stable 버전을 발행하고, CMS와 Mobile의 dependency·lockfile을
-  그 exact 버전으로 고정한 배포 산출물과 각 품질 게이트를 먼저 준비한다.
+- merge 전에는 API Draft PR head의 contracts preview를 발행하고 CMS와 Mobile Draft PR의
+  dependency·lockfile을 그 prerelease exact 버전으로 고정해 교차 컴파일과 각 품질 게이트를 끝낸다.
+  Preview는 `latest`를 바꾸지 않으며 배포 또는 cutover 완료 근거가 아니다.
+- 승인 후 API가 main에 병합돼 stable 버전이 자동 발행되면 CMS와 Mobile을 같은 stable exact 버전으로
+  교체하고 다시 검증한 뒤 Ready로 전환한다. stable은 preview 검증을 위해 수동 선발행하지 않는다.
 - 새 API는 기존 CMS의 라운지 `DELETE` 경로와 flat 신고 응답을 제공하지 않으므로 기존 CMS와 새 API를
   열린 트래픽에서 섞지 않는다.
 - cutover 시 API와 CMS 사용 트래픽을 drain하고 호환 API와 CMS 산출물을 배치한다. API 바이너리는 DB보다
