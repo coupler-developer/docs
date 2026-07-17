@@ -53,7 +53,7 @@
 | 기준정보 | 설정, 별칭, 장소처럼 여러 시나리오가 공유하며 임의 reset 대상이 아닌 데이터 |
 | coverage manifest | 관리자 화면별 필수 시나리오와 검증 방법을 빠짐없이 연결한 목록 |
 | branch obligation | 상태·전이·권한·filter·시간 경계처럼 최소 한 시나리오가 반드시 충족해야 하는 분기 조건 |
-| canonical 시나리오 | 도메인 정책과 허용 상태 조합을 만족하는 정상 데이터 |
+| 정상 시나리오 | 도메인 정책과 허용 상태 조합을 만족하는 정상 데이터 |
 | negative 시나리오 | fail-closed 검증을 위해 의도적으로 계약을 위반한 데이터 |
 | root | namespace 소유권을 직접 표시하는 최상위 생성 행 |
 | child | root의 회원·매칭·게시글 식별자로 역추적되는 관계 행 |
@@ -105,11 +105,11 @@
     - `cms-all`은 모든 도메인 suite와 scope가 겹치므로 다른 active run이 하나라도 있으면 새 namespace로 claim할 수 없다.
     - 도메인 suite는 동일 suite의 active run과만 충돌하며, 서로 다른 도메인 suite는 각각 최대 1개씩 함께 유지할 수 있다.
     - 동일 namespace의 owner·suite·catalog/schema version·reference time이 같은 반복 apply는 신규 claim이 아니라 기존 run 검증으로 처리한다.
-    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 canonical scenario와 verifier를 보강한 뒤 기존 namespace를 reset·재적용한다.
+    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 정상 시나리오와 verifier를 보강한 뒤 기존 namespace를 reset·재적용한다.
 - scope 충돌 검사는 run registry mutex 안에서 active record 전체를 읽고 claim 직전에 다시 수행한다. `plan` 결과만으로 claim 가능성을 확정하지 않는다.
 - inventory와 claim은 새 요청과 기존 record만 비교하지 않고 기존 active record 전체를 pairwise 검증한다. 이미 손상된 active scope 집합이 있으면 겹치지 않는 suite 요청도 허용하지 않는다.
 - global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
-- feeder와 개발 cron은 하나의 Run Registry contract validator를 사용한다. fence namespace 중복·유효하지 않은 canonical timestamp와 active record metadata 중 하나라도 있으면 두 경로 모두 fail-closed하며 consumer별 완화 해석을 허용하지 않는다.
+- feeder와 개발 cron은 하나의 Run Registry contract validator를 사용한다. fence namespace 중복·UTC ISO 8601 표준 형식이 아닌 시각과 active record metadata 중 하나라도 있으면 두 경로 모두 fail-closed하며 consumer별 완화 해석을 허용하지 않는다.
 - 만료됐거나 `failed`, `cleanup_failed`, `cleaned` finalization 대기 상태인 active record도 명시적 reset·finalization 전에는 새 overlapping suite를 차단한다.
 - claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. 상태 update는 apply·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
 - scope 충돌을 우회하는 `--force`, 병렬 허용 옵션, 만료 시 자동 삭제를 제공하지 않는다.
@@ -151,9 +151,11 @@
 
 ### 7) 도메인 정합성
 
-- canonical 시나리오는 도메인 정책의 상태, 원장, 관계, 시간 불변식을 모두 만족해야 한다.
+- 정상 시나리오는 도메인 정책의 상태, 원장, 관계, 시간 불변식을 모두 만족해야 한다.
 - 파생 집계 화면은 집계 row를 직접 조작하지 않고 회원가입, 로그인, 결제, 매칭 같은 원천 사건으로 채운다.
 - 회원 심사 결과는 `v_member_review_status`, 매칭 상태는 `t_match.match_status`, 키 잔액은 `t_member.key`와 `t_member_key_log`처럼 각 도메인의 SoT로 검증한다.
+- 회원 소개글 심사는 요청 출처와 생애주기를 함께 검증한다. 승급 심사는 `PENDING + SIGNUP_REVIEW`, 설정 수정 심사는 `NORMAL + SETTING_PROFILE_EDIT` 조합을 사용한다.
+- `NORMAL + SIGNUP_REVIEW` 소개글 요청 같은 호환 상태는 정상 시나리오로 생성하지 않는다. 해당 호환 분기는 공유 개발 데이터와 분리된 local·CI 호환 회귀 테스트로 검증한다.
 - 기존 2:2 그룹미팅은 주최자도 승인된 `t_meeting_member`로 존재해야 하며, `t_meeting.male_cnt`·`female_cnt`는 승인된 멤버의 실제 성별 건수와 일치해야 한다.
 - 기존 2:2 그룹미팅 채팅 작성자는 같은 미팅의 멤버십을 가져야 하며, 원본 `t_meeting_chat` 건수와 Admin 목록의 멤버십 join 노출 건수가 일치해야 한다.
 - 신고 처리, 환불, 패널티는 접수 전·접수 대기·처리 완료·만료 상태를 분리한다.
@@ -267,7 +269,7 @@
 - [ ] run registry가 owner·유지 기한·상태를 공유 환경에 영속화하는가?
 - [ ] 외부 알림·결제·분석 호출이 0건인가?
 - [ ] 공유 개발계 유지 기간에 정상 개발 target은 처리되고 합성 target 변경은 0건인가?
-- [ ] canonical 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
+- [ ] 정상 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
 - [ ] 기존 그룹미팅의 주최자 멤버십·성별 인원수·Admin 채팅 join이 원본 데이터와 일치하는가?
 - [ ] 합성 프로필이 회원별로 구분되고 이미지 최소 수·영상 경로·checksum 검증을 통과하는가?
 - [ ] 상태·전이·권한·filter·시간 경계 branch obligation이 100% 충족되는가?
