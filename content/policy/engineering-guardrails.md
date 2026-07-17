@@ -4,12 +4,36 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 상위 공통 기술 원칙은 이 문서, 세부 계약·검증은 `단일 SoT와 우선순위` 표의 문서
 - 기준 성격: `as-is`
 
 ## 목적
 
 - 코드와 문서가 같은 기술 기준으로 안전하게 갱신되도록 SoT, 검증, 기술 책임 경계를 고정한다.
+
+## 적용 범위
+
+- API/Mobile/Admin의 공통 Fail-closed, 책임 분리, 구조 단순화, 상태별 안전 이행 원칙
+- 코드와 문서 변경의 상위 기술 완료 기준
+- API 응답·에러·계약 package, DB migration, 테스트, 리뷰 운영의 세부 계약은 아래 범위별 단일 SoT에 위임한다.
+- 도메인 상태 전이와 비즈니스 규칙은 각 도메인 policy/FSM을 우선하며 이 문서에서 중복 정의하지 않는다.
+
+## 단일 SoT와 우선순위
+
+| 판정 책임 | 단일 SoT | 이 문서의 역할 |
+| --- | --- | --- |
+| 공통 Fail-closed, 책임 분리, 구조 단순화, Shadow Cutover | 이 문서 | 최종 규칙 |
+| JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
+| 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
+| 계약 package 발행·소비·공개 표면 | [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md) | 생성 계약 우회 금지만 유지 |
+| DB migration stage와 실행 Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) | DB 설계와 Fail-closed 원칙만 유지 |
+| 테스트 범위와 표준 검증 명령 | [테스트/CI 전략](testing-strategy.md) | 품질 게이트 통과 의무만 유지 |
+| 리뷰 절차와 증빙 | [코드 리뷰 정책](code-review-policy.md) | 기술 판정 기준만 제공 |
+| 문서 역할·동기화·composition 검토 | [문서 거버넌스 정책](document-governance-policy.md) | 기술 문서 일치 의무만 유지 |
+| 도메인 동작·상태 전이 | 각 도메인 policy/FSM | 공통 기술 원칙만 제공 |
+
+- 충돌은 판정 책임을 먼저 고정한 뒤 해당 행의 단일 SoT로 해결한다. 범위별 문서가 소유하는 세부 MUST를 이 문서가 덮어쓰지 않는다.
+- 범위별 단일 SoT를 신설·분리·수정할 때는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`로 이 표와 중복 규칙을 함께 재검토한다.
 
 ## 핵심 원칙
 
@@ -29,9 +53,9 @@
 
 ### 1) 목표
 
-- API, Mobile, Admin 코드가 단일 계약(스키마/enum/상태전이)으로 동작하도록 고정한다.
+- 최종 상태의 API, Mobile, Admin 코드가 단일 계약(스키마/enum/상태전이)으로 동작하도록 고정한다.
 - 도메인/상태/에러/문서 역할 분류 체계가 단일 기준으로 설명되고, 코드와 문서에서 같은 축을 사용한다.
-- 레거시 호환/파생 fallback/이중 경로를 남기지 않는다.
+- 최종 상태에는 레거시 호환/파생 fallback/이중 경로를 남기지 않고, 호환 배포 상태의 예외는 제거 조건이 보이는 경계로 통제한다.
 - DB/API/Admin/Mobile 책임 경계가 코드에서 즉시 드러나게 유지한다.
 - `No Findings` 상태가 확인될 때까지 점검-수정-재검증 루프를 반복한다.
 
@@ -39,11 +63,27 @@
 
 - 스펙 단일화: 요청/응답 필드명, enum, nullable 규칙은 한 가지 표현만 허용한다.
 - 책임 분리: 상세 기준은 본 문서 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 따른다.
-- 호환 장치 통제: 임시 호환 로직은 기본 금지이며, 불가피할 때만 Shadow Cutover 규칙(제거 조건/목표 시점/추적 이슈 포함)으로 제한한다.
+- 호환 장치 통제: 임시 호환 로직은 기본 금지한다. 운영 버전 공존 때문에 필요하면 `기술 이행 유형`의 호환 배포 기준으로 제한하고, 같은 의미의 구·신 로직을 교체할 때만 Shadow Cutover를 적용한다.
 - 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시 호환/중간 산출물 계층)을 둘 수 없다. 호환이 필요하면 별도 호환 배포 작업으로 분리한다.
 - 명세 가시성: 코드만 읽어도 의도가 파악되도록 네이밍/타입/에러 처리를 명시한다.
 
-### 2-1) API 계약 변경과 Cutover 분리
+### 2-1) 기술 이행 유형
+
+변경을 시작하기 전에 아래 기술 이행 유형을 하나 이상 고정하고 PR/작업 보고에 근거를 남긴다. 유형을 고르지 않은 채 최종 상태의 금지 규칙이나 전환 상태의 예외 규칙을 다른 유형에 적용하지 않는다. 이 유형은 회귀 안전성 게이트의 상태 분류와 다른 축이다.
+
+| 기술 이행 유형 | 적용 조건 | 허용 구조 | Exit Gate |
+| --- | --- | --- | --- |
+| `최종 상태` | 운영 호환 경로가 필요하지 않은 일반 구현, 동시 배포 계약 묶음, 최종 구조 리뷰 | 단일 계약, transition 계층 0건 | 계약·책임·품질 게이트 통과 |
+| `호환 배포` | 기존 운영 버전과 다음 버전이 같은 API/Admin/RDS를 사용 | 경계가 명시된 adapter, versioned DTO, dual-write | 두 버전 시나리오 통과, 제거 조건·목표 시점·추적 이슈·검증 근거 확보 |
+| `Shadow Cutover` | 같은 입력에서 같은 의미의 결과를 내야 하는 구·신 로직 교체 | 병렬 계산과 diff 계측 | 검증 범위가 명시된 불일치 0건 |
+| `운영 legacy cutover` | 배포된 구버전 경로, parser, dual-write, DB contract/drop을 실제 제거 | 제거 대상으로 고정된 호환 경로의 삭제만 허용 | 운영 배포·legacy 차단·rollback·적용 Gate 충족 |
+| `DB migration stage` | DDL, backfill, read/write 기준 변경, contract/drop | DB Migration Gate의 Expand/Backfill/Cutover/Contract | 적용 `DBM-GATE-*` 통과와 비적용 Gate의 근거 있는 `N/A` |
+
+- `호환 배포`는 서로 다른 버전 계약을 의도적으로 함께 지원하므로 그 자체를 `Shadow Cutover`로 분류하지 않는다.
+- `Shadow Cutover`는 구·신 결과의 의미가 같아 diff 0건을 기대할 수 있을 때만 적용한다.
+- DB 변경은 [DB Migration Gate 정책](db-migration-gate-policy.md)의 stage를 먼저 고정한다. 신규 객체 추가인 Expand에 read/write 기준 전환용 `DBM-GATE-300`을 자동 적용하지 않는다.
+
+### 2-2) API 계약 변경과 Cutover 분리
 
 모바일 운영 버전이 남아 있는 상태에서 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약이 바뀌면 변경을 `호환 배포`와 `cutover 배포`로 분리한다.
 배포 순서는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
@@ -52,7 +92,7 @@
 
 - 기존 모바일 버전과 다음 모바일 버전이 같은 운영 API/Admin/RDS에서 모두 동작해야 한다.
 - 기존 계약을 삭제하거나 의미 변경하지 않는다. 필요한 DB 변경은 additive expand/backfill 범위로 제한한다.
-- 호환 경로는 API 경계의 명시적 adapter, versioned DTO, dual-write, Shadow Cutover helper처럼 제거 범위가 보이는 구조로 둔다.
+- 호환 경로는 API 경계의 명시적 adapter, versioned DTO, dual-write처럼 제거 범위가 보이는 구조로 둔다. 같은 의미의 로직 교체가 함께 있으면 해당 부분에만 Shadow Cutover를 추가 적용한다.
 - 호환 경로에는 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 남긴다.
 - 호환 경로를 추가/수정/사용하는 모든 PR은 현재 제거 조건 충족 여부를 재평가한다. 조건이 충족됐으면 호환 변경에 섞지 않고 별도 cutover PR로 제거한다.
 - 조용한 fallback, legacy 필드 coalesce, 출처 추측, 여러 레이어에 흩어진 임시 `if` 분기로 계약 차이를 숨기지 않는다.
@@ -64,7 +104,7 @@ cutover 배포 코드 기준:
 - cutover 후에는 남은 호환 helper, dual-write, version branch가 0건이어야 한다.
 - cutover가 기존 보호 동작을 바꾸면 회귀 안전성 게이트의 `기준 변경`으로 분류하고 기준 문서와 검증 결과를 같은 변경 단위에 포함한다.
 
-### 2-2) 최종 계약 동시 배포 묶음과 운영 legacy cutover 분리
+### 2-3) 최종 계약 동시 배포 묶음과 운영 legacy cutover 분리
 
 - API/Admin/Mobile 최종 구조 리뷰는 세 레포를 하나의 동시 배포 묶음으로 보고, API package source version과 Admin/Mobile의 dependency/lockfile version, 실제 소비 runtime 공개 표면, 요청/응답 wire 계약이 모두 같은 최종 계약을 가리키는지 판정한다.
 - 동시 배포 묶음 안에서 package version이 다르면 현재 사용하는 symbol이 우연히 호환되더라도 최종 계약 정렬 미완료로 판정한다.
@@ -76,6 +116,7 @@ cutover 배포 코드 기준:
 ### 3) 검증 기준 (No Findings 게이트)
 
 - `No Findings`의 판정 범위는 "리뷰 대상"으로 한정한다(로컬 변경사항, 특정 커밋 집합, 또는 PR diff).
+- 리뷰 대상의 `기술 이행 유형`과 비적용 유형의 `N/A` 근거를 먼저 고정한다. 서로 다른 유형의 Exit Gate를 합치거나 대체하지 않는다.
 - 계약 검증: 요청/응답 스키마 불일치, 중복 키, alias fallback 0건
 - 분류 검증: 도메인/상태/에러/문서 역할의 분류 축이 중복되거나 서로 다른 책임을 섞는 명명 0건
 - 책임 검증: 서버 판단 로직의 클라이언트 중복 구현 0건
@@ -153,9 +194,14 @@ cutover 배포 코드 기준:
 
 ### 4) 완료 정의 (Definition of Done)
 
-- 단일 계약만으로 API/Mobile/Admin 기능이 동작한다.
+- `기술 이행 유형`이 명시되고 해당 유형의 Exit Gate를 충족한다.
+- API/Mobile/Admin 계약을 바꾸는 `최종 상태`는 해당 소비 범위가 단일 계약만으로 동작하고 transition 계층이 0건이다.
+- `운영 legacy cutover`는 제거 대상으로 고정한 호환 경로가 0건이고 남은 소비 범위가 단일 계약을 가리킨다.
+- `호환 배포`는 기존/다음 버전 시나리오와 제거 추적 근거가 모두 있으며, 서로 다른 계약을 조용한 fallback으로 합치지 않는다.
+- `Shadow Cutover`는 같은 의미의 구·신 결과에 대해 검증 범위가 명시된 불일치 0건을 충족한다.
+- `DB migration stage`는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 적용 Gate와 `N/A` 근거를 충족한다.
 - 분류 체계가 단일 축으로 설명된다. 같은 이름이 도메인, 제품면, 상태, 동작을 동시에 뜻하지 않는다.
-- fallback/normalize/compat 우회 없이 실패가 명시적으로 드러난다.
+- fallback/normalize로 계약 위반을 숨기지 않고 실패가 명시적으로 드러난다.
 - 레거시/호환 경로는 필수 요구사항의 호환 장치 통제 원칙을 충족한다.
 - 회귀 안전성 게이트 기준으로 회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백을 분류하고 필요한 검증 증빙을 남긴다.
 - 관련 문서(FSM/API 스펙/가드레일)와 코드가 같은 결론을 가리킨다.
@@ -176,20 +222,15 @@ cutover 배포 코드 기준:
     - 조용한 실패 금지 원칙(핵심 원칙 정의)을 그대로 적용한다
     - 사용자에게는 토스트/에러 메시지, 개발 환경에서는 throw/log로 즉시 드러내기
 - **공통 응답/에러 처리는 API 공통 응답 계약과 API 에러 계약 정책을 따른다**
-    - 성공/실패 envelope(`{ ok: true, data }`, `{ ok: false, error: ErrorData }`)과 `ok` 1차 분기는 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 따른다
-    - 실패 `ErrorData`, `request_id`, `error_action/error_code` 분기는 [API 에러 계약 정책](api-error-contract-policy.md)을 따른다
-    - API 서버는 실패 원인을 공통 factory/mapper에서 `ErrorData`로 변환한다. 컨트롤러/도메인 로직은 실패 JSON을 직접 조립하지 않는다
-    - 계약된 JSON API 실패는 HTTP 200 envelope로 반환하고, HTTP non-2xx는 `ErrorData` taxonomy 밖의 transport/protocol/proxy 실패로만 둔다
-    - Mobile/Admin은 `ok`로 성공/실패를 나누고, 실패는 `error.error_action`, 필요 시 `error.error_code`로 처리한다
-    - `result_msg` 문자열 파싱, `error_context` 분기, 제거 조건 없는 호환 필드와 top-level 도메인 상태 `result_code`는 금지한다
+    - 성공/실패 envelope과 transport 예외는 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 따른다
+    - 실패 `ErrorData`, `request_id`, `error_action/error_code`와 민감정보 제한은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 따른다
+    - API 서버와 Mobile/Admin은 위 경계를 우회해 실패 JSON을 직접 조립하거나 문자열·진단값·legacy 필드로 성공/실패를 다시 판정하지 않는다
     - 최종 계약 밖에 남은 legacy/cutover 부채는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`에서 추적한다
-    - 이 문서는 실패 노출과 책임 경계만 정한다. 세부 계약은 API 공통 응답 계약 정책과 API 에러 계약 정책을 따른다
-- **요청 transport는 JSON/multipart 단일 계약으로 수렴한다**
-    - Mobile/Admin의 body 없는 `GET`/`DELETE`는 query string, 일반 `POST`/`PUT` body는 JSON, upload body는 `multipart/form-data`로 고정한다
-    - `FormData`의 multipart boundary는 fetch/axios runtime이 생성하게 하고 `Content-Type` boundary를 수동 조립하지 않는다
-    - Public request DTO는 Swagger/OpenAPI에서 한 번만 정의하고 API generator가 contracts package의 type-only 계약으로 생성한다. Mobile/Admin은 동일 wire DTO를 local type/interface로 다시 정의하지 않는다
-    - Request DTO type 공유는 transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 contracts package public runtime으로 승격하지 않는다
-    - Swagger request body, Mobile/Admin request boundary, API parser가 같은 JSON/multipart 계약을 가리켜야 한다
+    - 이 문서는 실패 노출과 책임 경계만 정하고 세부 wire 계약을 반복 정의하지 않는다
+- **요청 transport와 public DTO는 API 계약 SoT를 따른다**
+    - method/path/media type과 operation wire schema는 Swagger/OpenAPI, package 공개 표면·발행·소비 절차는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 단일 기준으로 따른다
+    - Mobile/Admin은 패키지 정책이 생성 계약 적용 대상으로 판정한 공개 DTO를 사용하고 같은 wire DTO나 transport runtime을 local 계약으로 다시 정의하지 않는다
+    - Swagger request body, Mobile/Admin request boundary, API parser가 같은 계약을 가리켜야 한다
     - API URL-encoded parser는 구버전 Mobile 운영 트래픽을 위한 호환 입력 경로로만 허용한다. 제거는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의 Legacy traffic Gate 충족 후 별도 cutover PR에서 수행한다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
@@ -200,7 +241,8 @@ cutover 배포 코드 기준:
     - 제출 payload는 요청 스펙으로만 구성하고, 응답 스펙은 오직 서버 응답으로만 갱신한다
 - **API 입출력 경계에서는 DTO 계약 필드명을 그대로 사용한다**
     - 클라이언트는 요청 payload 작성/응답 파싱에서 계약 DTO 키를 변경하거나 별칭 키를 병행 처리하지 않는다
-    - Public request/success wire DTO는 contracts package generated type을 사용한다. 소비자는 API wire DTO를 재정의하지 않고 화면 ViewModel, 로컬 draft, 표시 모델만 별도로 정의한다
+    - 생성 계약 적용 범위와 기존 미전환 부채 판정은 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따른다. 적용 대상으로 판정된 public request/success wire DTO는 contracts package generated type을 사용한다
+    - 소비자는 적용 대상 API wire DTO를 재정의하지 않고 화면 ViewModel, 로컬 draft, 표시 모델만 별도로 정의한다
     - 화면 표시용 ViewModel/로컬 상태 가공은 허용하되, API 호출 계층으로 역유입시키지 않는다
     - DB 컬럼명과 API DTO명을 1:1로 강제하지 않는다. 서버 경계에서 매핑을 명시하고 외부 계약은 DTO로 고정한다
 - **응답 DTO와 Presenter/Mapper를 구분한다**
@@ -215,16 +257,16 @@ cutover 배포 코드 기준:
 
 ### 타입/Optional
 
-- **API가 항상 내려주는 필드면 Optional(`?`) 금지**
-    - "언젠가 null일 수 있음"이라는 추측으로 `?`를 붙이지 않는다
-    - 실제로 값이 없을 수 있는 케이스가 정의된 필드만 Optional로 둔다
-- **`unknown`/`any` 최소화**
-    - API 응답은 `unknown`으로 두지 않고 실제 스키마 타입을 정의한다
-    - `unknown`은 경계(외부 API/서드파티 SDK/raw JSON)에서만 허용, 이후 parse/validate로 도메인 타입 고정
-    - "타입이 애매하니 일단 unknown"은 금지. 필요한 필드만이라도 타입으로 명시한다
-- **API/JSON 계약에서 "없음"은 `undefined` 대신 `null`로 고정**
-    - 요청/응답 DTO, Swagger 예시, JSON payload에서 "없음"은 `null`로 고정한다 (`field: T | null`)
-    - 내부 로컬 변수/함수 파라미터까지 일괄 `null`로 강제하는 규칙은 아니다. 외부 계약 경계에서 `undefined vs null vs missing key`를 섞지 않는다
+- **Optional과 nullable을 분리한다**
+    - OpenAPI `required` 여부와 `nullable` 여부는 서로 다른 계약 축이며 generated DTO가 두 축을 그대로 보존해야 한다
+    - 항상 key가 존재하고 값만 없을 수 있으면 Optional(`?`)이 아니라 `field: T | null`을 사용한다
+    - key 생략은 OpenAPI에서 required가 아니고 생략의 의미가 정의된 필드에만 허용한다
+    - 같은 의미의 "없음"을 `null`, `undefined`, missing key로 병행 표현하지 않는다. 내부 `undefined`가 JSON 직렬화에서 생략되는 경우도 operation 계약의 optional 의미와 일치해야 한다
+- **외부 JSON의 runtime 경계와 operation DTO의 정적 계약을 분리한다**
+    - 외부 JSON은 `unknown`으로 받아 package runtime으로 envelope과 실패 `ErrorData`를 검증하고, 성공 `data`는 `ApiEnvelope<unknown>` 경계에서 시작한다
+    - operation별 generated success DTO 연결은 API 호출 경계 한 곳의 compile-time 계약이며, 그 자체를 runtime 검증 완료 근거로 해석하지 않는다
+    - operation `data`의 runtime 검증이 필요한 경우 OpenAPI에서 생성된 단일 schema를 사용한다. feature 코드에서 수동 schema, broad cast, local wire DTO를 추가하지 않는다
+    - package operation 계약 밖의 외부 API·서드파티 SDK·raw JSON은 parse/validate 뒤 도메인 타입으로 고정한다. "타입이 애매하니 일단 unknown" 상태를 도메인 내부로 전파하지 않는다
 - **단일 스펙 강제**
     - 중복 키(`images` vs `image`, `image_url` vs `url`) 동시 허용 금지
     - 배열이면 복수형, 단일 값이면 단수형, 스펙은 한 가지로 고정
@@ -355,10 +397,10 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 ### Mobile (coupler-mobile-app)
 
 - Mobile은 서버 판단을 재구현하지 않고, 서버 응답 상태를 표시/입력 전달에만 사용한다.
-- 제출 payload는 package generated public request DTO와 요청 스펙 필드만 사용한다(consumer-local wire DTO 및 응답 필드 재사용 금지).
+- 제출 payload의 생성 계약 적용 범위는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따르고, 적용 대상에서는 package generated public request DTO와 요청 스펙 필드만 사용한다(consumer-local wire DTO 및 응답 필드 재사용 금지).
 - 화면 컴포넌트에서 normalize/resolve/fallback로 계약 불일치를 보정하지 않는다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
-- 구/신 API 이중 경로를 동시에 유지하지 않는다. 불가피한 과도기에는 Shadow Cutover 규칙을 따른다.
+- 최종 상태에는 구/신 API 이중 경로를 유지하지 않는다. 호환 배포에서는 API 경계의 명시적 version 계약만 사용하고, 같은 의미의 클라이언트 로직 교체에만 Shadow Cutover를 적용한다.
 - typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
 
 ### Admin (coupler-admin-web)
@@ -366,7 +408,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - Admin은 운영 UI이며, 서버 권한/상태 전이를 우회하는 로컬 판단을 두지 않는다.
 - 상태 변경 액션은 서버 명령 API를 통해서만 수행한다(클라이언트 로컬 상태 덮어쓰기 금지).
 - 테이블/상세 화면 표시 값은 서버 계약 필드를 그대로 사용하고 임의 매핑 키를 추가하지 않는다.
-- 요청 payload와 성공 응답 wire shape는 package generated public DTO를 사용하고, 화면용 목록 결과/ViewModel과 API DTO를 구분한다.
+- 요청 payload와 성공 응답 wire shape의 생성 계약 적용 범위는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따르고, 적용 대상에서는 package generated public DTO를 사용해 화면용 목록 결과/ViewModel과 API DTO를 구분한다.
 - 운영 액션(승인/반려/제재 등)은 사유/근거를 남기는 입력 규칙을 강제한다.
 - 레거시 컬럼/엔드포인트를 위한 임시 버튼/분기 추가 시 제거 조건과 목표 시점을 PR에 명시한다.
 
@@ -400,7 +442,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 ### 안전한 로직 이행 (Shadow Cutover)
 
-- 기존 로직을 통합 함수/신규 로직으로 바꿀 때는 아래 4단계를 순서대로 강제한다.
+- 같은 입력에서 같은 의미의 결과를 내야 하는 기존 로직을 통합 함수/신규 로직으로 바꿀 때만 아래 4단계를 순서대로 강제한다. 버전별 wire 계약이 의도적으로 다른 호환 배포와 DB Expand는 이 절의 적용 대상이 아니다.
     1. `통합 함수 도입`: 기존 로직은 제거하지 않고 유지한다. 신규 로직은 병렬 계산(shadow)만 수행한다.
     2. `diff 계측`: 동일 입력에 대해 기존/신규 결과를 비교하는 diff 로그를 남기고 불일치 원인을 제거한다.
     3. `점진 교체`: 불일치 0건이 확인된 뒤에만 호출부를 한 곳씩 교체한다.
@@ -417,7 +459,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 금지 사항:
     - 불일치 0건 확인 전 기존 로직을 제거하거나 의미를 변경하는 행위
     - 삭제 대상으로 지정되지 않은 기존 기능을 레거시로 간주해 제거하는 행위
-    - DB 컬럼 추가/구조 개선 시 shadow 절차를 생략하고 즉시 cutover하는 행위
+    - DB read/write 기준·계산식·조회 경로를 바꾸면서 적용 대상 `DBM-GATE-300`과 diff 검증을 생략하는 행위
     - 제거 조건, 목표 시점, 추적 이슈가 없는 파생 호환 로직을 장기 잔존시키는 행위
 
 ## 관련 문서
