@@ -26,6 +26,12 @@
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람 외 명령 실행/코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
+- 지시/리뷰에 `논리 데이터 모델`이 포함되면 `content/policy/logical-data-model-policy.md`의
+  `충실도 리뷰 판정`을 추가 열람하고 공개 논리 모델 충실도와 물리 DB 설계·운영 안전성을 먼저 분리한다
+    - 공개 논리 모델에 물리 컬럼, PK/FK/UNIQUE/CHECK, 인덱스 또는 전체 SQL 의존성이 없다는 이유만으로
+      finding을 만들지 않는다
+    - 물리 제약 부재만으로 논리 관계나 불변조건을 부정하지 않으며, 실제 의미·동작의 모순 근거가 있을 때만
+      논리 모델 finding으로 판정한다
 - 커밋 생성/수정 요청을 받으면 staging 또는 commit 전에 `content/policy/code-review-policy.md`, `content/policy/git-branch-strategy.md`, `content/policy/commit-convention.md`를 함께 확인한다
     - 현재 세션에서 마지막 파일 변경 이후 같은 변경 범위를 리뷰한 기록이 없거나 최종 판정이 `No Findings`가 아니면 즉시 멈추고 사용자에게 계속 진행 여부를 물어본다
     - 사용자가 진행을 승인하더라도 커밋 전에는 리뷰 범위, 열린 Finding, 마지막 수정 이후 검증 상태를 다시 보고한다

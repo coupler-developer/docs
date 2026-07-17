@@ -537,7 +537,7 @@
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
-      "recordRole": "history",
+      "recordRole": "state",
       "classification": "내부"
     },
     {
