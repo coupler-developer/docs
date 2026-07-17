@@ -132,11 +132,16 @@
 - 도메인 서비스를 재사용할 때는 외부 연동 adapter를 호출하지 않는 대체 구현으로 교체하고 호출 0건을 검증한다.
 - 생성 회원의 push token과 외부 인증값은 비워 두고, 전송 가능한 연락처를 사용하지 않는다.
 - 자동 만료·cron 대상이 되는 진행 시나리오는 검증 시간 동안 만료되지 않게 만들고, 만료 결과 시나리오는 이미 terminal 상태로 생성한다.
-- 공유 개발계 apply 전에 개발 환경의 `/admin/cron/*` 전체에 cron fence가 적용됐는지 자동 검증한다.
-- run registry의 global fence index에 active namespace가 하나라도 있거나 index를 읽지 못하면 개발 환경 cron route는 도메인 query와 외부 호출 전에 fail-closed로 건너뛴다. `planning`, `applying`, `applied`, `resetting`, `cleanup_failed`, `failed`와 만료됐지만 정리되지 않은 run은 index에서 제거하지 않는다.
-- cron route는 global fence가 비어 있음을 확인한 같은 registry mutex 안에서 job별 lease를 생성하고, handler가 반환한 비동기 작업이 끝난 뒤에만 lease를 해제한다. 같은 job의 active lease가 있으면 중복 실행하지 않는다.
-- feeder의 apply claim은 같은 registry mutex 안에서 active cron lease가 0건임을 확인한 뒤 global fence를 생성한다. cron lease가 하나라도 있거나 lease·mutex 상태를 읽지 못하면 DB write를 시작하지 않는다.
-- cron fence는 router 공통 경계에 한 번 적용해 새 cron route가 기본적으로 보호되게 하고, route test는 fence보다 먼저 등록된 handler가 없음을 검증한다.
+- 개발 cron은 Run Registry 소유권을 기준으로 `REAL_ONLY` target policy를 사용한다. 정상 개발 데이터는 처리하고 active namespace의 합성 회원과 연결 match·meeting·reservation·profile은 제외한다.
+- 합성 데이터가 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 cron handler를 실행하지 않고 명시적 maintenance `SKIP`으로 처리한다. `applied`, `failed`, `cleanup_failed`에서는 합성 target만 제외하고 cron을 계속 실행한다.
+- cron lease가 하나라도 있으면 새 namespace claim과 `applying`·`resetting` 전환을 시작하지 않는다. 반대로 합성 데이터 변경 상태에서는 새 cron lease를 만들지 않는다.
+- Run Registry 소유권이 없는 합성 root, 읽을 수 없는 registry, 유효하지 않은 active 상태는 cron을 실패시킨다. 소유권을 추측하거나 `ALL_TARGETS`로 fallback하지 않는다.
+- 운영 cron은 개발 Run Registry와 `DEV_CRON_*` 설정을 사용하지 않고 기존 `ALL_TARGETS` 동작을 유지한다. 운영 process는 개발 cron·feeder 설정이 감지되면 시작 단계에서 실패한다.
+- 공유 개발계 apply 전에 13개 `/admin/cron/*` handler의 target fence, maintenance `SKIP`, lease 상호 배제가 자동 검증되는지 확인한다.
+- run registry의 global fence index는 `cleaned` finalization 대기를 제외한 active namespace 소유권을 유지한다. `planning`, `applying`, `resetting`과 아직 fenced 상태인 `cleaned` finalization 대기는 handler 전에 maintenance `SKIP`하고 안정 상태는 소유권으로 합성 target을 제외한다.
+- cron route는 같은 registry mutex 안에서 active 상태와 같은 job lease를 확인한 뒤 job별 lease를 생성하고, handler가 반환한 비동기 작업이 끝난 뒤에만 lease를 해제한다. 같은 job의 active lease가 있으면 중복 실행하지 않는다.
+- feeder의 apply claim과 `applying`·`resetting` 상태 전환은 같은 registry mutex 안에서 active cron lease가 0건임을 확인한다. cron lease가 하나라도 있거나 lease·mutex 상태를 읽지 못하면 DB write를 시작하지 않는다.
+- target fence는 router 공통 경계에 한 번 적용하고 13개 handler는 각 도메인 target을 명시적으로 필터링한다. route test는 공통 경계보다 먼저 등록된 handler가 없고 모든 handler에 target 제외 경계가 있음을 검증한다.
 - 개발 환경 cron route에서 registry 조회가 실패해도 cron을 실행하지 않으며, production startup은 개발 데이터 registry나 cron fence 활성화 설정이 있으면 실패해야 한다.
 - cron 자체 동작을 검증하는 시나리오는 개인 로컬·일회성 CI DB에서만 실행하며 공유 개발계 `cms-all`과 동시에 실행하지 않는다.
 - 허용된 외부 write는 환경 검증 뒤 사용하는 개발 전용 media와 private run registry뿐이며, 둘 다 운영 bucket·prefix와 분리한다.
@@ -241,7 +246,7 @@
     - run ID, owner, 유지 종료일, registry version·상태
     - dry-run과 apply의 생성·갱신·유지 건수
     - branch·route·API·브라우저 coverage 결과와 미분류·`live-only`·`non-data` 목록
-    - cron fence와 유지 기간 외부 호출 0건 검증 결과
+    - maintenance `SKIP`, 13개 target 제외와 유지 기간 외부 호출 0건 검증 결과
     - reset 실행 여부와 orphan·미디어 잔존 건수
 - 공유 개발계 데이터는 owner와 유지 종료일을 기록한다.
 - 실제 개인정보, 접속정보, 비밀번호, token, 영수증은 증빙에 포함하지 않는다.
@@ -258,7 +263,7 @@
 - [ ] namespace 형식·SQL parameter·asset 경로 containment가 fail-closed로 검증되는가?
 - [ ] run registry가 owner·유지 기한·상태를 공유 환경에 영속화하는가?
 - [ ] 외부 알림·결제·분석 호출이 0건인가?
-- [ ] 공유 개발계 데이터 유지 기간에 cron fence가 계속 적용되는가?
+- [ ] 공유 개발계 유지 기간에 정상 개발 target은 처리되고 합성 target 변경은 0건인가?
 - [ ] canonical 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
 - [ ] 기존 그룹미팅의 주최자 멤버십·성별 인원수·Admin 채팅 join이 원본 데이터와 일치하는가?
 - [ ] 합성 프로필이 회원별로 구분되고 이미지 최소 수·영상 경로·checksum 검증을 통과하는가?

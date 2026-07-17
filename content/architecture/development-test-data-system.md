@@ -27,6 +27,37 @@
 - 생성·식별·검증·reset의 규범은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을 따른다.
 - 상태·키·결제·개인정보 세부 규범은 해당 도메인 정책을 따르며 이 문서에서 새 값을 정의하지 않는다.
 
+## cron 환경 분리와 마이그레이션 적용 경계
+
+이 구조에서 별도로 운영해야 하는 핵심 대상은 DB 마이그레이션이 아니라 **cron 실행 환경과 안전
+정책**이다.
+
+- 운영 cron은 기존 운영 scheduler와 실행 정책을 그대로 사용한다. 개발 데이터 Run Registry,
+  `DEV_CRON_*` 설정, 개발 cron fence에 의존하지 않는다.
+- 개발 cron은 개발 전용 dispatcher·인증·설정을 사용한다. 외부 FCM 발송과 삭제성 작업을 기본
+  차단하고, 합성 데이터 `apply`·`reset` 변경 구간에는 개발 전용 fence와 lease로 동시 변경을 막는다.
+  `applied` 유지·화면 검증 구간에는 정상 개발 데이터만 실행 대상으로 삼고 합성 데이터 root와 연결
+  객체는 제외한다.
+- cron job의 핵심 도메인 로직은 공유할 수 있지만, 운영과 개발의 등록 경로·설정·외부 부작용 정책은
+  섞지 않는다. 운영 프로세스에서 `DEV_CRON_*` 또는 개발 데이터 fence 설정이 감지되면 시작 단계에서
+  실패해야 한다.
+
+세부 설치·검증 기준은 [Cron 작업](cron-jobs.md)과
+[개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다. 개발
+cron fence는 운영 cron을 바꾸는 기능이 아니라 합성 데이터 작업과 개발 cron의 충돌만 막는 개발 전용
+안전장치다.
+
+서비스 DB 마이그레이션 흐름은 기존과 같다. 회원, 매칭, 그룹미팅, 결제 같은 서비스 기능의
+테이블·컬럼·인덱스·제약조건·뷰 또는 필수 기준정보를 바꾸는 동일한 승인 SQL을 개발계에 한 번 적용하고,
+검증이 끝나면 운영계에 한 번 적용한다. 각 DB는 자신의 migration ledger에 완료 상태를 기록하며
+[DB Migration Gate 정책](../policy/db-migration-gate-policy.md)을 그대로 따른다.
+
+합성 데이터 `apply`, `verify`, `reset`은 서비스 DB 마이그레이션이 아니며 migration ledger에 기록하지
+않는다. 개발 데이터 관리 때문에 서비스 DB 마이그레이션 적용 환경이나 횟수가 늘어나지 않는다. DB
+마이그레이션이 feeder 관련 table·column·view·FK를 바꿀 때만 DB contract, schema fingerprint,
+ownership query, scenario version과 verifier를 함께 갱신한다. 관련 없는 마이그레이션은 기존 namespace를
+일괄 reset하지 않는다.
+
 ## 배치 원칙
 
 생성 엔진을 별도 repository로 분리하지 않는다. DB schema, model, 상태 상수와 같은 변경 단위로 검증할 수 있도록 `coupler-api`에 둔다.
@@ -91,7 +122,7 @@ coupler-admin-web/
 | Namespace Validator | 형식·길이·SQL parameter 사용·asset 경로 containment 검증 |
 | Namespace Lock | 동일 namespace 동시 실행 차단 |
 | Run Registry | owner·유지 기한·run 상태·catalog/schema fingerprint 영속화 |
-| Cron Fence | 공유 개발계의 active run 동안 모든 cron handler 진입 차단 |
+| Cron Target Fence | 합성 데이터 변경 구간은 cron을 일시 중지하고 안정 상태에서는 합성 target만 제외 |
 | DB Contract Verifier | 관련 table·column·view·FK·필수 insert column 계약과 fingerprint 검증 |
 | Branch Obligation Map | 상태·전이·권한·filter·시간 경계의 missing·stale 분기 검출 |
 | Scenario Catalog | scenario ID, version, 의존성, 생성기, verifier 연결 |
@@ -410,14 +441,15 @@ coverage entry는 다음 축을 가진다.
 
 ## 공유 개발계 cron fence
 
-- `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 global fence index를 확인한다.
-- active run이 있으면 모든 cron handler를 실행하지 않고 `dev_data_fenced` 결과를 남기며 DB domain query와 외부 adapter 호출은 0건이어야 한다.
-- fence가 비어 있으면 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하며 같은 job의 중복 호출은 실행하지 않는다.
-- feeder claim은 같은 mutex 안에서 cron lease 0건을 확인한 뒤 fence를 생성한다. 따라서 cron 진입과 feeder 진입 중 하나만 먼저 성공하고 상대 작업은 fail-closed한다.
-- 개발 환경에서 registry를 읽지 못해도 cron을 실행하지 않는다.
-- production에서는 feeder와 registry adapter가 활성화되지 않으며 cron fence도 적용되지 않는다. production startup은 관련 enable 설정이 하나라도 있으면 실패한다.
-- run이 만료돼도 `cleaned`가 아니면 fence를 자동 해제하지 않는다. reset 또는 소유권 reconciliation 완료 뒤에만 해제한다.
-- cron route 등록 테스트는 모든 handler가 공통 fence 뒤에 있고 lease wrapper로 감싸졌음을 확인한다.
+- `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 fence index와 active record를 함께 확인한다.
+- `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기는 변경·정리 구간이다. cron handler를 시작하지 않고 `x-dev-cron-result: maintenance` 성공 응답을 반환하며 dispatcher는 이를 `SKIP`으로 기록한다.
+- `applied`, `failed`, `cleanup_failed`는 안정 상태다. active namespace key로 합성 회원 root와 연결 meeting을 조회하고 13개 cron job에 `REAL_ONLY` 정책을 적용한다. 정상 개발 데이터는 기존 도메인 로직으로 처리하고 합성 member·match·meeting·reservation·profile target은 변경하지 않는다.
+- Run Registry 소유권이 없는 합성 root, 유효하지 않은 active record, 읽을 수 없는 registry는 handler 전에 실패한다. 소유권을 추측하거나 전체 개발 데이터를 실행 대상으로 되돌리지 않는다.
+- cron 진입은 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하고 같은 job의 중복 호출은 `already-running` `SKIP`으로 처리한다.
+- feeder의 새 claim과 `applying`·`resetting` 상태 전환은 같은 mutex 안에서 active cron lease 0건을 확인한다. 따라서 cron과 합성 데이터 DB 변경 중 하나만 먼저 시작할 수 있다.
+- production에서는 target policy를 별도로 만들지 않고 기존 `ALL_TARGETS` 동작을 유지한다. production startup은 `DEV_CRON_*` 또는 feeder·registry enable 설정이 하나라도 있으면 실패한다.
+- run이 만료돼도 active 소유권 index를 자동 해제하지 않는다. reset 또는 소유권 reconciliation 완료 뒤에만 해제한다.
+- 회귀 테스트는 13개 handler 모두의 target 경계, 정상 개발 target 유지, 합성 target 제외, maintenance·중복 실행 `SKIP`, lease 경쟁 차단을 확인한다.
 
 ## Admin browser smoke 구현
 
@@ -447,9 +479,9 @@ coverage entry는 다음 축을 가진다.
 - claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
 - 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다. 이 식별 계약이 하나라도 다르면 reset 후 새 namespace run으로 다시 적용한다.
 - `reset`은 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한 뒤 시작한다.
-- DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 fence를 유지한다.
+- DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
 - DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.
-- asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 cron fence를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.
+- asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 active 소유권 index를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.
 - DB·asset 잔존 0건을 확인한 뒤에만 active record를 history로 이동하고 `cleaned`로 종료한다.
 - history 저장 재조회와 global fence namespace 제거가 모두 끝나야 reset 성공이다. registry finalization 실패는 DB·asset을 재생성하지 않고 finalization만 재시도한다.
 - 일반 reset은 기준정보를 제거하지 않는다.

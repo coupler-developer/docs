@@ -141,12 +141,14 @@ GET /admin/cron/cleanupOldProfileVersions
 - dispatcher는 loopback URL만 허용하고 `x-dev-cron-token` 비밀 헤더로 API에 인증한다. 토큰은 repository나 crontab에 넣지 않고 mode `600`의 `/etc/coupler-api/dev-cron.env`에서 API와 dispatcher가 함께 읽는다.
 - `flock`으로 이전 run이 끝나지 않은 동안 다음 dispatcher의 중복 실행을 막는다.
 - API는 handler가 반환한 작업이 끝날 때까지 job별 Run Registry lease를 유지한다. 같은 job의 중복 호출은 idempotent success와 `x-dev-cron-result: already-running`으로 건너뛰고, feeder는 active cron lease가 하나라도 있으면 apply claim을 시작하지 않는다.
-- cron fence 확인·lease 생성과 feeder fence claim은 같은 짧은 registry mutex 안에서 수행해 확인 직후 상대 작업이 진입하는 경쟁 조건을 차단한다.
+- cron fence 확인·lease 생성과 feeder claim·`applying`·`resetting` 전환은 같은 짧은 registry mutex 안에서 수행해 확인 직후 상대 작업이 진입하는 경쟁 조건을 차단한다.
 - installer는 repository `.runtime`을 mode `700`, log·lock을 mode `600`으로 준비한다. dispatcher log는 10 MiB에서 최근 파일 하나로 회전한다.
 - 개발 cron 문맥에서는 `DEV_CRON_EXTERNAL_DELIVERY_ENABLED=false`를 기본값으로 사용해 FCM 외부 전송만 차단한다. 화면 검증에 필요한 `t_alarm`과 도메인 상태 변경은 유지한다.
 - `autoDeleteMember`, `cleanupOldProfileVersions`는 `DEV_CRON_DESTRUCTIVE_ENABLED=false`에서 scheduler 대상과 API handler 양쪽이 fail-closed한다.
 - `DEV_CRON_*` 설정은 production startup에서 거부한다. 운영 cron의 실행 방식과 환경은 이 개발계 설정으로 변경하지 않는다.
-- 공유 개발 데이터 run의 fence가 활성화된 동안 dispatcher 호출은 handler 전에 차단된다. 이는 평상시 개발 cron 활성화 조건이 아니라 합성 데이터 적용·화면 검증 구간만 보호하는 일시 정지 조건이다. 데이터 주입을 위해 crontab을 직접 끄는 절차는 사용하지 않는다.
+- 개발 cron은 active namespace 소유권에서 합성 회원과 연결 meeting을 읽고 13개 job에 `REAL_ONLY` target policy를 적용한다. 정상 개발 데이터는 처리하고 합성 member·match·meeting·reservation·profile은 변경하지 않는다.
+- 합성 데이터가 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 idempotent success와 `x-dev-cron-result: maintenance`를 반환하고 dispatcher는 `SKIP`으로 기록한다. `applied`, `failed`, `cleanup_failed`에서는 cron을 멈추지 않고 합성 target만 제외한다.
+- registry 소유권이 없는 합성 root나 읽을 수 없는 registry는 handler 전에 fail-closed한다. 데이터 주입을 위해 crontab 전체를 직접 끄거나 소유권 실패를 `ALL_TARGETS`로 우회하지 않는다.
 
 설치·검증·삭제성 작업의 일회성 실행과 rollback은 [개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다.
 
