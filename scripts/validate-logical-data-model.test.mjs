@@ -149,6 +149,72 @@ test("현행 표준 논리 모델과 생성 catalog를 허용한다", () => {
   });
 });
 
+test("현행 매칭 예약과 프로필 열람 의미를 실제 실행 경로에 맞춘다", () => {
+  const result = validateLogicalDataModel({
+    root: repositoryRoot,
+    indexPath: path.join(
+      repositoryRoot,
+      "content",
+      "architecture",
+      "logical-data-model-index.md",
+    ),
+    plannedIndexPath: path.join(
+      repositoryRoot,
+      "content",
+      "architecture",
+      "logical-data-model-planned-index.md",
+    ),
+    catalogPath: path.join(
+      repositoryRoot,
+      "generated",
+      "logical-data-model-catalog.json",
+    ),
+    checkCatalog: false,
+  });
+  const reservation = result.catalog.entities.find(
+    ({ id }) => id === "matching.reservation",
+  );
+  const matchingSource = fs.readFileSync(
+    path.join(
+      repositoryRoot,
+      "content",
+      "architecture",
+      "matching-system.md",
+    ),
+    "utf8",
+  );
+  const keyWalletSource = fs.readFileSync(
+    path.join(
+      repositoryRoot,
+      "content",
+      "architecture",
+      "matching-key-system.md",
+    ),
+    "utf8",
+  );
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(reservation?.recordRole, "state");
+  assert.doesNotMatch(
+    matchingSource,
+    /^\| `matching\.reservation` \| `policy` \|/mu,
+  );
+  assert.match(
+    matchingSource,
+    /^\| `matching\.reservation` \| `female-candidate` \| references \| `member\.member` \|/mu,
+  );
+  assert.match(
+    matchingSource,
+    /^\| `matching\.reservation` \| `male-candidate` \| references \| `member\.member` \|/mu,
+  );
+  assert.doesNotMatch(
+    keyWalletSource,
+    /최초 Key 차감|최초 열람은 한 번만 과금|하나의 transaction에서 확정/u,
+  );
+  assert.match(keyWalletSource, /요청별 과금을 판정/u);
+  assert.match(keyWalletSource, /전역 최초 1회로 간주하지 않는다/u);
+});
+
 test("architecture 템플릿이 표준 논리 모델 구조를 유지한다", () => {
   const template = fs.readFileSync(
     path.join(repositoryRoot, "content", "templates", "architecture-template.md"),
