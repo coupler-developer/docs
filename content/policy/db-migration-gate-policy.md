@@ -86,6 +86,31 @@
 - `부분 적용`이거나 이미 한 공유 DB에라도 성공 적용된 SQL이면 기존 SQL 파일을 수정하지 않고 새 번호의 복구/재개 SQL 파일을 추가한다. 새 SQL은 실행 검증 파이프라인 순서로 다시 검증한다.
 - `성공 후 ledger 누락`이면 적용 당시 checksum, 성공 postcheck 로그, 실제 DB 식별값을 확인한 뒤 이력 테이블 복구 절차로 처리한다.
 
+### 출시 전 개발계 migration reset 예외
+
+공유 개발계에 적용한 기능이 아직 운영계에 한 번도 적용되지 않았고 runtime도 출시되지 않았다면, 잘못된
+중간 DDL을 운영계 실행 산출물로 고정하지 않기 위해 개발계 이력과 객체를 한 번에 되돌리고 최종 migration
+세트로 다시 시작할 수 있다. 이 예외는 아래 조건을 모두 충족한 경우에만 적용한다.
+
+- 사용자 또는 서비스 책임자가 reset 대상 기능과 개발계를 명시적으로 승인한다.
+- 운영계 read-only preflight에서 대상 객체·데이터·ledger가 모두 0건임을 확인한다.
+- 개발계에서 대상 기능의 모든 업무 테이블이 0행이고, 외부 inbound FK·Trigger·Event·활성 runtime 의존성이
+  없음을 확인한다. 하나라도 존재하면 reset하지 않고 append-only 후속 migration을 사용한다.
+- 삭제할 객체, 설정 row, 기존 ledger 파일명·checksum의 exact-set과 되돌릴 수 있는 기존 migration commit을
+  reset 전에 기록한다.
+- 대체 migration은 현재 main의 다음 번호부터 `precheck → expand/backfill → postcheck` 순서로 최소화하고,
+  reset 전에 빈 로컬 DB replay와 schema lock 검증을 통과한다.
+- reset은 대상 기능 객체와 해당 기능이 만든 설정·ledger exact-set만 제거한다. ledger만 지우거나 다른 기능
+  row를 함께 제거하지 않는다.
+- DDL auto-commit을 전제로 각 단계 뒤 실제 객체·데이터·ledger 상태를 다시 조회한다. 중단되면 재실행하지
+  않고 `미적용`, `부분 적용`, `성공 후 ledger 누락`으로 먼저 분류한다.
+- reset 직후 같은 작업 창에서 대체 migration을 개발계에 적용하고 `target_env='dev'` ledger, postcheck,
+  schema lock 동등성을 확인한다. 운영계에는 검증된 대체 세트만 적용한다.
+- reset 전후 DB 식별값, row count, 의존성, 제거한 ledger, 새 ledger, Gate 결과를 PR 또는 릴리즈 증빙에 남긴다.
+
+운영계에 대상 migration이나 runtime 데이터가 한 건이라도 존재하거나, 출시된 client/server가 대상 계약을
+사용했다면 이 예외를 적용할 수 없다. 해당 시점부터는 기존 append-only·Expand/Contract 규칙을 따른다.
+
 ### SQL 산출물 위치
 
 - 서비스 레포의 합의된 영구 migration 경로에만 SQL을 추가한다. 적용 완료 SQL은 제거하거나 수정하지 않는다.
