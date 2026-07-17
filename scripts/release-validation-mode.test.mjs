@@ -72,6 +72,22 @@ describe("release validation mode", () => {
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.equal(result.stdout.trim(), "full");
   });
+
+  it("uses full validation for a deleted policy", () => {
+    const policyDir = path.join(repoRoot, "content", "policy");
+    const policyPath = path.join(policyDir, "example.md");
+    fs.mkdirSync(policyDir, { recursive: true });
+    fs.writeFileSync(policyPath, "# Policy\n");
+    commitAll("add policy");
+    const base = git(["rev-parse", "HEAD"]);
+    fs.rmSync(policyPath);
+    commitAll("delete policy");
+
+    const result = runClassifier(base);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), "full");
+  });
 });
 
 function writeRecord(status) {
