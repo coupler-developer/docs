@@ -135,8 +135,9 @@
 
 ### docs (MkDocs)
 
-- 러너: GitHub Actions docs validation workflow (`docs 구조 검증` + `논리 데이터 모델 검증·회귀 테스트` + `릴리스 기록 검증` + `API 에러 문서 검증` + `릴리즈 preflight 스크립트 검증` + `markdownlint` + `mkdocs build --strict`) 사용.
+- 러너: GitHub Actions docs validation workflow (`docs 구조 검증·회귀 테스트` + `논리 데이터 모델 검증·회귀 테스트` + `릴리스 기록 검증` + `API 에러 문서 검증` + `릴리즈 preflight 스크립트 검증` + `markdownlint` + `mkdocs build --strict`) 사용.
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
+- 문서 구조 검증 테스트(로컬): `yarn test:docs-structure`
 - 논리 데이터 모델 검증(로컬): `yarn validate:logical-data-model`
 - 논리 데이터 모델 검증 테스트(로컬): `yarn test:logical-data-model`
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
@@ -146,6 +147,7 @@
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
 - 문서 구조 검증(CI): `node scripts/validate-docs-structure.mjs`
+- 문서 구조 검증 테스트(CI): `node --test scripts/validate-docs-structure.test.mjs`
 - 논리 데이터 모델 검증(CI): `node scripts/validate-logical-data-model.mjs`
 - 릴리스 기록 검증(CI): `node scripts/validate-release-records.mjs`
 - API 에러 문서 검증(CI): `node scripts/validate-api-error-docs.mjs`
