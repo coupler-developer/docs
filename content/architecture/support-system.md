@@ -25,7 +25,6 @@
 | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
 | --- | --- | --- | --- | --- | --- |
 | `support.request` | `requester` | references | `member.member` | N:1 | 회원 삭제 뒤 직접 식별정보를 비식별화할 수 있음 |
-| `support.request` | `threads` | associates | `conversation.thread` | 1:N | 연속 상담 대화가 있으면 문의 문맥으로 연결 |
 
 ### 불변조건
 

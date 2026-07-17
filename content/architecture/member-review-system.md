@@ -50,7 +50,6 @@
 | `member.member` | `required-auth-policies` | owns | `member-review.required-auth-policy` | 1:N | 회원에게 적용되는 현재 필수 인증 종류와 변경 근거를 유지 |
 | `member.member` | `review-stage-snapshots` | owns | `member-review.stage-snapshot` | 1:N | 원천 심사 상태와 불일치하면 재계산 |
 | `member-review.status-projection` | `review-requests` | derives-from | `member-review.review-request` | 1:N | 원천 요청과 현재 회원 상태에서 계산 |
-| `member-review.status-projection` | `stage-snapshots` | derives-from | `member-review.stage-snapshot` | 1:N | 호환용 snapshot은 판정 원천으로 사용하지 않음 |
 | `member-review.overview-projection` | `auth-requests` | derives-from | `member-review.auth-request` | 1:N | 운영 집계이며 쓰기 기준으로 사용하지 않음 |
 
 ### 불변조건
