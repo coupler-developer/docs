@@ -75,7 +75,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
 6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
 7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 overlapping active scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
-8. 개발 환경 `/admin/cron/*` 공통 fence는 active namespace가 있거나 registry를 읽지 못하면 handler 전에 fail-closed한다.
+8. 개발 환경 `/admin/cron/*` 공통 target fence는 `planning`·`applying`·`resetting`과 fenced `cleaned` finalization 대기를 maintenance `SKIP`으로 처리한다. 안정 상태에서는 정상 개발 target을 처리하고 active namespace의 합성 target만 제외하며, registry·소유권을 확인할 수 없으면 handler 전에 fail-closed한다.
 9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
 10. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
 11. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 고유 경로로 복사해 `profiles/`·`videos/` namespace 경로에 동기화한다.
@@ -130,9 +130,9 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 6. DB 트랜잭션을 시작하고 신고·로그·원장·관계 child를 FK-safe 순서로 삭제한다.
 7. 도메인 root와 마지막 actor root를 삭제한다.
 8. 같은 트랜잭션에서 root 0건, child orphan 0건, 다른 namespace와 기준정보 무변경을 검증한다.
-9. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 `failed`로 남겨 fence를 유지한다.
+9. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
 10. DB 검증이 통과하면 commit한 뒤 namespace media를 idempotent하게 삭제한다. 공용 asset과 기준정보는 유지한다.
-11. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 cron fence를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
+11. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 active 소유권 index를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
 12. DB·asset 잔존 0건이면 active record를 history로 이동해 `cleaned`로 종료한다.
 13. history 저장을 재조회해 확인한 뒤 global fence에서 namespace를 ETag 조건부 제거한다.
 14. history write나 fence 제거가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 cleaned active record만 남겨 같은 reset이 finalization을 재시도한다.
@@ -189,7 +189,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 ### Scenario 실패
 
 - 실패 scenario 트랜잭션을 rollback한다.
-- suite를 실패로 종료하고 registry를 `failed`로 남긴 뒤 이미 성공한 scenario 목록을 함께 출력한다. cron fence는 reset 완료 전까지 유지한다.
+- suite를 실패로 종료하고 registry를 `failed`로 남긴 뒤 이미 성공한 scenario 목록을 함께 출력한다. active 소유권 index를 reset 완료 전까지 유지하고 cron은 부분 생성된 합성 target을 제외한다.
 - 원인 수정 뒤 같은 namespace로 재실행해 반복 실행 동일성과 전체 coverage를 다시 확인한다.
 
 ### Coverage 실패
@@ -218,10 +218,11 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 
 ### Cron fence 실패
 
-- active run이 있는데 cron handler가 실행되거나 fence 상태를 확인할 수 없으면 apply와 cron 호출을 모두 중단한다.
+- `planning`, `applying`, `resetting` 또는 fenced `cleaned` finalization 대기인데 cron handler가 실행되거나 `applied`, `failed`, `cleanup_failed`에서 합성 target이 변경되면 apply와 cron 호출을 모두 중단한다.
+- active run의 합성 소유권을 확인할 수 없거나 같은 조건의 정상 개발 target까지 장기간 정지되면 target policy와 registry adapter를 수정한다.
 - active cron lease가 있는데 feeder claim이 성공하거나 같은 job lease가 중복 생성돼도 동일하게 중단한다.
-- router 공통 middleware 순서와 registry adapter를 수정하고 cron route 등록 test를 통과하기 전 공유 개발계 데이터를 유지하지 않는다.
-- 만료됐지만 정리되지 않은 run은 자동 해제하지 않고 reset 또는 reconciliation이 끝날 때까지 fence를 유지한다.
+- router 공통 middleware 순서, 13개 handler target 경계와 registry adapter를 수정하고 회귀 테스트를 통과하기 전 공유 개발계 데이터를 유지하지 않는다.
+- 만료됐지만 정리되지 않은 run은 자동 해제하지 않는다. reset 또는 reconciliation 전까지 소유권 index를 유지하고 cron은 합성 target만 제외한다.
 
 ### Asset cleanup 실패
 
