@@ -59,7 +59,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 - API CLI와 Admin browser runner는 서로의 repository를 자동 탐색하지 않는다. `coverage`에는 생성된 Admin route contract의 절대 경로를 넘기고, browser smoke는 Admin repository에서 실행한다.
 - `contract`는 write 없이 접속 DB의 feeder schema fingerprint를 확인한다. namespace 형식은 `plan`부터 검증하고 Admin component route exact set은 `check:dev-data-routes`와 `coverage`가 확인한다.
 - `init-registry`는 DB에 연결하지 않고 private Run Registry의 최초 directory와 빈 fence만 만든다. active record가 있는데 fence가 없으면 재생성하지 않는다.
-- `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다. registry metadata, active directory entry, global fence와 active record의 양방향 정합성이 유효하지 않으면 fail-closed한다.
+- `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다. feeder와 개발 cron이 공유하는 contract parser로 fence·active record 전체를 검증하며, registry metadata, active directory entry, global fence와 active record의 양방향 정합성 또는 active record 상호 간 scope가 유효하지 않으면 fail-closed한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
@@ -74,7 +74,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 4. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
 5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
 6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
-7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 overlapping active scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
+7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 fence·active record 전체 snapshot, 기존 active 상호 간 scope, 새 요청의 overlapping scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
 8. 개발 환경 `/admin/cron/*` 공통 target fence는 `planning`·`applying`·`resetting`과 fenced `cleaned` finalization 대기를 maintenance `SKIP`으로 처리한다. 안정 상태에서는 정상 개발 target을 처리하고 active namespace의 합성 target만 제외하며, registry·소유권을 확인할 수 없으면 handler 전에 fail-closed한다.
 9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
 10. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.

@@ -107,8 +107,11 @@
     - 동일 namespace의 owner·suite·catalog/schema version·reference time이 같은 반복 apply는 신규 claim이 아니라 기존 run 검증으로 처리한다.
     - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 canonical scenario와 verifier를 보강한 뒤 기존 namespace를 reset·재적용한다.
 - scope 충돌 검사는 run registry mutex 안에서 active record 전체를 읽고 claim 직전에 다시 수행한다. `plan` 결과만으로 claim 가능성을 확정하지 않는다.
+- inventory와 claim은 새 요청과 기존 record만 비교하지 않고 기존 active record 전체를 pairwise 검증한다. 이미 손상된 active scope 집합이 있으면 겹치지 않는 suite 요청도 허용하지 않는다.
 - global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
+- feeder와 개발 cron은 하나의 Run Registry contract validator를 사용한다. fence namespace 중복·유효하지 않은 canonical timestamp와 active record metadata 중 하나라도 있으면 두 경로 모두 fail-closed하며 consumer별 완화 해석을 허용하지 않는다.
 - 만료됐거나 `failed`, `cleanup_failed`, `cleaned` finalization 대기 상태인 active record도 명시적 reset·finalization 전에는 새 overlapping suite를 차단한다.
+- claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. 상태 update는 apply·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
 - scope 충돌을 우회하는 `--force`, 병렬 허용 옵션, 만료 시 자동 삭제를 제공하지 않는다.
 - 공유 registry backend는 read-after-write consistency와 ETag 조건부 갱신을 보장해야 하며, 보장할 수 없는 저장소는 지원하지 않는다.
 - owner, suite, catalog version, schema fingerprint, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
@@ -135,7 +138,7 @@
 - 개발 cron은 Run Registry 소유권을 기준으로 `REAL_ONLY` target policy를 사용한다. 정상 개발 데이터는 처리하고 active namespace의 합성 회원과 연결 match·meeting·reservation·profile은 제외한다.
 - 합성 데이터가 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 cron handler를 실행하지 않고 명시적 maintenance `SKIP`으로 처리한다. `applied`, `failed`, `cleanup_failed`에서는 합성 target만 제외하고 cron을 계속 실행한다.
 - cron lease가 하나라도 있으면 새 namespace claim과 `applying`·`resetting` 전환을 시작하지 않는다. 반대로 합성 데이터 변경 상태에서는 새 cron lease를 만들지 않는다.
-- Run Registry 소유권이 없는 합성 root, 읽을 수 없는 registry, 유효하지 않은 active 상태는 cron을 실패시킨다. 소유권을 추측하거나 `ALL_TARGETS`로 fallback하지 않는다.
+- Run Registry 소유권이 없는 합성 root, 읽을 수 없는 registry, 유효하지 않은 fence·active record·active scope 집합은 cron을 실패시킨다. 소유권을 추측하거나 `ALL_TARGETS`로 fallback하지 않는다.
 - 운영 cron은 개발 Run Registry와 `DEV_CRON_*` 설정을 사용하지 않고 기존 `ALL_TARGETS` 동작을 유지한다. 운영 process는 개발 cron·feeder 설정이 감지되면 시작 단계에서 실패한다.
 - 공유 개발계 apply 전에 13개 `/admin/cron/*` handler의 target fence, maintenance `SKIP`, lease 상호 배제가 자동 검증되는지 확인한다.
 - run registry의 global fence index는 `cleaned` finalization 대기를 제외한 active namespace 소유권을 유지한다. `planning`, `applying`, `resetting`과 아직 fenced 상태인 `cleaned` finalization 대기는 handler 전에 maintenance `SKIP`하고 안정 상태는 소유권으로 합성 target을 제외한다.
