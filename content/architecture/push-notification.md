@@ -9,6 +9,7 @@
 
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 이 문서의 타입 섹션은 대표 타입과 범주를 설명하는 요약본이며, 전체 타입 인벤토리를 1:1로 열거하지 않는다.
+기존 알림 흐름은 `as-is`이고 그룹미팅 77~83의 Mobile 연결과 운영 활성화만 전환 중이다.
 
 ## 논리 데이터 모델
 
@@ -29,6 +30,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 | `member.member` | `notification-deliveries` | owns | `notification.delivery` | 1:N | 회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능 |
 | `notification.delivery` | `match-target` | references | `matching.match` | N:1 | 이동 대상이 매칭이면 해당 문맥을 참조 |
 | `notification.delivery` | `meeting-target` | references | `legacy-meeting.meeting` | N:1 | 이동 대상이 기존 미팅이면 해당 문맥을 참조 |
+| `notification.delivery` | `group-meeting-target` | references | `group-meeting.event` | N:1 | 이동 대상이 그룹미팅이면 해당 행사 문맥을 참조 |
 | `notification.delivery` | `post-target` | references | `lounge.post` | N:1 | 이동 대상이 라운지면 해당 문맥을 참조 |
 
 ### 불변조건
@@ -112,10 +114,11 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 
 - 위 표는 전체 타입 목록이 아니라 대표 타입 예시와 범주 요약이다.
 
-### 그룹미팅 예약 타입 (77-83, to-be)
+### 그룹미팅 타입 (77-83, transition)
 
-아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 구현 계약으로 예약했으며 현재 운영 코드에는 아직
-추가되지 않았다. 구현 직전 운영 상수에서 미사용 여부를 재검증한다.
+아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile의 타입 인식과 화면
+라우팅, 운영 발송 활성화는 후속 범위다. 이 후속 범위가 끝나기 전에는 그룹미팅 푸시를 운영에서 활성화하지
+않는다. 모든 `target`은 그룹미팅 행사 ID다.
 
 | 값 | 상수 | 의미 | 사용자 설정 |
 | --- | --- | --- | --- |
@@ -153,8 +156,8 @@ sequenceDiagram
 |------|----------|------|
 | 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT 스킵 |
 | 매칭 알림 | `alarm_match = NO` | FCM 12-30 스킵 |
-| 그룹미팅 행사 알림(to-be) | `alarm_event = NO` | FCM 77-83/85 스킵 |
-| 그룹미팅 채팅 알림(to-be) | `alarm_chat = NO` | FCM 84 스킵 |
+| 그룹미팅 행사 알림(전환 중) | `alarm_event = NO` | FCM 77-81, 83 스킵 |
+| 그룹미팅 채팅 알림(전환 중) | `alarm_chat = NO` | FCM 82 스킵 |
 | 보이스톡 오픈 알림 숨김 | `MATCH_VOICE_CALL` | 전송/저장 스킵, 알림 목록 제외 |
 | FCM 토큰 | `fcm_token` 없음 | 전송 스킵 |
 | OFFLINE_MODE | 개발 환경 | 전송 스킵 |
