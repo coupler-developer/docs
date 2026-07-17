@@ -33,18 +33,21 @@
 - [논리 데이터 모델 정책](../policy/logical-data-model-policy.md)의 도메인 ID, 표 구조와 폐쇄형 taxonomy를
   따른다.
 - 공통 기능 문서처럼 데이터를 소유하지 않으면 이 절 대신 참조하는 논리 ID와 사용 목적을 설명한다.
+- 물리 컬럼·타입·PK/FK·인덱스 목록은 작성하지 않고 중요한 데이터 의미를 책임, 관계, 불변조건으로 표현한다.
+
+- 도메인 ID: `<domain-id>`
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `<domain>.<entity>` |  | `<root, child, relation>` | `<state, ledger, history, snapshot, reference, projection>` |  | `<일반, 내부, 민감>` |  |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `<domain>.<entity>` |  | `<root, child>` | `<entity, association>` | `<state, ledger, history, snapshot, reference, projection>` |  | `<일반, 내부, 민감>` |  |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-|  | `<owns, references, associates, derives-from>` |  | `<1:1, 1:N, N:1, N:M>` |  |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+|  | `<kebab-case>` | `<owns, references, associates, derives-from>` |  | `<1:1, 1:N, N:1, N:M>` |  |
 
 ### 불변조건
 
