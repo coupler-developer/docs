@@ -1,13 +1,16 @@
 {
-  "version": 1,
+  "version": 2,
   "source": {
-    "index": "content/architecture/logical-data-model-index.md"
+    "currentIndex": "content/architecture/logical-data-model-index.md",
+    "plannedIndex": "content/architecture/logical-data-model-planned-index.md"
   },
   "domains": [
     {
       "id": "admin-access",
       "name": "관리자 접근",
+      "responsibility": "관리자 계정과 접근 권한",
       "ownerDocument": "content/architecture/admin-permission.md",
+      "stage": "as-is",
       "entityIds": [
         "admin-access.operator"
       ]
@@ -15,7 +18,9 @@
     {
       "id": "analytics",
       "name": "분석",
+      "responsibility": "운영 데이터에서 계산한 통계 조회 모델",
       "ownerDocument": "content/architecture/analytics-system.md",
+      "stage": "as-is",
       "entityIds": [
         "analytics.login-statistic"
       ]
@@ -23,7 +28,9 @@
     {
       "id": "club-manager",
       "name": "클럽매니저",
+      "responsibility": "클럽매니저 계정, 회원 배정, 상세 프로필 버전",
       "ownerDocument": "content/architecture/club-manager-system.md",
+      "stage": "as-is",
       "entityIds": [
         "club-manager.assignment",
         "club-manager.detail-profile-slice",
@@ -34,7 +41,9 @@
     {
       "id": "conversation",
       "name": "대화",
+      "responsibility": "상담·매칭·미팅 대화방, 참여자와 메시지",
       "ownerDocument": "content/architecture/chat-system.md",
+      "stage": "as-is",
       "entityIds": [
         "conversation.message",
         "conversation.participant",
@@ -44,7 +53,9 @@
     {
       "id": "group-meeting",
       "name": "그룹미팅",
+      "responsibility": "신규 n대n 행사, 신청, 참가, 이미지와 감사 이력",
       "ownerDocument": "content/architecture/group-meeting-system.md",
+      "stage": "to-be",
       "entityIds": [
         "group-meeting.action-history",
         "group-meeting.application",
@@ -59,7 +70,9 @@
     {
       "id": "key-wallet",
       "name": "Key 지갑",
+      "responsibility": "회원 Key 잔액, 변동 원장과 프로필 열람 거래",
       "ownerDocument": "content/architecture/matching-key-system.md",
+      "stage": "as-is",
       "entityIds": [
         "key-wallet.entry",
         "key-wallet.profile-access",
@@ -69,7 +82,9 @@
     {
       "id": "legacy-meeting",
       "name": "기존 2:2 미팅",
+      "responsibility": "기존 2:2 행사, 참가, 후기와 별점",
       "ownerDocument": "content/architecture/meeting-system.md",
+      "stage": "as-is",
       "entityIds": [
         "legacy-meeting.meeting",
         "legacy-meeting.participation",
@@ -80,7 +95,9 @@
     {
       "id": "lounge",
       "name": "라운지",
+      "responsibility": "게시글, 댓글과 반응",
       "ownerDocument": "content/architecture/lounge-system.md",
+      "stage": "as-is",
       "entityIds": [
         "lounge.comment",
         "lounge.comment-reaction",
@@ -91,7 +108,9 @@
     {
       "id": "matching",
       "name": "1:1 매칭",
+      "responsibility": "매칭, 일정, 통화, 후기와 상태 이력",
       "ownerDocument": "content/architecture/matching-system.md",
+      "stage": "as-is",
       "entityIds": [
         "matching.call",
         "matching.event-history",
@@ -105,7 +124,9 @@
     {
       "id": "member",
       "name": "회원",
+      "responsibility": "계정, 현재 프로필, 회원 생애주기와 회원 관계 이력",
       "ownerDocument": "content/architecture/member-lifecycle.md",
+      "stage": "as-is",
       "entityIds": [
         "member.invitation",
         "member.member",
@@ -119,7 +140,9 @@
     {
       "id": "member-review",
       "name": "회원 심사",
+      "responsibility": "심사 요청, 인증 증거, 프로필 버전과 심사 조회 모델",
       "ownerDocument": "content/architecture/member-review-system.md",
+      "stage": "as-is",
       "entityIds": [
         "member-review.auth-evidence",
         "member-review.auth-request",
@@ -137,7 +160,9 @@
     {
       "id": "moderation",
       "name": "신고·제재",
+      "responsibility": "신고, 차단, 숨김과 패널티",
       "ownerDocument": "content/architecture/moderation-system.md",
+      "stage": "as-is",
       "entityIds": [
         "moderation.block",
         "moderation.content-report",
@@ -149,7 +174,9 @@
     {
       "id": "notification",
       "name": "알림",
+      "responsibility": "회원 알림 설정과 발송·저장 이력",
       "ownerDocument": "content/architecture/push-notification.md",
+      "stage": "as-is",
       "entityIds": [
         "notification.delivery",
         "notification.preference"
@@ -158,7 +185,9 @@
     {
       "id": "payment",
       "name": "결제",
+      "responsibility": "인앱결제 거래와 지급 결과",
       "ownerDocument": "content/architecture/payment-system.md",
+      "stage": "as-is",
       "entityIds": [
         "payment.purchase"
       ]
@@ -166,7 +195,9 @@
     {
       "id": "platform-config",
       "name": "플랫폼 기준정보",
+      "responsibility": "앱 버전, 설정, 공지, 가입 안내, 장소와 별칭 기준정보",
       "ownerDocument": "content/architecture/platform-config-system.md",
+      "stage": "as-is",
       "entityIds": [
         "platform-config.alias",
         "platform-config.app-release",
@@ -179,7 +210,9 @@
     {
       "id": "support",
       "name": "고객지원",
+      "responsibility": "고객센터 문의와 답변 생명주기",
       "ownerDocument": "content/architecture/support-system.md",
+      "stage": "as-is",
       "entityIds": [
         "support.request"
       ]
@@ -190,7 +223,9 @@
       "id": "admin-access.operator",
       "domainId": "admin-access",
       "ownerDocument": "content/architecture/admin-permission.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -198,7 +233,9 @@
       "id": "analytics.login-statistic",
       "domainId": "analytics",
       "ownerDocument": "content/architecture/analytics-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "projection",
       "classification": "내부"
     },
@@ -206,7 +243,9 @@
       "id": "club-manager.assignment",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -214,7 +253,9 @@
       "id": "club-manager.detail-profile-slice",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "내부"
     },
@@ -222,7 +263,9 @@
       "id": "club-manager.detail-profile-version",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "내부"
     },
@@ -230,7 +273,9 @@
       "id": "club-manager.manager",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -238,7 +283,9 @@
       "id": "conversation.message",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -246,7 +293,9 @@
       "id": "conversation.participant",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -254,7 +303,9 @@
       "id": "conversation.thread",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -262,7 +313,9 @@
       "id": "group-meeting.action-history",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "child",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -270,7 +323,9 @@
       "id": "group-meeting.application",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "relation",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -278,7 +333,9 @@
       "id": "group-meeting.detail-slice",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "child",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "내부"
     },
@@ -286,7 +343,9 @@
       "id": "group-meeting.detail-version",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "child",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "내부"
     },
@@ -294,7 +353,9 @@
       "id": "group-meeting.event",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "root",
+      "stage": "to-be",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -302,7 +363,9 @@
       "id": "group-meeting.host",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "root",
+      "stage": "to-be",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -310,7 +373,9 @@
       "id": "group-meeting.participant",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "relation",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -318,7 +383,9 @@
       "id": "group-meeting.review",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
-      "kind": "child",
+      "stage": "to-be",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -326,7 +393,9 @@
       "id": "key-wallet.entry",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "내부"
     },
@@ -334,7 +403,9 @@
       "id": "key-wallet.profile-access",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -342,7 +413,9 @@
       "id": "key-wallet.wallet",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -350,7 +423,9 @@
       "id": "legacy-meeting.meeting",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -358,7 +433,9 @@
       "id": "legacy-meeting.participation",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -366,7 +443,9 @@
       "id": "legacy-meeting.rating",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -374,7 +453,9 @@
       "id": "legacy-meeting.review",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -382,7 +463,9 @@
       "id": "lounge.comment",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -390,7 +473,9 @@
       "id": "lounge.comment-reaction",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -398,7 +483,9 @@
       "id": "lounge.post",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -406,7 +493,9 @@
       "id": "lounge.post-reaction",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -414,7 +503,9 @@
       "id": "matching.call",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -422,7 +513,9 @@
       "id": "matching.event-history",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -430,7 +523,9 @@
       "id": "matching.match",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -438,7 +533,9 @@
       "id": "matching.reservation",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -446,7 +543,9 @@
       "id": "matching.reservation-policy",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -454,7 +553,9 @@
       "id": "matching.review",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "association",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -462,7 +563,9 @@
       "id": "matching.schedule",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -470,7 +573,9 @@
       "id": "member-review.auth-evidence",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "민감"
     },
@@ -478,7 +583,9 @@
       "id": "member-review.auth-request",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -486,7 +593,9 @@
       "id": "member-review.auth-request-item",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -494,7 +603,9 @@
       "id": "member-review.auth-state",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -502,7 +613,9 @@
       "id": "member-review.overview-projection",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "projection",
       "classification": "내부"
     },
@@ -510,7 +623,9 @@
       "id": "member-review.profile-image",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "민감"
     },
@@ -518,7 +633,9 @@
       "id": "member-review.profile-version",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "민감"
     },
@@ -526,7 +643,9 @@
       "id": "member-review.required-auth-policy",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -534,7 +653,9 @@
       "id": "member-review.review-request",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -542,7 +663,9 @@
       "id": "member-review.stage-snapshot",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "snapshot",
       "classification": "내부"
     },
@@ -550,7 +673,9 @@
       "id": "member-review.status-projection",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "projection",
       "classification": "내부"
     },
@@ -558,7 +683,9 @@
       "id": "member.invitation",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -566,7 +693,9 @@
       "id": "member.member",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -574,7 +703,9 @@
       "id": "member.profile",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -582,7 +713,9 @@
       "id": "member.recommendation",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -590,7 +723,9 @@
       "id": "member.signup-welcome",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -598,7 +733,9 @@
       "id": "member.sleep-history",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "내부"
     },
@@ -606,7 +743,9 @@
       "id": "member.status-history",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -614,7 +753,9 @@
       "id": "moderation.block",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -622,7 +763,9 @@
       "id": "moderation.content-report",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -630,7 +773,9 @@
       "id": "moderation.hide",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
-      "kind": "relation",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -638,7 +783,9 @@
       "id": "moderation.member-report",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "association",
       "recordRole": "state",
       "classification": "민감"
     },
@@ -646,7 +793,9 @@
       "id": "moderation.penalty",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -654,7 +803,9 @@
       "id": "notification.delivery",
       "domainId": "notification",
       "ownerDocument": "content/architecture/push-notification.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "history",
       "classification": "민감"
     },
@@ -662,7 +813,9 @@
       "id": "notification.preference",
       "domainId": "notification",
       "ownerDocument": "content/architecture/push-notification.md",
-      "kind": "child",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "내부"
     },
@@ -670,7 +823,9 @@
       "id": "payment.purchase",
       "domainId": "payment",
       "ownerDocument": "content/architecture/payment-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "ledger",
       "classification": "민감"
     },
@@ -678,7 +833,9 @@
       "id": "platform-config.alias",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -686,7 +843,9 @@
       "id": "platform-config.app-release",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -694,7 +853,9 @@
       "id": "platform-config.meeting-place",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "일반"
     },
@@ -702,7 +863,9 @@
       "id": "platform-config.notice",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "일반"
     },
@@ -710,7 +873,9 @@
       "id": "platform-config.setting",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -718,7 +883,9 @@
       "id": "platform-config.signup-message",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "reference",
       "classification": "내부"
     },
@@ -726,7 +893,9 @@
       "id": "support.request",
       "domainId": "support",
       "ownerDocument": "content/architecture/support-system.md",
-      "kind": "root",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
       "recordRole": "state",
       "classification": "민감"
     }

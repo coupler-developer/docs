@@ -56,6 +56,7 @@
 
 - [레포지토리 요약](architecture/repo-overview.md)
 - [논리 데이터 모델 인덱스](architecture/logical-data-model-index.md) - 도메인 ID와 데이터 소유 문서
+- [예정 논리 데이터 모델 인덱스](architecture/logical-data-model-planned-index.md) - 아직 현행으로 승격하지 않은 도메인과 소유 문서
 - [coupler-mobile-app to-be 아키텍처](architecture/mobile-app-to-be.md)
 - [회원 라이프사이클](architecture/member-lifecycle.md) - 회원 전체 상태 흐름
 - [회원 심사 시스템](architecture/member-review-system.md) - 심사 요청·증거·프로필 버전

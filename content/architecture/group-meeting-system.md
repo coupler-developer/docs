@@ -31,33 +31,36 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `group-meeting.host` | 그룹미팅 호스트 | root | state | 운영자 계정과 호스트 회원의 연결 | 민감 | 활성 행사가 없을 때 연결 해제 가능하며 행사 이력의 호스트 참조는 보존 |
-| `group-meeting.event` | 그룹미팅 행사 | root | state | 모집·마감·확정·종료와 공개 행사 정보 | 민감 | 삭제·취소·종료 상태로 보존하고 공개 이미지는 정책에 따라 정리 |
-| `group-meeting.detail-version` | 행사 상세 이미지 버전 | child | snapshot | 긴 상세 이미지의 원본과 변환 상태 | 내부 | 현재 버전은 유지하고 실패·교체 버전은 정리 가능 |
-| `group-meeting.detail-slice` | 행사 상세 이미지 조각 | child | snapshot | 상세 이미지 버전의 표시용 조각 | 내부 | 상위 버전 정리 시 파일과 함께 삭제 |
-| `group-meeting.application` | 그룹미팅 신청 | relation | state | 회원의 신청·승인·확정 취소·퇴장 자격 | 민감 | 행사 종료 뒤 신청 당시 별칭과 상태를 비식별 이력으로 보존 가능 |
-| `group-meeting.participant` | 그룹미팅 참여자 | relation | state | 확정 채팅 참여 자격과 읽음 경계 | 내부 | 자격 종료 뒤에도 메시지 표시 이력을 위해 보존 가능 |
-| `group-meeting.review` | 그룹미팅 후기 | child | history | 종료 행사에 대한 회원 후기와 보상 연결 | 민감 | 회원 개인정보 정리 시 자유문을 비식별화하고 보상 이력은 보존 |
-| `group-meeting.action-history` | 그룹미팅 행위 이력 | child | history | 상태 전이와 중요 운영 행위의 행위자·사유 | 내부 | append-only 감사 이력으로 보존 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `group-meeting.host` | 그룹미팅 호스트 | root | association | state | 운영자 계정과 호스트 회원의 연결 | 민감 | 활성 행사가 없을 때 연결 해제 가능하며 행사 이력의 호스트 참조는 보존 |
+| `group-meeting.event` | 그룹미팅 행사 | root | entity | state | 모집·마감·확정·종료와 공개 행사 정보 | 민감 | 삭제·취소·종료 상태로 보존하고 공개 이미지는 정책에 따라 정리 |
+| `group-meeting.detail-version` | 행사 상세 이미지 버전 | child | entity | snapshot | 긴 상세 이미지의 원본과 변환 상태 | 내부 | 현재 버전은 유지하고 실패·교체 버전은 정리 가능 |
+| `group-meeting.detail-slice` | 행사 상세 이미지 조각 | child | entity | snapshot | 상세 이미지 버전의 표시용 조각 | 내부 | 상위 버전 정리 시 파일과 함께 삭제 |
+| `group-meeting.application` | 그룹미팅 신청 | child | association | state | 회원의 신청·승인·확정 취소·퇴장 자격 | 민감 | 행사 종료 뒤 신청 당시 별칭과 상태를 비식별 이력으로 보존 가능 |
+| `group-meeting.participant` | 그룹미팅 참여자 | child | association | state | 확정 채팅 참여 자격과 읽음 경계 | 내부 | 자격 종료 뒤에도 메시지 표시 이력을 위해 보존 가능 |
+| `group-meeting.review` | 그룹미팅 후기 | child | entity | history | 종료 행사에 대한 회원 후기와 보상 연결 | 민감 | 회원 개인정보 정리 시 자유문을 비식별화하고 보상 이력은 보존 |
+| `group-meeting.action-history` | 그룹미팅 행위 이력 | child | entity | history | 상태 전이와 중요 운영 행위의 행위자·사유 | 내부 | append-only 감사 이력으로 보존 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `group-meeting.host` | references | `admin-access.operator` | N:1 | 관리자 계정 회수 뒤에도 과거 운영 이력은 보존 |
-| `group-meeting.host` | references | `member.member` | 1:1 | 호스트 회원 개인정보 정리 뒤 비식별 표시 사용 |
-| `group-meeting.host` | owns | `group-meeting.event` | 1:N | 활성 행사가 있으면 호스트 연결 삭제를 금지 |
-| `group-meeting.event` | owns | `group-meeting.detail-version` | 1:N | 현재 활성 버전은 행사와 함께 유지 |
-| `group-meeting.detail-version` | owns | `group-meeting.detail-slice` | 1:N | 버전 정리 시 조각과 파일을 함께 정리 |
-| `group-meeting.event` | owns | `group-meeting.application` | 1:N | 신청 이력은 행사와 함께 보존 |
-| `group-meeting.event` | owns | `group-meeting.participant` | 1:N | 승인 자격과 대화 참여 자격을 분리해 판정 |
-| `group-meeting.event` | owns | `group-meeting.review` | 1:N | 신청 회원당 최초 후기 하나만 허용 |
-| `group-meeting.event` | owns | `group-meeting.action-history` | 1:N | 행사 상태 변경과 같은 transaction에서 기록 |
-| `group-meeting.participant` | associates | `conversation.thread` | N:1 | 유효한 참여자만 그룹 채팅을 읽고 쓸 수 있음 |
-| `group-meeting.application` | associates | `key-wallet.profile-access` | N:M | 승인 참가자 간 최초 유료 열람만 거래로 기록 |
-| `group-meeting.application` | associates | `moderation.member-report` | N:M | 같은 행사 참여 문맥에서만 회원 신고 허용 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `group-meeting.host` | `operator` | references | `admin-access.operator` | N:1 | 관리자 계정 회수 뒤에도 과거 운영 이력은 보존 |
+| `group-meeting.host` | `member` | references | `member.member` | 1:1 | 호스트 회원 개인정보 정리 뒤 비식별 표시 사용 |
+| `group-meeting.event` | `host` | references | `group-meeting.host` | N:1 | 활성 행사가 있으면 호스트 연결 삭제를 금지 |
+| `group-meeting.event` | `detail-versions` | owns | `group-meeting.detail-version` | 1:N | 현재 활성 버전은 행사와 함께 유지 |
+| `group-meeting.detail-version` | `slices` | owns | `group-meeting.detail-slice` | 1:N | 버전 정리 시 조각과 파일을 함께 정리 |
+| `group-meeting.event` | `applications` | owns | `group-meeting.application` | 1:N | 신청 이력은 행사와 함께 보존 |
+| `group-meeting.application` | `applicant` | references | `member.member` | N:1 | 신청 당시 회원 자격과 별칭 snapshot을 함께 보존 |
+| `group-meeting.event` | `participants` | owns | `group-meeting.participant` | 1:N | 승인 자격과 대화 참여 자격을 분리해 판정 |
+| `group-meeting.participant` | `member` | references | `member.member` | N:1 | 승인 신청자 또는 호스트 회원만 참여 자격을 가짐 |
+| `group-meeting.participant` | `thread` | associates | `conversation.thread` | N:1 | 유효한 참여자만 그룹 채팅을 읽고 쓸 수 있음 |
+| `group-meeting.event` | `reviews` | owns | `group-meeting.review` | 1:N | 신청 회원당 최초 후기 하나만 허용 |
+| `group-meeting.review` | `author` | references | `member.member` | N:1 | 종료 행사에 유효하게 참여한 회원만 작성 가능 |
+| `group-meeting.event` | `action-history` | owns | `group-meeting.action-history` | 1:N | 행사 상태 변경과 같은 transaction에서 기록 |
+| `group-meeting.application` | `profile-access` | associates | `key-wallet.profile-access` | N:M | 승인 참가자 간 최초 유료 열람만 거래로 기록 |
+| `group-meeting.application` | `member-report` | associates | `moderation.member-report` | N:M | 같은 행사 참여 문맥에서만 회원 신고 허용 |
 
 ### 불변조건
 

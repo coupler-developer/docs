@@ -18,27 +18,29 @@
 
 ### 논리 엔티티
 
-| 논리 ID | 표시명 | 구조 유형 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `member.member` | 회원 계정 | root | state | 인증 식별자와 회원 생애주기의 현재 상태 | 민감 | 탈퇴·차단 뒤 정책에 따라 개인정보를 정리하고 비개인 이력은 보존 |
-| `member.profile` | 회원 프로필 | child | state | 현재 승인된 프로필과 매칭 선호 정보 | 민감 | 회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리 |
-| `member.invitation` | 회원 초대 | relation | history | 초대 코드와 추천 회원 연결 결과 | 내부 | 사용·만료 결과를 이력으로 보존 |
-| `member.recommendation` | 회원 추천사 | relation | history | 작성 회원과 대상 회원 사이의 추천 내용 | 민감 | 노출 상태와 개인정보 정리 정책을 함께 적용 |
-| `member.status-history` | 회원 상태 이력 | child | history | 생애주기 상태 변경과 변경 사유 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
-| `member.sleep-history` | 휴면 이력 | child | history | 휴면 전환 기간과 복귀 근거 | 내부 | 휴면 정책 확인 기간 동안 보존 |
-| `member.signup-welcome` | 가입 안내 발송 이력 | child | history | 가입 안내와 무료 Key 최초 지급 결과 | 내부 | 중복 지급 방지를 위해 이력 보존 |
+| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `member.member` | 회원 계정 | root | entity | state | 인증 식별자와 회원 생애주기의 현재 상태 | 민감 | 탈퇴·차단 뒤 정책에 따라 개인정보를 정리하고 비개인 이력은 보존 |
+| `member.profile` | 회원 프로필 | child | entity | state | 현재 승인된 프로필과 매칭 선호 정보 | 민감 | 회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리 |
+| `member.invitation` | 회원 초대 | child | entity | history | 초대 코드의 생성·사용·만료 결과 | 내부 | 사용·만료 결과를 이력으로 보존 |
+| `member.recommendation` | 회원 추천사 | root | association | history | 작성 회원과 대상 회원 사이의 추천 내용 | 민감 | 노출 상태와 개인정보 정리 정책을 함께 적용 |
+| `member.status-history` | 회원 상태 이력 | child | entity | history | 생애주기 상태 변경과 변경 사유 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
+| `member.sleep-history` | 휴면 이력 | child | entity | history | 휴면 전환 기간과 복귀 근거 | 내부 | 휴면 정책 확인 기간 동안 보존 |
+| `member.signup-welcome` | 가입 안내 발송 이력 | child | entity | history | 가입 안내와 무료 Key 최초 지급 결과 | 내부 | 중복 지급 방지를 위해 이력 보존 |
 
 ### 관계
 
-| 출발 논리 ID | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- |
-| `member.member` | owns | `member.profile` | 1:1 | 계정 개인정보 정리 시 현재 프로필도 함께 정리 |
-| `member.member` | owns | `member.status-history` | 1:N | 상태 이력은 계정 삭제 뒤 비식별 보존 가능 |
-| `member.member` | owns | `member.sleep-history` | 1:N | 회원 생애주기와 함께 관리 |
-| `member.invitation` | associates | `member.member` | N:M | 초대자와 가입 회원 관계를 중복 생성하지 않음 |
-| `member.recommendation` | associates | `member.member` | N:M | 작성자와 대상자가 같은 추천사는 허용하지 않음 |
-| `member.signup-welcome` | references | `platform-config.signup-message` | N:1 | 기준정보 변경 뒤에도 발송 당시 선택 근거를 보존 |
-| `member.signup-welcome` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 당시 발송 주체를 비식별 이력으로 보존 |
+| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+| --- | --- | --- | --- | --- | --- |
+| `member.member` | `profile` | owns | `member.profile` | 1:1 | 계정 개인정보 정리 시 현재 프로필도 함께 정리 |
+| `member.member` | `status-history` | owns | `member.status-history` | 1:N | 상태 이력은 계정 삭제 뒤 비식별 보존 가능 |
+| `member.member` | `sleep-history` | owns | `member.sleep-history` | 1:N | 회원 생애주기와 함께 관리 |
+| `member.member` | `sent-invitations` | owns | `member.invitation` | 1:N | 초대자의 개인정보 정리 뒤에도 사용·만료 결과는 비식별 보존 가능 |
+| `member.recommendation` | `writer` | references | `member.member` | N:1 | 작성 회원과 대상 회원은 같을 수 없음 |
+| `member.recommendation` | `receiver` | references | `member.member` | N:1 | 대상 회원 개인정보 정리 정책과 노출 상태를 함께 적용 |
+| `member.member` | `signup-welcome` | owns | `member.signup-welcome` | 1:1 | 가입 안내와 무료 Key 최초 지급 결과는 회원당 하나만 유지 |
+| `member.signup-welcome` | `message-template` | references | `platform-config.signup-message` | N:1 | 기준정보 변경 뒤에도 발송 당시 선택 근거를 보존 |
+| `member.signup-welcome` | `manager` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 당시 발송 주체를 비식별 이력으로 보존 |
 
 ### 불변조건
 
