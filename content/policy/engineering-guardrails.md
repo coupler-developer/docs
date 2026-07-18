@@ -29,11 +29,11 @@
 | DB migration stage와 실행 Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) | DB 설계와 Fail-closed 원칙만 유지 |
 | 테스트 범위와 표준 검증 명령 | [테스트/CI 전략](testing-strategy.md) | 품질 게이트 통과 의무만 유지 |
 | 리뷰 절차와 증빙 | [코드 리뷰 정책](code-review-policy.md) | 기술 판정 기준만 제공 |
-| 문서 역할·동기화·안정성 평가·composition 검토 | [문서 거버넌스 정책](document-governance-policy.md) | 기술 문서 일치 의무만 유지 |
+| 문서 역할·동기화·composition 검토 | [문서 거버넌스 정책](document-governance-policy.md) | 기술 문서 일치 의무만 유지 |
 | 도메인 동작·상태 전이 | 각 도메인 policy/FSM | 공통 기술 원칙만 제공 |
 
 - 충돌은 판정 책임을 먼저 고정한 뒤 해당 행의 단일 SoT로 해결한다. 범위별 문서가 소유하는 세부 MUST를 이 문서가 덮어쓰지 않는다.
-- 범위별 단일 SoT 문서에 생명주기 작업을 수행할 때는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`로 이 표와 중복 규칙을 함께 재검토한다.
+- 범위별 단일 SoT를 신설·분리·수정할 때는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`로 이 표와 중복 규칙을 함께 재검토한다.
 
 ## 핵심 원칙
 
@@ -402,6 +402,26 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
 - 최종 상태에는 구/신 API 이중 경로를 유지하지 않는다. 호환 배포에서는 API 경계의 명시적 version 계약만 사용하고, 같은 의미의 클라이언트 로직 교체에만 Shadow Cutover를 적용한다.
 - typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
+
+#### Mobile 파일 구조와 네이밍
+
+- `src/screens/`에는 `shared/`와 도메인 폴더만 둔다. 도메인은 `src/screens/` 최상위 기능 묶음이며
+  `shared`는 제외한다.
+- 네비게이션 대상 화면은 `src/screens/<도메인>/<화면>Screen` 또는
+  `src/screens/shared/<화면>Screen`에 둔다. 도메인 폴더에는 같은 화면 접두 파일과 `shared/`만 두고
+  `<화면>/` 중첩 폴더를 새로 만들지 않는다.
+- 화면 전용 Step은 같은 레벨의 `<화면>Step*`으로 둔다. 도메인 공용 Step만
+  `src/screens/<도메인>/shared/steps/`에 두고, 도메인 간 공용 코드는 일반 공용 컴포넌트로 승격한다.
+- Step을 라우터에 등록하지 않는다. 화면 내부 구획은 `*Section`, `*Block`, `*Panel`을 사용하고
+  `fragment` 또는 `*Fragment*`를 새로 추가하지 않는다.
+- `common`은 전역 공용, `shared`는 도메인 내부 공용을 뜻한다. `src/screens/shared/`는 전역 라우팅 화면에만
+  사용하고 일반 공용 컴포넌트는 `src/components/common/`에 둔다.
+- 화면 전용 상수는 `<화면>Constants.ts`, 도메인 공용 상수는 `shared/constants/`, 전역 상수는
+  `src/constants/`에 둔다.
+- 화면 일부를 재사용하는 블록만 `*Card`로 명명한다. 화면 레이아웃을 소유하면 `*ScreenContent` 또는
+  `*Panel`로 책임을 드러낸다.
+- 기존 구조의 점진 전환과 자동 검사 도입은 [기술 부채 정리](../technical-debt/technical-debt.md)의
+  `Mobile 파일 구조 TO-BE 미전환`에서 추적한다.
 
 ### Admin (coupler-admin-web)
 

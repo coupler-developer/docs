@@ -9,6 +9,9 @@
 - 전환 범위: `coupler-api` 데이터 생성 도구와 `coupler-admin-web` 관리자 component route coverage 도입
 - 완료 조건: 개발 데이터 도구 구현, 전체 coverage 검증, 안전 가드 및 reset 검증 완료 후 `as-is`로 전환
 
+공유 개발계 검증과 고도화 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의
+`테스트용 개발 데이터 운영 검증·고도화 미완료`에서 추적한다.
+
 ## 목적
 
 - 로컬·개발계에서 회원, 매칭, 그룹미팅, 라운지, 결제·매출, 통계 등 관리자 시스템 화면을 재현할 합성 데이터를 안전하고 반복 가능하게 제공한다.

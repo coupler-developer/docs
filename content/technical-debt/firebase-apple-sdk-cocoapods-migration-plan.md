@@ -57,39 +57,15 @@
 - 조치: Firebase Console 기준 사용 여부를 확인하고 미사용 시 제거한다.
 - 완료: 유지·제거 근거와 iOS·Android·push 회귀 검증 확보.
 
-## 제약
+## 실행 경계
 
-- 전환 기준: RNFirebase stable 지원.
-- 제외: PR #8933 직접 이식, 제거 조건 없는 SDK version override.
-- 변경 단위: Firebase 기능과 설치 경로 분리.
-- 배포 근거: TestFlight·실기기 FCM 검증.
-
-## 실행
-
-1. 현재 RNFirebase·Firebase·CocoaPods·Xcode와 FCM 기준을 기록한다.
-2. Analytics 유지 여부를 결정한다.
-3. RNFirebase stable release의 전환 경로를 확인한다.
-4. SPM 또는 manual installation을 clean build로 검증한다.
-5. Release archive → TestFlight → 실기기 FCM 순으로 검증한다.
-6. 릴리스 기록에 버전·설치 경로·결과를 남긴다.
-
-## 롤백
-
-- 실패 시 이전 `package.json`, lockfile, Podfile, Xcode project로 복원한다.
-- TestFlight 실패 시 Store 배포를 중단한다.
-- 2026년 10월 전 미완료 시 마지막 CocoaPods 지원 조합을 고정한다.
-
-## 완료
-
-- 2026년 10월 이후 업데이트 가능한 설치 경로 사용.
-- Debug simulator, Release archive, TestFlight 성공.
-- FCM token·수신·탭 라우팅·topic 검증 통과.
-- Analytics·privacy 기준 일치.
-- 릴리스 기록에 버전·검증 근거 보존.
+- 전환 순서, 검증과 rollback은 [Firebase Apple SDK 설치 경로 전환 흐름](../flows/cross-project/firebase-apple-sdk-migration-flow.md)을 따른다.
+- 이 문서는 미해결 문제·영향·우선순위·완료 조건만 소유하며 실행 절차를 중복 정의하지 않는다.
 
 ## 관련 문서
 
 - [푸시알림 시스템](../architecture/push-notification.md)
+- [Firebase Apple SDK 설치 경로 전환 흐름](../flows/cross-project/firebase-apple-sdk-migration-flow.md)
 - [배포/릴리즈 프로세스](../policy/release-process.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)
 - [기술 부채 정리](technical-debt.md)
