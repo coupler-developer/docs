@@ -28,6 +28,11 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
       - name: Determine validation mode
         id: validation_mode
         env:
@@ -43,7 +48,8 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "validation mode: $mode"
 
-      - name: Validate release records
+      - name: Validate release records (lightweight)
+        if: steps.validation_mode.outputs.mode != 'full'
         run: node scripts/validate-release-records.mjs
 
       - name: Validate release PR transition
@@ -53,21 +59,9 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-      - name: Validate docs structure
+      - name: Validate full docs static gates
         if: steps.validation_mode.outputs.mode == 'full'
-        run: node scripts/validate-docs-structure.mjs
-
-      - name: Test docs structure validation
-        if: steps.validation_mode.outputs.mode == 'full'
-        run: node --test scripts/validate-docs-structure.test.mjs
-
-      - name: Validate API error docs
-        if: steps.validation_mode.outputs.mode == 'full'
-        run: node scripts/validate-api-error-docs.mjs
-
-      - name: Test release preflight
-        if: steps.validation_mode.outputs.mode == 'full'
-        run: node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-transition.test.mjs scripts/validate-release-pr-transition.test.mjs scripts/release-validation-mode.test.mjs scripts/release-preflight.test.mjs
+        run: yarn validate:docs-static
 
   markdown-lint:
     needs: docs-structure

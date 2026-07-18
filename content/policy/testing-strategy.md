@@ -14,8 +14,9 @@
 ## 공통 품질 게이트 (단일 SoT)
 
 - 코드 레포의 표준 품질 게이트는 `test`, `typecheck`, `lint`, `format`이다.
-- docs의 표준 품질 게이트는 `docs 구조 검증`, `논리 데이터 모델 검증`, `릴리스 기록 검증`,
-  `API 에러 문서 검증`, `릴리즈 preflight 스크립트 검증`, `markdownlint`, `mkdocs build --strict`다.
+- docs의 표준 품질 게이트는 `docs 구조 검증`, `논리 데이터 모델 검증`, `기술부채 인벤토리 검증`,
+  `릴리스 기록 검증`, `API 에러 문서 검증`, `릴리즈 preflight 스크립트 검증`, `markdownlint`,
+  `mkdocs build --strict`다.
 - 레포에서 미제공인 항목은 `N/A`로 표기하고, 미적용 근거를 PR/작업 보고에 남긴다.
 - 표준 검증 명령은 아래를 단일 기준으로 사용한다.
     - `coupler-api`: `pnpm lint && pnpm typecheck && pnpm format && pnpm test:ci`
@@ -136,23 +137,23 @@
 
 ### docs (MkDocs)
 
-- 러너: GitHub Actions docs validation workflow (`docs 구조 검증·회귀 테스트` + `논리 데이터 모델 검증·회귀 테스트` + `릴리스 기록 검증` + `API 에러 문서 검증` + `릴리즈 preflight 스크립트 검증` + `markdownlint` + `mkdocs build --strict`) 사용.
+- 러너: 로컬과 GitHub Actions full validation은 `validate:docs-static`의 공통 정적 검증 목록을 사용한다.
+- 문서 공통 정적 검증(로컬·full CI): `yarn validate:docs-static`
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
 - 문서 구조 검증 테스트(로컬): `yarn test:docs-structure`
 - 논리 데이터 모델 검증(로컬): `yarn validate:logical-data-model`
 - 논리 데이터 모델 검증 테스트(로컬): `yarn test:logical-data-model`
+- 기술부채 인벤토리 검증(로컬): `yarn validate:technical-debt`
+- 기술부채 인벤토리 검증 테스트(로컬): `yarn test:technical-debt`
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리즈 preflight·pending transition·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
-- 문서 구조 검증(CI): `node scripts/validate-docs-structure.mjs`
-- 문서 구조 검증 테스트(CI): `node --test scripts/validate-docs-structure.test.mjs`
-- 논리 데이터 모델 검증(CI): `node scripts/validate-logical-data-model.mjs`
-- 릴리스 기록 검증(CI): `node scripts/validate-release-records.mjs`
-- API 에러 문서 검증(CI): `node scripts/validate-api-error-docs.mjs`
-- 릴리즈 preflight·pending transition·CI mode 스크립트 검증(CI): `yarn test:release-preflight`
+- 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
+- 경량 릴리스 검증(CI): `node scripts/validate-release-records.mjs`와
+  `node scripts/validate-release-pr-transition.mjs`
 - 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 - 문서 build(CI): Python 의존성 설치 후 `mkdocs build --strict`
 
@@ -160,6 +161,8 @@
 
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
+- docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
+  다시 열거하지 않는다.
 - docs 레포: PR 병합 뒤 `push(main)`에서는 `Deploy Docs`가 `yarn validate:docs`를 다시 실행한 뒤에만 Pages artifact를 배포하므로, `Docs Validation`을 중복 실행하지 않는다.
 - docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면 `docs-structure`에서 metadata와 PR transition만 경량 검증한다. `released`/terminal 기록, 일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
 - docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 경량 검증을 통과한 `pending`은 배포 시작 gate이고, 최종 병합 gate는 `released` 커밋의 전체 docs 검증이다.
