@@ -15,8 +15,8 @@
 
 1차 범위는 `행사 생성 -> 모집 -> 신청 -> Admin 승인/확정 취소 -> 모임 확정 -> 그룹 채팅 -> 종료 -> 후기`다.
 
-- 구현·검증 범위: API, DB, Admin, Docs
-- 후속 범위: Mobile contracts package 소비와 화면 연결
+- 구현 계약 범위: API, DB, Admin, Mobile, Docs
+- 출시 Gate: 소비자 PR 병합, 대상 환경 migration ledger·schema·runtime smoke, FCM·scheduler smoke
 - 제외: 현장 체크인, 좌석/회전 라운드, 호감 선택, 전역 회원 패널티, 외부 결제/정산
 - 호스트는 참가 정원에서 제외한다.
 - 남녀 정원은 각각 최소 2명이고 합계는 최대 20명이다. 반대 성별 최소값에서 파생되는 성별별 최대는
@@ -165,12 +165,12 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 
 그룹미팅 알림 타입 77~83의 의미와 사용자 설정은 [푸시알림 시스템](push-notification.md)을 단일 설명
 진입점으로 사용한다. 모든 target은 행사 ID이고 원천 write가 실제로 한 번 commit된 경우에만 발송한다.
-기존 2:2 신고 알림이나 라우트를 N:N에 재사용하지 않는다. Mobile 타입 인식과 화면 라우팅이 후속 범위이므로
-그 전에는 운영 발송을 활성화하지 않는다.
+기존 2:2 신고 알림이나 라우트를 N:N에 재사용하지 않는다. Mobile은 그룹미팅 알림 타입을 N:N 목록·상세·
+채팅 화면으로만 연결한다. 소비자 병합·배포와 FCM smoke 전에는 운영 발송을 활성화하지 않는다.
 
 ## API와 DTO 계약
 
-- Swagger/OpenAPI가 18개 Mobile operation과 28개 Admin operation의 path/query/body 요청 DTO와 성공
+- Swagger/OpenAPI가 19개 Mobile operation과 28개 Admin operation의 path/query/body 요청 DTO와 성공
   `data` DTO의 단일 SoT다.
 - contracts package는 기존 operation metadata, operation input type, 성공 data map, envelope type과 named
   request/read DTO를 공개한다. 정원 2/18/20은 행사 생성·수정 operation의 generated
@@ -186,10 +186,22 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 - Super Admin은 `manager_user_id`와 모바일 회원 이메일을 정확히 조회해 최초 호스트 연결을 만든다. 행사
   생성은 `manager_user_id`만 받고 API가 내부 연결을 해석하며, 연결 또는 정상 모바일 계정이 없으면
   계약된 실패를 반환한다.
+- `group-meeting.host` 연결과 `t_member_manager_assignment`의 클럽 배정은 책임이 다르다. 전자는 Admin
+  매니저와 모바일 호스트 회원을 연결해 작성 행사와 로그인 호스트를 식별하고, 후자는 일반 회원의 전담
+  `CHARGE`·공유 `SHARE` 클럽을 기록해 목록·상세 노출 범위를 판정한다.
+- Mobile 전체 목록은 호출 회원의 `CHARGE` 또는 `SHARE` 매니저가 주최한 행사만 반환한다. 활성 상태
+  `OPEN`·`CLOSED`·`CONFIRMED`를 최근 등록 순으로 먼저, 비활성 상태 `FINISHED`·`CANCELED`를 최근 등록
+  순으로 다음에 배치한다. 직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
+- 채팅방 진입은 `GET /group-meetings/{event_id}/chat` 한 건으로 행사, 호출자 `self`, 승인 구성원
+  `members`, 읽기 전용 여부를 구조화해 반환한다. `chat_member_id`는 내 메시지 판별과 신고 대상,
+  참가자의 `application_id`는 프로필 열람에만 사용한다. 실제 `member_id` 해석과 동일 행사 소속 검증은
+  API 내부 책임이며 Mobile DTO에 노출하지 않는다.
+- Mobile 신청자 DTO와 Admin 운영 DTO는 분리한다. `GroupMeetingApplicantItem`은 신청 문맥만 노출하고,
+  `AdminGroupMeetingApplicantItem`만 운영에 필요한 회원 ID·이메일·탈퇴/취소 시각을 추가한다.
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
-- Mobile 파일은 이번 작업에서 변경하지 않는다. 후속 통합은 같은 stable package version을 exact pin하고
-  동일 DTO를 직접 소비해야 하며 별도 normalize나 fallback을 추가하지 않는다.
+- API·Admin·Mobile은 stable contracts package `0.1.12`를 exact pin하고 동일 DTO를 직접 소비한다. 별도
+  normalize, ID fallback, local wire DTO를 추가하지 않는다.
 
 대표 read model은 다음과 같다.
 
@@ -198,6 +210,8 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 | `GroupMeetingEventListItem` | 행사, 호스트 요약, 신청 집계, 호출자 신청 상태 |
 | `AdminGroupMeetingEventDetail` | 행사 상세, ready 이미지, 신청 집계, Admin 운영 정보 |
 | `GroupMeetingApplicantItem` | 신청 상태와 신청 당시 표시 정보 |
+| `AdminGroupMeetingApplicantItem` | Admin 신청 운영용 회원 ID·이메일·탈퇴/취소 시각 |
+| `GroupMeetingChatRoom` | 행사별 호출자와 승인 구성원의 채팅·신청 ID 경계 |
 | `GroupMeetingChatMessageItem` | 메시지, 송신자 역할, 운영 삭제 상태 |
 | `GroupMeetingReviewState` | 후기 작성 가능 여부, 기존 후기, 서버 보상값 |
 
@@ -228,8 +242,8 @@ schema 검증, runtime smoke를 모두 통과해야 한다. 환경별 실행 증
 group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과 운영 전환 조건을 모두 충족한 뒤에만
 `as-is`로 승격한다.
 
-남은 Mobile/출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`22) 그룹미팅 Mobile 및 출시 통합 미완료`에서 추적한다.
+남은 소비자 병합과 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`22) 그룹미팅 소비자 병합 및 출시 통합 미완료`에서 추적한다.
 
 ## 관련 문서
 
