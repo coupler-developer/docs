@@ -195,9 +195,75 @@ describe("docs structure validation", () => {
     );
   });
 
+  it("rejects an inline-formatted duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "## **문서 생명주기 증빙**"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects an entity-encoded duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "## 문서 생명주기 &#51613;&#48729;"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
   it("ignores lifecycle headings inside fenced code blocks", () => {
     writeStabilityReviewTemplate(lifecycleVerdictOperations, {
       extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "```"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("ignores lifecycle headings inside attribute fenced code blocks", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "``` {.markdown}", "## 문서 생명주기 증빙", "```"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("ignores lifecycle headings inside bare-attribute fenced code blocks", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "``` {linenums}", "## 문서 생명주기 증빙", "```"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("ignores lifecycle headings inside option fenced code blocks", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "```markdown hl_lines=\"1-2\" linenums=\"1 2 3\" title=\"example\"",
+        "## 문서 생명주기 증빙",
+        "```",
+      ],
     });
 
     const result = runValidator();
@@ -211,6 +277,25 @@ describe("docs structure validation", () => {
       extraLines: [
         "",
         "```markdown unexpected",
+        "## 문서 생명주기 증빙",
+        "```",
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("does not let an invalid fence option hide a duplicate lifecycle section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "```markdown title=example",
         "## 문서 생명주기 증빙",
         "```",
       ],
@@ -268,8 +353,35 @@ describe("docs structure validation", () => {
     assert.equal(result.status, 1, combinedOutput(result));
     assert.match(
       result.stderr,
-      /허용되지 않은 문서 생명주기 판정 행입니다: '변경 작업'/,
+      /문서 생명주기 증빙 판정 표는 정확히 1개여야 합니다 \(현재 2개\)/,
     );
+  });
+
+  it("allows pipe-containing prose outside the lifecycle evidence table", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "`변경 작업 | 판정 | 근거`는 불변 헤더다."],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("allows an indented example table outside the lifecycle evidence table", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "    | 예시 | 판정 | 근거 |",
+        "    | --- | --- | --- |",
+        "    | 수정 | No Findings | 예시 |",
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
   });
 
   it("rejects a lifecycle table missing the verdict column", () => {
@@ -453,6 +565,20 @@ describe("docs structure validation", () => {
     assert.match(
       result.stderr,
       /문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 \(현재 1개\)/,
+    );
+  });
+
+  it("rejects an adjacent indented lifecycle table row", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["    | 추가 표 |  |  |"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /허용되지 않은 문서 생명주기 판정 행입니다: '추가 표'/,
     );
   });
 
