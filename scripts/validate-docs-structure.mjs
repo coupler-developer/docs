@@ -198,7 +198,9 @@ function validateStabilityReviewTemplate(templatePath, errors) {
     }))
     .filter((heading) => heading.title !== null);
   const lifecycleSectionHeadings = levelTwoHeadings.filter(
-    (heading) => heading.title === lifecycleVerdictSectionHeading,
+    (heading) =>
+      normalizeMarkdownHeadingText(heading.title) ===
+      lifecycleVerdictSectionHeading,
   );
 
   if (lifecycleSectionHeadings.length === 0) {
@@ -222,42 +224,23 @@ function validateStabilityReviewTemplate(templatePath, errors) {
     sectionHeading.index + 1,
     sectionEnd,
   );
-  const firstTableRowIndex = sectionLines.findIndex(
-    (entry) =>
-      !entry.insideFence && parseMarkdownTableRow(entry.line) !== null,
-  );
+  const tableBlocks = findMarkdownTableBlocks(sectionLines);
 
-  if (firstTableRowIndex === -1) {
+  if (tableBlocks.length === 0) {
     errors.push(
       `${relativePath}: 문서 생명주기 증빙 표가 없습니다.`,
     );
     return;
   }
 
-  const primaryTableEnd = sectionLines.findIndex(
-    (entry, index) =>
-      index > firstTableRowIndex &&
-      (entry.insideFence || entry.line.trim() === ""),
-  );
-  const tableRows = sectionLines.flatMap((entry, index) => {
-    if (entry.insideFence) {
-      return [];
-    }
+  if (tableBlocks.length !== 1) {
+    errors.push(
+      `${relativePath}: 문서 생명주기 증빙 판정 표는 정확히 1개여야 합니다 (현재 ${tableBlocks.length}개).`,
+    );
+    return;
+  }
 
-    const parsedRow = parseMarkdownTableRow(entry.line);
-    if (parsedRow !== null) {
-      return [parsedRow];
-    }
-
-    const belongsToPrimaryTable =
-      index > firstTableRowIndex &&
-      (primaryTableEnd === -1 || index < primaryTableEnd) &&
-      entry.line.trim() !== "";
-
-    return belongsToPrimaryTable ? [[entry.line.trim()]] : [];
-  });
-
-  const [headerCells, separatorCells, ...dataRows] = tableRows;
+  const [headerCells, separatorCells, ...dataRows] = tableBlocks[0];
 
   if (!cellsEqual(headerCells, lifecycleVerdictTableHeader)) {
     errors.push(
@@ -268,7 +251,7 @@ function validateStabilityReviewTemplate(templatePath, errors) {
   if (
     !separatorCells ||
     separatorCells.length !== lifecycleVerdictTableHeader.length ||
-    !separatorCells.every((cell) => /^:?-{3,}:?$/.test(cell))
+    !separatorCells.every(isMarkdownTableSeparatorCell)
   ) {
     errors.push(
       `${relativePath}: 문서 생명주기 증빙 표 구분 행은 '--- | --- | ---' 형식의 3개 열이어야 합니다.`,
@@ -307,6 +290,57 @@ function validateStabilityReviewTemplate(templatePath, errors) {
       );
     }
   }
+}
+
+function findMarkdownTableBlocks(sectionLines) {
+  const sourceBlocks = [];
+  let currentBlock = [];
+
+  const finishCurrentBlock = () => {
+    if (currentBlock.length > 0) {
+      sourceBlocks.push(currentBlock);
+      currentBlock = [];
+    }
+  };
+
+  for (const entry of sectionLines) {
+    if (entry.insideFence || entry.line.trim() === "") {
+      finishCurrentBlock();
+      continue;
+    }
+
+    currentBlock.push(entry.line);
+  }
+  finishCurrentBlock();
+
+  return sourceBlocks
+    .map(parseMarkdownTableBlock)
+    .filter((block) => block !== null);
+}
+
+function parseMarkdownTableBlock(lines) {
+  if (lines.length < 2 || /^(?: {4}|\t)/.test(lines[0])) {
+    return null;
+  }
+
+  const headerCells = parseMarkdownTableRow(lines[0]);
+  const separatorCells = parseMarkdownTableRow(lines[1]);
+  if (
+    headerCells === null ||
+    separatorCells === null ||
+    !separatorCells.some(isMarkdownTableSeparatorCell)
+  ) {
+    return null;
+  }
+
+  const dataRows = lines.slice(2).map(
+    (line) => parseMarkdownTableRow(line) ?? [line.trim()],
+  );
+  return [headerCells, separatorCells, ...dataRows];
+}
+
+function isMarkdownTableSeparatorCell(cell) {
+  return /^:?-{3,}:?$/.test(cell);
 }
 
 function parseMarkdownTableRow(line) {
@@ -405,8 +439,8 @@ function parseMarkdownFenceOpening(line) {
     return null;
   }
 
-  const info = match[2].trim();
-  if (info !== "" && !/^\.?[\p{L}\p{N}_#.+-]+$/u.test(info)) {
+  const header = match[2].trim();
+  if (!isSupportedMarkdownFenceHeader(header)) {
     return null;
   }
 
@@ -414,6 +448,71 @@ function parseMarkdownFenceOpening(line) {
     character: match[1][0],
     length: match[1].length,
   };
+}
+
+function isSupportedMarkdownFenceHeader(header) {
+  if (header === "") {
+    return true;
+  }
+
+  if (
+    isMarkdownFenceAttributeList(header) ||
+    isMarkdownFenceOptionList(header)
+  ) {
+    return true;
+  }
+
+  const languageMatch = header.match(
+    /^\.?[\p{L}\p{N}_#.+-]+(?:[ \t]+|$)/u,
+  );
+  if (!languageMatch) {
+    return false;
+  }
+
+  const remainder = header.slice(languageMatch[0].length).trim();
+  return (
+    remainder === "" ||
+    isMarkdownFenceAttributeList(remainder) ||
+    isMarkdownFenceOptionList(remainder)
+  );
+}
+
+function isMarkdownFenceAttributeList(source) {
+  return source.startsWith("{") && source.endsWith("}");
+}
+
+function isMarkdownFenceOptionList(source) {
+  let remainder = source;
+  let optionCount = 0;
+
+  while (remainder !== "") {
+    const optionMatch = remainder.match(
+      /^(hl_lines|linenums|title)(?:=("|')(.*?)\2)?(?:[ \t]+|$)/,
+    );
+
+    if (!optionMatch) {
+      return false;
+    }
+
+    const [, name, quote, value] = optionMatch;
+    if (
+      name === "hl_lines" &&
+      (!quote || !/^\d+(?:-\d+)?(?:[ \t]+\d+(?:-\d+)?)*$/.test(value))
+    ) {
+      return false;
+    }
+    if (
+      name === "linenums" &&
+      (!quote || !/^\d+(?:[ \t]+\d+)?(?:[ \t]+\d+)?$/.test(value))
+    ) {
+      return false;
+    }
+
+    optionCount += 1;
+    remainder = remainder.slice(optionMatch[0].length).trim();
+  }
+
+  return optionCount > 0;
 }
 
 function isMarkdownFenceClosing(line, openingFence) {
@@ -436,6 +535,38 @@ function parseLevelTwoHeading(line) {
   return (match[1] ?? "")
     .replace(/[ \t]+#+[ \t]*$/, "")
     .trim();
+}
+
+function normalizeMarkdownHeadingText(source) {
+  const withoutInlineMarkup = source
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<\/?[A-Za-z][^>]*>/g, "")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
+    .replace(/`+([^`]*?)`+/g, "$1")
+    .replace(/\\([\\`*_[\]{}()#+\-.!<>])/g, "$1")
+    .replace(/[*_~]/g, "");
+
+  const decodedEntities = withoutInlineMarkup
+    .replace(/&#(?:x([0-9a-f]+)|([0-9]+));/gi, (entity, hex, decimal) => {
+      const codePoint = Number.parseInt(hex ?? decimal, hex ? 16 : 10);
+      return Number.isInteger(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : entity;
+    })
+    .replace(/&(amp|lt|gt|quot|apos);/g, (entity, name) => {
+      const namedEntities = {
+        amp: "&",
+        apos: "'",
+        gt: ">",
+        lt: "<",
+        quot: '"',
+      };
+      return namedEntities[name] ?? entity;
+    });
+
+  return decodedEntities.replace(/\s+/g, " ").trim();
 }
 
 function cellsEqual(actual, expected) {
