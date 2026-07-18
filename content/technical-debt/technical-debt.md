@@ -163,9 +163,9 @@
 
 ## 22) 그룹미팅 Mobile 및 출시 통합 미완료 `P1` `L`
 
-- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110)·[Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 Draft다. 개발계는 pre-release reset과 최종 3-file Gate를 마쳤고 Mobile, stable contract, prod migration, scheduler smoke가 남아 있다.
+- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110)은 병합됐고 stable contract `0.1.11`이 발행됐다. [Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 해당 버전으로 검증됐지만 아직 Draft이며, 개발 DB의 최종 시스템 메시지 제약 정합화, Mobile 연결, 운영 migration과 scheduler smoke가 남아 있다.
 - 영향: 부분 배포 시 알림·정원·과금·개인정보 계약이 어긋날 수 있다.
-- 조치: migration → stable package → Mobile/FCM → scheduler 순으로 통합한다.
+- 조치: 개발 DB 정합화와 API·Admin 개발계 smoke → Admin 병합 → Mobile/FCM → 운영 migration·scheduler 순으로 통합한다.
 - 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
