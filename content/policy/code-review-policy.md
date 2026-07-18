@@ -89,7 +89,7 @@
 - 관련 문서 갱신 필요 여부 (필요/불필요)
 - 불필요 시 판단 근거(문서/코드/로그 링크)
 
-## 정책 Composition (policy 추가·수정·삭제 시)
+## 정책 Composition (policy 문서의 생명주기 작업·리뷰 시)
 
 - 적용 여부: `적용` / `N/A` + 근거
 - 전체 검토 범위: 대상 정책 전체, 정방향 링크, 역방향 규범 참조, 같은 도메인 정책, 제외 범위
@@ -121,7 +121,7 @@
 - [ ] 문서 동기화 점검(필요 시 업데이트, 불필요 시 근거 명시)
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기반 작성 여부 확인 (예외 시 근거 명시)
 - [ ] 문서/릴리즈 기록에 개인 사용자명 또는 로컬 절대경로가 남지 않았는지 확인
-- [ ] policy를 추가·수정·삭제하면 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate` 증빙과 **Policy Composition / Lifecycle Consistency Reviewer** 판정을 기록
+- [ ] policy 문서의 생명주기 작업·리뷰에는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate` 증빙과 **Policy Composition / Lifecycle Consistency Reviewer** 판정을 기록
 - [ ] 자체 테스트 완료
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
@@ -293,7 +293,7 @@
 - [ ] 중복 코드는 없는가?
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `No Findings 게이트` 기준으로 공통 원칙과 선택한 기술 이행 유형의 Exit Gate를 판정하고, 비적용 유형은 `N/A` 근거를 남겼는가?
 - [ ] 같은 도메인에 문서가 여러 개면 [문서 거버넌스 정책](document-governance-policy.md) 기준으로 판정 책임별 단일 SoT가 1개로 고정돼 있고, 각 문서 상단에 역할/문서 종류/책임별 우선순위/기준 성격이 명시돼 있는가?
-- [ ] policy를 추가·수정·삭제하면 대상 정책 전체(삭제는 삭제 전 본문)와 정방향·역방향 규범 참조를 검토하고, 책임/우선순위·상태/단계별 Exit Gate·전역 절 정합성·삭제 시 책임 승계가 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`를 통과했는가?
+- [ ] policy 문서의 생명주기 작업·리뷰에는 대상 정책 전체(삭제는 삭제 전 본문)와 정방향·역방향 규범 참조를 검토하고, 책임/우선순위·상태/단계별 Exit Gate·전역 절 정합성·삭제 시 책임 승계가 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`를 통과했는가?
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 결과와 로그 링크가 PR에 명시되어 있는가? (`N/A` 항목은 미적용 근거 포함)
 - [ ] 코드/기능 변경 시 다중 관점 리뷰 패스의 7개 관점을 확인했고, 무관한 관점은 `N/A` 근거를 남겼는가?
 - [ ] 최종 리뷰가 같은 판단/근거/해결안을 반복하지 않고, finding 중심으로 간결하게 작성됐는가?
