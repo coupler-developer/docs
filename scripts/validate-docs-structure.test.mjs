@@ -223,6 +223,159 @@ describe("docs structure validation", () => {
     );
   });
 
+  it("rejects an invisible-entity duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "## 문서&nbsp;생명주기&#x200b; 증빙"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects an inline-comment duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "## 문서 생명주기 증빙 <!-- duplicate -->"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects a Setext duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "문서 생명주기 증빙", "---"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("accepts a Setext lifecycle evidence section", () => {
+    fs.writeFileSync(
+      stabilityReviewTemplatePath(),
+      [
+        "# Docs Stability Review",
+        "",
+        "문서 생명주기 증빙",
+        "---",
+        "",
+        formatTableRow(["변경 작업", "판정", "근거"]),
+        formatTableRow(["---", "---", "---"]),
+        ...lifecycleVerdictOperations.map((operation) =>
+          formatTableRow([operation, "", ""]),
+        ),
+        "",
+      ].join("\n"),
+    );
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("rejects a raw HTML duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        '<h2 id="duplicate"><strong>문서 생명주기 증빙</strong></h2>',
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects a multiline raw HTML duplicate lifecycle evidence section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "<h2>", "문서 생명주기 증빙", "</h2>"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects a raw HTML duplicate with multiline attributes", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "<h2",
+        '  data-label="a > b">',
+        "문서 생명주기 증빙",
+        "</h2>",
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("ignores an ATX lifecycle heading inside an HTML comment", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "<!--", "## 문서 생명주기 증빙", "-->"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("ignores a raw HTML lifecycle heading inside an HTML comment", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "<!--", "<h2>문서 생명주기 증빙</h2>", "-->"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("does not let an inline-code comment marker hide a duplicate section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "`<!--`", "## 문서 생명주기 증빙"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
   it("ignores lifecycle headings inside fenced code blocks", () => {
     writeStabilityReviewTemplate(lifecycleVerdictOperations, {
       extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "```"],
