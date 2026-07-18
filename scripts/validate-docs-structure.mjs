@@ -30,6 +30,7 @@ const lifecycleVerdictOperations = [
   "통합",
 ];
 const lifecycleVerdictOperationSet = new Set(lifecycleVerdictOperations);
+const lifecycleVerdictTableHeader = ["변경 작업", "판정", "근거"];
 const ignoredRelativePaths = new Set(["AGENTS.md", "README.md", "CLAUDE.md"]);
 
 const docFiles = [];
@@ -197,34 +198,49 @@ function validateStabilityReviewTemplate(templatePath, errors) {
   }
 
   const section = sectionMatch[1];
+  const tableRows = section
+    .split("\n")
+    .map(parseMarkdownTableRow)
+    .filter((cells) => cells !== null);
+
+  if (tableRows.length === 0) {
+    errors.push(
+      `${relativePath}: 문서 생명주기 증빙 표가 없습니다.`,
+    );
+    return;
+  }
+
+  const [headerCells, separatorCells, ...dataRows] = tableRows;
+
+  if (!cellsEqual(headerCells, lifecycleVerdictTableHeader)) {
+    errors.push(
+      `${relativePath}: 문서 생명주기 증빙 표 헤더는 '변경 작업 | 판정 | 근거' 3개 열이어야 합니다 (현재 '${headerCells.join(" | ")}').`,
+    );
+  }
+
+  if (
+    !separatorCells ||
+    separatorCells.length !== lifecycleVerdictTableHeader.length ||
+    !separatorCells.every((cell) => /^:?-{3,}:?$/.test(cell))
+  ) {
+    errors.push(
+      `${relativePath}: 문서 생명주기 증빙 표 구분 행은 '--- | --- | ---' 형식의 3개 열이어야 합니다.`,
+    );
+  }
+
   const rowCounts = new Map(
     lifecycleVerdictOperations.map((operation) => [operation, 0]),
   );
 
-  for (const line of section.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("|")) {
-      continue;
-    }
-
-    const firstCell = trimmed.split("|")[1]?.trim();
-    if (
-      !firstCell ||
-      firstCell === "변경 작업" ||
-      /^:?-{3,}:?$/.test(firstCell)
-    ) {
-      continue;
-    }
-
-    const operationMatch = firstCell.match(/^([^:]+):/);
-    if (!operationMatch) {
+  for (const cells of dataRows) {
+    if (cells.length !== lifecycleVerdictTableHeader.length) {
       errors.push(
-        `${relativePath}: 판정 행은 '<작업>: <검토 기준>' 형식이어야 합니다: '${firstCell}'.`,
+        `${relativePath}: 문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 (현재 ${cells.length}개): '${cells.join(" | ")}'.`,
       );
       continue;
     }
 
-    const operation = operationMatch[1].trim();
+    const operation = cells[0];
     if (!lifecycleVerdictOperationSet.has(operation)) {
       errors.push(
         `${relativePath}: 허용되지 않은 문서 생명주기 판정 행입니다: '${operation}'.`,
@@ -244,6 +260,27 @@ function validateStabilityReviewTemplate(templatePath, errors) {
       );
     }
   }
+}
+
+function parseMarkdownTableRow(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|")) {
+    return null;
+  }
+
+  const withoutLeadingPipe = trimmed.slice(1);
+  const row = withoutLeadingPipe.endsWith("|")
+    ? withoutLeadingPipe.slice(0, -1)
+    : withoutLeadingPipe;
+
+  return row.split("|").map((cell) => cell.trim());
+}
+
+function cellsEqual(actual, expected) {
+  return (
+    actual.length === expected.length &&
+    actual.every((cell, index) => cell === expected[index])
+  );
 }
 
 function inferDirectoryKind(relativePath) {

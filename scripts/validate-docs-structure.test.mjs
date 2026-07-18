@@ -40,6 +40,15 @@ describe("docs structure validation", () => {
     assert.match(result.stdout, /docs 구조 검증 통과/);
   });
 
+  it("allows lifecycle verdict rows in a different order", () => {
+    writeStabilityReviewTemplate([...lifecycleVerdictOperations].reverse());
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
   it("rejects an added document missing from mkdocs nav", () => {
     writePolicy("policy/added.md");
     writeAgents(["policy/example.md", "policy/added.md"]);
@@ -130,6 +139,125 @@ describe("docs structure validation", () => {
 
     assert.equal(result.status, 1, combinedOutput(result));
     assert.match(result.stderr, /문서 생명주기 증빙 절이 없습니다/);
+  });
+
+  it("rejects lifecycle evidence without a table", () => {
+    writeRawStabilityReviewTemplate(["검토 결과 없음"]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /문서 생명주기 증빙 표가 없습니다/);
+  });
+
+  it("rejects a lifecycle table missing the verdict column", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      header: ["변경 작업", "근거"],
+      rowCells: (operation) => [operation, ""],
+      separator: ["---", "---"],
+    });
+
+    const result = runValidator();
+    const output = combinedOutput(result);
+
+    assert.equal(result.status, 1, output);
+    assert.match(output, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
+    assert.match(output, /판정 행은 정확히 3개 셀이어야 합니다/);
+  });
+
+  it("rejects reordered lifecycle table headers", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      header: ["변경 작업", "근거", "판정"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
+  });
+
+  it("rejects renamed lifecycle table headers", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      header: ["작업", "판정", "근거"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
+  });
+
+  it("rejects extra lifecycle table header columns", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      header: ["변경 작업", "판정", "근거", "조치"],
+      rowCells: (operation) => [operation, "", "", ""],
+      separator: ["---", "---", "---", "---"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
+  });
+
+  it("rejects an invalid lifecycle table separator", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      separator: ["---", "판정", "---"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /표 구분 행은 '--- \| --- \| ---' 형식의 3개 열이어야 합니다/,
+    );
+  });
+
+  it("rejects lifecycle verdict rows with the wrong cell count", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      rowCells: (operation) =>
+        operation === "수정" ? [operation, ""] : [operation, "", ""],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /판정 행은 정확히 3개 셀이어야 합니다 \(현재 2개\): '수정 \| '/);
+  });
+
+  it("rejects a missing lifecycle verdict row", () => {
+    writeStabilityReviewTemplate(
+      lifecycleVerdictOperations.filter((operation) => operation !== "삭제"),
+    );
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /'삭제' 판정 행은 각각 정확히 1개여야 합니다 \(현재 0개\)/,
+    );
+  });
+
+  it("rejects review criteria duplicated in operation cells", () => {
+    writeStabilityReviewTemplate([
+      "추가: 기존 문서 검색",
+      ...lifecycleVerdictOperations.slice(1),
+    ]);
+
+    const result = runValidator();
+    const output = combinedOutput(result);
+
+    assert.equal(result.status, 1, output);
+    assert.match(
+      output,
+      /허용되지 않은 문서 생명주기 판정 행입니다: '추가: 기존 문서 검색'/,
+    );
+    assert.match(
+      output,
+      /'추가' 판정 행은 각각 정확히 1개여야 합니다 \(현재 0개\)/,
+    );
   });
 
   it("rejects combined lifecycle verdict rows", () => {
@@ -226,23 +354,37 @@ function stabilityReviewTemplatePath() {
   );
 }
 
-function writeStabilityReviewTemplate(operations) {
+function writeStabilityReviewTemplate(
+  operations,
+  {
+    header = ["변경 작업", "판정", "근거"],
+    separator = ["---", "---", "---"],
+    rowCells = (operation) => [operation, "", ""],
+  } = {},
+) {
+  writeRawStabilityReviewTemplate([
+    formatTableRow(header),
+    formatTableRow(separator),
+    ...operations.map((operation) => formatTableRow(rowCells(operation))),
+  ]);
+}
+
+function writeRawStabilityReviewTemplate(sectionLines) {
   const targetPath = stabilityReviewTemplatePath();
   const lines = [
     "# Docs Stability Review",
     "",
     "## 문서 생명주기 증빙",
     "",
-    "| 변경 작업 | 판정 | 근거 |",
-    "| --- | --- | --- |",
+    ...sectionLines,
   ];
-
-  for (const operation of operations) {
-    lines.push(`| ${operation}: 검토 기준 |  |  |`);
-  }
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, `${lines.join("\n")}\n`);
+}
+
+function formatTableRow(cells) {
+  return `| ${cells.join(" | ")} |`;
 }
 
 function runValidator() {
