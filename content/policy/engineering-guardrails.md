@@ -29,11 +29,11 @@
 | DB migration stage와 실행 Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) | DB 설계와 Fail-closed 원칙만 유지 |
 | 테스트 범위와 표준 검증 명령 | [테스트/CI 전략](testing-strategy.md) | 품질 게이트 통과 의무만 유지 |
 | 리뷰 절차와 증빙 | [코드 리뷰 정책](code-review-policy.md) | 기술 판정 기준만 제공 |
-| 문서 역할·동기화·composition 검토 | [문서 거버넌스 정책](document-governance-policy.md) | 기술 문서 일치 의무만 유지 |
+| 문서 역할·동기화·안정성 평가·composition 검토 | [문서 거버넌스 정책](document-governance-policy.md) | 기술 문서 일치 의무만 유지 |
 | 도메인 동작·상태 전이 | 각 도메인 policy/FSM | 공통 기술 원칙만 제공 |
 
 - 충돌은 판정 책임을 먼저 고정한 뒤 해당 행의 단일 SoT로 해결한다. 범위별 문서가 소유하는 세부 MUST를 이 문서가 덮어쓰지 않는다.
-- 범위별 단일 SoT를 신설·분리·수정할 때는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`로 이 표와 중복 규칙을 함께 재검토한다.
+- 범위별 단일 SoT 문서에 생명주기 작업을 수행할 때는 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`로 이 표와 중복 규칙을 함께 재검토한다.
 
 ## 핵심 원칙
 

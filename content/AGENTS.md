@@ -11,8 +11,8 @@
 - `technical-debt`에는 미해결 항목만 유지한다. 완료 기준을 충족한 항목은 같은 작업 단위에서 삭제하고, 다른 축의 잔여 작업은 기존/신규 부채로 분리하며, 완료 이력은 PR 또는 릴리스 기록에 남긴다
 - `content/technical-debt/technical-debt.md`의 각 항목은 `현상`, `영향`, `조치`, `완료`를 간결하게 유지한다. 필요한 근거·예외는 추가할 수 있고 상세 이력은 링크된 문서, PR, 릴리스 기록에 둔다
 - 문서 역할 기준의 단일 SoT는 `content/policy/document-governance-policy.md`를 따른다
-- 문서 작성/수정/삭제/리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
-- `policy` 문서 추가·수정·삭제·리뷰 시에는 `content/policy/document-governance-policy.md`의 `정책 Composition Gate`를 적용해 대상 정책 전체(삭제는 삭제 전 본문), 정방향·역방향 규범 참조, 책임/우선순위, 상태·단계별 Exit Gate를 확인한다
+- 문서 생명주기 작업(추가·수정·삭제·이동·개명·분리·통합)·리뷰 시에는 문장 중복 제거보다 "처음 온 사람이 다음 필수 문서까지 실제로 따라 들어갈 수 있는가"를 우선 확인한다
+- `policy` 문서의 생명주기 작업·리뷰 시에는 `content/policy/document-governance-policy.md`의 `정책 Composition Gate`를 적용해 대상 정책 전체(삭제는 삭제 전 본문), 정방향·역방향 규범 참조, 책임/우선순위, 상태·단계별 Exit Gate를 확인한다
 - 사용자와 명시적으로 합의하지 않았거나, 처음 온 사람이 추측해야 하는 임의 축약어/내부 은어를 쓰지 않는다
 - 새 세션 시작 전에는 아래 Core 4개만 필수 열람한다
     - `content/technical-debt/technical-debt.md`
@@ -27,7 +27,7 @@
 - ACK/EVIDENCE 출력 전에는 필수 문서 열람 외 명령 실행/코드 작성/수정을 시작하지 않는다
 - 코드 리뷰 관련 답변은 `content/policy/code-review-policy.md`의 "리뷰 근거 표기 의무"를 따른다
     - 근거 없는 일반론/추측 코멘트는 무효로 간주하고, 문서 재독 후 다시 작성한다
-- 지시/리뷰가 docs 변경의 안정성 평가, 문서 최종 리뷰 또는 문서 추가·수정·삭제 검토를 요구하면
+- 지시/리뷰에 docs 문서 생명주기 작업, 안정성 평가 또는 최종 리뷰가 포함되면
   `content/policy/document-governance-policy.md`의 `문서 안정성 평가`를 추가 열람하고 Scope Gate부터
   Exit Gate까지 적용한다. 구조 검증이나 CI 통과만으로 안정성 평가를 완료하지 않는다
 - 지시/리뷰에 `논리 데이터 모델`이 포함되면 `content/policy/logical-data-model-policy.md`의
