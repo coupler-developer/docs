@@ -182,6 +182,13 @@
 - 조치: browser smoke → 유지 기간 관측 → reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate와 route별 검증 통과.
 
+## 25) Admin compiled theme 제거 미완료 `P2` `L`
+
+- 현상: Admin은 Bootstrap 5와 foundation 규칙을 포함한 compiled Color Admin `app.min.css`를 함께 로드하고 공통 골격이 Color Admin class와 theme asset에 의존한다.
+- 영향: import 순서와 selector specificity가 스타일 책임을 대신해 한 화면의 수정이 다른 운영 화면의 표시를 바꿀 수 있다.
+- 조치: 사용처 baseline과 감소형 gate를 만든 뒤 공통 골격부터 Bootstrap 5, Admin token, Coupler 소유 component·SCSS로 전환한다.
+- 완료: `app.min.css`·theme asset 사용, Color Admin 전용 class, 중복 foundation이 모두 0건이고 대표 화면 회귀 검증을 통과한다.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
