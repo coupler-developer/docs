@@ -125,6 +125,16 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   `t_alarm`을 직접 추가하지 않는다.
 - 행사당 채팅은 하나이며 별도 room 상태를 중복 저장하지 않는다. 송신 가능 여부는 행사 상태, 참가자 자격은
   신청 상태에서 판정한다.
+- 채팅 메시지는 `USER`와 `SYSTEM`의 tagged union이다. `USER`만 채팅 구성원과 client idempotency key를
+  가지며 Mobile 전송 API로 생성한다. `SYSTEM`은 sender 없이 서버 상태 전이와 연결된 action log를 원천으로
+  같은 transaction에서 한 번만 생성한다.
+- `EVENT_CONFIRMED`는 채팅 구성원 생성, `PARTICIPANT_JOINED`는 CONFIRMED 뒤 승인 참가자 합류,
+  `PARTICIPANT_CANCELED`는 Admin의 승인 확정 취소, `PARTICIPANT_LEFT`는 참가자의 명시적 퇴장,
+  `EVENT_FINISHED`는 행사 종료, `EVENT_CANCELED`는 기존 채팅이 있는 CONFIRMED 행사 취소와 함께
+  기록한다. 후기 완료로 자격만 정리하는 `LEFT`와 채팅 생성 전 행사 취소에는 시스템 메시지를 만들지 않는다.
+- 시스템 메시지는 메시지 목록과 채팅 목록의 `last_message`에 같은 DTO로 노출하고 다른 구성원에게 unread로
+  계산한다. 행사 확정·취소 FCM과 채팅 이력은 역할이 다르므로 시스템 메시지 생성만으로 별도 채팅 FCM이나
+  `t_alarm`을 중복 생성하지 않는다.
 
 ## 입력과 파생 값
 
@@ -140,11 +150,14 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 
 - 행사, 신청, 참여, 후기, 신고, 행위 이력은 hard delete하지 않는다. 실패·교체된 이미지 버전과 조각만
   media cleanup 정책에 따라 정리할 수 있다.
-- 그룹 채팅은 게시글 댓글 도메인이 아니다. Admin 메시지 삭제는 row를 지우지 않고 상태를
+- 그룹 채팅은 게시글 댓글 도메인이 아니다. Admin은 `USER` 메시지만 삭제할 수 있고 row를 지우지 않고 상태를
   `ADMIN_DELETED`로 바꾸며 조회 DTO는 content를 `삭제된 메시지입니다.`로 반환한다. 삭제 actor와 reason은
-  같은 transaction의 행위 이력에 남긴다. 따라서 스퀘어 게시글·댓글 삭제 정책과 충돌하지 않고
+  같은 transaction의 행위 이력에 남긴다. `SYSTEM` 메시지는 상태 전이 이력이므로 삭제하지 않는다. 따라서
+  스퀘어 게시글·댓글 삭제 정책과 충돌하지 않고
   `conversation.message`의 감사·대화 문맥 보존 원칙을 따른다.
 - 회원 개인정보 정리 시 신청 별칭과 작성 자유문을 비식별화하고 nullable 원천 회원/Admin 연결만 해제한다.
+  별칭을 포함한 참가자 입장·확정 취소·퇴장 시스템 메시지도 action log의 신청 대상을 기준으로 같은
+  transaction에서 `탈퇴한 참가자` 문구로 비식별화한다.
   행사 상태, 비식별 신고, Key 원장 연결, 행위 이력은 운영 감사 기록으로 보존한다.
 - action reason에는 연락처, 프로필 원문, 인증정보를 넣지 않는다.
 
