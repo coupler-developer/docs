@@ -30,6 +30,7 @@ const lifecycleVerdictOperations = [
   "통합",
 ];
 const lifecycleVerdictOperationSet = new Set(lifecycleVerdictOperations);
+const lifecycleVerdictSectionHeading = "문서 생명주기 증빙";
 const lifecycleVerdictTableHeader = ["변경 작업", "판정", "근거"];
 const ignoredRelativePaths = new Set(["AGENTS.md", "README.md", "CLAUDE.md"]);
 
@@ -188,27 +189,73 @@ function validateStabilityReviewTemplate(templatePath, errors) {
   }
 
   const source = fs.readFileSync(templatePath, "utf8");
-  const sectionMatch = source.match(
-    /## 문서 생명주기 증빙\s*\n([\s\S]*?)(?=\n##\s|\s*$)/,
+  const scannedLines = scanMarkdownLines(source.split("\n"));
+  const levelTwoHeadings = scannedLines
+    .filter((entry) => !entry.insideFence)
+    .map((entry) => ({
+      index: entry.index,
+      title: parseLevelTwoHeading(entry.line),
+    }))
+    .filter((heading) => heading.title !== null);
+  const lifecycleSectionHeadings = levelTwoHeadings.filter(
+    (heading) => heading.title === lifecycleVerdictSectionHeading,
   );
 
-  if (!sectionMatch) {
+  if (lifecycleSectionHeadings.length === 0) {
     errors.push(`${relativePath}: 문서 생명주기 증빙 절이 없습니다.`);
     return;
   }
 
-  const section = sectionMatch[1];
-  const tableRows = section
-    .split("\n")
-    .map(parseMarkdownTableRow)
-    .filter((cells) => cells !== null);
+  if (lifecycleSectionHeadings.length !== 1) {
+    errors.push(
+      `${relativePath}: 문서 생명주기 증빙 절은 정확히 1개여야 합니다 (현재 ${lifecycleSectionHeadings.length}개).`,
+    );
+    return;
+  }
 
-  if (tableRows.length === 0) {
+  const sectionHeading = lifecycleSectionHeadings[0];
+  const nextLevelTwoHeading = levelTwoHeadings.find(
+    (heading) => heading.index > sectionHeading.index,
+  );
+  const sectionEnd = nextLevelTwoHeading?.index ?? scannedLines.length;
+  const sectionLines = scannedLines.slice(
+    sectionHeading.index + 1,
+    sectionEnd,
+  );
+  const firstTableRowIndex = sectionLines.findIndex(
+    (entry) =>
+      !entry.insideFence && parseMarkdownTableRow(entry.line) !== null,
+  );
+
+  if (firstTableRowIndex === -1) {
     errors.push(
       `${relativePath}: 문서 생명주기 증빙 표가 없습니다.`,
     );
     return;
   }
+
+  const primaryTableEnd = sectionLines.findIndex(
+    (entry, index) =>
+      index > firstTableRowIndex &&
+      (entry.insideFence || entry.line.trim() === ""),
+  );
+  const tableRows = sectionLines.flatMap((entry, index) => {
+    if (entry.insideFence) {
+      return [];
+    }
+
+    const parsedRow = parseMarkdownTableRow(entry.line);
+    if (parsedRow !== null) {
+      return [parsedRow];
+    }
+
+    const belongsToPrimaryTable =
+      index > firstTableRowIndex &&
+      (primaryTableEnd === -1 || index < primaryTableEnd) &&
+      entry.line.trim() !== "";
+
+    return belongsToPrimaryTable ? [[entry.line.trim()]] : [];
+  });
 
   const [headerCells, separatorCells, ...dataRows] = tableRows;
 
@@ -264,16 +311,131 @@ function validateStabilityReviewTemplate(templatePath, errors) {
 
 function parseMarkdownTableRow(line) {
   const trimmed = line.trim();
-  if (!trimmed.startsWith("|")) {
+  const cells = splitMarkdownTableCells(trimmed);
+
+  if (cells === null) {
     return null;
   }
 
-  const withoutLeadingPipe = trimmed.slice(1);
-  const row = withoutLeadingPipe.endsWith("|")
-    ? withoutLeadingPipe.slice(0, -1)
-    : withoutLeadingPipe;
+  if (cells[0] === "") {
+    cells.shift();
+  }
+  if (cells.at(-1) === "") {
+    cells.pop();
+  }
 
-  return row.split("|").map((cell) => cell.trim());
+  return cells.map((cell) => cell.trim());
+}
+
+function splitMarkdownTableCells(source) {
+  const cells = [""];
+  let hasSeparator = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (character === "|") {
+      let precedingBackslashCount = 0;
+      for (
+        let lookbehindIndex = index - 1;
+        lookbehindIndex >= 0 && source[lookbehindIndex] === "\\";
+        lookbehindIndex -= 1
+      ) {
+        precedingBackslashCount += 1;
+      }
+
+      if (precedingBackslashCount % 2 === 1) {
+        cells[cells.length - 1] += character;
+        continue;
+      }
+
+      cells.push("");
+      hasSeparator = true;
+      continue;
+    }
+
+    cells[cells.length - 1] += character;
+  }
+
+  return hasSeparator ? cells : null;
+}
+
+function scanMarkdownLines(lines) {
+  const scannedLines = lines.map((line, index) => ({
+    index,
+    insideFence: false,
+    line,
+  }));
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const openingFence = parseMarkdownFenceOpening(lines[index]);
+
+    if (openingFence === null) {
+      continue;
+    }
+
+    const closingFenceIndex = lines.findIndex(
+      (line, candidateIndex) =>
+        candidateIndex > index &&
+        isMarkdownFenceClosing(line, openingFence),
+    );
+
+    if (closingFenceIndex === -1) {
+      continue;
+    }
+
+    for (
+      let fencedIndex = index;
+      fencedIndex <= closingFenceIndex;
+      fencedIndex += 1
+    ) {
+      scannedLines[fencedIndex].insideFence = true;
+    }
+
+    index = closingFenceIndex;
+  }
+
+  return scannedLines;
+}
+
+function parseMarkdownFenceOpening(line) {
+  const match = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*(.*)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const info = match[2].trim();
+  if (info !== "" && !/^\.?[\p{L}\p{N}_#.+-]+$/u.test(info)) {
+    return null;
+  }
+
+  return {
+    character: match[1][0],
+    length: match[1].length,
+  };
+}
+
+function isMarkdownFenceClosing(line, openingFence) {
+  const match = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
+
+  return (
+    match !== null &&
+    match[1][0] === openingFence.character &&
+    match[1].length === openingFence.length
+  );
+}
+
+function parseLevelTwoHeading(line) {
+  const match = line.match(/^[ \t]{0,3}##(?!#)(?:[ \t]+(.*)|[ \t]*)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return (match[1] ?? "")
+    .replace(/[ \t]+#+[ \t]*$/, "")
+    .trim();
 }
 
 function cellsEqual(actual, expected) {

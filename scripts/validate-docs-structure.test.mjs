@@ -49,6 +49,28 @@ describe("docs structure validation", () => {
     assert.match(result.stdout, /docs 구조 검증 통과/);
   });
 
+  it("allows lifecycle table rows without leading pipes", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      leadingPipe: false,
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("allows escaped pipes inside lifecycle evidence cells", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      rowCells: (operation) => [operation, "", "경로 \\| 설명"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
   it("rejects an added document missing from mkdocs nav", () => {
     writePolicy("policy/added.md");
     writeAgents(["policy/example.md", "policy/added.md"]);
@@ -148,6 +170,106 @@ describe("docs structure validation", () => {
 
     assert.equal(result.status, 1, combinedOutput(result));
     assert.match(result.stderr, /문서 생명주기 증빙 표가 없습니다/);
+  });
+
+  it("rejects duplicate lifecycle evidence sections", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "## 문서 생명주기 증빙",
+        "",
+        formatTableRow(["변경 작업", "판정", "근거"]),
+        formatTableRow(["---", "---", "---"]),
+        ...lifecycleVerdictOperations.map((operation) =>
+          formatTableRow([operation, "", ""]),
+        ),
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("ignores lifecycle headings inside fenced code blocks", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "```"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 구조 검증 통과/);
+  });
+
+  it("does not let an invalid fence hide a duplicate lifecycle section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        "```markdown unexpected",
+        "## 문서 생명주기 증빙",
+        "```",
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("does not let an unclosed fence hide a duplicate lifecycle section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "```markdown", "## 문서 생명주기 증빙"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("does not let a mismatched fence hide a duplicate lifecycle section", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "````"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
+
+  it("rejects an additional lifecycle evidence table", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: [
+        "",
+        formatTableRow(["변경 작업", "판정", "근거"]),
+        formatTableRow(["---", "---", "---"]),
+        formatTableRow(["추가 표", "", ""]),
+      ],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /허용되지 않은 문서 생명주기 판정 행입니다: '변경 작업'/,
+    );
   });
 
   it("rejects a lifecycle table missing the verdict column", () => {
@@ -292,6 +414,48 @@ describe("docs structure validation", () => {
     );
   });
 
+  it("rejects an extra combined row without a leading pipe", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["이동/개명 |  |  "],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 .*'이동\/개명 \| '/,
+    );
+  });
+
+  it("rejects an extra row whose delimiters follow even backslashes", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["추가 표 \\\\|  \\\\|  |"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /허용되지 않은 문서 생명주기 판정 행입니다: '추가 표 \\\\'/,
+    );
+  });
+
+  it("rejects an adjacent table row without unescaped delimiters", () => {
+    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
+      extraLines: ["추가 표 \\| 판정 \\| 근거"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 \(현재 1개\)/,
+    );
+  });
+
   it("rejects duplicate lifecycle verdict rows", () => {
     writeStabilityReviewTemplate([...lifecycleVerdictOperations, "이동"]);
 
@@ -358,14 +522,19 @@ function writeStabilityReviewTemplate(
   operations,
   {
     header = ["변경 작업", "판정", "근거"],
+    leadingPipe = true,
     separator = ["---", "---", "---"],
+    extraLines = [],
     rowCells = (operation) => [operation, "", ""],
   } = {},
 ) {
   writeRawStabilityReviewTemplate([
-    formatTableRow(header),
-    formatTableRow(separator),
-    ...operations.map((operation) => formatTableRow(rowCells(operation))),
+    formatTableRow(header, { leadingPipe }),
+    formatTableRow(separator, { leadingPipe }),
+    ...operations.map((operation) =>
+      formatTableRow(rowCells(operation), { leadingPipe }),
+    ),
+    ...extraLines,
   ]);
 }
 
@@ -383,8 +552,9 @@ function writeRawStabilityReviewTemplate(sectionLines) {
   fs.writeFileSync(targetPath, `${lines.join("\n")}\n`);
 }
 
-function formatTableRow(cells) {
-  return `| ${cells.join(" | ")} |`;
+function formatTableRow(cells, { leadingPipe = true } = {}) {
+  const leading = leadingPipe ? "| " : "";
+  return `${leading}${cells.join(" | ")} |`;
 }
 
 function runValidator() {
