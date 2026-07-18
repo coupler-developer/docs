@@ -154,6 +154,8 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 
 - 문서 추가/삭제/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`를 같은 PR에서 함께 갱신한다.
 - `content/templates/` 기반 문서는 역할/문서 종류/충돌 시 우선 문서/기준 성격 메타데이터를 누락하지 않는다.
+- `content/templates/docs-stability-review-template.md`는 `문서 생명주기 작업`마다 독립 판정 행을 정확히 1개
+  유지한다. 판정 기준을 공유하더라도 행을 합치지 않으며 docs 구조 검증으로 fail-closed 확인한다.
 - 메타데이터 형식, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성은 docs 구조 검증으로 자동 확인 가능해야 한다.
 - 기술부채 인벤토리의 번호 연속성, 미해결 `현상` 존재, 완료 이력형 패턴 부재는 기술부채 검증으로 자동 확인 가능해야 한다.
 - docs 검증이 통과해도 SoT 충돌이 있으면 완료로 간주하지 않는다. 충돌은 규범 문서부터 수정한다.
