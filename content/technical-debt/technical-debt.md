@@ -161,11 +161,11 @@
 - 조치: 신규·직접 수정 operation부터 Swagger success DTO와 generated contract를 구체화한다. 내부 필드를 읽지 않고 값 전체를 전달·보관하는 opaque JSON passthrough는 제외한다.
 - 완료: 구조를 읽는 소비 success data의 명시 타입과 exact DTO 소비, local 계약 보정 0건.
 
-## 22) 그룹미팅 Mobile 및 출시 통합 미완료 `P1` `L`
+## 22) 그룹미팅 소비자 병합 및 출시 통합 미완료 `P1` `L`
 
-- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110)과 [Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 병합됐고 stable contract `0.1.11`이 발행됐다. [API #131](https://github.com/coupler-developer/coupler-api/pull/131)의 시스템 메시지 migration 계보 보정, 개발 DB 적용·smoke, Mobile 연결, 운영 migration과 scheduler smoke가 남아 있다.
+- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110), [API #131](https://github.com/coupler-developer/coupler-api/pull/131), [API #132](https://github.com/coupler-developer/coupler-api/pull/132), [Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 병합됐고 stable contract `0.1.12`가 발행됐다. [Mobile #154](https://github.com/coupler-developer/coupler-mobile-app/pull/154)는 `0.1.12`를 exact pin해 CI를 통과한 Ready 상태이고, [Admin #66](https://github.com/coupler-developer/coupler-admin-web/pull/66)은 같은 stable 계약과 운영 신청자 DTO를 적용한 병합 대기 상태다. 대상 환경별 migration ledger·runtime, FCM, scheduler smoke와 운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·과금·개인정보 계약이 어긋날 수 있다.
-- 조치: API #131 병합 → 개발 DB 적용과 API·Admin smoke → Mobile/FCM → 운영 migration·scheduler 순으로 통합한다.
+- 조치: Mobile #154와 Admin #66을 각 main 기준으로 병합한 뒤 대상 환경 migration ledger·schema 확인 → API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
 - 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
