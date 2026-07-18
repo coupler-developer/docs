@@ -242,8 +242,8 @@ schema 검증, runtime smoke를 모두 통과해야 한다. 환경별 실행 증
 group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과 운영 전환 조건을 모두 충족한 뒤에만
 `as-is`로 승격한다.
 
-남은 소비자 병합과 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`22) 그룹미팅 소비자 병합 및 출시 통합 미완료`에서 추적한다.
+남은 소비자 cutover와 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`22) 그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
 
 ## 관련 문서
 
