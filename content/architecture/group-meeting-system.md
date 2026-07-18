@@ -37,7 +37,7 @@
 
 | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `group-meeting.host` | 그룹미팅 호스트 | root | association | state | 운영자 계정과 호스트 회원의 연결 | 민감 | 활성 행사가 없을 때 원천 계정 연결 해제 가능, 행사 이력은 보존 |
+| `group-meeting.host` | 그룹미팅 호스트 | root | association | state | 클럽매니저 계정과 모바일 호스트 회원의 명시적 연결 | 민감 | 활성 행사가 없을 때 원천 계정 연결 해제 가능, 행사 이력은 보존 |
 | `group-meeting.event` | 그룹미팅 행사 | root | entity | state | 모집·마감·확정·종료와 공개 행사 정보 | 민감 | 삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리 |
 | `group-meeting.detail-version` | 행사 상세 이미지 버전 | child | entity | snapshot | 긴 상세 이미지 원본과 변환 상태 | 내부 | 현재 버전 유지, 실패·교체 버전 정리 가능 |
 | `group-meeting.detail-slice` | 행사 상세 이미지 조각 | child | entity | snapshot | 상세 이미지 버전의 표시용 조각 | 내부 | 상위 버전 정리 시 파일과 함께 정리 |
@@ -50,7 +50,7 @@
 
 | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
 | --- | --- | --- | --- | --- | --- |
-| `group-meeting.host` | `operator` | references | `admin-access.operator` | N:1 | 관리자 계정 회수 뒤에도 과거 운영 이력 보존 |
+| `group-meeting.host` | `manager` | references | `club-manager.manager` | 1:1 | 매니저 계정 회수 뒤에도 과거 운영 이력 보존 |
 | `group-meeting.host` | `member` | references | `member.member` | 1:1 | 회원 개인정보 정리 뒤 비식별 표시 사용 |
 | `group-meeting.event` | `host` | references | `group-meeting.host` | N:1 | 활성 행사가 있으면 호스트 연결 삭제 금지 |
 | `group-meeting.event` | `detail-versions` | owns | `group-meeting.detail-version` | 1:N | 현재 활성 버전은 행사와 함께 유지 |
@@ -76,6 +76,7 @@
 | `GROUP-MEETING-INV-004` | `group-meeting.participant` | 호스트 또는 승인 신청 중 정확히 하나의 자격으로 참여한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
 | `GROUP-MEETING-INV-005` | `group-meeting.review` | 종료 행사에 유효하게 참여한 회원만 최초 후기와 보상을 받을 수 있다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
 | `GROUP-MEETING-INV-006` | `group-meeting.action-history` | 상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+| `GROUP-MEETING-INV-007` | `group-meeting.host` | 매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
 
 ## 상태 모델
 
@@ -167,6 +168,11 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   응답 cast, normalize, 호환 adapter를 두지 않는다.
 - Admin request boundary는 operation metadata에 따라 path parameter를 인코딩하고 multipart body를
   `FormData`로 직렬화한 뒤 strict envelope의 `ok`를 분기한다. 이는 전송 책임이며 DTO 변환 계층이 아니다.
+- Admin이 사용하는 호스트 식별자는 매니저 관리의 로그인 ID인 `manager_user_id`다. 내부 연결·Admin·회원의
+  숫자 PK는 요청 입력이나 운영자용 호스트 식별자로 노출하지 않는다.
+- Super Admin은 `manager_user_id`와 모바일 회원 이메일을 정확히 조회해 최초 호스트 연결을 만든다. 행사
+  생성은 `manager_user_id`만 받고 API가 내부 연결을 해석하며, 연결 또는 정상 모바일 계정이 없으면
+  계약된 실패를 반환한다.
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
 - Mobile 파일은 이번 작업에서 변경하지 않는다. 후속 통합은 같은 stable package version을 exact pin하고
@@ -191,6 +197,11 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   연결하지 않는다.
 - 파트너 Admin은 자신이 소유한 행사만 조회·변경할 수 있고 Super Admin만 최초 호스트 연결과 전체 운영
   범위를 가진다.
+- 행사 목록과 호스트 연결 화면은 매니저 ID를 검색·표시한다. 모임 만들기는 매니저 ID를 입력하고, 연결된
+  정상 모바일 계정이 없다는 계약 오류를 받으면 모바일 계정 생성 후 호스트 연결이 필요하다는 안내를
+  표시한다.
+- 호스트 연결 관리는 매니저 ID와 모바일 회원 이메일을 사용한다. 내부 숫자 ID를 운영자가 찾아 입력하는
+  흐름은 제공하지 않는다.
 - 썸네일과 긴 상세 이미지는 인증된 upload operation만 사용하며 비이미지 파일을 성공으로 처리하지 않는다.
 
 ## DB 계약 경계와 출시 Gate
