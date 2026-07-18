@@ -191,10 +191,9 @@ function validateStabilityReviewTemplate(templatePath, errors) {
   const source = fs.readFileSync(templatePath, "utf8");
   const scannedLines = scanMarkdownLines(source.split("\n"));
   const levelTwoHeadings = scannedLines
-    .filter((entry) => !entry.insideFence)
-    .map((entry) => ({
+    .map((entry, index) => ({
       index: entry.index,
-      title: parseLevelTwoHeading(entry.line),
+      title: parseLevelTwoHeading(scannedLines, index),
     }))
     .filter((heading) => heading.title !== null);
   const lifecycleSectionHeadings = levelTwoHeadings.filter(
@@ -304,7 +303,11 @@ function findMarkdownTableBlocks(sectionLines) {
   };
 
   for (const entry of sectionLines) {
-    if (entry.insideFence || entry.line.trim() === "") {
+    if (
+      entry.insideFence ||
+      entry.insideHtmlComment ||
+      entry.line.trim() === ""
+    ) {
       finishCurrentBlock();
       continue;
     }
@@ -398,6 +401,7 @@ function scanMarkdownLines(lines) {
   const scannedLines = lines.map((line, index) => ({
     index,
     insideFence: false,
+    insideHtmlComment: false,
     line,
   }));
 
@@ -427,6 +431,35 @@ function scanMarkdownLines(lines) {
     }
 
     index = closingFenceIndex;
+  }
+
+  let insideHtmlComment = false;
+  for (const entry of scannedLines) {
+    if (entry.insideFence) {
+      continue;
+    }
+
+    const commentStart = entry.line.indexOf("<!--");
+    const startsHtmlComment =
+      commentStart !== -1 &&
+      entry.line.slice(0, commentStart).trim() === "";
+    if (insideHtmlComment || startsHtmlComment) {
+      entry.insideHtmlComment = true;
+    }
+
+    if (insideHtmlComment) {
+      if (entry.line.includes("-->")) {
+        insideHtmlComment = false;
+      }
+      continue;
+    }
+
+    if (
+      startsHtmlComment &&
+      entry.line.indexOf("-->", commentStart + 4) === -1
+    ) {
+      insideHtmlComment = true;
+    }
   }
 
   return scannedLines;
@@ -525,16 +558,97 @@ function isMarkdownFenceClosing(line, openingFence) {
   );
 }
 
-function parseLevelTwoHeading(line) {
-  const match = line.match(/^[ \t]{0,3}##(?!#)(?:[ \t]+(.*)|[ \t]*)$/);
-
-  if (!match) {
+function parseLevelTwoHeading(scannedLines, index) {
+  const entry = scannedLines[index];
+  if (entry.insideFence || entry.insideHtmlComment) {
     return null;
   }
 
-  return (match[1] ?? "")
-    .replace(/[ \t]+#+[ \t]*$/, "")
-    .trim();
+  const match = entry.line.match(
+    /^[ \t]{0,3}##(?!#)(?:[ \t]+(.*)|[ \t]*)$/,
+  );
+
+  if (match) {
+    return (match[1] ?? "")
+      .replace(/[ \t]+#+[ \t]*$/, "")
+      .trim();
+  }
+
+  const rawHtmlHeading = parseRawHtmlLevelTwoHeading(scannedLines, index);
+  if (rawHtmlHeading !== null) {
+    return rawHtmlHeading;
+  }
+
+  const underline = scannedLines[index + 1];
+  if (
+    !underline ||
+    underline.insideFence ||
+    underline.insideHtmlComment ||
+    !/^-+[ \t]*$/.test(underline.line) ||
+    /^(?: {4}|\t)/.test(entry.line) ||
+    entry.line.trim() === ""
+  ) {
+    return null;
+  }
+
+  return entry.line.trim();
+}
+
+function parseRawHtmlLevelTwoHeading(scannedLines, index) {
+  const openingMatch = scannedLines[index].line.match(
+    /^[ \t]{0,3}<h2(?=[\s>]|$)/i,
+  );
+  if (!openingMatch) {
+    return null;
+  }
+
+  const sourceLines = [];
+  for (let lineIndex = index; lineIndex < scannedLines.length; lineIndex += 1) {
+    if (
+      scannedLines[lineIndex].insideFence ||
+      scannedLines[lineIndex].insideHtmlComment
+    ) {
+      break;
+    }
+    sourceLines.push(scannedLines[lineIndex].line);
+  }
+  const source = sourceLines.join("\n");
+  const openingTagEnd = findHtmlTagEnd(source, openingMatch[0].length);
+  if (openingTagEnd === -1) {
+    return null;
+  }
+
+  const content = source.slice(openingTagEnd + 1);
+  const closingTagIndex = content.search(/<\/h2[ \t]*>/i);
+  return closingTagIndex === -1
+    ? null
+    : content.slice(0, closingTagIndex).trim();
+}
+
+function findHtmlTagEnd(source, startIndex) {
+  let quote = null;
+
+  for (let index = startIndex; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (quote !== null) {
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+
+    if (character === ">") {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 function normalizeMarkdownHeadingText(source) {
@@ -555,18 +669,29 @@ function normalizeMarkdownHeadingText(source) {
         ? String.fromCodePoint(codePoint)
         : entity;
     })
-    .replace(/&(amp|lt|gt|quot|apos);/g, (entity, name) => {
-      const namedEntities = {
-        amp: "&",
-        apos: "'",
-        gt: ">",
-        lt: "<",
-        quot: '"',
-      };
-      return namedEntities[name] ?? entity;
-    });
+    .replace(
+      /&(amp|lt|gt|quot|apos|nbsp|ZeroWidthSpace|zwj|zwnj);/gi,
+      (entity, name) => {
+        const namedEntities = {
+          amp: "&",
+          apos: "'",
+          gt: ">",
+          lt: "<",
+          nbsp: " ",
+          quot: '"',
+          zerowidthspace: "\u200b",
+          zwj: "\u200d",
+          zwnj: "\u200c",
+        };
+        return namedEntities[name.toLowerCase()] ?? entity;
+      },
+    );
 
-  return decodedEntities.replace(/\s+/g, " ").trim();
+  return decodedEntities
+    .normalize("NFKC")
+    .replace(/\p{Cf}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function cellsEqual(actual, expected) {
