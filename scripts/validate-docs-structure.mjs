@@ -5,6 +5,11 @@ const docsRoot = process.cwd();
 const contentRoot = path.join(docsRoot, "content");
 const mkdocsPath = path.join(docsRoot, "mkdocs.yml");
 const agentsPath = path.join(contentRoot, "AGENTS.md");
+const stabilityReviewTemplatePath = path.join(
+  contentRoot,
+  "templates",
+  "docs-stability-review-template.md",
+);
 
 const allowedRoles = new Set(["규범", "설명", "시각화", "시나리오", "부채"]);
 const allowedKinds = new Set([
@@ -15,6 +20,16 @@ const allowedKinds = new Set([
   "technical-debt",
 ]);
 const allowedStatuses = new Set(["as-is", "to-be", "transition"]);
+const lifecycleVerdictOperations = [
+  "추가",
+  "수정",
+  "삭제",
+  "이동",
+  "개명",
+  "분리",
+  "통합",
+];
+const lifecycleVerdictOperationSet = new Set(lifecycleVerdictOperations);
 const ignoredRelativePaths = new Set(["AGENTS.md", "README.md", "CLAUDE.md"]);
 
 const docFiles = [];
@@ -28,6 +43,8 @@ const navRefs = parseMkdocsRefs(fs.readFileSync(mkdocsPath, "utf8"));
 const agentsRefs = parseMarkdownLinks(fs.readFileSync(agentsPath, "utf8"));
 
 const errors = [];
+
+validateStabilityReviewTemplate(stabilityReviewTemplatePath, errors);
 
 for (const relativePath of contentDocs) {
   const absolutePath = path.join(contentRoot, relativePath);
@@ -158,6 +175,74 @@ function validateMetadata(relativePath, source, errors) {
     errors.push(
       `${relativePath}: 디렉터리 분류(${directoryKind})와 메타데이터 문서 종류(${kind})가 다릅니다.`,
     );
+  }
+}
+
+function validateStabilityReviewTemplate(templatePath, errors) {
+  const relativePath = "content/templates/docs-stability-review-template.md";
+
+  if (!fs.existsSync(templatePath)) {
+    errors.push(`${relativePath}: 필수 안정성 리뷰 템플릿이 없습니다.`);
+    return;
+  }
+
+  const source = fs.readFileSync(templatePath, "utf8");
+  const sectionMatch = source.match(
+    /## 문서 생명주기 증빙\s*\n([\s\S]*?)(?=\n##\s|\s*$)/,
+  );
+
+  if (!sectionMatch) {
+    errors.push(`${relativePath}: 문서 생명주기 증빙 절이 없습니다.`);
+    return;
+  }
+
+  const section = sectionMatch[1];
+  const rowCounts = new Map(
+    lifecycleVerdictOperations.map((operation) => [operation, 0]),
+  );
+
+  for (const line of section.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) {
+      continue;
+    }
+
+    const firstCell = trimmed.split("|")[1]?.trim();
+    if (
+      !firstCell ||
+      firstCell === "변경 작업" ||
+      /^:?-{3,}:?$/.test(firstCell)
+    ) {
+      continue;
+    }
+
+    const operationMatch = firstCell.match(/^([^:]+):/);
+    if (!operationMatch) {
+      errors.push(
+        `${relativePath}: 판정 행은 '<작업>: <검토 기준>' 형식이어야 합니다: '${firstCell}'.`,
+      );
+      continue;
+    }
+
+    const operation = operationMatch[1].trim();
+    if (!lifecycleVerdictOperationSet.has(operation)) {
+      errors.push(
+        `${relativePath}: 허용되지 않은 문서 생명주기 판정 행입니다: '${operation}'.`,
+      );
+      continue;
+    }
+
+    rowCounts.set(operation, rowCounts.get(operation) + 1);
+  }
+
+  for (const operation of lifecycleVerdictOperations) {
+    const rowCount = rowCounts.get(operation);
+
+    if (rowCount !== 1) {
+      errors.push(
+        `${relativePath}: '${operation}' 판정 행은 각각 정확히 1개여야 합니다 (현재 ${rowCount}개).`,
+      );
+    }
   }
 }
 

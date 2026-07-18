@@ -184,7 +184,7 @@
 
 ## 25) Docs taxonomy hard gate 단계 활성화 미완료 `P1` `M`
 
-- 현상: [문서 거버넌스 정책](../policy/document-governance-policy.md)은 역할·문서 종류·SoT·transition 추적을 요구하지만 `scripts/validate-docs-structure.mjs`는 허용값과 nav/index 정합성만 검사한다. 대표 불일치는 [그룹미팅 architecture](../architecture/group-meeting-system.md)의 물리 DB 상세, [Mobile TO-BE architecture](../architecture/mobile-app-to-be.md)의 규범 문구, [Firebase 전환 debt](firebase-apple-sdk-cocoapods-migration-plan.md)의 실행 절차, `content/templates/release-record-template.md`의 `flow` 분류다.
+- 현상: [문서 거버넌스 정책](../policy/document-governance-policy.md)은 역할·문서 종류·SoT·transition 추적을 요구하지만 `scripts/validate-docs-structure.mjs`는 허용값, nav/index 정합성, 안정성 템플릿의 생명주기 판정 행처럼 결정 가능한 구조만 검사한다. 문서 본문의 실제 역할·SoT·transition 추적 적합성은 아직 검증하지 않으며, 대표 불일치는 [그룹미팅 architecture](../architecture/group-meeting-system.md)의 물리 DB 상세, [Mobile TO-BE architecture](../architecture/mobile-app-to-be.md)의 규범 문구, [Firebase 전환 debt](firebase-apple-sdk-cocoapods-migration-plan.md)의 실행 절차, `content/templates/release-record-template.md`의 `flow` 분류다.
 - 영향: 현행 문서가 목표 taxonomy에 맞기 전에 hard gate를 켜면 무관 변경을 차단하거나 전환용 allowlist와 예외가 장기 SoT로 남을 수 있다.
 - 조치: 구현 시점 docs 전체 baseline과 목표 taxonomy·비포함 범위를 확정하고, 대표 불일치를 작은 PR로 정리한 뒤 false-pass fixture와 report-only 검증을 먼저 추가한다.
 - 완료: 목표 taxonomy 적용 대상 문서 불일치와 전환용 allowlist 0건, 잘못된 fixture 자동 실패, report-only 예상 밖 불일치 0건 확인 후 docs CI hard gate와 `yarn validate:docs` 통과.

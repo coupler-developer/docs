@@ -8,6 +8,15 @@ import { fileURLToPath } from "node:url";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const validator = path.join(scriptsRoot, "validate-docs-structure.mjs");
+const lifecycleVerdictOperations = [
+  "추가",
+  "수정",
+  "삭제",
+  "이동",
+  "개명",
+  "분리",
+  "통합",
+];
 let docsRoot;
 
 beforeEach(() => {
@@ -16,6 +25,7 @@ beforeEach(() => {
   writePolicy("policy/example.md");
   writeNav(["policy/example.md"]);
   writeAgents(["policy/example.md"]);
+  writeStabilityReviewTemplate(lifecycleVerdictOperations);
 });
 
 afterEach(() => {
@@ -103,6 +113,68 @@ describe("docs structure validation", () => {
     assert.equal(result.status, 0, combinedOutput(result));
     assert.match(result.stdout, /docs 구조 검증 통과: 0개 문서/);
   });
+
+  it("rejects a missing docs stability review template", () => {
+    fs.rmSync(stabilityReviewTemplatePath());
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /필수 안정성 리뷰 템플릿이 없습니다/);
+  });
+
+  it("rejects a stability review template without lifecycle evidence", () => {
+    fs.writeFileSync(stabilityReviewTemplatePath(), "# Docs Stability Review\n");
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /문서 생명주기 증빙 절이 없습니다/);
+  });
+
+  it("rejects combined lifecycle verdict rows", () => {
+    writeStabilityReviewTemplate([
+      "추가",
+      "수정",
+      "삭제",
+      "이동/개명",
+      "분리/통합",
+    ]);
+
+    const result = runValidator();
+    const output = combinedOutput(result);
+
+    assert.equal(result.status, 1, output);
+    assert.match(output, /허용되지 않은 문서 생명주기 판정 행입니다: '이동\/개명'/);
+    assert.match(output, /허용되지 않은 문서 생명주기 판정 행입니다: '분리\/통합'/);
+  });
+
+  it("rejects an extra combined row beside separate lifecycle rows", () => {
+    writeStabilityReviewTemplate([
+      ...lifecycleVerdictOperations,
+      "이동/개명",
+    ]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /허용되지 않은 문서 생명주기 판정 행입니다: '이동\/개명'/,
+    );
+  });
+
+  it("rejects duplicate lifecycle verdict rows", () => {
+    writeStabilityReviewTemplate([...lifecycleVerdictOperations, "이동"]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(
+      result.stderr,
+      /'이동' 판정 행은 각각 정확히 1개여야 합니다 \(현재 2개\)/,
+    );
+  });
 });
 
 function writePolicy(relativePath, status = "as-is") {
@@ -143,6 +215,34 @@ function writeAgents(relativePaths) {
     path.join(docsRoot, "content", "AGENTS.md"),
     `${lines.join("\n")}\n`,
   );
+}
+
+function stabilityReviewTemplatePath() {
+  return path.join(
+    docsRoot,
+    "content",
+    "templates",
+    "docs-stability-review-template.md",
+  );
+}
+
+function writeStabilityReviewTemplate(operations) {
+  const targetPath = stabilityReviewTemplatePath();
+  const lines = [
+    "# Docs Stability Review",
+    "",
+    "## 문서 생명주기 증빙",
+    "",
+    "| 변경 작업 | 판정 | 근거 |",
+    "| --- | --- | --- |",
+  ];
+
+  for (const operation of operations) {
+    lines.push(`| ${operation}: 검토 기준 |  |  |`);
+  }
+
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, `${lines.join("\n")}\n`);
 }
 
 function runValidator() {
