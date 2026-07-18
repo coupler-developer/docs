@@ -7,30 +7,27 @@
 - 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md)
 - 기준 성격: `transition`
 
-## 폴더/네이밍 가이드 (to-be)
+## 목표 구조
 
-- 정의: 도메인 = `src/screens/` 최상위 기능 묶음(`auth`, `signup` 등, `shared` 제외), 화면 = 네비게이션 대상 `*Screen` 파일, Step = 화면 내부 플로우 단계 컴포넌트(`*Step*`).
-- 이 변경은 반드시 승인을 받고만 진행한다.
-- 구조: `src/screens/`에는 `shared/`와 도메인 폴더만 둔다. `src/screens/<도메인>/` 아래는 `<화면>Screen`과 동일 접두 파일(`<화면>*.ts`/`.tsx`), `shared/`만 허용한다. `<화면>/` 폴더는 만들지 않는다.
-- 라우팅 대상: `src/screens/<도메인>/<화면>Screen` 또는 `src/screens/shared/<화면>Screen`만 허용한다.
-- 화면 전용 코드는 같은 레벨 `src/screens/<도메인>/<화면>*.ts`/`.tsx`로 둔다(전역 화면은 `src/screens/shared/<화면>*.ts`/`.tsx`).
-- Step 규칙: 화면 전용 Step은 `src/screens/<도메인>/<화면>Step*.ts`/`.tsx`에 둔다. 도메인 공용 Step은 `src/screens/<도메인>/shared/steps/`, 도메인 간 공용은 Step 대신 공용 컴포넌트로 승격한다. Step은 라우터 등록 금지, 화면 내부 단계는 `*Section`/`*Block`/`*Panel` 사용, `fragment`/`*Fragment*` 금지. 레거시 Step 라우트는 to-be 전환 시 제거/리네이밍 대상으로 보고 신규 추가는 금지한다.
-- 승격 기준: 화면 전용 → 도메인 `shared` → 전역. 전역 UI는 `src/components/common/`, 전역 로직은 `src/api`/`src/stores`/`src/utils`/`src/constants`/`src/hooks`, 리소스는 `src/assets/`.
-- 용어 기준: `common`은 전역 공용, `shared`는 도메인 내부 공용만 의미한다. `src/screens/shared/`는 라우팅 전용으로만 사용하고, 컴포넌트는 두지 않는다.
-- 상수: 화면 전용은 `src/screens/<도메인>/<화면>Constants.ts`, 도메인 공용은 `src/screens/<도메인>/shared/constants/`, 전역은 `src/constants/`.
-- Card는 “화면 일부 재사용 블록”에만 사용하고, 화면 레이아웃을 포함하면 `*ScreenContent`/`*Panel`로 이름을 올린다.
+- 파일 구조와 네이밍 규칙은 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의
+  `Mobile 파일 구조와 네이밍`을 단일 기준으로 사용한다.
+- 이 문서는 해당 규칙이 적용된 목표 디렉터리와 레이어 배치를 설명한다.
+- 도메인은 `src/screens/`의 최상위 기능 묶음이고, 화면은 네비게이션 대상 `*Screen`, Step은 화면 내부
+  플로우 단계 컴포넌트다.
+- 기존 구조의 전환 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의
+  `Mobile 파일 구조 TO-BE 미전환`에서 추적한다.
 
 ## 레이어 책임 분리 적용 (Mobile)
 
 - 책임 분리 공통 원칙은 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 사용한다.
-- 본 문서는 모바일 구현 예시/적용 포인트만 다룬다(원칙 본문 반복 금지).
+- 본 문서는 모바일 구현 예시와 적용 지점만 설명하며 원칙 본문은 엔지니어링 가드레일이 소유한다.
 - 적용 포인트 예시:
-    - Screen 계층: 네비게이션 연결, 화면 상태 조합, UI 이벤트 wiring 중심으로 구성한다.
-    - Domain 계층: 상태 전이/판단/정책 로직은 Store/Service/UseCase로 올려서 재사용 가능하게 유지한다.
-    - Component 계층: 순수 렌더링 중심으로 유지하고, 도메인 판단 분기/네트워크 호출을 넣지 않는다.
-    - 공통 UI: `Frame(저수준 레이아웃)` + `App 수준 조합 컴포넌트` 2계층을 우선 검토한다.
+    - Screen 계층은 네비게이션 연결, 화면 상태 조합과 UI 이벤트 wiring을 담당한다.
+    - Domain 계층에는 Store/Service/UseCase 형태의 상태 전이·판단·정책 로직이 위치한다.
+    - Component 계층은 순수 렌더링을 담당하고 도메인 판단과 네트워크 호출은 Domain·Screen 경계에 위치한다.
+    - 공통 UI 예시는 `Frame(저수준 레이아웃)`과 `App 수준 조합 컴포넌트`의 2계층 구조다.
     - Header 예시: `HeaderFrame`(safe-area/slot/layout) + `AppHeader`(title/back/actions preset).
-    - 타입 경계: 타입 우회(`as unknown as`) 대신 공용 컴포넌트 export 타입을 단일화한다.
+    - 공용 컴포넌트의 export 타입이 타입 경계를 설명하며 타입 우회는 목표 구조에 포함하지 않는다.
 
 ## coupler-mobile-app 예시 폴더 구조 (to-be)
 
@@ -63,8 +60,6 @@ src/
 
 ## Navigation
 
-- `navigation/` 아래에 Root Stack, Tab Navigator, 각 탭의 Stack Navigator를 함께 둔다.
-- Root Stack은 인증 흐름(Auth)과 Main Tab을 분리해 관리한다.
-- Tab은 메인 하단 탭(매칭/채팅/스퀘어/설정), 각 탭은 전용 Stack으로 상세 화면을 관리한다.
-- 탭 루트 화면은 해당 탭 Stack의 루트로만 둔다(동일 화면을 RootStack에 중복 등록하지 않는다).
-- 하단 탭이 필요한 화면은 Tab Navigator를 통해 진입한다(탭 지정 네비게이션).
+- 목표 구조의 `navigation/`에는 Root Stack, Tab Navigator와 각 탭의 Stack Navigator가 함께 위치한다.
+- Root Stack은 인증 흐름과 Main Tab을 분리하고, 각 하단 탭은 전용 Stack에서 상세 화면을 구성한다.
+- 탭 루트 화면은 해당 탭 Stack의 루트이며 Root Stack에 같은 화면을 중복 등록하지 않는 구조다.

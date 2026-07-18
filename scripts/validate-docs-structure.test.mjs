@@ -8,24 +8,17 @@ import { fileURLToPath } from "node:url";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const validator = path.join(scriptsRoot, "validate-docs-structure.mjs");
-const lifecycleVerdictOperations = [
-  "추가",
-  "수정",
-  "삭제",
-  "이동",
-  "개명",
-  "분리",
-  "통합",
-];
 let docsRoot;
 
 beforeEach(() => {
   docsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "docs-structure-"));
-  fs.mkdirSync(path.join(docsRoot, "content", "policy"), { recursive: true });
-  writePolicy("policy/example.md");
+  writeDocument("policy/example.md", {
+    kind: "policy",
+    role: "규범",
+    status: "as-is",
+  });
   writeNav(["policy/example.md"]);
   writeAgents(["policy/example.md"]);
-  writeStabilityReviewTemplate(lifecycleVerdictOperations);
 });
 
 afterEach(() => {
@@ -40,39 +33,12 @@ describe("docs structure validation", () => {
     assert.match(result.stdout, /docs 구조 검증 통과/);
   });
 
-  it("allows lifecycle verdict rows in a different order", () => {
-    writeStabilityReviewTemplate([...lifecycleVerdictOperations].reverse());
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("allows lifecycle table rows without leading pipes", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      leadingPipe: false,
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("allows escaped pipes inside lifecycle evidence cells", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      rowCells: (operation) => [operation, "", "경로 \\| 설명"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
   it("rejects an added document missing from mkdocs nav", () => {
-    writePolicy("policy/added.md");
+    writeDocument("policy/added.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+    });
     writeAgents(["policy/example.md", "policy/added.md"]);
 
     const result = runValidator();
@@ -82,7 +48,11 @@ describe("docs structure validation", () => {
   });
 
   it("rejects an added document missing from the AGENTS index", () => {
-    writePolicy("policy/added.md");
+    writeDocument("policy/added.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+    });
     writeNav(["policy/example.md", "policy/added.md"]);
 
     const result = runValidator();
@@ -91,8 +61,12 @@ describe("docs structure validation", () => {
     assert.match(result.stderr, /policy\/added\.md: content\/AGENTS\.md 인덱스에 문서 링크가 없습니다/);
   });
 
-  it("rejects invalid metadata introduced by a document modification", () => {
-    writePolicy("policy/example.md", "invalid-status");
+  it("rejects invalid metadata status", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "invalid-status",
+    });
 
     const result = runValidator();
 
@@ -100,8 +74,141 @@ describe("docs structure validation", () => {
     assert.match(result.stderr, /허용되지 않은 기준 성격입니다: invalid-status/);
   });
 
+  it("rejects a role that does not match the document kind", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "설명",
+      status: "as-is",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /문서 종류 'policy'의 역할은 '규범'이어야 합니다/);
+  });
+
+  it("rejects a document kind that does not match its directory", () => {
+    writeDocument("policy/example.md", {
+      kind: "flow",
+      role: "시나리오",
+      status: "as-is",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /디렉터리 분류\(policy\)에서 문서 종류 'flow'을 사용할 수 없습니다/);
+  });
+
+  it("rejects a transition document without a tracking boundary", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "transition",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /완료 조건을 추적하는 문서 링크 또는 정책 내부 전환 추적/);
+  });
+
+  it("does not treat an unrelated flow link as transition tracking", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "transition",
+      body: "- [관련 흐름](../flows/example.md)",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /완료 조건을 추적하는 문서 링크 또는 정책 내부 전환 추적/);
+  });
+
+  it("does not match a filename that only contains a tracking directory name", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "transition",
+      body: "전환 완료는 [관련 문서](../policy/workflows.md)에서 추적한다.",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /완료 조건을 추적하는 문서 링크 또는 정책 내부 전환 추적/);
+  });
+
+  it("allows a transition document with an explicit tracking link", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "transition",
+      body: "전환 완료는 [기술 부채](../technical-debt/technical-debt.md)에서 추적한다.",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+  });
+
+  it("allows a policy to own explicit transition tracking", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "transition",
+      body: "- 완료 조건: 전환 검증 통과\n- 전환 추적: 이 문서와 릴리스 기록을 사용한다.",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+  });
+
+  it("validates standalone template metadata without nav registration", () => {
+    writeDocument("templates/policy-template.md", {
+      kind: "policy",
+      role: "설명",
+      status: "<as-is | to-be | transition 중 하나>",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /templates\/policy-template\.md: 문서 종류 'policy'의 역할은 '규범'/);
+  });
+
+  it("allows the documented template status placeholder", () => {
+    writeDocument("templates/policy-template.md", {
+      kind: "policy",
+      role: "규범",
+      status: "<as-is | to-be | transition 중 하나>",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+  });
+
+  it("allows the insertion-only cutover template fragment", () => {
+    const targetPath = path.join(
+      docsRoot,
+      "content",
+      "templates",
+      "api-contract-cutover-gate-template.md",
+    );
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, "# 삽입용 조각\n");
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
+  });
+
   it("rejects a deleted document left in mkdocs nav", () => {
-    deletePolicy("policy/example.md");
+    deleteDocument("policy/example.md");
     writeAgents([]);
 
     const result = runValidator();
@@ -111,7 +218,7 @@ describe("docs structure validation", () => {
   });
 
   it("rejects a deleted document left in the AGENTS index", () => {
-    deletePolicy("policy/example.md");
+    deleteDocument("policy/example.md");
     writeNav([]);
 
     const result = runValidator();
@@ -135,7 +242,7 @@ describe("docs structure validation", () => {
   });
 
   it("allows a deletion after nav and AGENTS synchronization", () => {
-    deletePolicy("policy/example.md");
+    deleteDocument("policy/example.md");
     writeNav([]);
     writeAgents([]);
 
@@ -144,628 +251,28 @@ describe("docs structure validation", () => {
     assert.equal(result.status, 0, combinedOutput(result));
     assert.match(result.stdout, /docs 구조 검증 통과: 0개 문서/);
   });
-
-  it("rejects a missing docs stability review template", () => {
-    fs.rmSync(stabilityReviewTemplatePath());
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /필수 안정성 리뷰 템플릿이 없습니다/);
-  });
-
-  it("rejects a stability review template without lifecycle evidence", () => {
-    fs.writeFileSync(stabilityReviewTemplatePath(), "# Docs Stability Review\n");
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /문서 생명주기 증빙 절이 없습니다/);
-  });
-
-  it("rejects lifecycle evidence without a table", () => {
-    writeRawStabilityReviewTemplate(["검토 결과 없음"]);
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /문서 생명주기 증빙 표가 없습니다/);
-  });
-
-  it("rejects duplicate lifecycle evidence sections", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "## 문서 생명주기 증빙",
-        "",
-        formatTableRow(["변경 작업", "판정", "근거"]),
-        formatTableRow(["---", "---", "---"]),
-        ...lifecycleVerdictOperations.map((operation) =>
-          formatTableRow([operation, "", ""]),
-        ),
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects an inline-formatted duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "## **문서 생명주기 증빙**"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects an entity-encoded duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "## 문서 생명주기 &#51613;&#48729;"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects an invisible-entity duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "## 문서&nbsp;생명주기&#x200b; 증빙"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects an inline-comment duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "## 문서 생명주기 증빙 <!-- duplicate -->"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects a Setext duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "문서 생명주기 증빙", "---"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("accepts a Setext lifecycle evidence section", () => {
-    fs.writeFileSync(
-      stabilityReviewTemplatePath(),
-      [
-        "# Docs Stability Review",
-        "",
-        "문서 생명주기 증빙",
-        "---",
-        "",
-        formatTableRow(["변경 작업", "판정", "근거"]),
-        formatTableRow(["---", "---", "---"]),
-        ...lifecycleVerdictOperations.map((operation) =>
-          formatTableRow([operation, "", ""]),
-        ),
-        "",
-      ].join("\n"),
-    );
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("rejects a raw HTML duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        '<h2 id="duplicate"><strong>문서 생명주기 증빙</strong></h2>',
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects a multiline raw HTML duplicate lifecycle evidence section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "<h2>", "문서 생명주기 증빙", "</h2>"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects a raw HTML duplicate with multiline attributes", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "<h2",
-        '  data-label="a > b">',
-        "문서 생명주기 증빙",
-        "</h2>",
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("ignores an ATX lifecycle heading inside an HTML comment", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "<!--", "## 문서 생명주기 증빙", "-->"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("ignores a raw HTML lifecycle heading inside an HTML comment", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "<!--", "<h2>문서 생명주기 증빙</h2>", "-->"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("does not let an inline-code comment marker hide a duplicate section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "`<!--`", "## 문서 생명주기 증빙"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("ignores lifecycle headings inside fenced code blocks", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "```"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("ignores lifecycle headings inside attribute fenced code blocks", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "``` {.markdown}", "## 문서 생명주기 증빙", "```"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("ignores lifecycle headings inside bare-attribute fenced code blocks", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "``` {linenums}", "## 문서 생명주기 증빙", "```"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("ignores lifecycle headings inside option fenced code blocks", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "```markdown hl_lines=\"1-2\" linenums=\"1 2 3\" title=\"example\"",
-        "## 문서 생명주기 증빙",
-        "```",
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("does not let an invalid fence hide a duplicate lifecycle section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "```markdown unexpected",
-        "## 문서 생명주기 증빙",
-        "```",
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("does not let an invalid fence option hide a duplicate lifecycle section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "```markdown title=example",
-        "## 문서 생명주기 증빙",
-        "```",
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("does not let an unclosed fence hide a duplicate lifecycle section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "```markdown", "## 문서 생명주기 증빙"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("does not let a mismatched fence hide a duplicate lifecycle section", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "```markdown", "## 문서 생명주기 증빙", "````"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 절은 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("rejects an additional lifecycle evidence table", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        formatTableRow(["변경 작업", "판정", "근거"]),
-        formatTableRow(["---", "---", "---"]),
-        formatTableRow(["추가 표", "", ""]),
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 증빙 판정 표는 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
-
-  it("allows pipe-containing prose outside the lifecycle evidence table", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["", "`변경 작업 | 판정 | 근거`는 불변 헤더다."],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("allows an indented example table outside the lifecycle evidence table", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: [
-        "",
-        "    | 예시 | 판정 | 근거 |",
-        "    | --- | --- | --- |",
-        "    | 수정 | No Findings | 예시 |",
-      ],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 0, combinedOutput(result));
-    assert.match(result.stdout, /docs 구조 검증 통과/);
-  });
-
-  it("rejects a lifecycle table missing the verdict column", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      header: ["변경 작업", "근거"],
-      rowCells: (operation) => [operation, ""],
-      separator: ["---", "---"],
-    });
-
-    const result = runValidator();
-    const output = combinedOutput(result);
-
-    assert.equal(result.status, 1, output);
-    assert.match(output, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
-    assert.match(output, /판정 행은 정확히 3개 셀이어야 합니다/);
-  });
-
-  it("rejects reordered lifecycle table headers", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      header: ["변경 작업", "근거", "판정"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
-  });
-
-  it("rejects renamed lifecycle table headers", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      header: ["작업", "판정", "근거"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
-  });
-
-  it("rejects extra lifecycle table header columns", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      header: ["변경 작업", "판정", "근거", "조치"],
-      rowCells: (operation) => [operation, "", "", ""],
-      separator: ["---", "---", "---", "---"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /표 헤더는 '변경 작업 \| 판정 \| 근거' 3개 열이어야 합니다/);
-  });
-
-  it("rejects an invalid lifecycle table separator", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      separator: ["---", "판정", "---"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /표 구분 행은 '--- \| --- \| ---' 형식의 3개 열이어야 합니다/,
-    );
-  });
-
-  it("rejects lifecycle verdict rows with the wrong cell count", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      rowCells: (operation) =>
-        operation === "수정" ? [operation, ""] : [operation, "", ""],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(result.stderr, /판정 행은 정확히 3개 셀이어야 합니다 \(현재 2개\): '수정 \| '/);
-  });
-
-  it("rejects a missing lifecycle verdict row", () => {
-    writeStabilityReviewTemplate(
-      lifecycleVerdictOperations.filter((operation) => operation !== "삭제"),
-    );
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /'삭제' 판정 행은 각각 정확히 1개여야 합니다 \(현재 0개\)/,
-    );
-  });
-
-  it("rejects review criteria duplicated in operation cells", () => {
-    writeStabilityReviewTemplate([
-      "추가: 기존 문서 검색",
-      ...lifecycleVerdictOperations.slice(1),
-    ]);
-
-    const result = runValidator();
-    const output = combinedOutput(result);
-
-    assert.equal(result.status, 1, output);
-    assert.match(
-      output,
-      /허용되지 않은 문서 생명주기 판정 행입니다: '추가: 기존 문서 검색'/,
-    );
-    assert.match(
-      output,
-      /'추가' 판정 행은 각각 정확히 1개여야 합니다 \(현재 0개\)/,
-    );
-  });
-
-  it("rejects combined lifecycle verdict rows", () => {
-    writeStabilityReviewTemplate([
-      "추가",
-      "수정",
-      "삭제",
-      "이동/개명",
-      "분리/통합",
-    ]);
-
-    const result = runValidator();
-    const output = combinedOutput(result);
-
-    assert.equal(result.status, 1, output);
-    assert.match(output, /허용되지 않은 문서 생명주기 판정 행입니다: '이동\/개명'/);
-    assert.match(output, /허용되지 않은 문서 생명주기 판정 행입니다: '분리\/통합'/);
-  });
-
-  it("rejects an extra combined row beside separate lifecycle rows", () => {
-    writeStabilityReviewTemplate([
-      ...lifecycleVerdictOperations,
-      "이동/개명",
-    ]);
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /허용되지 않은 문서 생명주기 판정 행입니다: '이동\/개명'/,
-    );
-  });
-
-  it("rejects an extra combined row without a leading pipe", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["이동/개명 |  |  "],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 .*'이동\/개명 \| '/,
-    );
-  });
-
-  it("rejects an extra row whose delimiters follow even backslashes", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["추가 표 \\\\|  \\\\|  |"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /허용되지 않은 문서 생명주기 판정 행입니다: '추가 표 \\\\'/,
-    );
-  });
-
-  it("rejects an adjacent table row without unescaped delimiters", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["추가 표 \\| 판정 \\| 근거"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /문서 생명주기 판정 행은 정확히 3개 셀이어야 합니다 \(현재 1개\)/,
-    );
-  });
-
-  it("rejects an adjacent indented lifecycle table row", () => {
-    writeStabilityReviewTemplate(lifecycleVerdictOperations, {
-      extraLines: ["    | 추가 표 |  |  |"],
-    });
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /허용되지 않은 문서 생명주기 판정 행입니다: '추가 표'/,
-    );
-  });
-
-  it("rejects duplicate lifecycle verdict rows", () => {
-    writeStabilityReviewTemplate([...lifecycleVerdictOperations, "이동"]);
-
-    const result = runValidator();
-
-    assert.equal(result.status, 1, combinedOutput(result));
-    assert.match(
-      result.stderr,
-      /'이동' 판정 행은 각각 정확히 1개여야 합니다 \(현재 2개\)/,
-    );
-  });
 });
 
-function writePolicy(relativePath, status = "as-is") {
+function writeDocument(relativePath, { kind, role, status, body = "" }) {
   const targetPath = path.join(docsRoot, "content", relativePath);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(
     targetPath,
-    `# Example Policy
+    `# Example
 
 ## 문서 역할
 
-- 역할: \`규범\`
-- 문서 종류: \`policy\`
+- 역할: \`${role}\`
+- 문서 종류: \`${kind}\`
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: \`${status}\`
+
+${body}
 `,
   );
 }
 
-function deletePolicy(relativePath) {
+function deleteDocument(relativePath) {
   fs.rmSync(path.join(docsRoot, "content", relativePath));
 }
 
@@ -786,54 +293,6 @@ function writeAgents(relativePaths) {
     path.join(docsRoot, "content", "AGENTS.md"),
     `${lines.join("\n")}\n`,
   );
-}
-
-function stabilityReviewTemplatePath() {
-  return path.join(
-    docsRoot,
-    "content",
-    "templates",
-    "docs-stability-review-template.md",
-  );
-}
-
-function writeStabilityReviewTemplate(
-  operations,
-  {
-    header = ["변경 작업", "판정", "근거"],
-    leadingPipe = true,
-    separator = ["---", "---", "---"],
-    extraLines = [],
-    rowCells = (operation) => [operation, "", ""],
-  } = {},
-) {
-  writeRawStabilityReviewTemplate([
-    formatTableRow(header, { leadingPipe }),
-    formatTableRow(separator, { leadingPipe }),
-    ...operations.map((operation) =>
-      formatTableRow(rowCells(operation), { leadingPipe }),
-    ),
-    ...extraLines,
-  ]);
-}
-
-function writeRawStabilityReviewTemplate(sectionLines) {
-  const targetPath = stabilityReviewTemplatePath();
-  const lines = [
-    "# Docs Stability Review",
-    "",
-    "## 문서 생명주기 증빙",
-    "",
-    ...sectionLines,
-  ];
-
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.writeFileSync(targetPath, `${lines.join("\n")}\n`);
-}
-
-function formatTableRow(cells, { leadingPipe = true } = {}) {
-  const leading = leadingPipe ? "| " : "";
-  return `${leading}${cells.join(" | ")} |`;
 }
 
 function runValidator() {

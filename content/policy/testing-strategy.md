@@ -129,7 +129,8 @@
     1. `src/screens/**`의 핵심 화면 스모크 렌더링과 same-level `*Step*` 파일 테스트
     2. 조건부 UI/상태 변화 테스트
 
-- 구조 메모: 현행 코드는 화면 레벨 `*Step*` 파일이 주류이며, to-be 구조에서도 화면 전용 Step은 `src/screens/<도메인>/<화면>Step*.ts(x)`를 기본으로 둔다. 도메인 공용 Step만 `src/screens/<도메인>/shared/steps/`를 사용한다.
+- 화면과 Step의 구조 판정은 [엔지니어링 가드레일](engineering-guardrails.md)의
+  `Mobile 파일 구조와 네이밍`을 따르며 이 문서는 테스트 우선순위만 소유한다.
 - 상호작용 테스트는 `@testing-library/react-native` 사용을 기본으로 한다.
 - 네이티브 모듈(AsyncStorage, Reanimated 등)은 Jest mock/셋업 파일로 분리 구성.
 
