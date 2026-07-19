@@ -196,6 +196,13 @@
 - 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 cutover → traffic 확인 후 legacy endpoint 제거.
 - 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 legacy traffic 0건 및 제거.
 
+## 27) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
+
+- 현상: [보안/접근통제 정책](../policy/security-access-control-policy.md)이 역할·범위 매트릭스를 정의하지만 `super = 0` 관리자의 현재 클럽매니저 연결 판정이 공통 인가 경계에 없고, Admin 상위 메뉴의 `manager` 표시값이 하위 직접 route에 일관되게 상속되지 않으며, 설정·통계·기존 2:2·라운지·매니저 조회·결제 상태 변경·상담 상세/전송·보조 업로드/조회 등 일부 API는 인증 또는 목록 필터만으로 접근한다. 일반 클럽매니저 화면도 호출하는 `manager/all`은 공개 선택 목록 전용 projection 없이 관리자 전체 DTO의 `user_id`, `password`, `password_raw`, 로그인 메타데이터를 반환한다. 회원 저장도 호출자의 현재 `CHARGE` 배정은 확인하지만 payload의 전담(`CHARGE`)·공유(`SHARE`) 배정 변경 권한을 분리하지 않아 operation별 `GLOBAL/ASSIGNED/OWNED/SHARED/SELF/NONE` 인가가 완결되지 않았다.
+- 영향: 일반 클럽매니저가 숨겨진 URL이나 직접 API 요청으로 허용 범위를 벗어난 데이터와 운영 액션에 접근할 수 있고, 공유매니저 선택에 필요하지 않은 관리자 자격증명·로그인 정보가 노출된다.
+- 조치: 모든 Admin component route와 API operation을 기능군·행위·데이터 범위에 매핑하고 서버 인가를 먼저 적용한 뒤, `manager/all`의 각 목록 item을 `id`, `nickname`만 반환하는 공개 선택 DTO로 분리하며, 명시적 route audience와 역할별 허용·거부·타 담당/소유자·응답 필드 회귀 테스트를 같은 변경 단위로 반영한다.
+- 완료: Admin route·API operation 매핑 100%, 미정의 operation 0건, 직접 URL/API 우회 0건, `manager/all`이 `cnt`, `list` envelope를 유지하면서 각 목록 item은 `id`, `nickname`으로만 구성되고 `user_id`, `password`, `password_raw`, 로그인·인증 설정 필드가 없다는 회귀 테스트, Super Admin·유효 연결 일반 클럽매니저·연결 누락 관리자·타 담당/소유자의 허용/거부 테스트 통과.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
