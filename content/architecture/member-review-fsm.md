@@ -69,9 +69,16 @@
 | `basic_info_status = 'APPROVED'` | 기본정보 단계 승인 |
 | `required_auth_status = 'APPROVED'` | 필수인증 단계 승인 |
 | `intro_status = 'APPROVED'` | 소개글 단계 승인 |
-| `required_auth_guard_code = 'OK'` | 매니저 필수인증 설정 유효 |
+| `required_auth_guard_code = 'OK'` | 회원별 필수 인증 정책 조회 가능 |
 
-- `required_auth_guard_code`는 전담매니저 링크·필수인증 설정이 정상인지 검증한다. 매니저 링크 누락·중복, 필수인증 미설정 시 `'OK'`가 아니므로 승격이 차단된다.
+- `required_auth_guard_code`는 조회 모델이 회원별 필수 인증 정책을 확인할 수 있는지 나타낸다. 현재 전담
+  클럽매니저의 배정·프로필·필수 인증 설정 준비 상태는 쓰기 동기화에서 별도로 검증한다.
+- 현재 쓰기 동기화는 `NORMAL`이 아닌 회원에게 실제 인증 데이터가 있고 전담 클럽매니저 준비 상태가
+  유효하지 않으면 guard 오류로 저장을 중단한다. 정상 가입 승격 경로의 대상은 `PENDING`이며, 같은 조건의
+  `NORMAL` 회원은 경고만 남기고 소급 차단하지 않는다.
+- 현재 전담 클럽매니저 설정과 기존 회원별 필수 인증 정책의 불일치만으로 guard 오류가 발생하지는 않는다.
+  발생 조건과 운영 처리 기준은 [회원 심사 단일 정책](../policy/member-review-policy.md)의
+  `전담 클럽매니저·필수 인증 변경 호환 상태`를 따른다.
 - 승격 성공 시 변경된 `member.status`를 반영하기 위해 `syncMemberReviewStatusByMemberId()`를 1회 재귀 호출한다.
 
 ## 앱/어드민 적용 기준
