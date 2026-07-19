@@ -163,7 +163,7 @@
 
 ## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
 
-- 현상: [API #135](https://github.com/coupler-developer/coupler-api/pull/135)가 병합돼 채팅 페이지 집계·무료 공개 프로필을 포함한 stable contract `0.1.13`이 발행됐다. [Admin #69](https://github.com/coupler-developer/coupler-admin-web/pull/69)는 같은 stable 계약으로 전환 중이고 Mobile은 아직 `0.1.12`를 소비한다. 세 레포 main·배포물의 exact version 일치 증빙과 대상 환경별 migration ledger·runtime, FCM, scheduler smoke, 운영 전환이 남아 있다.
+- 현상: [API #135](https://github.com/coupler-developer/coupler-api/pull/135)가 병합돼 채팅 페이지 집계·무료 공개 프로필을 포함한 stable contract `0.1.13`이 발행됐고 [Admin #69](https://github.com/coupler-developer/coupler-admin-web/pull/69)도 같은 stable 계약으로 병합됐다. Mobile은 아직 `0.1.12`를 소비한다. 세 레포 main·배포물의 exact version 일치 증빙과 대상 환경별 migration ledger·runtime, FCM, scheduler smoke, 운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
 - 조치: 다음 stable 계약 발행·소비자 exact pin → 세 레포 main·배포물의 exact version 일치 확인 → 대상 환경 migration ledger·schema 확인 → API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
 - 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
