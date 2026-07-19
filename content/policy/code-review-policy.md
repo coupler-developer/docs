@@ -121,7 +121,8 @@
 - [ ] 테스트 변경 여부(`추가`/`갱신`/`미변경`)와 근거 기록
 - [ ] 문서 동기화 점검(필요 시 업데이트, 불필요 시 근거 명시)
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기반 작성 여부 확인 (예외 시 근거 명시)
-- [ ] 문서/릴리즈 기록에 개인 사용자명 또는 로컬 절대경로가 남지 않았는지 확인
+- [ ] 문서/릴리즈 기록에 개인 사용자명·개인 개발 장비 절대경로가 없고, 공유 환경 경로는
+  [문서 거버넌스 정책](document-governance-policy.md)의 운영 flow/runbook 예외를 충족하는지 확인
 - [ ] policy를 추가·수정·삭제하면 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate` 증빙과 **Policy Composition / Lifecycle Consistency Reviewer** 판정을 기록
 - [ ] 자체 테스트 완료
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)

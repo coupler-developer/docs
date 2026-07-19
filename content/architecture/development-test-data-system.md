@@ -7,7 +7,10 @@
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
 - 기준 성격: `to-be`
 
-`coupler-api`의 생성 엔진·DB verifier와 `coupler-admin-web`의 관리자 route coverage·기본 browser smoke는 구현됐다. 이 문서는 route별 audience·filter·API 기대 결과까지 연결하는 목표 구조도 함께 정의한다. 공유 개발계 live 검증과 고도화 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
+이 문서는 생성 엔진·DB verifier, 관리자 route coverage와 browser smoke를 route별 audience·filter·API 기대
+결과까지 연결하는 목표 구조를 설명한다. 구현·공유 개발계 live 검증과 고도화의 현재 진행 현황은
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료`
+항목에서만 추적한다.
 
 ## 목적
 
