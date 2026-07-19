@@ -18,6 +18,7 @@
     "test:docs-validation-config": "node --test scripts/docs-validation-config.test.mjs",
     "test:technical-debt": "node --test scripts/validate-technical-debt.test.mjs",
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
+    "validate:docs-sensitive": "node scripts/validate-docs-structure.mjs --sensitive-only",
     "generate:logical-data-model-catalog": "node scripts/validate-logical-data-model.mjs --write-catalog",
     "validate:logical-data-model": "node scripts/validate-logical-data-model.mjs",
     "validate:technical-debt": "node scripts/validate-technical-debt.mjs",
