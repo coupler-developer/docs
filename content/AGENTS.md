@@ -82,7 +82,7 @@
 - [결제 시스템](architecture/payment-system.md) - 키 충전 및 인앱결제
 - [푸시 알림](architecture/push-notification.md) - FCM
 - [고객지원 시스템](architecture/support-system.md) - 고객센터 문의·답변
-- [관리자 권한](architecture/admin-permission.md)
+- [관리자 권한](architecture/admin-permission.md) - 관리자 계정·인가 구현 구조 설명
 - [플랫폼 기준정보 시스템](architecture/platform-config-system.md) - 설정·앱 버전·공지·기준정보
 - [분석 시스템](architecture/analytics-system.md) - 운영 통계 조회 모델
 - [크론 작업](architecture/cron-jobs.md) - 자동화 스케줄
@@ -111,7 +111,7 @@
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 실패 ErrorData 및 taxonomy 기준
 - [API 조회·동작 설계 정책](policy/api-operation-design-policy.md) - 페이지/use-case 조회 집계와 증분 조회·동작 명령·전송 경계 기준
 - [API 클라이언트 계약 패키지 정책](policy/api-client-contract-package-policy.md) - `@coupler-developer/coupler-api-contracts` 발행과 Admin/Mobile 소비 전환 기준
-- [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
+- [보안/접근통제 정책](policy/security-access-control-policy.md) - 관리자 역할·권한 매트릭스와 인증/인가 단일 SoT
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
 - [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정과 클럽매니저 예약 운영 범위 단일화
 - [회원 심사 단일 정책](policy/member-review-policy.md) - 가입/설정/Admin/Mobile 심사 기준 단일화
