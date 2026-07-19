@@ -131,15 +131,10 @@
 - [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
-- [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
-- [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
-- [ ] 릴리즈 자동화 metadata 필드가 추가되면 같은 질문을 두 필드가 독립적으로 답하지 않는지 확인한다. 포함 범위/required repo/scope별 결과/terminal evidence 완료 조건은 `releaseScopes` descriptor와 `scopeResults.<scope>`에서 파생하고, 비-ref 증적은 기존 scope-keyed namespace에 둔다.
-- [ ] 릴리즈 자동화 hard gate가 추가되면 terminal 상태의 거짓 완료 또는 `pending` 이후 고정 기준 변경을 막는 조건인지 확인한다. `planned`/`pending`/`in_progress` placeholder, 제외 scope, 참고용 본문 형식만 막는 변경은 finding으로 기록하고, 누락 실패/정상 통과/제외 scope 미차단 테스트가 함께 있는지 확인한다.
-- [ ] 신규 릴리즈 기록 PR이 표준 단일 PR 흐름을 사용하면 `pending` 커밋이 원격 Draft PR에 존재하고, `released` 전환에서 `releaseScopes`, `extraRepoRefs`, 서비스 commit SHA, Mobile Store version/build, API contract comparison ref가 바뀌지 않았는지 확인한다. `planned`는 선택 초안이며 배포 시작 근거로 승인하지 않는다. `released` 전체 CI와 리뷰 전에는 Ready 전환을 승인하지 않는다.
-- [ ] 기존 릴리즈 기록을 수정하면 PR 이력 어디에서도 `released`, `rolled_back`, `superseded`에서 `planned`, `pending`, `in_progress`로 역전이하지 않는지 확인한다. 사실 정정은 terminal 상태를 유지하고 후속 배포는 새 버전으로 분리한다.
-- [ ] 릴리즈 자동화 hard gate가 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 그 액션의 사전 조건으로 요구하지 않는지 확인한다. 이런 항목은 precheck와 postcheck/corrective reissue로 분리한다.
-- [ ] 릴리즈 자동화 terminal evidence 검증을 바꾸면 `releaseScopeDescriptors`/cutover required path/release tag descriptor 전체를 순회하는 `N/A - <사유>`, `pending`, 비-SHA ref, 서로 다른 SQL/checksum false-pass fixture가 실패 테스트로 고정되어 있는지 확인한다.
-- [ ] 릴리즈 자동화 metadata object 구조를 바꾸면 완전한 정상 metadata의 모든 object path에 unknown key를 주입하는 fail-closed 테스트가 유지되는지 확인한다.
+- [ ] 릴리즈 기록·자동화 변경이면 [배포/릴리즈 프로세스](release-process.md)의 적용 절과 체크리스트,
+  공통 release schema/derived model, 전환 검증 결과를 확인
+- [ ] 릴리즈 schema·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
+  같은 변경에서 검증되는지 확인
 - [ ] GitHub 원격 상태 또는 `gh` 인증을 확인했다면 아래 `GitHub 원격 상태 확인과 gh 인증 판정` 기준을 적용했는지 확인한다.
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
 - [ ] 문서(docs) 변경 시 [테스트/CI 전략](testing-strategy.md)의 docs 검증 게이트 통과 + 실행 명령/결과 링크 첨부

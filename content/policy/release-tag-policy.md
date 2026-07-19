@@ -23,7 +23,8 @@
 ## 단일 SoT
 
 - 이 문서는 배포 태그, 스토어 제출 마커 태그, 태그 증빙 기준의 단일 SoT다.
-- [배포/릴리즈 프로세스](release-process.md)는 배포 순서, docs GitHub Release, 릴리즈 기록 절차를 정의한다.
+- [배포/릴리즈 프로세스](release-process.md)는 배포 범위, 릴리즈 상태·metadata·증빙과 docs GitHub Release
+  완료/정정 조건을 정의한다.
 - [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)은 이 정책을 실행하는 명령 예시를 제공하며, 이 정책을 대체하지 않는다.
 - [코드 리뷰 정책](code-review-policy.md)은 이 정책을 태그/제출 마커 리뷰 기준으로 참조한다.
 
