@@ -113,7 +113,7 @@
 - [API 클라이언트 계약 패키지 정책](policy/api-client-contract-package-policy.md) - `@coupler-developer/coupler-api-contracts` 발행과 Admin/Mobile 소비 전환 기준
 - [보안/접근통제 정책](policy/security-access-control-policy.md) - 인증/인가/권한 변경 통제
 - [결제 운영 정책](policy/payment-ops-policy.md) - 결제 검증/환불/정산 운영 기준
-- [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정 기준 단일화
+- [매칭 운영 정책](policy/matching-ops-policy.md) - 매칭 상태/키/일정과 클럽매니저 예약 운영 범위 단일화
 - [회원 심사 단일 정책](policy/member-review-policy.md) - 가입/설정/Admin/Mobile 심사 기준 단일화
 - [회원가입 응답 계약](policy/signup-response-contract.md) - Envelope `ok`/`data` 역할 분리 최종안
 - [푸시알림 운영 정책](policy/push-notification-policy.md) - 타입/발송조건/장애대응 기준
