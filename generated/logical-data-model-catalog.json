@@ -2204,7 +2204,7 @@
     {
       "id": "GROUP-MEETING-INV-008",
       "relatedEntityId": "group-meeting.event",
-      "statement": "행사 정보는 DRAFT에서만 수정할 수 있으며 OPEN 이후에는 Admin과 Mobile 호스트 모두 수정할 수 없다",
+      "statement": "Admin은 DRAFT·OPEN에서 행사 정보 수정 API의 모든 필드를 변경할 수 있다. CLOSED·CONFIRMED에서는 참가비·신청 마감·사진 공개를 제외한 필드만 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
