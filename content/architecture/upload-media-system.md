@@ -187,7 +187,7 @@ flowchart TD
 
 | `server.is_dev` | 프록시 대상                                                |
 | --------------- | ---------------------------------------------------------- |
-| `true`          | `DEV_EC2_SERVER_URL` (하드코딩: `http://3.36.66.178:3002`) |
+| `true`          | `DEV_EC2_SERVER_URL` (정확한 값은 private 구현에서 관리) |
 | `false`         | `config.server.base_url` (운영 서버 URL)                   |
 
 ### 적용 범위
@@ -199,7 +199,7 @@ flowchart TD
 
 ### 로컬 개발 제약
 
-- `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 Dev EC2(`3.36.66.178:3002`)로 프록시된다
+- `is_dev=true`일 때 localhost에서 오는 모든 업로드/다운로드 요청이 private 구현에 설정된 Dev EC2로 프록시된다
 - 로컬 디스크에 파일이 저장되지 않는다 → **EC2 의존**
 - Dev EC2 접근 불가 시 업로드/파일 서빙 불가 (502 응답)
 - media proxy 502 실패 응답은 API ErrorData taxonomy 밖의 transport/proxy 실패로 처리하며, HTTP 502와 proxy 실패 로그만 사용한다
@@ -214,7 +214,7 @@ flowchart TD
 | -------------------- | ------------------------- | ------------------------- |
 | `server.is_dev`      | `true`/`false`            | true이면 DEV_EC2로 프록시 |
 | `server.base_url`    | URL                       | 운영환경 기준 URL         |
-| `DEV_EC2_SERVER_URL` | `http://3.36.66.178:3002` | 하드코딩된 개발 EC2 주소  |
+| `DEV_EC2_SERVER_URL` | private 구현 값            | 개발 EC2 origin           |
 
 ## To-Be 방향: S3 직접 업로드
 
