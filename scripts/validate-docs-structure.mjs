@@ -1,6 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const cliArgs = process.argv.slice(2);
+const sensitiveOnly = cliArgs.length === 1 && cliArgs[0] === "--sensitive-only";
+
+if (cliArgs.length > 0 && !sensitiveOnly) {
+  console.error(`Unknown argument: ${cliArgs[0]}`);
+  process.exit(1);
+}
+
 const docsRoot = process.cwd();
 const contentRoot = path.join(docsRoot, "content");
 const mkdocsPath = path.join(docsRoot, "mkdocs.yml");
@@ -71,6 +79,17 @@ const templateDocs = relativePaths.filter(
 );
 
 const errors = [];
+for (const relativePath of relativePaths) {
+  const source = fs.readFileSync(path.join(contentRoot, relativePath), "utf8");
+  validateSensitiveInfrastructureLiterals(relativePath, source, errors);
+}
+
+if (sensitiveOnly) {
+  exitOnErrors(errors);
+  console.log(`docs 민감 인프라 식별자 검증 통과: ${relativePaths.length}개 Markdown 파일`);
+  process.exit(0);
+}
+
 const navRefs = parseMkdocsNavRefs(
   fs.readFileSync(mkdocsPath, "utf8"),
   errors,
@@ -81,11 +100,6 @@ const agentsRefs = parseAgentsIndexRefs(
 );
 const allowedNavRefs = new Set(["README.md", "AGENTS.md", ...contentDocs]);
 const allowedAgentsRefs = new Set(["README.md", ...contentDocs]);
-
-for (const relativePath of relativePaths) {
-  const source = fs.readFileSync(path.join(contentRoot, relativePath), "utf8");
-  validateSensitiveInfrastructureLiterals(relativePath, source, errors);
-}
 
 for (const relativePath of contentDocs) {
   const source = fs.readFileSync(path.join(contentRoot, relativePath), "utf8");
@@ -140,12 +154,7 @@ for (const ref of agentsRefs) {
   }
 }
 
-if (errors.length > 0) {
-  for (const error of errors) {
-    console.error(error);
-  }
-  process.exit(1);
-}
+exitOnErrors(errors);
 
 console.log(
   `docs 구조 검증 통과: ${contentDocs.length}개 문서, ${templateDocs.length}개 독립 템플릿, nav ${navRefs.size}개, AGENTS 인덱스 ${agentsRefs.size}개`,
@@ -166,6 +175,17 @@ function walkMarkdownFiles(dirPath, results) {
       results.push(absolutePath);
     }
   }
+}
+
+function exitOnErrors(validationErrors) {
+  if (validationErrors.length === 0) {
+    return;
+  }
+
+  for (const error of validationErrors) {
+    console.error(error);
+  }
+  process.exit(1);
 }
 
 function parseMkdocsNavRefs(source, errors) {

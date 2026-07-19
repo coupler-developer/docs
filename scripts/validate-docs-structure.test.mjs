@@ -235,6 +235,42 @@ describe("docs structure validation", () => {
     assert.equal(result.status, 0, combinedOutput(result));
   });
 
+  it("runs sensitive-only validation without requiring nav or index registration", () => {
+    writeDocument("releases/v9.9.0.md", {
+      kind: "flow",
+      role: "시나리오",
+      status: "as-is",
+      body: "- environment: `production API`",
+    });
+
+    const result = runValidator(["--sensitive-only"]);
+
+    assert.equal(result.status, 0, combinedOutput(result));
+    assert.match(result.stdout, /docs 민감 인프라 식별자 검증 통과/);
+  });
+
+  it("rejects sensitive literals in an unregistered release during sensitive-only validation", () => {
+    writeDocument("releases/v9.9.0.md", {
+      kind: "flow",
+      role: "시나리오",
+      status: "as-is",
+      body: "- production host: `198.18.0.10`",
+    });
+
+    const result = runValidator(["--sensitive-only"]);
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /releases\/v9\.9\.0\.md:.*IPv4 literal/);
+    assert.doesNotMatch(result.stderr, /nav|인덱스/);
+  });
+
+  it("rejects unknown validation modes", () => {
+    const result = runValidator(["--unknown"]);
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /Unknown argument: --unknown/);
+  });
+
   it("rejects a transition document without a tracking boundary", () => {
     writeDocument("policy/example.md", {
       kind: "policy",
@@ -442,8 +478,8 @@ function writeAgents(relativePaths, { rulePaths = [] } = {}) {
   );
 }
 
-function runValidator() {
-  return spawnSync(process.execPath, [validator], {
+function runValidator(args = []) {
+  return spawnSync(process.execPath, [validator, ...args], {
     cwd: docsRoot,
     encoding: "utf8",
   });
