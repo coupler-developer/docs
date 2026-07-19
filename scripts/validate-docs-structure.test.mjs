@@ -12,6 +12,8 @@ let docsRoot;
 
 beforeEach(() => {
   docsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "docs-structure-"));
+  fs.mkdirSync(path.join(docsRoot, "content"), { recursive: true });
+  fs.writeFileSync(path.join(docsRoot, "content", "README.md"), "# Home\n");
   writeDocument("policy/example.md", {
     kind: "policy",
     role: "규범",
@@ -98,6 +100,139 @@ describe("docs structure validation", () => {
 
     assert.equal(result.status, 1, combinedOutput(result));
     assert.match(result.stderr, /디렉터리 분류\(policy\)에서 문서 종류 'flow'을 사용할 수 없습니다/);
+  });
+
+  it("rejects an unregistered top-level document directory", () => {
+    writeDocument("notes/example.md", {
+      kind: "architecture",
+      role: "설명",
+      status: "as-is",
+    });
+    writeNav(["policy/example.md", "notes/example.md"]);
+    writeAgents(["policy/example.md", "notes/example.md"]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /허용되지 않은 최상위 문서 디렉터리입니다: notes/);
+  });
+
+  it("does not count links outside the AGENTS document index", () => {
+    writeDocument("policy/added.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+    });
+    writeNav(["policy/example.md", "policy/added.md"]);
+    writeAgents(["policy/example.md"], {
+      rulePaths: ["policy/added.md"],
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /policy\/added\.md: content\/AGENTS\.md 인덱스에 문서 링크가 없습니다/);
+  });
+
+  it("does not count Markdown paths outside the mkdocs nav section", () => {
+    writeDocument("policy/added.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+    });
+    writeAgents(["policy/example.md", "policy/added.md"]);
+    fs.appendFileSync(
+      path.join(docsRoot, "mkdocs.yml"),
+      "extra_config:\n  - Reference: policy/added.md\n",
+    );
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /policy\/added\.md: mkdocs\.yml nav에 문서 링크가 없습니다/);
+  });
+
+  it("requires exactly one mkdocs nav section", () => {
+    fs.writeFileSync(path.join(docsRoot, "mkdocs.yml"), "site_name: Test Docs\n");
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /최상위 'nav:' 절은 정확히 1개여야 합니다/);
+  });
+
+  it("rejects duplicate nav and AGENTS index links", () => {
+    writeNav(["policy/example.md", "policy/example.md"]);
+    writeAgents(["policy/example.md", "policy/example.md"]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /mkdocs\.yml nav: 중복 문서 링크/);
+    assert.match(result.stderr, /content\/AGENTS\.md 문서 인덱스: 중복 문서 링크/);
+  });
+
+  it("requires exactly one AGENTS document index section", () => {
+    fs.writeFileSync(
+      path.join(docsRoot, "content", "AGENTS.md"),
+      "# AGENTS\n\n- [Document](policy/example.md)\n",
+    );
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /'## 문서 인덱스' 절은 정확히 1개여야 합니다/);
+  });
+
+  it("rejects templates registered as navigation or index documents", () => {
+    writeDocument("templates/policy-template.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+    });
+    writeNav(["policy/example.md", "templates/policy-template.md"]);
+    writeAgents(["policy/example.md", "templates/policy-template.md"]);
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /mkdocs\.yml nav에 등록할 수 없는 문서 링크/);
+    assert.match(result.stderr, /content\/AGENTS\.md 인덱스에 등록할 수 없는 문서 링크/);
+  });
+
+  it("rejects non-documentation IPv4 and database identity literals", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+      body: [
+        "- host: `198.18.0.10`",
+        "- database: `database_name=coupler`, `server_id=1234`",
+        '- identity: `"server_hostname": "ip-10-0-0-1"`, `"server_version": "10.6.24-MariaDB-log"`',
+      ].join("\n"),
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 1, combinedOutput(result));
+    assert.match(result.stderr, /실제 환경으로 오인 가능한 IPv4 literal/);
+    assert.match(result.stderr, /DB database_name literal/);
+    assert.match(result.stderr, /DB server_id literal/);
+    assert.match(result.stderr, /DB server_hostname literal/);
+    assert.match(result.stderr, /DB server_version literal/);
+  });
+
+  it("allows loopback, emulator, and documentation-only IPv4 addresses", () => {
+    writeDocument("policy/example.md", {
+      kind: "policy",
+      role: "규범",
+      status: "as-is",
+      body: "- local: `127.0.0.1`, `10.0.2.2`, `10.0.3.2`, `0.0.0.0`\n- examples: `192.0.2.10`, `198.51.100.20`, `203.0.113.30`",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, combinedOutput(result));
   });
 
   it("rejects a transition document without a tracking boundary", () => {
@@ -277,15 +412,27 @@ function deleteDocument(relativePath) {
 }
 
 function writeNav(relativePaths) {
-  const lines = ["site_name: Test Docs", "nav:"];
+  const lines = [
+    "site_name: Test Docs",
+    "nav:",
+    "  - Home: README.md",
+    "  - Workspace AGENTS: AGENTS.md",
+  ];
   for (const relativePath of relativePaths) {
     lines.push(`  - Document: ${relativePath}`);
   }
   fs.writeFileSync(path.join(docsRoot, "mkdocs.yml"), `${lines.join("\n")}\n`);
 }
 
-function writeAgents(relativePaths) {
+function writeAgents(relativePaths, { rulePaths = [] } = {}) {
   const lines = ["# AGENTS", ""];
+  for (const relativePath of rulePaths) {
+    lines.push(`- [Rule](${relativePath})`);
+  }
+  if (rulePaths.length > 0) {
+    lines.push("");
+  }
+  lines.push("## 문서 인덱스", "", "- [Setup](README.md)");
   for (const relativePath of relativePaths) {
     lines.push(`- [Document](${relativePath})`);
   }
