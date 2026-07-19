@@ -53,11 +53,11 @@ pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at "$REFERENC
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --apply
 pnpm --dir coupler-api data-feed verify --namespace qa-cms
 DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE_STATE=/absolute/path/to/storage-state.json DEV_DATA_MEMBER_ID=123 yarn --cwd /absolute/path/to/coupler-admin-web test:dev-data-ui
-# catalog·scenario 갱신은 reset과 apply를 따로 실행하지 않고 같은 namespace의 reapply를 사용한다.
-pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT"
-DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply
-# reapply plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
-DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply --adopt-legacy-asset-root
+# 직전 catalog와의 차이가 N:N scenario 하나인 기존 cms-all은 같은 namespace에서 원자 교체한다.
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade group-meeting-all --namespace qa-cms --owner qa-owner
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade group-meeting-all --namespace qa-cms --owner qa-owner --confirm qa-cms --apply
+# upgrade plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade group-meeting-all --namespace qa-cms --owner qa-owner --confirm qa-cms --apply --adopt-legacy-asset-root
 # 유지 종료처럼 재생성하지 않는 정리만 reset을 단독 사용한다.
 pnpm --dir coupler-api data-feed reset --namespace qa-cms
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
@@ -73,8 +73,8 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 - `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·asset root 기록 여부·유지 종료일·만료 여부·검증 count를 출력한다. feeder와 개발 cron이 공유하는 contract parser로 fence·active record 전체를 검증하며, registry metadata, active directory entry, global fence와 active record의 양방향 정합성 또는 active record 상호 간 scope가 유효하지 않으면 fail-closed한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
-- `reapply`는 `--apply`가 없으면 기존 reset plan과 새 apply plan을 함께 출력할 뿐 write하지 않는다. 실제 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구하고, owner·시간·schema·catalog preflight가 실패하면 reset을 시작하지 않는다.
-- `reapply`가 reset 뒤 replacement apply에 실패하면 명령 전체가 실패하며 완료로 보고하지 않는다. `active`로 새 run의 존재 여부·상태와 원인을 확인하고, active run이 있으면 같은 catalog의 `apply`를 재시도하며 없으면 새 `plan`부터 복구한다.
+- `upgrade`는 `--apply`가 없으면 owner·active suite·catalog/schema·기존/대상 scenario version·asset·복구 상태를 확인할 뿐 write하지 않는다. 실제 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구한다.
+- `upgrade`는 기존 scenario 삭제, 새 version 생성과 verifier를 한 DB transaction에서 수행한다. 실패하면 기존 version으로 rollback하고, commit 뒤 registry 승격이 중단되면 같은 명령이 old/new row reference로 결과를 복구한다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
 - 첫 번째 `reset`은 삭제 계획만 출력한다.
 - 실제 reset은 namespace와 같은 `--confirm` 값이 필요하다.
@@ -97,6 +97,18 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 13. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
 14. run ID, mutation count, 검증 결과와 유지 종료일을 registry와 작업 증빙에 기록한다.
 
+## Scenario Upgrade 흐름
+
+1. `active`와 `upgrade <domain-suite>` dry-run으로 owner, active suite, 직전 catalog version, schema fingerprint, 기존·대상 scenario version, asset과 복구 상태를 확인한다.
+2. 현재 구현은 직전 catalog와의 차이가 `group-meeting-all` scenario 하나인 경우만 허용한다. 다른 catalog 차이, 다른 owner·suite, stale schema와 target asset 누락은 write 전에 중단한다.
+3. 실제 실행은 namespace와 같은 `--confirm`, `--apply`를 받고 namespace lock과 cron lease 0건을 확인한 뒤 registry를 `applying`으로 전환한다.
+4. 한 DB transaction 안에서 기존 N:N scenario의 row reference와 전용 합성 actor 소유권을 잠그고, N:N graph와 전용 actor만 삭제한 뒤 새 version을 생성한다. Toto와 `dummy-female@coupler.dev`, host·admin·다른 suite의 root는 삭제하지 않는다.
+5. commit 전 registry에는 old committed와 new prepared의 row reference를 함께 기록하고, 새 N:N 행사·신청·채팅·신고·패널티·후기·이미지 obligation과 Admin read model을 같은 transaction에서 검증한다.
+6. verifier가 실패하면 DB 전체를 rollback하고 old committed만 남겨 `applied`로 복구한다. commit이 확인되면 new committed만 남기고 `catalogVersion`을 1 증가시켜 `applied`로 전환한다.
+7. process 또는 registry 오류 뒤 재실행은 new reference 전체 존재·old reference 전체 부재만 commit으로, 그 반대만 rollback으로 판정한다. 부분 존재나 양쪽 존재는 `applying` fence를 유지하고 수동 SQL 없이 원인을 조사한다.
+8. API 서버 배포에서는 새 코드를 checkout하고 의존성을 설치한 뒤 기존 PM2 process가 살아 있는 상태에서 upgrade를 먼저 실행하고, 성공 후 PM2를 restart한다. 새 catalog process를 먼저 restart하면 구 catalog registry를 읽는 동안 cron fence 오류가 날 수 있으며 PM2 옵션으로 해결하지 않는다.
+9. 별도 `verify`, API postcheck와 Admin browser smoke가 통과해야 개발계 upgrade 완료로 기록한다.
+
 ## 도메인별 검증
 
 | 도메인 | 최소 postcheck |
@@ -116,9 +128,9 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 1. 같은 owner·suite·catalog/schema version·reference time의 반복 `apply`는 prepared scenario를 reconciliation하고, 이미 `applied`면 데이터를 재생성하지 않고 verifier만 다시 실행한다.
 2. 새 namespace의 `cms-all`은 다른 active run이 없어야 하고, 도메인 suite는 동일 suite의 active run이 없어야 한다. 서로 다른 도메인 suite만 분할 모드로 함께 유지한다.
 3. 동일 도메인에 추가 화면 상태가 필요하면 병렬 namespace를 만들지 않고 정상 시나리오·verifier를 보강한다.
-4. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace의 `reapply` dry-run에서 reset·apply 계획을 함께 검토한 뒤 단일 `reapply --confirm <namespace> --apply` 명령으로 교체한다.
+4. 직전 catalog와 현재 catalog의 차이가 한 domain scenario뿐이면 기존 namespace의 `upgrade <domain-suite>` dry-run을 검토한 뒤 `upgrade --confirm <namespace> --apply`로 원자 교체한다. schema fingerprint, suite, reference time 또는 둘 이상의 scenario가 달라지는 전체 교체는 지원하지 않으며 기존 run을 보존한다.
 5. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
-6. `reapply`는 reset 완료 직후 같은 호출에서 새 apply와 verifier를 실행한다. reset 결과만 출력되거나 replacement apply가 실패한 상태는 완료가 아니다.
+6. `upgrade`는 old committed와 new prepared row reference를 함께 기록한 뒤 verifier 통과 시에만 DB와 catalog version을 승격한다. 양쪽 reference가 부분 존재하거나 동시에 존재하면 자동 추정하지 않고 중단한다.
 
 ## UI·상태·DB 변경 반영 흐름
 
