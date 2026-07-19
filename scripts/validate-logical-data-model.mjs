@@ -330,13 +330,16 @@ export function validateLogicalDataModel({
 
       catalogEntities.push({
         id: entityId,
+        name: displayName,
         domainId: domain.id,
         ownerDocument: domain.ownerDocument,
         stage: domain.stage,
         lifecycleRole,
         entityShape,
         recordRole,
+        responsibility,
         classification,
+        lifecycle,
       });
       modelEntities.push({
         id: entityId,
@@ -486,14 +489,41 @@ export function validateLogicalDataModel({
     }
   }
 
+  const catalogRelationships = relationships
+    .map((relationship) => ({
+      sourceEntityId: relationship.source,
+      role: relationship.role,
+      kind: relationship.kind,
+      targetEntityId: relationship.target,
+      cardinality: relationship.cardinality,
+      lifecycleRule: relationship.rule,
+      ownerDocument: relationship.ownerDocument,
+    }))
+    .sort(
+      (left, right) =>
+        left.sourceEntityId.localeCompare(right.sourceEntityId) ||
+        left.role.localeCompare(right.role),
+    );
+  const catalogInvariants = invariants
+    .map((invariant) => ({
+      id: invariant.id,
+      relatedEntityId: invariant.relatedEntityId,
+      statement: invariant.statement,
+      basis: invariant.basis,
+      ownerDocument: invariant.ownerDocument,
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+
   const catalog = {
-    version: 2,
+    version: 3,
     source: {
       currentIndex: "content/architecture/logical-data-model-index.md",
       plannedIndex: "content/architecture/logical-data-model-planned-index.md",
     },
     domains: catalogDomains.sort((left, right) => left.id.localeCompare(right.id)),
     entities: catalogEntities.sort((left, right) => left.id.localeCompare(right.id)),
+    relationships: catalogRelationships,
+    invariants: catalogInvariants,
   };
 
   const modelEntityById = new Map(modelEntities.map((entity) => [entity.id, entity]));
