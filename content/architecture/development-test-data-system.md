@@ -120,7 +120,7 @@ coupler-admin-web/
 
 | 구성요소 | 책임 |
 | --- | --- |
-| CLI | `list`, `active`, `plan`, `apply`, `verify`, `coverage`, `reset` 명령 제공 |
+| CLI | `list`, `active`, `plan`, `apply`, `upgrade`, `verify`, `coverage`, `reset` 명령 제공 |
 | Environment Guard | 설정과 실제 DB identity를 비교하고 운영·미지원 schema 차단 |
 | Namespace Validator | 형식·길이·SQL parameter 사용·asset 경로 containment 검증 |
 | Namespace Lock | 동일 namespace 동시 실행 차단 |
@@ -129,6 +129,7 @@ coupler-admin-web/
 | DB Contract Verifier | 관련 table·column·view·FK·필수 insert column 계약과 fingerprint 검증 |
 | Branch Obligation Map | 상태·전이·권한·filter·시간 경계의 missing·stale 분기 검출 |
 | Scenario Catalog | scenario ID, version, 의존성, 생성기, verifier 연결 |
+| Scenario Upgrade | 직전 catalog의 단일 scenario를 같은 namespace에서 원자 교체하고 old/new row reference로 commit 결과 복구 |
 | Suite Catalog | 도메인별 scenario 묶음과 실행 순서 관리 |
 | Domain Builder | 합성 root·child를 트랜잭션으로 생성 |
 | Ownership Resolver | namespace root에서 생성 child와 asset을 역추적 |
@@ -186,8 +187,8 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 | `namespace` | 검증을 통과한 소문자 식별자 |
 | `owner` | 정리 책임자 식별자 |
 | `suite` | 적용 suite |
-| `catalogVersion` | scenario catalog version |
-| `assetRoot` | apply와 reset이 함께 사용하는 API 서버 미디어 저장소의 정규화된 절대 경로. legacy record는 명시적 reset 채택 전까지만 부재 가능 |
+| `catalogVersion` | 현재 DB와 일치하는 scenario catalog version. 단일 scenario upgrade 완료 시에만 1 증가 |
+| `assetRoot` | apply·upgrade·reset이 함께 사용하는 API 서버 미디어 저장소의 정규화된 절대 경로. legacy record는 명시적 upgrade 또는 reset 채택 전까지만 부재 가능 |
 | `schemaFingerprint` | 관련 DB 계약 fingerprint |
 | `referenceTime` | 통계·시간 경계 기준 시각 |
 | `expiresAt` | 공유 개발계 유지 종료일 |
@@ -206,11 +207,12 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·UTC ISO 8601 표준 형식의 시각과 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·asset root·시각·scenario·row reference·count를 같은 기준으로 검증한다. asset root 부재는 도입 전 legacy record로만 읽고 새 claim에서는 거부한다.
 - init 재진입, readiness, inventory, claim, 상태 update, finalization과 개발 cron lease 생성은 registry mutex 안에서 fence와 active directory 전체 snapshot의 형식·양방향 소유권·active scope 충돌을 먼저 검증한다. 한 record만 유효하다는 이유로 손상된 나머지 snapshot을 무시하고 진행하지 않는다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
+- 단일 scenario upgrade 중에는 기존 committed version과 새 prepared version을 함께 기록한다. DB commit 결과를 두 version의 정확한 row reference 존재로 판정한 뒤 하나만 committed로 남긴다.
 - reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
 - history write나 fence update가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 합성 데이터와 fence는 이미 제거된 cleaned record를 남기고, 같은 reset은 DB·asset cleanup을 반복하지 않고 ETag와 현재 record가 일치할 때 finalization만 재시도한다.
 - apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거한다. cleanup도 동일한 run record parser와 `{runId}.json` 파일 소유권을 검증하고 손상된 history를 임의 삭제하지 않으며, 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
 - registry active/history prefix는 namespace asset인 `uploads/dev-data/{namespace}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
-- registry가 불가용하거나 active record와 DB root가 불일치하면 apply·verify·reset을 중단하고 reconciliation 결과를 출력한다.
+- registry가 불가용하거나 active record와 DB root가 불일치하면 apply·upgrade·verify·reset을 중단하고 reconciliation 결과를 출력한다.
 - 최초 `init-registry`는 DB에 연결하지 않고 빈 registry만 만든다. fence가 유실됐는데 active record가 남은 상태는 빈 fence로 덮지 않고 복구 대상으로 중단한다.
 - `active` inventory는 registry mutex 안에서 active directory 전체를 읽고 namespace, suite, owner, 상태, 유지 종료일과 count를 출력한다. 예상하지 못한 파일, 중복 fence namespace, 유효하지 않은 fence 시각·active metadata 또는 active record 상호 간 scope 충돌이 있으면 일부 목록을 반환하지 않고 전체를 실패시킨다.
 - fence-only namespace와 unfenced active record는 부분 claim·registry 손상 상태로 분류해 inventory와 신규 claim을 차단한다. 단, DB·asset 정리가 끝나고 마지막 active unlink만 재시도하는 `cleaned` record는 fence 없이 남을 수 있다.
@@ -218,9 +220,9 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - 통합 모드: `cms-all` 하나만 active
     - 분할 모드: 서로 다른 도메인 suite를 각각 하나씩 active
 - `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
-- claim 뒤 run ID, namespace/key, owner, suite, catalog/schema fingerprint, asset root, reference/expiry/created time은 바꾸지 않는다. 단, asset root가 없는 legacy active record는 명시적 reset 채택에서 현재 정규화 경로를 한 번 기록할 수 있다. update는 `updatedAt` 단조 증가와 apply·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
+- claim 뒤 run ID, namespace/key, owner, suite, schema fingerprint, reference/expiry/created time은 바꾸지 않는다. `catalogVersion`은 검증된 단일 scenario 교체가 끝나는 `applying -> applied` 전이에서만 정확히 1 증가할 수 있다. asset root가 없는 legacy active record는 명시적 upgrade 또는 reset 채택에서 현재 정규화 경로를 한 번 기록할 수 있다. update는 `updatedAt` 단조 증가와 apply·upgrade·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
 - 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
-- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 정상 시나리오 catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
+- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 정상 시나리오 catalog와 verifier를 확장한다. 직전 catalog와의 차이가 해당 scenario 하나뿐이면 같은 namespace의 scenario upgrade로 교체하고, 그보다 큰 catalog 교체는 기존 run을 보존한 채 중단한다.
 
 ## 데이터 계층
 
@@ -500,8 +502,9 @@ coverage entry는 다음 축을 가진다.
 - `apply`는 기준정보 검증 뒤 의존성 순서로 scenario를 실행한다.
 - 새 namespace claim은 registry mutex 안에서 overlapping active scope를 다시 검사한다. `plan` 뒤 다른 실행이 먼저 claim하면 후속 apply는 DB write 전에 실패한다.
 - claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
-- 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다. 이 식별 계약이 하나라도 다르면 `reapply`가 기존 reset plan과 새 apply plan을 함께 preflight한 뒤 같은 namespace run을 교체한다.
-- `reapply`의 dry-run은 reset·apply 양쪽 계획과 확인값을 한 결과로 반환한다. write 경로는 owner·시간·schema·catalog preflight 뒤 기존 run을 reset하고 즉시 새 run을 apply·verify하며, replacement apply 예외를 전체 명령 실패로 승격해 reset만 성공한 상태를 완료 결과로 만들지 않는다.
+- 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다.
+- 직전 catalog와 현재 catalog의 차이가 단일 scenario인 경우 `upgrade`가 owner·suite·schema·asset과 기존 version을 preflight한다. write 경로는 Run Registry를 `applying`으로 전환한 뒤 기존 scenario graph 삭제, 새 version 생성과 suite verifier를 한 DB transaction에서 수행한다.
+- upgrade commit 직전 registry는 old committed와 new prepared row reference를 함께 가진다. 재실행은 new 전체 존재·old 전체 부재만 commit으로, 그 반대만 rollback으로 판정한다. 순차 전체 reset 뒤 apply하는 `reapply` 경로는 두지 않는다.
 - `reset`은 기록된 asset root와 현재 경로의 일치를 확인한 뒤 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한다. asset root가 없는 legacy active record는 reset plan에 전환 필요를 표시하며, 정확한 namespace 확인과 `--adopt-legacy-asset-root`를 함께 받은 경우에만 현재 경로를 한 번 기록하고 진행한다.
 - DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
 - DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.

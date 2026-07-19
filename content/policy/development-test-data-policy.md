@@ -108,14 +108,16 @@
     - `cms-all`은 모든 도메인 suite와 scope가 겹치므로 다른 active run이 하나라도 있으면 새 namespace로 claim할 수 없다.
     - 도메인 suite는 동일 suite의 active run과만 충돌하며, 서로 다른 도메인 suite는 각각 최대 1개씩 함께 유지할 수 있다.
     - 동일 namespace의 owner·suite·catalog/schema version·reference time이 같은 반복 apply는 신규 claim이 아니라 기존 run 검증으로 처리한다.
-    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 정상 시나리오와 verifier를 보강한 뒤 기존 namespace를 `reapply`한다.
-    - catalog·scenario version 교체는 기존 run의 reset plan과 새 catalog의 apply plan을 함께 출력하는 `reapply` dry-run을 먼저 검토한다. 실제 교체는 namespace와 같은 `--confirm` 및 `--apply`를 받은 단일 `reapply` 명령으로 reset 직후 같은 namespace를 즉시 apply·검증하며, reset 성공만으로 교체 완료를 보고하지 않는다.
+    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 정상 시나리오와 verifier를 보강한다.
+    - 기존 active run의 한 도메인 scenario만 다음 catalog version으로 바꾸는 경우, 직전 catalog와 현재 catalog의 차이가 그 scenario 하나뿐일 때만 같은 namespace의 `upgrade`를 허용한다. 다른 suite·scenario row와 asset은 유지해야 한다.
+    - `upgrade` dry-run은 owner·active suite·직전 catalog version·schema fingerprint·기존/대상 scenario version·asset 존재와 legacy asset root 채택 필요 여부를 출력한다. 실제 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구한다.
+    - 기존 namespace 전체를 먼저 reset한 뒤 새 catalog를 apply하는 순차 `reapply`는 replacement apply 실패 시 기존 데이터가 사라지므로 제공하지 않는다. 한 scenario 원자 교체로 표현할 수 없는 전체 catalog 교체는 세대 단위 원자 교체 구조가 구현되기 전까지 기존 run을 보존하고 중단한다.
 - scope 충돌 검사는 run registry mutex 안에서 active record 전체를 읽고 claim 직전에 다시 수행한다. `plan` 결과만으로 claim 가능성을 확정하지 않는다.
 - inventory와 claim은 새 요청과 기존 record만 비교하지 않고 기존 active record 전체를 pairwise 검증한다. 이미 손상된 active scope 집합이 있으면 겹치지 않는 suite 요청도 허용하지 않는다.
 - global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
 - feeder와 개발 cron은 하나의 Run Registry contract validator를 사용한다. fence namespace 중복·UTC ISO 8601 표준 형식이 아닌 시각과 active record metadata 중 하나라도 있으면 두 경로 모두 fail-closed하며 consumer별 완화 해석을 허용하지 않는다.
 - 만료됐거나 `failed`, `cleanup_failed`, `cleaned` finalization 대기 상태인 active record도 명시적 reset·finalization 전에는 새 overlapping suite를 차단한다.
-- claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. 단, asset root identity 도입 전에 생성돼 해당 필드가 없는 legacy active record는 read-only inventory·verify·reset plan을 허용하고, namespace와 같은 `--confirm` 및 `--adopt-legacy-asset-root`를 함께 준 reset에서 현재 `DEV_DATA_ASSET_ROOT`를 정확히 한 번 기록할 수 있다. 상태 update는 apply·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
+- claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. `catalogVersion`은 검증된 한 scenario 교체가 끝나는 `applying -> applied` 전이에서만 정확히 1 증가할 수 있다. asset root identity 도입 전에 생성돼 해당 필드가 없는 legacy active record는 read-only inventory·verify·reset·upgrade plan을 허용하고, namespace와 같은 `--confirm` 및 `--adopt-legacy-asset-root`를 함께 준 reset 또는 upgrade에서 현재 `DEV_DATA_ASSET_ROOT`를 정확히 한 번 기록할 수 있다. 상태 update는 apply·upgrade·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
 - scope 충돌을 우회하는 `--force`, 병렬 허용 옵션, 만료 시 자동 삭제를 제공하지 않는다.
 - 공유 registry backend는 read-after-write consistency와 ETag 조건부 갱신을 보장해야 하며, 보장할 수 없는 저장소는 지원하지 않는다.
 - owner, suite, catalog version, schema fingerprint, 정규화된 asset root, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
@@ -127,6 +129,9 @@
 - 같은 schema version, namespace, scenario version의 반복 실행은 같은 논리 결과를 만들어야 한다.
 - 각 시나리오는 독립 트랜잭션으로 적용하고 실패한 시나리오는 전부 rollback한다.
 - suite 일부가 실패하면 성공으로 보고하지 않고 실패 시나리오와 이미 적용된 시나리오를 구분해 출력한다.
+- scenario upgrade는 기존 scenario의 소유 root·child·전용 actor 삭제, 새 version 생성과 해당 suite verifier를 하나의 DB 트랜잭션에서 수행한다. 검증 전에는 commit하지 않으며 실패하면 기존 version 전체를 복구한다.
+- upgrade commit 직전 Run Registry에는 기존 committed scenario와 새 prepared scenario의 정확한 row reference를 함께 기록한다. 재실행은 새 reference 전체 존재·기존 reference 전체 부재를 committed로, 그 반대를 rollback으로만 판정하며 부분 존재나 양쪽 존재는 fail-closed한다.
+- upgrade는 기존 namespace asset을 삭제하거나 다시 렌더링하지 않는다. 대상 scenario가 사용하는 프로필의 존재·WebP 크기와 영상 checksum을 DB mutation 전에 검증하고 하나라도 없거나 다르면 중단한다.
 - 동일 namespace 동시 실행은 금지하고 DB advisory lock 또는 동등한 잠금으로 차단한다.
 - 시간 의존 데이터는 한 실행에서 확정한 `reference_time`과 `Asia/Seoul` timezone을 공통 사용한다.
 - reset의 DB child·root 삭제와 DB 잔존 검증은 단일 트랜잭션에서 실행하고 하나라도 실패하면 전부 rollback한다.
@@ -240,16 +245,18 @@
 - 공유 개발계 명령은 기본적으로 dry-run하며 실제 write에는 명시적 `--apply`가 필요하다.
 - `active`는 DB에 연결하지 않고 현재 active namespace의 owner, suite, scope, 상태, 기준 시각, 유지 종료일, 만료 여부, 검증 count를 출력한다.
 - dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
+- upgrade dry-run은 기존 active run을 바꾸지 않고 교체할 scenario의 기존·대상 version, 보존할 다른 scenario 수, asset 검증 결과, 복구 필요 여부와 확인값을 출력한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
 - reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. 계획에 legacy asset root 채택 필요 여부를 표시하고, 필요한 경우에만 `--adopt-legacy-asset-root`를 허용한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
-- `reapply`는 owner·시간·schema·새 catalog를 write 전에 preflight하고 reset과 같은 확인 규칙을 적용한다. reset 뒤 replacement apply가 실패하면 명령 전체를 실패로 종료하고 완료 보고를 금지하며, 새 active run의 실패 상태를 명시적으로 복구·재시도한다.
+- `upgrade`는 owner·active suite·schema·직전/대상 catalog·scenario version·asset을 write 전에 preflight하고 namespace 확인 규칙을 적용한다. DB commit과 registry 승격 사이의 실패는 old/new row reference로 복구하며 어느 결과도 증명할 수 없으면 `applying` fence를 유지한다.
 
 ## 운영 절차
 
 1. 변경 요청에서 대상 suite, namespace, 환경, reference time, 예상 규모를 고정한다.
 2. active inventory, catalog·coverage·DB identity를 검증하고 dry-run의 scope 충돌 결과를 검토한다.
 3. namespace 잠금을 획득하고 기준정보 확인 후 시나리오를 트랜잭션 단위로 적용한다.
+   기존 run의 단일 scenario upgrade는 같은 잠금 안에서 old 삭제·new 생성·검증을 한 트랜잭션으로 수행한다.
 4. DB 불변식, branch obligation, 관리자 API, 브라우저 화면, 전체 route coverage, 유지 기간 외부 호출 0건을 검증한다.
 5. 유지 기한이 끝나면 같은 namespace로 reset하고 orphan·미디어 잔존 0건을 확인한다.
 
@@ -291,7 +298,8 @@
 - [ ] 결제·매출·통계가 원천 사건에서 집계되는가?
 - [ ] reset DB 삭제가 단일 트랜잭션이며 asset 실패를 idempotent하게 재시도하는가?
 - [ ] reset이 namespace 밖 데이터와 공용 기준정보를 건드리지 않는가?
-- [ ] catalog 교체가 단일 `reapply` 명령으로 실행되고 reset 성공만으로 완료 처리되지 않는가?
+- [ ] 단일 scenario catalog 교체가 같은 namespace의 `upgrade` 한 트랜잭션으로 실행되고, old/new row reference 복구와 다른 scenario 무변경을 검증하는가?
+- [ ] 전체 reset 뒤 apply하는 순차 `reapply` 경로가 없고, 원자 교체로 표현할 수 없는 catalog 변경을 중단하는가?
 - [ ] schema 변경과 기존 데이터 보정이 별도 작업으로 분리됐는가?
 - [ ] apply 후 coverage와 reset 후 orphan 검증 근거가 남았는가?
 
