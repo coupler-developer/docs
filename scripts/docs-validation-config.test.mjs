@@ -40,6 +40,53 @@ test("lightweight release validation remains separate from the full runner", () 
   );
   assert.match(
     workflow,
+    /- name: Validate sensitive docs \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+run: yarn validate:docs-sensitive/,
+  );
+  assert.equal(
+    packageJson.scripts["validate:docs-sensitive"],
+    "node scripts/validate-docs-structure.mjs --sensitive-only",
+  );
+  assert.match(
+    testingStrategy,
+    /문서 민감 인프라 식별자 검증\(로컬·경량 CI\): `yarn validate:docs-sensitive`/,
+  );
+  assert.match(
+    workflow,
     /- name: Validate release PR transition\n\s+if: github\.event_name == 'pull_request'/,
   );
 });
+
+test("lint and build jobs start independently from docs structure validation", () => {
+  const markdownLintJob = readJob("markdown-lint", "build-docs");
+  const buildDocsJob = readJob("build-docs");
+
+  for (const job of [markdownLintJob, buildDocsJob]) {
+    assert.doesNotMatch(job, /^\s{4}needs:/mu);
+    assert.doesNotMatch(job, /^\s{4}if:/mu);
+  }
+
+  assert.match(buildDocsJob, /^\s{10}cache: "pip"$/mu);
+  assert.match(
+    buildDocsJob,
+    /^\s{10}cache-dependency-path: requirements\.txt$/mu,
+  );
+  assert.match(
+    testingStrategy,
+    /`markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다/,
+  );
+});
+
+function readJob(jobName, nextJobName = null) {
+  const startMarker = `  ${jobName}:\n`;
+  const start = workflow.indexOf(startMarker);
+
+  assert.notEqual(start, -1, `missing workflow job: ${jobName}`);
+
+  if (!nextJobName) {
+    return workflow.slice(start);
+  }
+
+  const end = workflow.indexOf(`  ${nextJobName}:\n`, start + startMarker.length);
+  assert.notEqual(end, -1, `missing workflow job: ${nextJobName}`);
+  return workflow.slice(start, end);
+}
