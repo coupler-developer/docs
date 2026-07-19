@@ -33,6 +33,8 @@
   도입한다.
 - Mobile 호스트와 Admin의 운영 목적 신청자 프로필 조회도 무료이며 Admin 운영 조회는 감사 이력을 남긴다.
 - 종료 후기 최초 보상은 서버 설정 25를 사용한다. 클라이언트가 Key 금액을 결정하지 않는다.
+- 종료한 N:N 그룹미팅의 후기를 작성하지 않은 참가자는 다른 N:N 행사에 새로 신청할 수 없다. 목록·종료 채팅·
+  후기 상태 조회와 후기 작성은 제한하지 않아 미작성 상태를 해소할 수 있게 한다.
 - CONFIRMED 행사는 `event_at + 24시간`이 지나면 서버 job이 FINISHED로 변경한다. Admin 수동 종료 API는
   두지 않는다.
 
@@ -85,6 +87,7 @@
 | `GROUP-MEETING-INV-006` | `group-meeting.action-history` | 상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
 | `GROUP-MEETING-INV-007` | `group-meeting.host` | 매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
 | `GROUP-MEETING-INV-008` | `group-meeting.event` | 행사 정보는 DRAFT에서만 수정할 수 있으며 OPEN 이후에는 Admin과 Mobile 호스트 모두 수정할 수 없다 | 이 문서 |
+| `GROUP-MEETING-INV-009` | `group-meeting.application` | 종료한 N:N 행사의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다 | 이 문서 |
 
 ## 상태 모델
 
@@ -124,6 +127,10 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 후기를 완료하면 후기·보상과 같은 transaction에서 LEFT로 전이하고 행위 이력을 남긴다. 이미 LEFT인 참가자는
 후기를 작성해도 상태와 퇴장 이력을 중복 변경하지 않는다. 참가자의 채팅·프로필 열람·신고 자격은 후기 존재를
 별도로 조회하지 않고 신청 상태 하나로 판정한다.
+
+다른 N:N 행사 신규 신청은 `FINISHED` 행사에서 신청 상태가 `APPROVED` 또는 `LEFT`이고 후기가 없는지 서버가
+판정한다. 같은 행사 신청 재시도는 기존 신청을 반환하며, 미작성 후기 해소에 필요한 목록·종료 채팅·후기 조회·
+작성은 계속 허용한다. 기존 1:1·2:2 기능에는 이 제한을 적용하지 않는다.
 
 ## 거래와 동시성
 
@@ -219,6 +226,9 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   집계한다. 그룹미팅 section 실패를 빈 목록으로 바꾸지 않는다.
 - Mobile 신청자 DTO와 Admin 운영 DTO는 분리한다. `GroupMeetingApplicantItem`은 신청 문맥만 노출하고,
   `AdminGroupMeetingApplicantItem`만 운영에 필요한 회원 ID·이메일·탈퇴/취소 시각을 추가한다.
+- `POST /group-meetings/{event_id}/applications`는 종료한 다른 N:N 행사의 미작성 후기가 있으면
+  `MEETING_REVIEW_REQUIRED`로 실패한다. 이 제한은 신규 신청에만 적용하고 후기 작성에 필요한 조회·동작에는
+  적용하지 않는다.
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
 - API·Admin·Mobile은 published latest stable contracts package를 exact pin하고 동일 DTO를 직접 소비한다.
