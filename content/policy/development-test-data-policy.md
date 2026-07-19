@@ -5,9 +5,9 @@
 - 역할: `규범`
 - 문서 종류: `policy`
 - 충돌 시 우선 문서: 이 문서
-- 기준 성격: `to-be`
-- 전환 범위: 기존 active namespace를 전체 suite 세대로 원자 전환하고 단일 scenario 임시 upgrade 경로를 제거
-- 완료 조건: 개발계 active namespace의 current generation 승격, API·Admin coverage, cron fence, reset과 장애 복구 검증 완료 후 `as-is`로 전환
+- 기준 성격: `as-is`
+- 현재 구조: active namespace는 하나의 완전한 suite generation만 가리키며 모든 갱신은 원자 generation cutover로 수행
+- 전환 완료: 공유 개발계 `qa-cms-20260716`을 catalog v7 generation 2로 승격하고 임시 단일-domain·legacy asset 채택 경로를 제거
 
 공유 개발계 검증과 고도화 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의
 `테스트용 개발 데이터 운영 검증·고도화 미완료`에서 추적한다.
@@ -66,20 +66,14 @@
 | orphan | 소유 root가 삭제됐지만 남아 있는 생성 child |
 | asset | 프로필·게시글·그룹미팅 화면에 사용하는 합성 미디어 파일 |
 
-## 생명주기 상태와 Exit Gate
-
-### Cutover 상태
-
-- 진입 조건: generation 또는 run-scoped asset identity 도입 전에 생성된 active record가 공유 개발계에 남아 있다.
-- 허용 예외: read-only plan이 legacy asset root 채택 필요를 표시하고 작업자가 API host의 실제 경로를 확인한 경우에만 namespace와 같은 `--confirm`, `--apply`, `--adopt-legacy-asset-root`를 함께 준 최초 generation upgrade가 asset root를 정확히 한 번 기록할 수 있다.
-- 금지: legacy record 수동 수정, 새 legacy claim, 단일 domain 추가, 순차 `reset -> apply`, 임시 namespace 복제.
-- Exit Gate: active record가 generation·run/asset key·current catalog/schema·exact scenario manifest를 모두 기록하고, generation asset만 참조하며, cutover journal과 namespace-level legacy asset이 0건이다.
-
-### 최종 상태
+## 생명주기 최종 상태
 
 - 모든 active namespace는 하나의 완전한 active generation만 가진다.
 - catalog/schema/reference/expiry 갱신은 같은 namespace·같은 suite의 다음 generation cutover만 사용한다.
-- cutover 상태 Exit Gate를 통과하면 legacy 채택 옵션과 해당 분기를 코드·CLI·운영 흐름에서 제거하고 이 문서를 `as-is`로 전환한다.
+- generation·run-scoped asset identity 또는 합성 `t_member` root exact set이 없는 active record는 자동 채택·보정하지 않고 fail-closed한다.
+- 단일 domain 추가·교체, 순차 `reset -> apply`, 임시 namespace 복제와 legacy asset 채택 옵션은 제공하지 않는다.
+- cutover journal은 DB commit과 registry 승격 사이 장애를 복구하는 영구 원자성 장치이며 임시 호환 경로가 아니다.
+- 2026-07-20 공유 개발계 cutover에서 generation 2, catalog v7, current schema fingerprint, exact scenario manifest, run-scoped asset, journal 0건과 cron 정상 실행을 확인했다.
 
 ## 필수 규칙
 
@@ -267,7 +261,7 @@
 - dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
 - upgrade dry-run은 기존 active run을 바꾸지 않고 source·candidate generation, current/target catalog·schema·reference·expiry, cutover journal 단계, asset stage·복구 필요 여부와 확인값을 출력한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
-- reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. 계획에 legacy asset root 채택 필요 여부를 표시하고, 필요한 경우에만 `--adopt-legacy-asset-root`를 허용한다.
+- reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. active generation에 기록된 asset root가 없거나 현재 설정과 정확히 다르면 DB·asset write 전에 중단한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
 - `upgrade`는 owner·active suite exact match, source status·row ownership, target catalog/schema/reference/expiry와 asset root를 write 전에 preflight한다. DB commit과 registry 승격 사이의 실패는 source/candidate generation row reference로 복구하며 어느 결과도 증명할 수 없으면 `applying` fence와 journal을 유지한다.
 
@@ -319,7 +313,7 @@
 - [ ] reset이 namespace 밖 데이터와 공용 기준정보를 건드리지 않는가?
 - [ ] 같은 namespace·같은 suite의 전체 catalog generation 교체가 한 DB 트랜잭션으로 실행되고 source/candidate row ownership 복구를 검증하는가?
 - [ ] 순차 `reset -> apply`, 단일 scenario 추가·교체, 임시 namespace 호환 경로가 없고 모든 갱신이 generation cutover 하나로 수렴하는가?
-- [ ] candidate asset이 run-scoped directory에 stage되고 승격 후 inactive·legacy directory만 정리되는가?
+- [ ] candidate asset이 run-scoped directory에 stage되고 승격 후 inactive generation·과거 namespace-level directory만 정리되는가?
 - [ ] schema 변경과 기존 데이터 보정이 별도 작업으로 분리됐는가?
 - [ ] apply 후 coverage와 reset 후 orphan 검증 근거가 남았는가?
 
