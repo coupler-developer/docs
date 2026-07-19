@@ -15,8 +15,6 @@ concurrency:
 jobs:
   docs-structure:
     runs-on: ubuntu-latest
-    outputs:
-      validation_mode: ${{ steps.validation_mode.outputs.mode }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -52,6 +50,10 @@ jobs:
         if: steps.validation_mode.outputs.mode != 'full'
         run: node scripts/validate-release-records.mjs
 
+      - name: Validate sensitive docs (lightweight)
+        if: steps.validation_mode.outputs.mode != 'full'
+        run: yarn validate:docs-sensitive
+
       - name: Validate release PR transition
         if: github.event_name == 'pull_request'
         run: node scripts/validate-release-pr-transition.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA"
@@ -64,8 +66,6 @@ jobs:
         run: yarn validate:docs-static
 
   markdown-lint:
-    needs: docs-structure
-    if: ${{ needs['docs-structure'].outputs.validation_mode == 'full' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -80,8 +80,6 @@ jobs:
             #site
 
   build-docs:
-    needs: docs-structure
-    if: ${{ needs['docs-structure'].outputs.validation_mode == 'full' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -91,6 +89,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: pip install -r requirements.txt

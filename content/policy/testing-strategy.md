@@ -141,6 +141,7 @@
 - 러너: 로컬과 GitHub Actions full validation은 `validate:docs-static`의 공통 정적 검증 목록을 사용한다.
 - 문서 공통 정적 검증(로컬·full CI): `yarn validate:docs-static`
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
+- 문서 민감 인프라 식별자 검증(로컬·경량 CI): `yarn validate:docs-sensitive`
 - 문서 구조 검증 테스트(로컬): `yarn test:docs-structure`
 - 논리 데이터 모델 검증(로컬): `yarn validate:logical-data-model`
 - 논리 데이터 모델 검증 테스트(로컬): `yarn test:logical-data-model`
@@ -153,7 +154,7 @@
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
 - 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
-- 경량 릴리스 검증(CI): `node scripts/validate-release-records.mjs`와
+- 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`,
   `node scripts/validate-release-pr-transition.mjs`
 - 문서 lint(CI): `DavidAnson/markdownlint-cli2-action@v16` (globs: `**/*.md`, excludes: `node_modules`, `site`)
 - 문서 build(CI): Python 의존성 설치 후 `mkdocs build --strict`
@@ -165,7 +166,11 @@
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
   다시 열거하지 않는다.
 - docs 레포: PR 병합 뒤 `push(main)`에서는 `Deploy Docs`가 `yarn validate:docs`를 다시 실행한 뒤에만 Pages artifact를 배포하므로, `Docs Validation`을 중복 실행하지 않는다.
-- docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면 `docs-structure`에서 metadata와 PR transition만 경량 검증한다. `released`/terminal 기록, 일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
+- docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면
+  `docs-structure`에서 민감 인프라 식별자, metadata, PR transition을 경량 검증한다. `released`/terminal 기록,
+  일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
+- docs 레포: `markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다.
+  full mode의 공통 정적 검증 목록은 계속 `yarn validate:docs-static` 한 곳에서만 소유한다.
 - docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 경량 검증을 통과한 `pending`은 배포 시작 gate이고, 최종 병합 gate는 `released` 커밋의 전체 docs 검증이다.
 - docs 레포: `Docs Validation`은 `opened`, `synchronize`, `reopened`만 구독한다. 따라서 `released` 전체 검증 뒤 Draft PR을 Ready로 전환하는 동작만으로 같은 CI를 다시 실행하지 않는다.
 
