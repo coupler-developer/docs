@@ -13,26 +13,52 @@
 
 - 도메인 ID: `payment`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `payment.purchase` | 인앱결제 거래 | root | entity | ledger | 플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과 | 민감 | 정산·환불·분쟁 대응 기간 동안 append-only 거래 이력 보존 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_key_dash_wallet_dot_entry["Key 변동 원장 · 다른 영역<br/>key-wallet.entry"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_payment_dot_purchase["인앱결제 거래<br/>payment.purchase"]
+    entity_payment_dot_purchase -->|"참고"| entity_member_dot_member
+    entity_payment_dot_purchase -->|"참고"| entity_key_dash_wallet_dot_entry
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `payment.purchase` | `buyer` | references | `member.member` | N:1 | 회원 개인정보 정리 뒤에도 비식별 정산 이력은 보존 |
-| `payment.purchase` | `key-entries` | references | `key-wallet.entry` | 1:N | 성공·환불 결과에 해당하는 Key 변동 원장을 연결 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다
+- 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다
+- 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `PAYMENT-INV-001` | `payment.purchase` | 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
-| `PAYMENT-INV-002` | `payment.purchase` | 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
-| `PAYMENT-INV-003` | `payment.purchase` | 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `payment.purchase` | 인앱결제 거래 | root | entity | ledger | 플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과 | 민감 | 정산·환불·분쟁 대응 기간 동안 append-only 거래 이력 보존 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `payment.purchase` | `buyer` | references | `member.member` | N:1 | 회원 개인정보 정리 뒤에도 비식별 정산 이력은 보존 |
+    | `payment.purchase` | `key-entries` | references | `key-wallet.entry` | 1:N | 성공·환불 결과에 해당하는 Key 변동 원장을 연결 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `PAYMENT-INV-001` | `payment.purchase` | 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+    | `PAYMENT-INV-002` | `payment.purchase` | 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+    | `PAYMENT-INV-003` | `payment.purchase` | 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 결제 아이템 (IAP_ITEM)
 

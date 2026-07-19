@@ -31,27 +31,55 @@
 
 - 도메인 ID: `admin-access`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `admin-access.operator` | 관리자 계정 | root | entity | state | 관리자 인증 식별자, 역할 값과 현재 접근 상태 | 민감 | 퇴사·권한 회수 뒤 로그인은 차단하고 업무 이력의 행위자 참조는 보존 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_admin_dash_access_dot_operator["관리자 계정<br/>admin-access.operator"]
+    entity_club_dash_manager_dot_manager["클럽매니저 · 다른 영역<br/>club-manager.manager"]
+    entity_member_dash_review_dot_review_dash_request["회원 심사 요청 · 다른 영역<br/>member-review.review-request"]
+    entity_moderation_dot_member_dash_report["회원 신고 · 다른 영역<br/>moderation.member-report"]
+    entity_admin_dash_access_dot_operator -->|"연결"| entity_club_dash_manager_dot_manager
+    entity_admin_dash_access_dot_operator -->|"참고"| entity_member_dash_review_dot_review_dash_request
+    entity_admin_dash_access_dot_operator -->|"참고"| entity_moderation_dot_member_dash_report
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `admin-access.operator` | `manager-account` | associates | `club-manager.manager` | 1:1 | 일반 클럽매니저 역할은 유효한 클럽매니저 운영 계정 연결을 요구 |
-| `admin-access.operator` | `review-requests` | references | `member-review.review-request` | N:M | 심사 처리 권한과 담당 범위 안에서만 접근 |
-| `admin-access.operator` | `member-reports` | references | `moderation.member-report` | N:M | 신고 처리 권한과 처리 사유를 별도 감사 근거로 남김 |
+꼭 지킬 규칙:
 
-### 불변조건
+- Super Admin 전용 작업은 일반 클럽매니저 권한으로 수행할 수 없다
+- 일반 클럽매니저는 정책이 허용한 담당·소유 데이터 범위를 벗어날 수 없다
+- 비밀번호와 토큰 원문을 로그나 공개 문서에 남기지 않는다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `ADMIN-ACCESS-INV-001` | `admin-access.operator` | Super Admin 전용 작업은 일반 클럽매니저 권한으로 수행할 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
-| `ADMIN-ACCESS-INV-002` | `admin-access.operator` | 일반 클럽매니저는 정책이 허용한 담당·소유 데이터 범위를 벗어날 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
-| `ADMIN-ACCESS-INV-003` | `admin-access.operator` | 비밀번호와 토큰 원문을 로그나 공개 문서에 남기지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `admin-access.operator` | 관리자 계정 | root | entity | state | 관리자 인증 식별자, 역할 값과 현재 접근 상태 | 민감 | 퇴사·권한 회수 뒤 로그인은 차단하고 업무 이력의 행위자 참조는 보존 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `admin-access.operator` | `manager-account` | associates | `club-manager.manager` | 1:1 | 일반 클럽매니저 역할은 유효한 클럽매니저 운영 계정 연결을 요구 |
+    | `admin-access.operator` | `review-requests` | references | `member-review.review-request` | N:M | 심사 처리 권한과 담당 범위 안에서만 접근 |
+    | `admin-access.operator` | `member-reports` | references | `moderation.member-report` | N:M | 신고 처리 권한과 처리 사유를 별도 감사 근거로 남김 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `ADMIN-ACCESS-INV-001` | `admin-access.operator` | Super Admin 전용 작업은 일반 클럽매니저 권한으로 수행할 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+    | `ADMIN-ACCESS-INV-002` | `admin-access.operator` | 일반 클럽매니저는 정책이 허용한 담당·소유 데이터 범위를 벗어날 수 없다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+    | `ADMIN-ACCESS-INV-003` | `admin-access.operator` | 비밀번호와 토큰 원문을 로그나 공개 문서에 남기지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 현재 역할 표현
 

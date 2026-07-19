@@ -16,35 +16,68 @@
 
 - 도메인 ID: `legacy-meeting`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `legacy-meeting.meeting` | 기존 2:2 미팅 | root | entity | state | 행사 모집·확정·종료와 현재 표시 정보 | 민감 | 기존 호환 계약으로 보존하며 종료·삭제 이력 유지 |
-| `legacy-meeting.participation` | 기존 미팅 참가 | child | association | state | 회원의 신청·승인·퇴장과 행사 당시 별칭 | 민감 | 행사 종료 뒤 참가 이력으로 보존 |
-| `legacy-meeting.review` | 기존 미팅 후기 | child | entity | history | 행사 결과와 후기 내용 | 민감 | 개인정보 정리 뒤 비식별 보존 가능 |
-| `legacy-meeting.rating` | 기존 미팅 별점 | child | association | history | 작성 회원과 대상 회원 사이의 별점 | 민감 | 운영·신고 확인 기간 동안 보존 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_legacy_dash_meeting_dot_meeting["기존 2:2 미팅<br/>legacy-meeting.meeting"]
+    entity_legacy_dash_meeting_dot_participation["기존 미팅 참가<br/>legacy-meeting.participation"]
+    entity_legacy_dash_meeting_dot_rating["기존 미팅 별점<br/>legacy-meeting.rating"]
+    entity_legacy_dash_meeting_dot_review["기존 미팅 후기<br/>legacy-meeting.review"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_legacy_dash_meeting_dot_meeting -->|"참고"| entity_member_dot_member
+    entity_legacy_dash_meeting_dot_meeting -->|"같이 관리"| entity_legacy_dash_meeting_dot_participation
+    entity_legacy_dash_meeting_dot_participation -->|"참고"| entity_member_dot_member
+    entity_legacy_dash_meeting_dot_meeting -->|"같이 관리"| entity_legacy_dash_meeting_dot_review
+    entity_legacy_dash_meeting_dot_review -->|"참고"| entity_member_dot_member
+    entity_legacy_dash_meeting_dot_meeting -->|"같이 관리"| entity_legacy_dash_meeting_dot_rating
+    entity_legacy_dash_meeting_dot_rating -->|"참고"| entity_member_dot_member
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `legacy-meeting.meeting` | `host` | references | `member.member` | N:1 | 주최 회원 개인정보 정리 뒤 행사 이력은 보존 |
-| `legacy-meeting.meeting` | `participations` | owns | `legacy-meeting.participation` | 1:N | 참가 이력은 행사와 함께 보존 |
-| `legacy-meeting.participation` | `member` | references | `member.member` | N:1 | 한 회원은 같은 행사에 하나의 현재 참가 상태만 가짐 |
-| `legacy-meeting.meeting` | `reviews` | owns | `legacy-meeting.review` | 1:N | 후기 중복 기준을 유지하고 원문은 정책에 따라 정리 |
-| `legacy-meeting.review` | `author` | references | `member.member` | N:1 | 종료 행사에 유효하게 참여한 회원만 작성 가능 |
-| `legacy-meeting.meeting` | `ratings` | owns | `legacy-meeting.rating` | 1:N | 별점은 행사 문맥 없이 존재할 수 없음 |
-| `legacy-meeting.rating` | `author` | references | `member.member` | N:1 | 작성자는 해당 행사 참여자여야 함 |
-| `legacy-meeting.rating` | `subject` | references | `member.member` | N:1 | 대상자는 작성자와 다른 해당 행사 참여자여야 함 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 기존 2:2와 신규 그룹미팅의 상태·데이터 계약을 혼용하지 않는다
+- 채팅 개설에 사용하는 확정 참가자는 서로 다른 네 회원이어야 한다
+- 별점 작성자와 대상자는 같은 행사에 참여한 서로 다른 회원이어야 한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `LEGACY-MEETING-INV-001` | `legacy-meeting.meeting` | 기존 2:2와 신규 그룹미팅의 상태·데이터 계약을 혼용하지 않는다 | [논리 데이터 모델 정책](../policy/logical-data-model-policy.md) |
-| `LEGACY-MEETING-INV-002` | `legacy-meeting.participation` | 채팅 개설에 사용하는 확정 참가자는 서로 다른 네 회원이어야 한다 | 이 문서 |
-| `LEGACY-MEETING-INV-003` | `legacy-meeting.rating` | 별점 작성자와 대상자는 같은 행사에 참여한 서로 다른 회원이어야 한다 | 이 문서 |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `legacy-meeting.meeting` | 기존 2:2 미팅 | root | entity | state | 행사 모집·확정·종료와 현재 표시 정보 | 민감 | 기존 호환 계약으로 보존하며 종료·삭제 이력 유지 |
+    | `legacy-meeting.participation` | 기존 미팅 참가 | child | association | state | 회원의 신청·승인·퇴장과 행사 당시 별칭 | 민감 | 행사 종료 뒤 참가 이력으로 보존 |
+    | `legacy-meeting.review` | 기존 미팅 후기 | child | entity | history | 행사 결과와 후기 내용 | 민감 | 개인정보 정리 뒤 비식별 보존 가능 |
+    | `legacy-meeting.rating` | 기존 미팅 별점 | child | association | history | 작성 회원과 대상 회원 사이의 별점 | 민감 | 운영·신고 확인 기간 동안 보존 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `legacy-meeting.meeting` | `host` | references | `member.member` | N:1 | 주최 회원 개인정보 정리 뒤 행사 이력은 보존 |
+    | `legacy-meeting.meeting` | `participations` | owns | `legacy-meeting.participation` | 1:N | 참가 이력은 행사와 함께 보존 |
+    | `legacy-meeting.participation` | `member` | references | `member.member` | N:1 | 한 회원은 같은 행사에 하나의 현재 참가 상태만 가짐 |
+    | `legacy-meeting.meeting` | `reviews` | owns | `legacy-meeting.review` | 1:N | 후기 중복 기준을 유지하고 원문은 정책에 따라 정리 |
+    | `legacy-meeting.review` | `author` | references | `member.member` | N:1 | 종료 행사에 유효하게 참여한 회원만 작성 가능 |
+    | `legacy-meeting.meeting` | `ratings` | owns | `legacy-meeting.rating` | 1:N | 별점은 행사 문맥 없이 존재할 수 없음 |
+    | `legacy-meeting.rating` | `author` | references | `member.member` | N:1 | 작성자는 해당 행사 참여자여야 함 |
+    | `legacy-meeting.rating` | `subject` | references | `member.member` | N:1 | 대상자는 작성자와 다른 해당 행사 참여자여야 함 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `LEGACY-MEETING-INV-001` | `legacy-meeting.meeting` | 기존 2:2와 신규 그룹미팅의 상태·데이터 계약을 혼용하지 않는다 | [논리 데이터 모델 정책](../policy/logical-data-model-policy.md) |
+    | `LEGACY-MEETING-INV-002` | `legacy-meeting.participation` | 채팅 개설에 사용하는 확정 참가자는 서로 다른 네 회원이어야 한다 | 이 문서 |
+    | `LEGACY-MEETING-INV-003` | `legacy-meeting.rating` | 별점 작성자와 대상자는 같은 행사에 참여한 서로 다른 회원이어야 한다 | 이 문서 |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 미팅 상태
 

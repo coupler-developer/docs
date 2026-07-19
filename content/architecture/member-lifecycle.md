@@ -16,39 +16,77 @@
 
 - 도메인 ID: `member`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `member.member` | 회원 계정 | root | entity | state | 인증 식별자와 회원 생애주기의 현재 상태 | 민감 | 탈퇴·차단 뒤 정책에 따라 개인정보를 정리하고 비개인 이력은 보존 |
-| `member.profile` | 회원 프로필 | child | entity | state | 현재 승인된 프로필과 매칭 선호 정보 | 민감 | 회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리 |
-| `member.invitation` | 회원 초대 | child | entity | history | 초대 코드의 생성·사용·만료 결과 | 내부 | 사용·만료 결과를 이력으로 보존 |
-| `member.recommendation` | 회원 추천사 | root | association | history | 작성 회원과 대상 회원 사이의 추천 내용 | 민감 | 노출 상태와 개인정보 정리 정책을 함께 적용 |
-| `member.status-history` | 회원 상태 이력 | child | entity | history | 생애주기 상태 변경과 변경 사유 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
-| `member.sleep-history` | 휴면 이력 | child | entity | history | 휴면 전환 기간과 복귀 근거 | 내부 | 휴면 정책 확인 기간 동안 보존 |
-| `member.signup-welcome` | 가입 안내 발송 이력 | child | entity | history | 가입 안내와 무료 Key 최초 지급 결과 | 내부 | 중복 지급 방지를 위해 이력 보존 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_club_dash_manager_dot_manager["클럽매니저 · 다른 영역<br/>club-manager.manager"]
+    entity_member_dot_invitation["회원 초대<br/>member.invitation"]
+    entity_member_dot_member["회원 계정<br/>member.member"]
+    entity_member_dot_profile["회원 프로필<br/>member.profile"]
+    entity_member_dot_recommendation["회원 추천사<br/>member.recommendation"]
+    entity_member_dot_signup_dash_welcome["가입 안내 발송 이력<br/>member.signup-welcome"]
+    entity_member_dot_sleep_dash_history["휴면 이력<br/>member.sleep-history"]
+    entity_member_dot_status_dash_history["회원 상태 이력<br/>member.status-history"]
+    entity_platform_dash_config_dot_signup_dash_message["가입 안내 · 다른 영역<br/>platform-config.signup-message"]
+    entity_member_dot_member -->|"같이 관리"| entity_member_dot_profile
+    entity_member_dot_member -->|"같이 관리"| entity_member_dot_status_dash_history
+    entity_member_dot_member -->|"같이 관리"| entity_member_dot_sleep_dash_history
+    entity_member_dot_member -->|"같이 관리"| entity_member_dot_invitation
+    entity_member_dot_recommendation -->|"참고"| entity_member_dot_member
+    entity_member_dot_member -->|"같이 관리"| entity_member_dot_signup_dash_welcome
+    entity_member_dot_signup_dash_welcome -->|"참고"| entity_platform_dash_config_dot_signup_dash_message
+    entity_member_dot_signup_dash_welcome -->|"참고"| entity_club_dash_manager_dot_manager
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `member.member` | `profile` | owns | `member.profile` | 1:1 | 계정 개인정보 정리 시 현재 프로필도 함께 정리 |
-| `member.member` | `status-history` | owns | `member.status-history` | 1:N | 상태 이력은 계정 삭제 뒤 비식별 보존 가능 |
-| `member.member` | `sleep-history` | owns | `member.sleep-history` | 1:N | 회원 생애주기와 함께 관리 |
-| `member.member` | `sent-invitations` | owns | `member.invitation` | 1:N | 초대자의 개인정보 정리 뒤에도 사용·만료 결과는 비식별 보존 가능 |
-| `member.recommendation` | `writer` | references | `member.member` | N:1 | 작성 회원과 대상 회원은 같을 수 없음 |
-| `member.recommendation` | `receiver` | references | `member.member` | N:1 | 대상 회원 개인정보 정리 정책과 노출 상태를 함께 적용 |
-| `member.member` | `signup-welcome` | owns | `member.signup-welcome` | 1:1 | 가입 안내와 무료 Key 최초 지급 결과는 회원당 하나만 유지 |
-| `member.signup-welcome` | `message-template` | references | `platform-config.signup-message` | N:1 | 기준정보 변경 뒤에도 발송 당시 선택 근거를 보존 |
-| `member.signup-welcome` | `manager` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 당시 발송 주체를 비식별 이력으로 보존 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 회원 생애주기의 현재 상태는 하나만 존재한다
+- 현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다
+- 가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `MEMBER-INV-001` | `member.member` | 회원 생애주기의 현재 상태는 하나만 존재한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
-| `MEMBER-INV-002` | `member.profile` | 현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
-| `MEMBER-INV-003` | `member.signup-welcome` | 가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다 | [매칭 Key 시스템](matching-key-system.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `member.member` | 회원 계정 | root | entity | state | 인증 식별자와 회원 생애주기의 현재 상태 | 민감 | 탈퇴·차단 뒤 정책에 따라 개인정보를 정리하고 비개인 이력은 보존 |
+    | `member.profile` | 회원 프로필 | child | entity | state | 현재 승인된 프로필과 매칭 선호 정보 | 민감 | 회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리 |
+    | `member.invitation` | 회원 초대 | child | entity | history | 초대 코드의 생성·사용·만료 결과 | 내부 | 사용·만료 결과를 이력으로 보존 |
+    | `member.recommendation` | 회원 추천사 | root | association | history | 작성 회원과 대상 회원 사이의 추천 내용 | 민감 | 노출 상태와 개인정보 정리 정책을 함께 적용 |
+    | `member.status-history` | 회원 상태 이력 | child | entity | history | 생애주기 상태 변경과 변경 사유 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
+    | `member.sleep-history` | 휴면 이력 | child | entity | history | 휴면 전환 기간과 복귀 근거 | 내부 | 휴면 정책 확인 기간 동안 보존 |
+    | `member.signup-welcome` | 가입 안내 발송 이력 | child | entity | history | 가입 안내와 무료 Key 최초 지급 결과 | 내부 | 중복 지급 방지를 위해 이력 보존 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `member.member` | `profile` | owns | `member.profile` | 1:1 | 계정 개인정보 정리 시 현재 프로필도 함께 정리 |
+    | `member.member` | `status-history` | owns | `member.status-history` | 1:N | 상태 이력은 계정 삭제 뒤 비식별 보존 가능 |
+    | `member.member` | `sleep-history` | owns | `member.sleep-history` | 1:N | 회원 생애주기와 함께 관리 |
+    | `member.member` | `sent-invitations` | owns | `member.invitation` | 1:N | 초대자의 개인정보 정리 뒤에도 사용·만료 결과는 비식별 보존 가능 |
+    | `member.recommendation` | `writer` | references | `member.member` | N:1 | 작성 회원과 대상 회원은 같을 수 없음 |
+    | `member.recommendation` | `receiver` | references | `member.member` | N:1 | 대상 회원 개인정보 정리 정책과 노출 상태를 함께 적용 |
+    | `member.member` | `signup-welcome` | owns | `member.signup-welcome` | 1:1 | 가입 안내와 무료 Key 최초 지급 결과는 회원당 하나만 유지 |
+    | `member.signup-welcome` | `message-template` | references | `platform-config.signup-message` | N:1 | 기준정보 변경 뒤에도 발송 당시 선택 근거를 보존 |
+    | `member.signup-welcome` | `manager` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 당시 발송 주체를 비식별 이력으로 보존 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `MEMBER-INV-001` | `member.member` | 회원 생애주기의 현재 상태는 하나만 존재한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
+    | `MEMBER-INV-002` | `member.profile` | 현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
+    | `MEMBER-INV-003` | `member.signup-welcome` | 가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다 | [매칭 Key 시스템](matching-key-system.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 회원 상태 (`t_member.status`)
 

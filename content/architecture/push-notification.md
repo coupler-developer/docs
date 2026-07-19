@@ -15,31 +15,65 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 
 - 도메인 ID: `notification`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `notification.preference` | 알림 설정 | child | entity | state | 회원의 채팅·매칭·행사 알림 수신 선택 | 내부 | 회원 계정과 함께 유지하고 변경 시 현재값 갱신 |
-| `notification.delivery` | 알림 발송 이력 | child | entity | history | 수신자, 알림 종류, 표시 문구와 이동 대상 | 민감 | 알림함·운영 확인 기간 동안 보존 후 정리 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_group_dash_meeting_dot_event["그룹미팅 행사 · 다른 영역<br/>group-meeting.event"]
+    entity_legacy_dash_meeting_dot_meeting["기존 2:2 미팅 · 다른 영역<br/>legacy-meeting.meeting"]
+    entity_lounge_dot_post["라운지 게시글 · 다른 영역<br/>lounge.post"]
+    entity_matching_dot_match["1:1 매칭 · 다른 영역<br/>matching.match"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_notification_dot_delivery["알림 발송 이력<br/>notification.delivery"]
+    entity_notification_dot_preference["알림 설정<br/>notification.preference"]
+    entity_member_dot_member -->|"같이 관리"| entity_notification_dot_preference
+    entity_member_dot_member -->|"같이 관리"| entity_notification_dot_delivery
+    entity_notification_dot_delivery -->|"참고"| entity_matching_dot_match
+    entity_notification_dot_delivery -->|"참고"| entity_legacy_dash_meeting_dot_meeting
+    entity_notification_dot_delivery -->|"참고"| entity_group_dash_meeting_dot_event
+    entity_notification_dot_delivery -->|"참고"| entity_lounge_dot_post
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `member.member` | `notification-preference` | owns | `notification.preference` | 1:1 | 회원 계정 삭제 시 설정도 함께 정리 |
-| `member.member` | `notification-deliveries` | owns | `notification.delivery` | 1:N | 회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능 |
-| `notification.delivery` | `match-target` | references | `matching.match` | N:1 | 이동 대상이 매칭이면 해당 문맥을 참조 |
-| `notification.delivery` | `meeting-target` | references | `legacy-meeting.meeting` | N:1 | 이동 대상이 기존 미팅이면 해당 문맥을 참조 |
-| `notification.delivery` | `group-meeting-target` | references | `group-meeting.event` | N:1 | 이동 대상이 그룹미팅이면 해당 행사 문맥을 참조 |
-| `notification.delivery` | `post-target` | references | `lounge.post` | N:1 | 이동 대상이 라운지면 해당 문맥을 참조 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다
+- 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다
+- 서버는 알림 종류별 설정을 단일 기준으로 판정한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `NOTIFICATION-INV-001` | `notification.delivery` | 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
-| `NOTIFICATION-INV-002` | `notification.delivery` | 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
-| `NOTIFICATION-INV-003` | `notification.preference` | 서버는 알림 종류별 설정을 단일 기준으로 판정한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `notification.preference` | 알림 설정 | child | entity | state | 회원의 채팅·매칭·행사 알림 수신 선택 | 내부 | 회원 계정과 함께 유지하고 변경 시 현재값 갱신 |
+    | `notification.delivery` | 알림 발송 이력 | child | entity | history | 수신자, 알림 종류, 표시 문구와 이동 대상 | 민감 | 알림함·운영 확인 기간 동안 보존 후 정리 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `member.member` | `notification-preference` | owns | `notification.preference` | 1:1 | 회원 계정 삭제 시 설정도 함께 정리 |
+    | `member.member` | `notification-deliveries` | owns | `notification.delivery` | 1:N | 회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능 |
+    | `notification.delivery` | `match-target` | references | `matching.match` | N:1 | 이동 대상이 매칭이면 해당 문맥을 참조 |
+    | `notification.delivery` | `meeting-target` | references | `legacy-meeting.meeting` | N:1 | 이동 대상이 기존 미팅이면 해당 문맥을 참조 |
+    | `notification.delivery` | `group-meeting-target` | references | `group-meeting.event` | N:1 | 이동 대상이 그룹미팅이면 해당 행사 문맥을 참조 |
+    | `notification.delivery` | `post-target` | references | `lounge.post` | N:1 | 이동 대상이 라운지면 해당 문맥을 참조 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `NOTIFICATION-INV-001` | `notification.delivery` | 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
+    | `NOTIFICATION-INV-002` | `notification.delivery` | 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+    | `NOTIFICATION-INV-003` | `notification.preference` | 서버는 알림 종류별 설정을 단일 기준으로 판정한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## FCM 알림 타입 요약
 

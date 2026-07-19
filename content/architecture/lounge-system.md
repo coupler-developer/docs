@@ -14,34 +14,67 @@
 
 - 도메인 ID: `lounge`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `lounge.post` | 라운지 게시글 | root | entity | state | 작성자, 공개 범위, 본문과 게시 상태 | 민감 | 삭제 후 tombstone 또는 운영 이력을 남기고 원문은 정책에 따라 정리 |
-| `lounge.comment` | 라운지 댓글 | child | entity | state | 게시글의 직접 부모 관계와 댓글 상태 | 민감 | 스레드 보존이 필요하면 삭제 tombstone 유지 |
-| `lounge.post-reaction` | 게시글 반응 | child | association | state | 회원의 게시글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 게시글 정리 시 삭제 |
-| `lounge.comment-reaction` | 댓글 반응 | child | association | state | 회원의 댓글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 댓글 정리 시 삭제 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_lounge_dot_comment["라운지 댓글<br/>lounge.comment"]
+    entity_lounge_dot_comment_dash_reaction["댓글 반응<br/>lounge.comment-reaction"]
+    entity_lounge_dot_post["라운지 게시글<br/>lounge.post"]
+    entity_lounge_dot_post_dash_reaction["게시글 반응<br/>lounge.post-reaction"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_lounge_dot_post -->|"참고"| entity_member_dot_member
+    entity_lounge_dot_post -->|"같이 관리"| entity_lounge_dot_comment
+    entity_lounge_dot_post -->|"같이 관리"| entity_lounge_dot_post_dash_reaction
+    entity_lounge_dot_post_dash_reaction -->|"참고"| entity_member_dot_member
+    entity_lounge_dot_comment -->|"참고"| entity_lounge_dot_comment
+    entity_lounge_dot_comment -->|"같이 관리"| entity_lounge_dot_comment_dash_reaction
+    entity_lounge_dot_comment_dash_reaction -->|"참고"| entity_member_dot_member
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `lounge.post` | `author` | references | `member.member` | N:1 | 작성자 개인정보 정리 뒤 별칭 또는 비식별 표시 사용 |
-| `lounge.post` | `comments` | owns | `lounge.comment` | 1:N | 게시글 삭제 정책과 댓글 스레드 보존 정책을 함께 적용 |
-| `lounge.post` | `reactions` | owns | `lounge.post-reaction` | 1:N | 게시글 정리 시 회원별 반응도 함께 정리 |
-| `lounge.post-reaction` | `member` | references | `member.member` | N:1 | 동일 회원의 동일 게시글 반응은 하나만 존재 |
-| `lounge.comment` | `parent-comment` | references | `lounge.comment` | N:1 | 직접 부모만 참조하며 삭제된 최상위 댓글은 tombstone으로 유지 가능 |
-| `lounge.comment` | `reactions` | owns | `lounge.comment-reaction` | 1:N | 댓글 정리 시 회원별 반응도 함께 정리 |
-| `lounge.comment-reaction` | `member` | references | `member.member` | N:1 | 동일 회원의 동일 댓글 반응은 하나만 존재 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 댓글의 직접 부모는 같은 게시글에 속해야 한다
+- 삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다
+- 저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `LOUNGE-INV-001` | `lounge.comment` | 댓글의 직접 부모는 같은 게시글에 속해야 한다 | 이 문서 |
-| `LOUNGE-INV-002` | `lounge.comment` | 삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다 | 이 문서 |
-| `LOUNGE-INV-003` | `lounge.post-reaction` | 저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `lounge.post` | 라운지 게시글 | root | entity | state | 작성자, 공개 범위, 본문과 게시 상태 | 민감 | 삭제 후 tombstone 또는 운영 이력을 남기고 원문은 정책에 따라 정리 |
+    | `lounge.comment` | 라운지 댓글 | child | entity | state | 게시글의 직접 부모 관계와 댓글 상태 | 민감 | 스레드 보존이 필요하면 삭제 tombstone 유지 |
+    | `lounge.post-reaction` | 게시글 반응 | child | association | state | 회원의 게시글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 게시글 정리 시 삭제 |
+    | `lounge.comment-reaction` | 댓글 반응 | child | association | state | 회원의 댓글 좋아요 관계 | 내부 | 회원이 취소하거나 원천 댓글 정리 시 삭제 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `lounge.post` | `author` | references | `member.member` | N:1 | 작성자 개인정보 정리 뒤 별칭 또는 비식별 표시 사용 |
+    | `lounge.post` | `comments` | owns | `lounge.comment` | 1:N | 게시글 삭제 정책과 댓글 스레드 보존 정책을 함께 적용 |
+    | `lounge.post` | `reactions` | owns | `lounge.post-reaction` | 1:N | 게시글 정리 시 회원별 반응도 함께 정리 |
+    | `lounge.post-reaction` | `member` | references | `member.member` | N:1 | 동일 회원의 동일 게시글 반응은 하나만 존재 |
+    | `lounge.comment` | `parent-comment` | references | `lounge.comment` | N:1 | 직접 부모만 참조하며 삭제된 최상위 댓글은 tombstone으로 유지 가능 |
+    | `lounge.comment` | `reactions` | owns | `lounge.comment-reaction` | 1:N | 댓글 정리 시 회원별 반응도 함께 정리 |
+    | `lounge.comment-reaction` | `member` | references | `member.member` | N:1 | 동일 회원의 동일 댓글 반응은 하나만 존재 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `LOUNGE-INV-001` | `lounge.comment` | 댓글의 직접 부모는 같은 게시글에 속해야 한다 | 이 문서 |
+    | `LOUNGE-INV-002` | `lounge.comment` | 삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다 | 이 문서 |
+    | `LOUNGE-INV-003` | `lounge.post-reaction` | 저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 게시글/댓글 상태 SoT
 

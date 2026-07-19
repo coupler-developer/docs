@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   canonicalJson,
   validateLogicalDataModel,
+  writeLogicalModelViews,
 } from "./validate-logical-data-model.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,6 +29,7 @@ ${
 `;
 
 const makeOwner = ({
+  domainId = "sample",
   entityId = "sample.item",
   lifecycleRole = "root",
   entityShape = "entity",
@@ -38,6 +40,7 @@ const makeOwner = ({
   sectionSuffix = "",
   status = "as-is",
   entityRow,
+  invariantId = "SAMPLE-INV-001",
 } = {}) => `# 예시 시스템
 
 ## 문서 역할
@@ -49,7 +52,7 @@ const makeOwner = ({
 
 ## 논리 데이터 모델
 
-- 도메인 ID: \`sample\`
+- 도메인 ID: \`${domainId}\`
 
 ### 논리 엔티티
 
@@ -74,7 +77,7 @@ ${
 
 | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
 | --- | --- | --- | --- |
-| \`SAMPLE-INV-001\` | \`${entityId}\` | 예시 조건 | 이 문서 |
+| \`${invariantId}\` | \`${entityId}\` | 예시 조건 | 이 문서 |
 ${sectionSuffix}
 `;
 
@@ -85,6 +88,7 @@ function withFixture(
     currentIndex = makeIndex(),
     plannedIndex = makeIndex({ planned: true, includeSample: false }),
     extraArchitecture = {},
+    generateViews = true,
   } = {},
 ) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "logical-data-model-"));
@@ -120,7 +124,11 @@ function withFixture(
   const unchecked = validateLogicalDataModel({
     ...options,
     checkCatalog: false,
+    checkViews: false,
   });
+  if (generateViews) {
+    writeLogicalModelViews({ root, views: unchecked.views });
+  }
   fs.writeFileSync(options.catalogPath, canonicalJson(unchecked.catalog));
 
   try {
@@ -147,6 +155,106 @@ test("현행 표준 논리 모델과 생성 catalog를 허용한다", () => {
       },
     ]);
   });
+});
+
+test("상세 표에서 개발자가 먼저 보는 쉬운 그림을 만든다", () => {
+  withFixture(makeOwner(), (options) => {
+    const ownerSource = fs.readFileSync(
+      path.join(path.dirname(options.indexPath), "sample-system.md"),
+      "utf8",
+    );
+
+    assert.match(ownerSource, /^### 먼저 보는 그림$/mu);
+    assert.match(ownerSource, /이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다/u);
+    assert.match(ownerSource, /\|"참고"\|/u);
+    assert.match(ownerSource, /꼭 지킬 규칙:/u);
+    assert.match(ownerSource, /예시 조건/u);
+    assert.match(ownerSource, /^\?\?\? info "정확한 값과 조건 보기"$/mu);
+    assert.match(ownerSource, /^\s+### 논리 엔티티$/mu);
+  });
+});
+
+test("쉬운 그림이 상세 표와 달라지면 거부한다", () => {
+  withFixture(makeOwner(), (options) => {
+    const ownerPath = path.join(path.dirname(options.indexPath), "sample-system.md");
+    const source = fs.readFileSync(ownerPath, "utf8");
+    fs.writeFileSync(ownerPath, source.replace("예시 조건", "오래된 그림"));
+
+    assert.ok(
+      validateLogicalDataModel(options).errors.some((error) =>
+        /먼저 보는 그림이 상세 표와 다릅니다/.test(error),
+      ),
+    );
+  });
+});
+
+test("논리 모델 밖의 같은 제목은 생성할 때 그대로 둔다", () => {
+  const owner = makeOwner().replace(
+    "## 논리 데이터 모델",
+    "## 소개\n\n### 먼저 보는 그림\n\n이 문장은 소개 내용이다.\n\n## 논리 데이터 모델",
+  );
+  withFixture(owner, (options) => {
+    const ownerSource = fs.readFileSync(
+      path.join(path.dirname(options.indexPath), "sample-system.md"),
+      "utf8",
+    );
+
+    assert.match(
+      ownerSource,
+      /## 소개\n\n### 먼저 보는 그림\n\n이 문장은 소개 내용이다\./u,
+    );
+    assert.equal(ownerSource.match(/^### 먼저 보는 그림$/gmu)?.length, 2);
+    assert.deepEqual(validateLogicalDataModel(options).errors, []);
+  });
+});
+
+test("상세 표가 접기 영역 밖으로 나오면 거부한다", () => {
+  withFixture(makeOwner(), (options) => {
+    const ownerPath = path.join(path.dirname(options.indexPath), "sample-system.md");
+    const source = fs.readFileSync(ownerPath, "utf8");
+    const unindented = source.replace(
+      /(\?\?\? info "정확한 값과 조건 보기"\n\n)([\s\S]*?)(\n\n<!-- markdownlint-enable MD046 -->)/u,
+      (_match, start, details, end) =>
+        `${start}${details.replace(/^ {4}/gmu, "")}${end}`,
+    );
+    fs.writeFileSync(ownerPath, unindented);
+
+    assert.ok(
+      validateLogicalDataModel(options).errors.some((error) =>
+        /표는 '정확한 값과 조건 보기' 안에 들여써야 합니다/.test(error),
+      ),
+    );
+  });
+});
+
+test("서로 다른 논리 ID를 서로 다른 그림 ID로 만든다", () => {
+  const currentIndex = `${makeIndex().trimEnd()}
+| \`sample-item\` | 다른 예시 | 그림 ID 충돌 검증 | [다른 예시 시스템](sample-item-system.md) |
+`;
+  withFixture(
+    makeOwner({ entityId: "sample.item-a", targetId: "sample-item.a" }),
+    (options) => {
+      const ownerSource = fs.readFileSync(
+        path.join(path.dirname(options.indexPath), "sample-system.md"),
+        "utf8",
+      );
+
+      assert.match(ownerSource, /entity_sample_dot_item_dash_a\[/u);
+      assert.match(ownerSource, /entity_sample_dash_item_dot_a\[/u);
+      assert.deepEqual(validateLogicalDataModel(options).errors, []);
+    },
+    {
+      currentIndex,
+      extraArchitecture: {
+        "sample-item-system.md": makeOwner({
+          domainId: "sample-item",
+          entityId: "sample-item.a",
+          targetId: "sample-item.a",
+          invariantId: "SAMPLE-ITEM-INV-001",
+        }),
+      },
+    },
+  );
 });
 
 test("현행 매칭 예약과 프로필 열람 의미를 실제 실행 경로에 맞춘다", () => {
@@ -197,15 +305,15 @@ test("현행 매칭 예약과 프로필 열람 의미를 실제 실행 경로에
   assert.equal(reservation?.recordRole, "state");
   assert.doesNotMatch(
     matchingSource,
-    /^\| `matching\.reservation` \| `policy` \|/mu,
+    /^\s*\| `matching\.reservation` \| `policy` \|/mu,
   );
   assert.match(
     matchingSource,
-    /^\| `matching\.reservation` \| `female-candidate` \| references \| `member\.member` \|/mu,
+    /^\s*\| `matching\.reservation` \| `female-candidate` \| references \| `member\.member` \|/mu,
   );
   assert.match(
     matchingSource,
-    /^\| `matching\.reservation` \| `male-candidate` \| references \| `member\.member` \|/mu,
+    /^\s*\| `matching\.reservation` \| `male-candidate` \| references \| `member\.member` \|/mu,
   );
   assert.doesNotMatch(
     keyWalletSource,
@@ -224,12 +332,15 @@ test("architecture 템플릿이 표준 논리 모델 구조를 유지한다", ()
   assert.match(template, /^- 도메인 ID: `<domain-id>`$/mu);
   assert.match(
     template,
-    /^\| 논리 ID \| 표시명 \| 생명주기 역할 \| 엔티티 형태 \| 기록 역할 \| 책임 \| 최고 데이터 분류 \| 생명주기 \|$/mu,
+    /^\s*\| 논리 ID \| 표시명 \| 생명주기 역할 \| 엔티티 형태 \| 기록 역할 \| 책임 \| 최고 데이터 분류 \| 생명주기 \|$/mu,
   );
   assert.match(
     template,
-    /^\| 출발 논리 ID \| 관계 역할 \| 관계 유형 \| 도착 논리 ID \| 카디널리티 \| 소유·삭제 규칙 \|$/mu,
+    /^\s*\| 출발 논리 ID \| 관계 역할 \| 관계 유형 \| 도착 논리 ID \| 카디널리티 \| 소유·삭제 규칙 \|$/mu,
   );
+  assert.match(template, /^### 먼저 보는 그림$/mu);
+  assert.match(template, /^\?\?\? info "정확한 값과 조건 보기"$/mu);
+  assert.match(template, /generate:logical-data-model/u);
   assert.doesNotMatch(template, /구조 유형|<root, child, relation>/u);
 });
 
@@ -249,7 +360,7 @@ test("예정 레지스트리의 단계가 catalog에 보존된다", () => {
   );
 });
 
-test("폐쇄형 taxonomy 밖의 값을 거부한다", () => {
+test("정해진 분류값 밖의 값을 거부한다", () => {
   withFixture(
     makeOwner({
       lifecycleRole: "aggregate",
@@ -313,7 +424,7 @@ test("논리 모델 하위 절의 중복과 순서 drift를 거부한다", () =>
   withFixture(duplicatedSection, (options) => {
     assert.ok(
       validateLogicalDataModel(options).errors.some((error) =>
-        /하위 절은 논리 엔티티 -> 관계 -> 불변조건 순서/.test(error),
+        /하위 절은 먼저 보는 그림 -> 논리 엔티티 -> 관계 -> 불변조건 순서/.test(error),
       ),
     );
   });
@@ -322,13 +433,17 @@ test("논리 모델 하위 절의 중복과 순서 drift를 거부한다", () =>
     "- 도메인 ID: `sample`\n\n### 논리 엔티티",
     "### 논리 엔티티\n\n- 도메인 ID: `sample`",
   );
-  withFixture(misplacedDomainId, (options) => {
-    assert.ok(
-      validateLogicalDataModel(options).errors.some((error) =>
-        /도메인 ID 선언은 논리 엔티티 절보다 앞/.test(error),
-      ),
-    );
-  });
+  withFixture(
+    misplacedDomainId,
+    (options) => {
+      assert.ok(
+        validateLogicalDataModel(options).errors.some((error) =>
+          /도메인 ID 선언은 먼저 보는 그림과 상세 표보다 앞/.test(error),
+        ),
+      );
+    },
+    { generateViews: false },
+  );
 });
 
 test("인덱스에 없는 논리 모델 소유 문서를 역방향으로 거부한다", () => {
