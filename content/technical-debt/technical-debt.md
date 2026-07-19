@@ -163,9 +163,9 @@
 
 ## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
 
-- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110), [API #131](https://github.com/coupler-developer/coupler-api/pull/131), [API #132](https://github.com/coupler-developer/coupler-api/pull/132), [Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 병합됐고 stable contract `0.1.12`가 발행됐다. [Mobile #154](https://github.com/coupler-developer/coupler-mobile-app/pull/154)와 [Admin #66](https://github.com/coupler-developer/coupler-admin-web/pull/66)은 같은 stable 계약을 소비하는 cutover 변경 묶음이며 CI를 통과했다. 세 레포 main·배포물의 exact version 일치 증빙과 대상 환경별 migration ledger·runtime, FCM, scheduler smoke, 운영 전환이 남아 있다.
-- 영향: 부분 배포 시 알림·정원·과금·개인정보 계약이 어긋날 수 있다.
-- 조치: 세 레포 main·배포물의 exact version 일치 확인 → 대상 환경 migration ledger·schema 확인 → API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
+- 현상: [API #110](https://github.com/coupler-developer/coupler-api/pull/110), [API #131](https://github.com/coupler-developer/coupler-api/pull/131), [API #132](https://github.com/coupler-developer/coupler-api/pull/132), [Admin #62](https://github.com/coupler-developer/coupler-admin-web/pull/62)는 병합됐고 stable contract `0.1.12`가 발행됐다. [Mobile #154](https://github.com/coupler-developer/coupler-mobile-app/pull/154)와 [Admin #66](https://github.com/coupler-developer/coupler-admin-web/pull/66)은 같은 stable 계약을 소비하는 cutover 변경 묶음이며 CI를 통과했다. 채팅 페이지 집계·무료 공개 프로필의 다음 계약 후보 `0.1.13`은 발행·소비자 전환 전이다. 세 레포 main·배포물의 exact version 일치 증빙과 대상 환경별 migration ledger·runtime, FCM, scheduler smoke, 운영 전환이 남아 있다.
+- 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
+- 조치: 다음 stable 계약 발행·소비자 exact pin → 세 레포 main·배포물의 exact version 일치 확인 → 대상 환경 migration ledger·schema 확인 → API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
 - 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
@@ -188,6 +188,13 @@
 - 영향: import 순서와 selector specificity가 스타일 책임을 대신해 한 화면의 수정이 다른 운영 화면의 표시를 바꿀 수 있다.
 - 조치: 사용처 baseline과 감소형 gate를 만든 뒤 공통 골격부터 Bootstrap 5, Admin token, Coupler 소유 component·SCSS로 전환한다.
 - 완료: `app.min.css`·theme asset 사용, Color Admin 전용 class, 중복 foundation이 모두 0건이고 대표 화면 회귀 검증을 통과한다.
+
+## 26) 기존 API 페이지 조회 구조 감사·전환 미완료 `P2` `L`
+
+- 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존 Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과 전체 채팅 첫 화면의 API 집계 계약은 다음 stable 계약 후보에 반영됐지만 소비자 전환과 나머지 화면 감사가 남아 있다.
+- 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
+- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 cutover → traffic 확인 후 legacy endpoint 제거.
+- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 legacy traffic 0건 및 제거.
 
 ## 분리 관리
 

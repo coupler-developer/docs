@@ -23,8 +23,13 @@
   18명이며 `10+10`, `18+2`, `7+5`를 허용하고 `11+10`은 거절한다.
 - 모임 확정은 남녀 승인 인원이 각각 2명 이상이면 가능하며 설정 정원 전체 충원을 요구하지 않는다.
 - 신청 자체에는 Key를 차감하지 않는다. 외부 입금 확인은 Admin의 참여 승인으로 표현한다.
-- 사진 비공개/공개 행사에서 승인 참가자 간 최초 프로필 열람 비용은 각각 서버 설정 16/18을 사용한다.
-  Mobile 호스트와 Admin의 운영 목적 신청자 프로필 조회는 무료이며 감사 이력을 남긴다.
+- 현재 그룹미팅 채팅의 공개 프로필 조회는 무료다. 현재 호스트와 승인 참가자는 본인을 포함한 현재 구성원의
+  익명 별칭·관리자 지정 대표 프로필·행사 공개 범위의 프로필 카드를 볼 수 있으며 Key를 차감하거나 유료 열람
+  이력을 새로 만들지 않는다.
+- 서버 설정 16/18과 기존 프로필 열람 원장은 과거 유료 이력과 향후 정책 검토를 위해 보존한다. 향후 과금은
+  설정값만 바꿔 현재 조회에 숨겨 적용하지 않고 가격·사용자 확인·멱등성이 있는 별도 동작 명령과 계약으로
+  도입한다.
+- Mobile 호스트와 Admin의 운영 목적 신청자 프로필 조회도 무료이며 Admin 운영 조회는 감사 이력을 남긴다.
 - 종료 후기 최초 보상은 서버 설정 25를 사용한다. 클라이언트가 Key 금액을 결정하지 않는다.
 - CONFIRMED 행사는 `event_at + 24시간`이 지나면 서버 job이 FINISHED로 변경한다. Admin 수동 종료 API는
   두지 않는다.
@@ -63,7 +68,7 @@
 | `group-meeting.event` | `reviews` | owns | `group-meeting.review` | 1:N | 신청 회원당 최초 후기 하나만 허용 |
 | `group-meeting.review` | `author` | references | `member.member` | N:1 | 종료 행사에 유효하게 참여한 회원만 작성 가능 |
 | `group-meeting.event` | `action-history` | owns | `group-meeting.action-history` | 1:N | 상태 변경과 같은 transaction에서 기록 |
-| `group-meeting.application` | `profile-access` | associates | `key-wallet.profile-access` | N:M | 승인 참가자 간 최초 유료 열람만 거래로 기록 |
+| `group-meeting.application` | `profile-access` | associates | `key-wallet.profile-access` | N:M | 과거 유료 열람 거래만 보존하며 현재 무료 공개 프로필 조회는 거래를 만들지 않음 |
 | `group-meeting.application` | `member-report` | associates | `moderation.member-report` | N:M | 같은 행사 참여 문맥에서만 회원 신고 허용 |
 
 ### 불변조건
@@ -119,8 +124,11 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   집계한다.
 - 생성, 메시지, 신고의 idempotency key는 행위 주체 범위에서 유일하다. 같은 key와 같은 canonical
   payload의 재요청은 부수효과 없이 기존 성공을 반환하고, 다른 payload에 재사용하면 실패한다.
-- 참가자 프로필 최초 열람과 후기 보상은 회원 Key, 기존 Key 원장, 그룹미팅 연결을 한 transaction에서
-  반영한다. 설정 누락이나 잘못된 부호는 fallback하지 않고 전체 transaction을 실패시킨다.
+- 현재 무료 공개 프로필 조회는 read-only이며 회원 Key·Key 원장·프로필 유료 열람 이력을 쓰지 않는다.
+  향후 유료 열람을 도입하면 회원 Key, 기존 Key 원장, 그룹미팅 연결을 별도 명시적 명령의 한 transaction에서
+  반영하고 설정 누락이나 잘못된 부호를 fallback하지 않는다.
+- 후기 보상은 회원 Key, 기존 Key 원장, 그룹미팅 연결을 한 transaction에서 반영하며 설정 누락이나 잘못된
+  부호는 fallback하지 않고 전체 transaction을 실패시킨다.
 - 알림은 원천 transaction commit 뒤 기존 `sendFCMPush()` 한 경로에서만 발송·저장한다. 그룹미팅 코드가
   `t_alarm`을 직접 추가하지 않는다.
 - 행사당 채팅은 하나이며 별도 room 상태를 중복 저장하지 않는다. 송신 가능 여부는 행사 상태, 참가자 자격은
@@ -143,7 +151,8 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 - 신청·승인 성별 인원수, 역할, unread, 접근 권한은 원천 상태에서 계산한다. 같은 의미의 상태나 합계를
   별도 필드에 중복 저장하지 않는다.
 - 신청 당시 성별과 별칭은 시간축 snapshot이며 현재 회원 프로필 SoT로 사용하지 않는다.
-- 승인 참가자 간 프로필 열람과 후기의 실제 Key 변동량·잔액은 기존 Key 원장에 한 번만 기록한다.
+- 현재 무료 공개 프로필 조회는 Key 변동을 만들지 않는다. 후기 보상과 향후 별도 유료 열람 명령의 실제 Key
+  변동량·잔액만 기존 Key 원장에 한 번 기록한다.
 - raw DB row, 내부 감사 연결, Key 원장 연결은 프론트 응답에 노출하지 않는다.
 
 ## 삭제와 보관
@@ -193,15 +202,20 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   `OPEN`·`CLOSED`·`CONFIRMED`를 최근 등록 순으로 먼저, 비활성 상태 `FINISHED`·`CANCELED`를 최근 등록
   순으로 다음에 배치한다. 직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
 - 채팅방 진입은 `GET /group-meetings/{event_id}/chat` 한 건으로 행사, 호출자 `self`, 승인 구성원
-  `members`, 읽기 전용 여부를 구조화해 반환한다. `chat_member_id`는 내 메시지 판별과 신고 대상,
-  참가자의 `application_id`는 프로필 열람에만 사용한다. 실제 `member_id` 해석과 동일 행사 소속 검증은
-  API 내부 책임이며 Mobile DTO에 노출하지 않는다.
+  `members`와 익명 공개 프로필, 최초 메시지 page, 종료 후기 상태, 읽기 전용 여부를 구조화해 반환한다.
+  `chat_member_id`는 내 메시지 판별과 신고 대상, 참가자의 `application_id`는 기존 앱의 무료 프로필 조회
+  호환 경로에만 사용한다. 실제 `member_id` 해석과 동일 행사 소속 검증은 API 내부 책임이며 Mobile DTO에
+  노출하지 않는다. 과거 메시지 추가 page, 메시지 전송·읽음·신고·나가기는 증분 조회 또는 동작 명령으로
+  분리한다.
+- 전체 채팅 첫 화면 `GET /chat/chatList`는 기존 매칭·2:2 미팅과 N:N 그룹미팅 채팅 첫 page를 한 응답에
+  집계한다. 그룹미팅 section 실패를 빈 목록으로 바꾸지 않는다.
 - Mobile 신청자 DTO와 Admin 운영 DTO는 분리한다. `GroupMeetingApplicantItem`은 신청 문맥만 노출하고,
   `AdminGroupMeetingApplicantItem`만 운영에 필요한 회원 ID·이메일·탈퇴/취소 시각을 추가한다.
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
-- API·Admin·Mobile은 stable contracts package `0.1.12`를 exact pin하고 동일 DTO를 직접 소비한다. 별도
-  normalize, ID fallback, local wire DTO를 추가하지 않는다.
+- API·Admin·Mobile은 published latest stable contracts package를 exact pin하고 동일 DTO를 직접 소비한다.
+  `0.1.12`는 출시된 기준선이며 채팅 페이지 집계·무료 공개 프로필 계약은 `0.1.13` 발행과 소비자 전환 Gate를
+  통과해야 한다. 별도 normalize, ID fallback, local wire DTO를 추가하지 않는다.
 
 대표 read model은 다음과 같다.
 
@@ -211,7 +225,7 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 | `AdminGroupMeetingEventDetail` | 행사 상세, ready 이미지, 신청 집계, Admin 운영 정보 |
 | `GroupMeetingApplicantItem` | 신청 상태와 신청 당시 표시 정보 |
 | `AdminGroupMeetingApplicantItem` | Admin 신청 운영용 회원 ID·이메일·탈퇴/취소 시각 |
-| `GroupMeetingChatRoom` | 행사별 호출자와 승인 구성원의 채팅·신청 ID 경계 |
+| `GroupMeetingChatRoom` | 행사별 호출자, 승인 구성원의 익명 공개 프로필, 최초 메시지, 종료 후기 상태와 채팅·신청 ID 경계 |
 | `GroupMeetingChatMessageItem` | 메시지, 송신자 역할, 운영 삭제 상태 |
 | `GroupMeetingReviewState` | 후기 작성 가능 여부, 기존 후기, 서버 보상값 |
 
@@ -220,8 +234,14 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 - 신규 N:N은 `/meeting/group`에서 행사 상세에 신청, 채팅, 후기, 신고, 프로필 열람 이력을 종속시켜 본다.
 - 기존 `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`, `/meeting/penalty`는 2:2 전용 코드로만
   보존하고 CMS 메뉴와 라우트에서는 비활성화한다. 운영 진입점은 N:N `/meeting/group` 하나만 둔다.
-- `groupMeetingChatUserReport` 알림은 N:N 화면 `/meeting/group`으로 이동한다. 기존 2:2 신고 화면으로
-  연결하지 않는다.
+- `groupMeetingChatUserReport` 알림은 미처리 신고가 있는 N:N 행사만 표시하는
+  `/meeting/group?pending_reports=1`로 이동한다. 행사 목록은 `pending_report_count`를 표시하고 해당 수를
+  누르면 행사 상세의 신고 탭을 바로 연다. 기존 2:2 신고 화면으로 연결하지 않는다.
+- 신고 탭은 신고자·피신고자의 현재 상태와 프로필을 표시하고 회원 상세 조회를 제공한다. Super Admin은
+  신고 처리·기각과 별도로 회원 차단 및 피신고자 미팅 패널티를 적용할 수 있고, 파트너 Admin은 자신이
+  담당하는 행사의 신고 내역만 읽는다.
+- 동일 신고자의 같은 `idempotency_key` 재전송은 원래 결과를 반환한다. 서로 다른 key는 반복 위반을
+  별도 사건으로 보존하며 각 신고를 독립적으로 처리·기각한다.
 - 파트너 Admin은 자신이 소유한 행사만 조회·변경할 수 있고 Super Admin만 최초 호스트 연결과 전체 운영
   범위를 가진다.
 - 행사 목록과 호스트 연결 화면은 매니저 ID를 검색·표시한다. 모임 만들기는 매니저 ID를 입력하고, 연결된
