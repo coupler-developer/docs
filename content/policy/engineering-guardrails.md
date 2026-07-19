@@ -25,6 +25,7 @@
 | 공통 Fail-closed, 책임 분리, 구조 단순화, Shadow Cutover | 이 문서 | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
+| 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
 | 계약 package 발행·소비·공개 표면 | [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md) | 생성 계약 우회 금지만 유지 |
 | DB migration stage와 실행 Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) | DB 설계와 Fail-closed 원칙만 유지 |
 | 테스트 범위와 표준 검증 명령 | [테스트/CI 전략](testing-strategy.md) | 품질 게이트 통과 의무만 유지 |
@@ -212,6 +213,10 @@ cutover 배포 코드 기준:
 
 ### API 스펙/계약
 
+- **API 조회와 동작의 외부 경계는 페이지/use-case에서 도출한다**
+    - 페이지 소유 초기 데이터의 집계, 증분 조회, 동작 명령, 전송·스트림 분류는 [API 조회·동작 설계 정책](api-operation-design-policy.md)을 단일 기준으로 따른다
+    - UI 요소·DB entity·Repository·담당 팀 차이만으로 endpoint를 쪼개거나, Mobile/Admin이 item별 상세·권한·설정을 연쇄 호출하게 만들지 않는다
+    - 이 문서는 구조 단순화와 책임 분리의 상위 원칙만 유지하고 operation별 분리 조건과 예외를 반복 정의하지 않는다
 - **API 파라미터는 하나로 명확하게 정의한다**
     - `param1 ?? param2` 같은 fallback은 API 불일치를 숨긴다
     - 예시: `profile_image_paths ?? profile` (잘못됨) → `profile_image_paths` (올바름)
@@ -484,6 +489,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 ## 관련 문서
 
+- [API 조회·동작 설계 정책](api-operation-design-policy.md)
 - [코드 리뷰 정책](code-review-policy.md)
 - [테스트/CI 전략](testing-strategy.md)
 - [문서 거버넌스 정책](document-governance-policy.md)

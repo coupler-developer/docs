@@ -42,6 +42,7 @@
 ## 기술 판정 기준 (단일 SoT)
 
 - 상위 공통 기술 원칙과 기술 이행 유형별 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다. API/DB/테스트 등 세부 판정은 가드레일의 `단일 SoT와 우선순위` 표에 연결된 범위별 문서를 따른다.
+- 페이지/use-case 조회 집계와 증분 조회·동작 명령·전송 경계는 [API 조회·동작 설계 정책](api-operation-design-policy.md)을 단일 기준으로 사용한다.
 - 테스트 범위/전략은 [테스트/CI 전략](testing-strategy.md)을 단일 기준으로 사용한다.
 - 배포 태그와 스토어 제출 마커 태그 기준은 [배포 태그 정책](release-tag-policy.md)을 단일 기준으로 사용한다.
 - 릴리즈 기록 절차는 [배포/릴리즈 프로세스](release-process.md)를 단일 기준으로 사용한다.
@@ -190,6 +191,7 @@
 - **Business / Operations**: 운영 가능성, CS 리스크, 관리자 액션, 심사/결제/푸시 운영 영향을 확인한다.
 - **Senior Security**: 인증/인가, 권한 우회, 민감정보, 로그 마스킹, 임시 권한, 감사 로그를 확인한다.
 - **Senior Backend**: API 계약, [엔지니어링 가드레일](engineering-guardrails.md)의 DB 설계 최종 리뷰,
+  [API 조회·동작 설계 정책](api-operation-design-policy.md)의 페이지/use-case 집계와 operation 경계,
   상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy),
   [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
 - **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 클라이언트 로컬 subset과 서버 분류 체계(taxonomy)의 충돌 여부, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
@@ -280,6 +282,20 @@
 - 기존 부채나 호환 예외로 분류한 API 응답/에러 계약 경로는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`를 참조한다. PR diff 안에서 새로 추가/수정/사용한 경로가 이 인덱스나 PR 기록 없이 남으면 finding으로 기록한다.
 - `No Findings` 판정은 리뷰 범위 기준이다. 서버 catalog 정리나 client runtime contract 생성만으로 전체 API cutover 완료를 의미하지 않는다. 전체 완료는 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), 기술부채 cutover 인덱스 완료 기준을 함께 만족해야 한다.
 
+### API 조회·동작 구조 리뷰 기준
+
+- 신규 operation, 성공 DTO·endpoint 동작을 직접 수정한 operation, 기존 operation을 조합한 새 페이지/use-case는 [API 조회·동작 설계 정책](api-operation-design-policy.md)을 적용한다.
+- 현재 diff가 호출하거나 수정하지 않는 기존 페이지의 미분류·미준수 요청 그래프는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `기존 API 페이지 조회 구조 감사·전환 미완료`로 분류하고 무관한 PR의 병합 조건으로 만들지 않는다. 직접 수정하거나 새 소비 흐름에서 재사용하면 현재 변경의 finding으로 판정한다.
+- 페이지/use-case, 의미 있는 최초 화면, 화면 데이터 분류, 소비자 요청 그래프가 없으면 operation 경계의 근거가 없는 것으로 finding을 기록한다.
+- 페이지 소유 초기 데이터가 페이지 조회 1회로 완결되지 않으면 각 추가 초기 조회에 정책상 분리 조건과 독립 실패 UX가 있는지 확인한다. 둘 중 하나라도 없으면 finding이다.
+- ID 목록 뒤 visible item별 상세 조회, 권한·설정·상태의 종속 순차 호출, 명령 성공 뒤 동일 페이지 전체 재조회가 구조적 기본값이면 근거 없는 client N+1 또는 waterfall로 finding을 기록한다.
+- 페이지 집계가 서버 query N+1, 무제한 collection, 민감정보 과다 노출, 서로 다른 권한·상태 시점의 혼합 snapshot을 만들면 client 호출 수 감소와 별개로 finding이다.
+- 컴포넌트·버튼·테이블·Repository·담당 팀 차이만 제시한 endpoint 분리는 유효한 분리 근거가 아니다.
+- 범용 batch 또는 임의 `include` endpoint가 요소별 요청을 포장만 하고 typed page DTO·권한·실패·크기 경계를 클라이언트에 맡기면 집계 구조가 아닌 것으로 finding을 기록한다.
+- 조회 `GET`이 읽음 상태·열람 보상·권한·과금을 숨겨 변경하거나, 현재 무료 동작을 같은 계약의 설정 전환만으로 과금할 수 있게 만들면 명시적 동작 명령과 사용자 확인 경계가 없는 것으로 finding을 기록한다. domain 판정에 사용하지 않는 access log·trace·metric은 제외한다.
+- 확정되지 않은 미래 기능을 위한 미사용 endpoint, nullable field, disabled enum mode는 공개 계약 표면 확대로 finding을 기록한다.
+- 동작 명령 성공 응답은 변경된 canonical 상태와 페이지 갱신에 필요한 결과를 제공하는지 확인한다. 실시간·외부 일관성 근거 없이 빈 성공 뒤 전체 재조회를 강제하면 finding이다.
+
 ### 런타임 설정 리뷰 기준
 
 - `coupler-api`의 DB pool, connection timeout, runtime config 로딩 경로, `config/default*.json`, 운영 `config/production*.json`, `config/production*.json.example`, 운영 환경변수 변경은 API 런타임 변경으로 리뷰한다.
@@ -301,6 +317,9 @@
 - [ ] 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover로 설명한 변경 범위에 transition 계층이 0건인가?
 - [ ] 변경 범위 안에서 더 단순한 문서/코드 구조, SoT, 책임 경계, 파일 배치로 정리할 수 있는데도 중복/우회/임시 구조를 새로 만들거나 넓히지 않았는가?
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
+- [ ] 신규·직접 수정 API 또는 새 페이지/use-case가 [API 조회·동작 설계 정책](api-operation-design-policy.md)의 설계 증빙과 완료 정의를 충족하는가?
+- [ ] 페이지 소유 초기 데이터가 근거 없는 추가 호출 없이 완결되고, client item N+1·종속 waterfall과 server query N+1이 없는가?
+- [ ] 동작 명령 뒤 불필요한 전체 재조회와 확정되지 않은 미래 기능용 공개 endpoint·field·mode가 없는가?
 - [ ] 응답/에러 처리가 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), [엔지니어링 가드레일](engineering-guardrails.md)의 응답/에러 처리 기준을 따르는가?
 - [ ] 신규 또는 직접 수정한 structured success `data`의 Swagger/OpenAPI DTO, generated contract, 소비자 API 경계 타입이 일치하며 기존 부채와 opaque JSON passthrough 예외를 구분했는가?
 - [ ] generated DTO와 동일한 identity `toXxxDto` wrapper·수동 필드 validator가 없고, 실제 의미/구조 변환이 있는 typed Presenter/Mapper만 남아 있는가?
@@ -345,6 +364,7 @@
 ## 관련 문서
 
 - [엔지니어링 가드레일](engineering-guardrails.md)
+- [API 조회·동작 설계 정책](api-operation-design-policy.md)
 - [테스트/CI 전략](testing-strategy.md)
 - [문서 거버넌스 정책](document-governance-policy.md)
 

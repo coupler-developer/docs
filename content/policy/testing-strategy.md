@@ -56,6 +56,7 @@
 | 변경 유형 | 최소 검증 |
 | --- | --- |
 | API 계약 | 요청/응답 계약 테스트 또는 controller/route 통합 테스트 |
+| API 조회·동작 구조 | 페이지 조회의 필수 데이터·권한 계약, bounded 최대치의 payload·query 수, 소비자 요청 그래프 또는 화면 테스트 |
 | 상태 머신(FSM)/상태 전이 | 허용/거부 전이 테스트 또는 상태 차이 로그 |
 | 권한/보안 | 권한별 허용/거부 검증 |
 | 결제 | 중복 결제, 환불, 키 지급/회수 검증 |
@@ -176,5 +177,6 @@
 ## 관련 문서
 
 - [엔지니어링 가드레일](engineering-guardrails.md)
+- [API 조회·동작 설계 정책](api-operation-design-policy.md)
 - [코드 리뷰 정책](code-review-policy.md)
 - [DB Migration Gate 정책](db-migration-gate-policy.md)
