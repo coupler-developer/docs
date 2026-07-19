@@ -142,18 +142,71 @@ test("현행 표준 논리 모델과 생성 catalog를 허용한다", () => {
   withFixture(makeOwner(), (options) => {
     const result = validateLogicalDataModel(options);
     assert.deepEqual(result.errors, []);
+    assert.equal(result.catalog.version, 3);
     assert.deepEqual(result.catalog.entities, [
       {
         id: "sample.item",
+        name: "예시",
         domainId: "sample",
         ownerDocument: "content/architecture/sample-system.md",
         stage: "as-is",
         lifecycleRole: "root",
         entityShape: "entity",
         recordRole: "state",
+        responsibility: "검증 대상",
         classification: "내부",
+        lifecycle: "보존",
       },
     ]);
+    assert.deepEqual(result.catalog.relationships, [
+      {
+        sourceEntityId: "sample.item",
+        role: "subject",
+        kind: "references",
+        targetEntityId: "sample.item",
+        cardinality: "1:1",
+        lifecycleRule: "함께 보존",
+        ownerDocument: "content/architecture/sample-system.md",
+      },
+    ]);
+    assert.deepEqual(result.catalog.invariants, [
+      {
+        id: "SAMPLE-INV-001",
+        relatedEntityId: "sample.item",
+        statement: "예시 조건",
+        basis: "이 문서",
+        ownerDocument: "content/architecture/sample-system.md",
+      },
+    ]);
+  });
+});
+
+test("관계·불변조건 의미 변경을 생성 catalog drift로 거부한다", () => {
+  withFixture(makeOwner(), (options) => {
+    const ownerPath = path.join(
+      path.dirname(options.indexPath),
+      "sample-system.md",
+    );
+    const originalCatalog = validateLogicalDataModel(options).catalog;
+    const changedOwner = fs
+      .readFileSync(ownerPath, "utf8")
+      .replace("| 1:1 | 함께 보존 |", "| N:1 | 함께 보존 |")
+      .replace("| 예시 조건 | 이 문서 |", "| 변경된 조건 | 이 문서 |");
+    fs.writeFileSync(ownerPath, changedOwner);
+
+    const changed = validateLogicalDataModel({
+      ...options,
+      checkCatalog: false,
+      checkViews: false,
+    });
+    assert.equal(changed.catalog.relationships[0].cardinality, "N:1");
+    assert.equal(changed.catalog.invariants[0].statement, "변경된 조건");
+    assert.notDeepEqual(changed.catalog, originalCatalog);
+    assert.ok(
+      validateLogicalDataModel({ ...options, checkViews: false }).errors.some(
+        (error) => /catalog가 최신 상태가 아닙니다/.test(error),
+      ),
+    );
   });
 });
 

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "source": {
     "currentIndex": "content/architecture/logical-data-model-index.md",
     "plannedIndex": "content/architecture/logical-data-model-planned-index.md"
@@ -222,693 +222,2257 @@
   "entities": [
     {
       "id": "admin-access.operator",
+      "name": "관리자 계정",
       "domainId": "admin-access",
       "ownerDocument": "content/architecture/admin-permission.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "관리자 인증 식별자, 역할 값과 현재 접근 상태",
+      "classification": "민감",
+      "lifecycle": "퇴사·권한 회수 뒤 로그인은 차단하고 업무 이력의 행위자 참조는 보존"
     },
     {
       "id": "analytics.login-statistic",
+      "name": "로그인 통계",
       "domainId": "analytics",
       "ownerDocument": "content/architecture/analytics-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "projection",
-      "classification": "내부"
+      "responsibility": "일자·성별·시간대별 로그인 집계",
+      "classification": "내부",
+      "lifecycle": "원천 데이터에서 재생성 가능하며 집계 보관 정책 적용"
     },
     {
       "id": "club-manager.assignment",
+      "name": "회원 배정",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원과 담당 클럽매니저의 운영 관계",
+      "classification": "내부",
+      "lifecycle": "재배정 시 현재 관계를 갱신하고 변경 근거를 보존"
     },
     {
       "id": "club-manager.detail-profile-slice",
+      "name": "상세 프로필 조각",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "내부"
+      "responsibility": "상세 프로필 버전의 표시용 이미지 조각",
+      "classification": "내부",
+      "lifecycle": "상위 버전 정리 시 함께 삭제"
     },
     {
       "id": "club-manager.detail-profile-version",
+      "name": "상세 프로필 버전",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "내부"
+      "responsibility": "상세 이미지 원본과 변환 상태",
+      "classification": "내부",
+      "lifecycle": "현재 버전은 유지하고 실패·이전 버전은 정리 가능"
     },
     {
       "id": "club-manager.manager",
+      "name": "클럽매니저",
       "domainId": "club-manager",
       "ownerDocument": "content/architecture/club-manager-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "클럽매니저 계정과 현재 공개 프로필",
+      "classification": "민감",
+      "lifecycle": "운영 계정 비활성 이후에도 배정 이력을 보존"
     },
     {
       "id": "conversation.message",
+      "name": "대화 메시지",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "일반·시스템 메시지와 발송 시각·표시 상태",
+      "classification": "민감",
+      "lifecycle": "신고·CS 기간 동안 보존하고 개인정보 정리 시 비식별화"
     },
     {
       "id": "conversation.participant",
+      "name": "대화 참여자",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "대화방의 회원·운영자 참여 자격과 읽음 경계",
+      "classification": "내부",
+      "lifecycle": "퇴장 뒤에도 메시지 표시 이력을 위해 비식별 보존 가능"
     },
     {
       "id": "conversation.thread",
+      "name": "대화방",
       "domainId": "conversation",
       "ownerDocument": "content/architecture/chat-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "상담·매칭·미팅 문맥의 참여자와 대화 가능 상태",
+      "classification": "내부",
+      "lifecycle": "원천 서비스 문맥의 종료·보관 정책을 따름"
     },
     {
       "id": "group-meeting.action-history",
+      "name": "그룹미팅 행위 이력",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "내부"
+      "responsibility": "상태 변경과 중요 운영 행위의 행위자·사유",
+      "classification": "내부",
+      "lifecycle": "append-only 감사 이력으로 보존"
     },
     {
       "id": "group-meeting.application",
+      "name": "그룹미팅 신청",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "신청·승인·확정 취소·채팅 자격 종료",
+      "classification": "민감",
+      "lifecycle": "행사 종료 뒤 신청 당시 별칭과 상태를 비식별 이력으로 보존 가능"
     },
     {
       "id": "group-meeting.detail-slice",
+      "name": "행사 상세 이미지 조각",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "내부"
+      "responsibility": "상세 이미지 버전의 표시용 조각",
+      "classification": "내부",
+      "lifecycle": "상위 버전 정리 시 파일과 함께 정리"
     },
     {
       "id": "group-meeting.detail-version",
+      "name": "행사 상세 이미지 버전",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "내부"
+      "responsibility": "긴 상세 이미지 원본과 변환 상태",
+      "classification": "내부",
+      "lifecycle": "현재 버전 유지, 실패·교체 버전 정리 가능"
     },
     {
       "id": "group-meeting.event",
+      "name": "그룹미팅 행사",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "모집·마감·확정·종료와 공개 행사 정보",
+      "classification": "민감",
+      "lifecycle": "삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리"
     },
     {
       "id": "group-meeting.host",
+      "name": "그룹미팅 호스트",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "클럽매니저 계정과 모바일 호스트 회원의 명시적 연결",
+      "classification": "민감",
+      "lifecycle": "활성 행사가 없을 때 원천 계정 연결 해제 가능, 행사 이력은 보존"
     },
     {
       "id": "group-meeting.participant",
+      "name": "그룹미팅 참여자",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "확정 채팅 참여 자격과 읽음 경계",
+      "classification": "내부",
+      "lifecycle": "자격 종료 뒤에도 메시지 문맥을 위해 보존 가능"
     },
     {
       "id": "group-meeting.review",
+      "name": "그룹미팅 후기",
       "domainId": "group-meeting",
       "ownerDocument": "content/architecture/group-meeting-system.md",
       "stage": "to-be",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "종료 행사 후기와 보상 연결",
+      "classification": "민감",
+      "lifecycle": "개인정보 정리 시 자유문 비식별화, 보상 이력 보존"
     },
     {
       "id": "key-wallet.entry",
+      "name": "Key 변동 원장",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "ledger",
-      "classification": "내부"
+      "responsibility": "지급·차감·환불과 변경 후 잔액",
+      "classification": "내부",
+      "lifecycle": "append-only 서비스 이용·정산 이력으로 보존"
     },
     {
       "id": "key-wallet.profile-access",
+      "name": "프로필 열람 거래",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "ledger",
-      "classification": "민감"
+      "responsibility": "서비스 문맥별 프로필 열람과 요청 시점의 Key 차감 결과",
+      "classification": "민감",
+      "lifecycle": "열람·과금 확인 기간 동안 보존하고 회원 개인정보 정리 시 삭제"
     },
     {
       "id": "key-wallet.wallet",
+      "name": "Key 지갑",
       "domainId": "key-wallet",
       "ownerDocument": "content/architecture/matching-key-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원이 현재 사용할 수 있는 Key 잔액",
+      "classification": "내부",
+      "lifecycle": "회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴"
     },
     {
       "id": "legacy-meeting.meeting",
+      "name": "기존 2:2 미팅",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "행사 모집·확정·종료와 현재 표시 정보",
+      "classification": "민감",
+      "lifecycle": "기존 호환 계약으로 보존하며 종료·삭제 이력 유지"
     },
     {
       "id": "legacy-meeting.participation",
+      "name": "기존 미팅 참가",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "회원의 신청·승인·퇴장과 행사 당시 별칭",
+      "classification": "민감",
+      "lifecycle": "행사 종료 뒤 참가 이력으로 보존"
     },
     {
       "id": "legacy-meeting.rating",
+      "name": "기존 미팅 별점",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "작성 회원과 대상 회원 사이의 별점",
+      "classification": "민감",
+      "lifecycle": "운영·신고 확인 기간 동안 보존"
     },
     {
       "id": "legacy-meeting.review",
+      "name": "기존 미팅 후기",
       "domainId": "legacy-meeting",
       "ownerDocument": "content/architecture/meeting-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "행사 결과와 후기 내용",
+      "classification": "민감",
+      "lifecycle": "개인정보 정리 뒤 비식별 보존 가능"
     },
     {
       "id": "lounge.comment",
+      "name": "라운지 댓글",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "게시글의 직접 부모 관계와 댓글 상태",
+      "classification": "민감",
+      "lifecycle": "스레드 보존이 필요하면 삭제 tombstone 유지"
     },
     {
       "id": "lounge.comment-reaction",
+      "name": "댓글 반응",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원의 댓글 좋아요 관계",
+      "classification": "내부",
+      "lifecycle": "회원이 취소하거나 원천 댓글 정리 시 삭제"
     },
     {
       "id": "lounge.post",
+      "name": "라운지 게시글",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "작성자, 공개 범위, 본문과 게시 상태",
+      "classification": "민감",
+      "lifecycle": "삭제 후 tombstone 또는 운영 이력을 남기고 원문은 정책에 따라 정리"
     },
     {
       "id": "lounge.post-reaction",
+      "name": "게시글 반응",
       "domainId": "lounge",
       "ownerDocument": "content/architecture/lounge-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원의 게시글 좋아요 관계",
+      "classification": "내부",
+      "lifecycle": "회원이 취소하거나 원천 게시글 정리 시 삭제"
     },
     {
       "id": "matching.call",
+      "name": "매칭 통화",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "통화 요청·수락과 통화 시간",
+      "classification": "민감",
+      "lifecycle": "운영·분쟁 처리 기간 동안 보존"
     },
     {
       "id": "matching.event-history",
+      "name": "매칭 이벤트 이력",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "내부"
+      "responsibility": "상태 변경, Key 처리와 운영 메시지",
+      "classification": "내부",
+      "lifecycle": "append-only 이력으로 보존"
     },
     {
       "id": "matching.match",
+      "name": "1:1 매칭",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "두 회원의 매칭 상태와 현재 진행 정보",
+      "classification": "민감",
+      "lifecycle": "완료·취소 뒤 운영 이력을 보존하고 개인정보는 정책에 따라 정리"
     },
     {
       "id": "matching.reservation",
+      "name": "매칭 후보 예약",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "발송 전 자동 매칭 후보, 생성 운영 계정 범위와 현재 실패 사유",
+      "classification": "내부",
+      "lifecycle": "발송 성공 또는 운영자 삭제 시 제거하고 실패 후보는 재시도·삭제 전까지 유지"
     },
     {
       "id": "matching.reservation-policy",
+      "name": "매칭 예약 기준",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "자동 매칭 횟수·연령·등급 범위",
+      "classification": "내부",
+      "lifecycle": "운영 설정 변경 시 갱신"
     },
     {
       "id": "matching.review",
+      "name": "매칭 후기",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "작성 회원과 대상 회원의 만남 결과·후기 연결",
+      "classification": "민감",
+      "lifecycle": "개인정보 정리 후 비식별 이력만 보존 가능"
     },
     {
       "id": "matching.schedule",
+      "name": "매칭 일정",
       "domainId": "matching",
       "ownerDocument": "content/architecture/matching-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "일정 제안·역제안·합의 결과",
+      "classification": "내부",
+      "lifecycle": "매칭 종료 후 이력으로 보존"
     },
     {
       "id": "member-review.auth-evidence",
+      "name": "인증 증거",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "민감"
+      "responsibility": "심사 시점의 인증 이미지와 개별 판정",
+      "classification": "민감",
+      "lifecycle": "보관 기한 후 삭제 또는 비식별화"
     },
     {
       "id": "member-review.auth-request",
+      "name": "인증 심사 요청",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
-      "recordRole": "ledger",
-      "classification": "민감"
+      "recordRole": "state",
+      "responsibility": "필수 인증 제출·재제출 요청의 처리 상태와 이전 요청 연결",
+      "classification": "민감",
+      "lifecycle": "활성 요청을 갱신하고 이전·완료 요청은 연결 이력으로 보존"
     },
     {
       "id": "member-review.auth-request-item",
-      "domainId": "member-review",
-      "ownerDocument": "content/architecture/member-review-system.md",
-      "stage": "as-is",
-      "lifecycleRole": "child",
-      "entityShape": "entity",
-      "recordRole": "ledger",
-      "classification": "민감"
-    },
-    {
-      "id": "member-review.auth-state",
+      "name": "인증 심사 항목",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "활성 요청 안의 인증 종류별 현재 판정",
+      "classification": "민감",
+      "lifecycle": "상위 요청 구성 변경에 따라 갱신·정리"
+    },
+    {
+      "id": "member-review.auth-state",
+      "name": "회원 인증 상태",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "stage": "as-is",
+      "lifecycleRole": "child",
+      "entityShape": "entity",
+      "recordRole": "state",
+      "responsibility": "인증 종류별 현재 판정과 반려 사유",
+      "classification": "민감",
+      "lifecycle": "회원 계정과 함께 유지하고 재심사로 변경"
     },
     {
       "id": "member-review.overview-projection",
+      "name": "심사 운영 조회 모델",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "projection",
-      "classification": "내부"
+      "responsibility": "Admin 큐와 단계 이력 집계",
+      "classification": "내부",
+      "lifecycle": "원천 데이터 변경 시 재계산"
     },
     {
       "id": "member-review.profile-image",
+      "name": "프로필 이미지",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "민감"
+      "responsibility": "프로필 버전의 이미지와 이미지별 판정",
+      "classification": "민감",
+      "lifecycle": "상위 버전의 보관 정책을 따름"
     },
     {
       "id": "member-review.profile-version",
+      "name": "프로필 버전",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "민감"
+      "responsibility": "제출 시점의 프로필 이미지·영상 세트",
+      "classification": "민감",
+      "lifecycle": "활성 버전은 유지하고 이전 버전은 정책에 따라 정리"
     },
     {
       "id": "member-review.required-auth-policy",
+      "name": "필수 인증 정책",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "회원에게 적용되는 필수 인증 종류",
+      "classification": "내부",
+      "lifecycle": "최초 생성 뒤 명시적 정책 정정 전까지 유지"
     },
     {
       "id": "member-review.review-request",
+      "name": "회원 심사 요청",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
-      "recordRole": "ledger",
-      "classification": "민감"
+      "recordRole": "state",
+      "responsibility": "기본정보·소개정보 심사 요청의 처리 상태와 판정",
+      "classification": "민감",
+      "lifecycle": "처리 중 상태·사유를 갱신하고 완료·철회 시 정책에 따라 보존 또는 정리"
     },
     {
       "id": "member-review.stage-snapshot",
+      "name": "심사 단계 스냅샷",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "snapshot",
-      "classification": "내부"
+      "responsibility": "화면·호환을 위한 단계별 현재 상태 복사본",
+      "classification": "내부",
+      "lifecycle": "재계산 가능한 보조 데이터로 유지"
     },
     {
       "id": "member-review.status-projection",
+      "name": "심사 상태 조회 모델",
       "domainId": "member-review",
       "ownerDocument": "content/architecture/member-review-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "projection",
-      "classification": "내부"
+      "responsibility": "API와 Mobile의 회원별 심사 상태 요약",
+      "classification": "내부",
+      "lifecycle": "원천 데이터 변경 시 재계산"
     },
     {
       "id": "member.invitation",
+      "name": "회원 초대",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "내부"
+      "responsibility": "초대 코드의 생성·사용·만료 결과",
+      "classification": "내부",
+      "lifecycle": "사용·만료 결과를 이력으로 보존"
     },
     {
       "id": "member.member",
+      "name": "회원 계정",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "인증 식별자와 회원 생애주기의 현재 상태",
+      "classification": "민감",
+      "lifecycle": "탈퇴·차단 뒤 정책에 따라 개인정보를 정리하고 비개인 이력은 보존"
     },
     {
       "id": "member.profile",
+      "name": "회원 프로필",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "현재 승인된 프로필과 매칭 선호 정보",
+      "classification": "민감",
+      "lifecycle": "회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리"
     },
     {
       "id": "member.recommendation",
+      "name": "회원 추천사",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "작성 회원과 대상 회원 사이의 추천 내용",
+      "classification": "민감",
+      "lifecycle": "노출 상태와 개인정보 정리 정책을 함께 적용"
     },
     {
       "id": "member.signup-welcome",
+      "name": "가입 안내 발송 이력",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "내부"
+      "responsibility": "가입 안내와 무료 Key 최초 지급 결과",
+      "classification": "내부",
+      "lifecycle": "중복 지급 방지를 위해 이력 보존"
     },
     {
       "id": "member.sleep-history",
+      "name": "휴면 이력",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "내부"
+      "responsibility": "휴면 전환 기간과 복귀 근거",
+      "classification": "내부",
+      "lifecycle": "휴면 정책 확인 기간 동안 보존"
     },
     {
       "id": "member.status-history",
+      "name": "회원 상태 이력",
       "domainId": "member",
       "ownerDocument": "content/architecture/member-lifecycle.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "생애주기 상태 변경과 변경 사유",
+      "classification": "민감",
+      "lifecycle": "감사·운영 목적의 append-only 이력으로 보존"
     },
     {
       "id": "moderation.block",
+      "name": "연락처 차단",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "회원이 회피하려는 연락처 식별자",
+      "classification": "민감",
+      "lifecycle": "회원 요청 또는 개인정보 정리 시 삭제"
     },
     {
       "id": "moderation.content-action-history",
+      "name": "콘텐츠 삭제 이력",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "작성자·관리자의 삭제 대상, 행위자, 사유와 상태 전이 기록",
+      "classification": "민감",
+      "lifecycle": "추가 전용으로 보존하고 원천 콘텐츠 삭제와 독립적으로 유지"
     },
     {
       "id": "moderation.content-report",
+      "name": "콘텐츠 신고",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "신고자와 게시글·댓글·미팅 콘텐츠의 처리 상태",
+      "classification": "민감",
+      "lifecycle": "원천 콘텐츠 삭제 후에도 처리 이력 보존 가능"
     },
     {
       "id": "moderation.hide",
+      "name": "회원 숨김",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원별 작성자 노출 제외와 적용 문맥",
+      "classification": "내부",
+      "lifecycle": "사용자가 해제하거나 원천 문맥 종료 시 정리"
     },
     {
       "id": "moderation.member-report",
+      "name": "회원 신고",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "association",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "신고자·대상 회원·사유와 처리 상태",
+      "classification": "민감",
+      "lifecycle": "처리 완료 뒤 감사 목적의 비식별 이력 보존"
     },
     {
       "id": "moderation.penalty",
+      "name": "패널티 이력",
       "domainId": "moderation",
       "ownerDocument": "content/architecture/moderation-system.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "ledger",
-      "classification": "민감"
+      "responsibility": "이용 제한 종류·기간·사유",
+      "classification": "민감",
+      "lifecycle": "적용·해제 이력을 append-only로 보존"
     },
     {
       "id": "notification.delivery",
+      "name": "알림 발송 이력",
       "domainId": "notification",
       "ownerDocument": "content/architecture/push-notification.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "classification": "민감"
+      "responsibility": "수신자, 알림 종류, 표시 문구와 이동 대상",
+      "classification": "민감",
+      "lifecycle": "알림함·운영 확인 기간 동안 보존 후 정리"
     },
     {
       "id": "notification.preference",
+      "name": "알림 설정",
       "domainId": "notification",
       "ownerDocument": "content/architecture/push-notification.md",
       "stage": "as-is",
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "내부"
+      "responsibility": "회원의 채팅·매칭·행사 알림 수신 선택",
+      "classification": "내부",
+      "lifecycle": "회원 계정과 함께 유지하고 변경 시 현재값 갱신"
     },
     {
       "id": "payment.purchase",
+      "name": "인앱결제 거래",
       "domainId": "payment",
       "ownerDocument": "content/architecture/payment-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
-      "recordRole": "ledger",
-      "classification": "민감"
+      "recordRole": "state",
+      "responsibility": "플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과",
+      "classification": "민감",
+      "lifecycle": "정산·환불·분쟁 대응 기간 동안 거래를 보존하고 환불 처리 시 상태 갱신"
     },
     {
       "id": "platform-config.alias",
+      "name": "별칭 기준",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "비공개 활동에 사용하는 성별·유형별 별칭",
+      "classification": "내부",
+      "lifecycle": "운영 목록 변경 시 갱신"
     },
     {
       "id": "platform-config.app-release",
+      "name": "앱 배포 기준",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "플랫폼별 버전, 최소 버전과 심사 상태",
+      "classification": "내부",
+      "lifecycle": "앱 릴리스 전환 시 갱신"
     },
     {
       "id": "platform-config.meeting-place",
+      "name": "만남 장소",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "일반"
+      "responsibility": "추천 장소와 지도·연락 정보",
+      "classification": "일반",
+      "lifecycle": "운영 사용 여부에 따라 활성·비활성"
     },
     {
       "id": "platform-config.notice",
+      "name": "공지",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "일반"
+      "responsibility": "사용자 공지 내용과 노출 상태",
+      "classification": "일반",
+      "lifecycle": "게시 기간과 운영 상태에 따라 보관"
     },
     {
       "id": "platform-config.setting",
+      "name": "운영 설정",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "Key 비용·보상 등 서버 운영 기준값",
+      "classification": "내부",
+      "lifecycle": "변경 이력을 운영 절차로 추적하며 현재값 유지"
     },
     {
       "id": "platform-config.signup-message",
+      "name": "가입 안내",
       "domainId": "platform-config",
       "ownerDocument": "content/architecture/platform-config-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "reference",
-      "classification": "내부"
+      "responsibility": "클럽매니저·성별·지역별 가입 인사와 무료 Key",
+      "classification": "내부",
+      "lifecycle": "운영 템플릿 변경 시 갱신"
     },
     {
       "id": "support.request",
+      "name": "고객지원 문의",
       "domainId": "support",
       "ownerDocument": "content/architecture/support-system.md",
       "stage": "as-is",
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "classification": "민감"
+      "responsibility": "회원 문의, 앱 버전, 답변과 처리 상태",
+      "classification": "민감",
+      "lifecycle": "CS 처리와 분쟁 대응 기간 동안 보존 후 정리"
+    }
+  ],
+  "relationships": [
+    {
+      "sourceEntityId": "admin-access.operator",
+      "role": "manager-account",
+      "kind": "associates",
+      "targetEntityId": "club-manager.manager",
+      "cardinality": "1:1",
+      "lifecycleRule": "일반 클럽매니저 역할은 유효한 클럽매니저 운영 계정 연결을 요구",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "sourceEntityId": "admin-access.operator",
+      "role": "member-reports",
+      "kind": "references",
+      "targetEntityId": "moderation.member-report",
+      "cardinality": "N:M",
+      "lifecycleRule": "신고 처리 권한과 처리 사유를 별도 감사 근거로 남김",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "sourceEntityId": "admin-access.operator",
+      "role": "review-requests",
+      "kind": "references",
+      "targetEntityId": "member-review.review-request",
+      "cardinality": "N:M",
+      "lifecycleRule": "심사 처리 권한과 담당 범위 안에서만 접근",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "sourceEntityId": "analytics.login-statistic",
+      "role": "source-members",
+      "kind": "derives-from",
+      "targetEntityId": "member.member",
+      "cardinality": "N:M",
+      "lifecycleRule": "개인 식별정보 없이 집계하며 원천 회원의 현재 상태를 대체하지 않음",
+      "ownerDocument": "content/architecture/analytics-system.md"
+    },
+    {
+      "sourceEntityId": "club-manager.assignment",
+      "role": "manager",
+      "kind": "references",
+      "targetEntityId": "club-manager.manager",
+      "cardinality": "N:1",
+      "lifecycleRule": "담당 계정 비활성 뒤에도 과거 배정 근거는 보존",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "sourceEntityId": "club-manager.assignment",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원별 동일 배정 유형의 현재 관계는 하나로 제한",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "sourceEntityId": "club-manager.detail-profile-version",
+      "role": "slices",
+      "kind": "owns",
+      "targetEntityId": "club-manager.detail-profile-slice",
+      "cardinality": "1:N",
+      "lifecycleRule": "버전 정리 시 조각과 파일을 함께 정리",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "sourceEntityId": "club-manager.manager",
+      "role": "detail-profile-versions",
+      "kind": "owns",
+      "targetEntityId": "club-manager.detail-profile-version",
+      "cardinality": "1:N",
+      "lifecycleRule": "현재 활성 버전은 삭제하지 않음",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.participant",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원 참여자는 회원 생애주기의 접근 가능 상태를 따름",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.participant",
+      "role": "operator",
+      "kind": "references",
+      "targetEntityId": "admin-access.operator",
+      "cardinality": "N:1",
+      "lifecycleRule": "운영자 참여자는 현재 권한을 잃으면 새 메시지 접근을 차단",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.thread",
+      "role": "match-context",
+      "kind": "references",
+      "targetEntityId": "matching.match",
+      "cardinality": "N:1",
+      "lifecycleRule": "매칭 종료 상태가 대화 가능 여부를 결정",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.thread",
+      "role": "meeting-context",
+      "kind": "references",
+      "targetEntityId": "legacy-meeting.meeting",
+      "cardinality": "N:1",
+      "lifecycleRule": "기존 미팅 참가 상태가 대화 가능 여부를 결정",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.thread",
+      "role": "messages",
+      "kind": "owns",
+      "targetEntityId": "conversation.message",
+      "cardinality": "1:N",
+      "lifecycleRule": "메시지는 대화방 문맥 없이 존재할 수 없음",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "conversation.thread",
+      "role": "participants",
+      "kind": "owns",
+      "targetEntityId": "conversation.participant",
+      "cardinality": "1:N",
+      "lifecycleRule": "원천 서비스 자격을 잃어도 과거 참여 이력은 보존 가능",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.application",
+      "role": "applicant",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "신청 당시 자격과 표시 별칭 snapshot 보존",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.application",
+      "role": "member-report",
+      "kind": "associates",
+      "targetEntityId": "moderation.member-report",
+      "cardinality": "N:M",
+      "lifecycleRule": "같은 행사 참여 문맥에서만 회원 신고 허용",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.application",
+      "role": "profile-access",
+      "kind": "associates",
+      "targetEntityId": "key-wallet.profile-access",
+      "cardinality": "N:M",
+      "lifecycleRule": "과거 유료 열람 거래만 보존하며 현재 무료 공개 프로필 조회는 거래를 만들지 않음",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.detail-version",
+      "role": "slices",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.detail-slice",
+      "cardinality": "1:N",
+      "lifecycleRule": "버전 정리 시 조각과 파일 함께 정리",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "action-history",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.action-history",
+      "cardinality": "1:N",
+      "lifecycleRule": "상태 변경과 같은 transaction에서 기록",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "applications",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.application",
+      "cardinality": "1:N",
+      "lifecycleRule": "신청 이력은 행사와 함께 보존",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "detail-versions",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.detail-version",
+      "cardinality": "1:N",
+      "lifecycleRule": "현재 활성 버전은 행사와 함께 유지",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "host",
+      "kind": "references",
+      "targetEntityId": "group-meeting.host",
+      "cardinality": "N:1",
+      "lifecycleRule": "활성 행사가 있으면 호스트 연결 삭제 금지",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "participants",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.participant",
+      "cardinality": "1:N",
+      "lifecycleRule": "승인 자격과 대화 참여 자격을 분리해 판정",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.event",
+      "role": "reviews",
+      "kind": "owns",
+      "targetEntityId": "group-meeting.review",
+      "cardinality": "1:N",
+      "lifecycleRule": "신청 회원당 최초 후기 하나만 허용",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.host",
+      "role": "manager",
+      "kind": "references",
+      "targetEntityId": "club-manager.manager",
+      "cardinality": "1:1",
+      "lifecycleRule": "매니저 계정 회수 뒤에도 과거 운영 이력 보존",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.host",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "1:1",
+      "lifecycleRule": "회원 개인정보 정리 뒤 비식별 표시 사용",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.participant",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "승인 신청자 또는 호스트만 참여 자격 보유",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.participant",
+      "role": "thread",
+      "kind": "associates",
+      "targetEntityId": "conversation.thread",
+      "cardinality": "N:1",
+      "lifecycleRule": "유효한 참여자만 그룹 채팅 읽기·쓰기 가능",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "group-meeting.review",
+      "role": "author",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "종료 행사에 유효하게 참여한 회원만 작성 가능",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "sourceEntityId": "key-wallet.profile-access",
+      "role": "debit-entry",
+      "kind": "references",
+      "targetEntityId": "key-wallet.entry",
+      "cardinality": "1:1",
+      "lifecycleRule": "Key를 차감한 열람 요청은 같은 요청에서 한 건의 원장 기록을 생성",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "sourceEntityId": "key-wallet.profile-access",
+      "role": "subject",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "대상 회원이 같아도 서비스 문맥이 다르면 별도 거래로 판정 가능",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "sourceEntityId": "key-wallet.profile-access",
+      "role": "viewer",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "열람 회원과 서비스 문맥에 따라 요청별 과금을 판정",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "sourceEntityId": "key-wallet.wallet",
+      "role": "entries",
+      "kind": "owns",
+      "targetEntityId": "key-wallet.entry",
+      "cardinality": "1:N",
+      "lifecycleRule": "원장 삭제 없이 잔액 변동을 보존",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.meeting",
+      "role": "host",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "주최 회원 개인정보 정리 뒤 행사 이력은 보존",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.meeting",
+      "role": "participations",
+      "kind": "owns",
+      "targetEntityId": "legacy-meeting.participation",
+      "cardinality": "1:N",
+      "lifecycleRule": "참가 이력은 행사와 함께 보존",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.meeting",
+      "role": "ratings",
+      "kind": "owns",
+      "targetEntityId": "legacy-meeting.rating",
+      "cardinality": "1:N",
+      "lifecycleRule": "별점은 행사 문맥 없이 존재할 수 없음",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.meeting",
+      "role": "reviews",
+      "kind": "owns",
+      "targetEntityId": "legacy-meeting.review",
+      "cardinality": "1:N",
+      "lifecycleRule": "후기 중복 기준을 유지하고 원문은 정책에 따라 정리",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.participation",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "한 회원은 같은 행사에 하나의 현재 참가 상태만 가짐",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.rating",
+      "role": "author",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "작성자는 해당 행사 참여자여야 함",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.rating",
+      "role": "subject",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "대상자는 작성자와 다른 해당 행사 참여자여야 함",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "legacy-meeting.review",
+      "role": "author",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "종료 행사에 유효하게 참여한 회원만 작성 가능",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.comment",
+      "role": "parent-comment",
+      "kind": "references",
+      "targetEntityId": "lounge.comment",
+      "cardinality": "N:1",
+      "lifecycleRule": "직접 부모만 참조하며 삭제된 최상위 댓글은 tombstone으로 유지 가능",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.comment",
+      "role": "reactions",
+      "kind": "owns",
+      "targetEntityId": "lounge.comment-reaction",
+      "cardinality": "1:N",
+      "lifecycleRule": "댓글 정리 시 회원별 반응도 함께 정리",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.comment-reaction",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "동일 회원의 동일 댓글 반응은 하나만 존재",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.post",
+      "role": "author",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "작성자 개인정보 정리 뒤 별칭 또는 비식별 표시 사용",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.post",
+      "role": "comments",
+      "kind": "owns",
+      "targetEntityId": "lounge.comment",
+      "cardinality": "1:N",
+      "lifecycleRule": "게시글 삭제 정책과 댓글 스레드 보존 정책을 함께 적용",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.post",
+      "role": "display-alias",
+      "kind": "references",
+      "targetEntityId": "platform-config.alias",
+      "cardinality": "N:1",
+      "lifecycleRule": "공개 프로필 여부에 따라 별칭을 표시",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.post",
+      "role": "reactions",
+      "kind": "owns",
+      "targetEntityId": "lounge.post-reaction",
+      "cardinality": "1:N",
+      "lifecycleRule": "게시글 정리 시 회원별 반응도 함께 정리",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "lounge.post-reaction",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "동일 회원의 동일 게시글 반응은 하나만 존재",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "calls",
+      "kind": "owns",
+      "targetEntityId": "matching.call",
+      "cardinality": "1:N",
+      "lifecycleRule": "매칭 이력과 함께 보존",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "event-history",
+      "kind": "owns",
+      "targetEntityId": "matching.event-history",
+      "cardinality": "1:N",
+      "lifecycleRule": "원천 매칭 삭제 없이 이력을 유지",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "meeting-place",
+      "kind": "references",
+      "targetEntityId": "platform-config.meeting-place",
+      "cardinality": "N:1",
+      "lifecycleRule": "장소 기준정보 비활성 뒤 기존 매칭 이력은 유지",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "participant-a",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "첫 번째 참여자와 두 번째 참여자는 서로 달라야 함",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "participant-b",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "두 참여자의 순서가 바뀌어도 같은 매칭을 중복 생성하지 않음",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "reviews",
+      "kind": "owns",
+      "targetEntityId": "matching.review",
+      "cardinality": "1:N",
+      "lifecycleRule": "회원당 후기 중복을 허용하지 않음",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.match",
+      "role": "schedules",
+      "kind": "owns",
+      "targetEntityId": "matching.schedule",
+      "cardinality": "1:N",
+      "lifecycleRule": "매칭 종료 뒤에도 제안 이력을 보존",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.reservation",
+      "role": "created-by",
+      "kind": "references",
+      "targetEntityId": "admin-access.operator",
+      "cardinality": "N:1",
+      "lifecycleRule": "생성 계정이 일반 운영자의 조회·삭제·즉시 발송 범위를 결정하며, 생성자를 복원할 수 없는 전환 이전 예약은 공통 발송 범위로만 유지",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.reservation",
+      "role": "female-candidate",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "예약 발송 전 여성 후보를 참조",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.reservation",
+      "role": "male-candidate",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "예약 발송 전 남성 후보를 참조",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.review",
+      "role": "author",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "작성자는 해당 매칭 참여자여야 함",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "matching.review",
+      "role": "subject",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "대상자는 작성자와 다른 해당 매칭 참여자여야 함",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.auth-request",
+      "role": "items",
+      "kind": "owns",
+      "targetEntityId": "member-review.auth-request-item",
+      "cardinality": "1:N",
+      "lifecycleRule": "활성 요청 구성 변경에 따라 항목을 함께 갱신·정리",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.auth-request",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원과 요청 종류별 활성 요청을 하나로 제한",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.auth-request-item",
+      "role": "evidence",
+      "kind": "owns",
+      "targetEntityId": "member-review.auth-evidence",
+      "cardinality": "1:N",
+      "lifecycleRule": "증거만 보관 기한에 따라 정리 가능",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.overview-projection",
+      "role": "auth-requests",
+      "kind": "derives-from",
+      "targetEntityId": "member-review.auth-request",
+      "cardinality": "1:N",
+      "lifecycleRule": "운영 집계이며 쓰기 기준으로 사용하지 않음",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.profile-version",
+      "role": "images",
+      "kind": "owns",
+      "targetEntityId": "member-review.profile-image",
+      "cardinality": "1:N",
+      "lifecycleRule": "현재 활성 버전은 삭제하지 않음",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.profile-version",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원이 참조하는 현재 버전은 승인·활성 상태여야 함",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.review-request",
+      "role": "member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "제출 회원의 현재 상태와 요청 당시 snapshot을 구분해 보존",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member-review.status-projection",
+      "role": "review-requests",
+      "kind": "derives-from",
+      "targetEntityId": "member-review.review-request",
+      "cardinality": "1:N",
+      "lifecycleRule": "원천 요청과 현재 회원 상태에서 계산",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "auth-states",
+      "kind": "owns",
+      "targetEntityId": "member-review.auth-state",
+      "cardinality": "1:N",
+      "lifecycleRule": "회원 개인정보 정리 정책을 함께 적용",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "blocked-contacts",
+      "kind": "owns",
+      "targetEntityId": "moderation.block",
+      "cardinality": "1:N",
+      "lifecycleRule": "차단 연락처는 해당 회원의 개인정보 정리 시 함께 삭제",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "key-wallet",
+      "kind": "owns",
+      "targetEntityId": "key-wallet.wallet",
+      "cardinality": "1:1",
+      "lifecycleRule": "회원 계정마다 하나의 현재 지갑만 유지",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "notification-deliveries",
+      "kind": "owns",
+      "targetEntityId": "notification.delivery",
+      "cardinality": "1:N",
+      "lifecycleRule": "회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "notification-preference",
+      "kind": "owns",
+      "targetEntityId": "notification.preference",
+      "cardinality": "1:1",
+      "lifecycleRule": "회원 계정 삭제 시 설정도 함께 정리",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "penalties",
+      "kind": "owns",
+      "targetEntityId": "moderation.penalty",
+      "cardinality": "1:N",
+      "lifecycleRule": "회원 상태와 별도로 기간성 제재 이력을 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "profile",
+      "kind": "owns",
+      "targetEntityId": "member.profile",
+      "cardinality": "1:1",
+      "lifecycleRule": "계정 개인정보 정리 시 현재 프로필도 함께 정리",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "required-auth-policy",
+      "kind": "owns",
+      "targetEntityId": "member-review.required-auth-policy",
+      "cardinality": "1:1",
+      "lifecycleRule": "회원에게 적용되는 한 세트의 필수 인증 정책을 유지",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "review-stage-snapshots",
+      "kind": "owns",
+      "targetEntityId": "member-review.stage-snapshot",
+      "cardinality": "1:N",
+      "lifecycleRule": "원천 심사 상태와 불일치하면 재계산",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "sent-invitations",
+      "kind": "owns",
+      "targetEntityId": "member.invitation",
+      "cardinality": "1:N",
+      "lifecycleRule": "초대자의 개인정보 정리 뒤에도 사용·만료 결과는 비식별 보존 가능",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "signup-welcome",
+      "kind": "owns",
+      "targetEntityId": "member.signup-welcome",
+      "cardinality": "1:1",
+      "lifecycleRule": "가입 안내와 무료 Key 최초 지급 결과는 회원당 하나만 유지",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "sleep-history",
+      "kind": "owns",
+      "targetEntityId": "member.sleep-history",
+      "cardinality": "1:N",
+      "lifecycleRule": "회원 생애주기와 함께 관리",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.member",
+      "role": "status-history",
+      "kind": "owns",
+      "targetEntityId": "member.status-history",
+      "cardinality": "1:N",
+      "lifecycleRule": "상태 이력은 계정 삭제 뒤 비식별 보존 가능",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.recommendation",
+      "role": "receiver",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "대상 회원 개인정보 정리 정책과 노출 상태를 함께 적용",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.recommendation",
+      "role": "writer",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "작성 회원과 대상 회원은 같을 수 없음",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.signup-welcome",
+      "role": "manager",
+      "kind": "references",
+      "targetEntityId": "club-manager.manager",
+      "cardinality": "N:1",
+      "lifecycleRule": "클럽매니저 비활성 뒤에도 당시 발송 주체를 비식별 이력으로 보존",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "member.signup-welcome",
+      "role": "message-template",
+      "kind": "references",
+      "targetEntityId": "platform-config.signup-message",
+      "cardinality": "N:1",
+      "lifecycleRule": "기준정보 변경 뒤에도 발송 당시 선택 근거를 보존",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-action-history",
+      "role": "author-actor",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "작성자 삭제 전이에서는 작성 회원 식별자를 보존",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-action-history",
+      "role": "comment-target",
+      "kind": "references",
+      "targetEntityId": "lounge.comment",
+      "cardinality": "N:1",
+      "lifecycleRule": "댓글 처리 행은 댓글 대상 식별자를 기록하고 대상 삭제 뒤에도 이력을 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-action-history",
+      "role": "operator-actor",
+      "kind": "references",
+      "targetEntityId": "admin-access.operator",
+      "cardinality": "N:1",
+      "lifecycleRule": "신고삭제·강제삭제 전이에서는 처리 관리자 식별자를 보존",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-action-history",
+      "role": "post-target",
+      "kind": "references",
+      "targetEntityId": "lounge.post",
+      "cardinality": "N:1",
+      "lifecycleRule": "게시글 처리 행은 게시글 대상 식별자를 기록하고 대상 삭제 뒤에도 이력을 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-report",
+      "role": "comment",
+      "kind": "references",
+      "targetEntityId": "lounge.comment",
+      "cardinality": "N:1",
+      "lifecycleRule": "댓글이 삭제돼도 신고 처리 이력은 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-report",
+      "role": "meeting",
+      "kind": "references",
+      "targetEntityId": "legacy-meeting.meeting",
+      "cardinality": "N:1",
+      "lifecycleRule": "기존 미팅 종료 뒤에도 처리 이력은 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-report",
+      "role": "post",
+      "kind": "references",
+      "targetEntityId": "lounge.post",
+      "cardinality": "N:1",
+      "lifecycleRule": "게시글이 삭제돼도 신고 처리 이력은 유지",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.content-report",
+      "role": "reporter",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "신고 당시 회원과 원천 콘텐츠 문맥을 함께 검증",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.hide",
+      "role": "hidden-member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "적용 문맥에서 숨김 대상 회원의 콘텐츠를 제외",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.hide",
+      "role": "viewer",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "숨김 주체가 소유하며 대상에게 역관계를 강제하지 않음",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.member-report",
+      "role": "reporter",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "신고자 개인정보 정리 뒤에도 처리 근거는 비식별 보존 가능",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.member-report",
+      "role": "subject",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "신고자와 대상 회원은 같을 수 없음",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "notification.delivery",
+      "role": "group-meeting-target",
+      "kind": "references",
+      "targetEntityId": "group-meeting.event",
+      "cardinality": "N:1",
+      "lifecycleRule": "이동 대상이 그룹미팅이면 해당 행사 문맥을 참조",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "notification.delivery",
+      "role": "match-target",
+      "kind": "references",
+      "targetEntityId": "matching.match",
+      "cardinality": "N:1",
+      "lifecycleRule": "이동 대상이 매칭이면 해당 문맥을 참조",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "notification.delivery",
+      "role": "meeting-target",
+      "kind": "references",
+      "targetEntityId": "legacy-meeting.meeting",
+      "cardinality": "N:1",
+      "lifecycleRule": "이동 대상이 기존 미팅이면 해당 문맥을 참조",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "notification.delivery",
+      "role": "post-target",
+      "kind": "references",
+      "targetEntityId": "lounge.post",
+      "cardinality": "N:1",
+      "lifecycleRule": "이동 대상이 라운지면 해당 문맥을 참조",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "sourceEntityId": "payment.purchase",
+      "role": "buyer",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원 개인정보 정리 뒤에도 비식별 정산 이력은 보존",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "sourceEntityId": "payment.purchase",
+      "role": "key-entries",
+      "kind": "references",
+      "targetEntityId": "key-wallet.entry",
+      "cardinality": "1:N",
+      "lifecycleRule": "성공·환불 결과에 해당하는 Key 변동 원장을 연결",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "sourceEntityId": "platform-config.signup-message",
+      "role": "manager",
+      "kind": "references",
+      "targetEntityId": "club-manager.manager",
+      "cardinality": "N:1",
+      "lifecycleRule": "클럽매니저 비활성 뒤에도 과거 발송 근거를 보존",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "sourceEntityId": "support.request",
+      "role": "requester",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원 삭제 뒤 직접 식별정보를 비식별화할 수 있음",
+      "ownerDocument": "content/architecture/support-system.md"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "ADMIN-ACCESS-INV-001",
+      "relatedEntityId": "admin-access.operator",
+      "statement": "Super Admin 전용 작업은 일반 클럽매니저 권한으로 수행할 수 없다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "id": "ADMIN-ACCESS-INV-002",
+      "relatedEntityId": "admin-access.operator",
+      "statement": "일반 클럽매니저는 정책이 허용한 담당·소유 데이터 범위를 벗어날 수 없다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "id": "ADMIN-ACCESS-INV-003",
+      "relatedEntityId": "admin-access.operator",
+      "statement": "비밀번호와 토큰 원문을 로그나 공개 문서에 남기지 않는다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/admin-permission.md"
+    },
+    {
+      "id": "ANALYTICS-INV-001",
+      "relatedEntityId": "analytics.login-statistic",
+      "statement": "집계 데이터는 회원 상태나 권한 판정의 쓰기 기준으로 사용하지 않는다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/analytics-system.md"
+    },
+    {
+      "id": "ANALYTICS-INV-002",
+      "relatedEntityId": "analytics.login-statistic",
+      "statement": "공개·공유 결과에서 개인을 재식별할 수 있는 세부값을 노출하지 않는다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/analytics-system.md"
+    },
+    {
+      "id": "CLUB-MANAGER-INV-001",
+      "relatedEntityId": "club-manager.assignment",
+      "statement": "한 회원의 동일 배정 유형에는 현재 클럽매니저가 하나만 존재한다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "id": "CLUB-MANAGER-INV-002",
+      "relatedEntityId": "club-manager.detail-profile-version",
+      "statement": "현재 상세 프로필은 변환 완료된 버전만 참조한다",
+      "basis": "[업로드/미디어 시스템](upload-media-system.md)",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "id": "CLUB-MANAGER-INV-003",
+      "relatedEntityId": "club-manager.detail-profile-slice",
+      "statement": "조각 순서와 개수는 상위 버전의 완성 상태와 일치해야 한다",
+      "basis": "[업로드/미디어 시스템](upload-media-system.md)",
+      "ownerDocument": "content/architecture/club-manager-system.md"
+    },
+    {
+      "id": "CONVERSATION-INV-001",
+      "relatedEntityId": "conversation.message",
+      "statement": "메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "id": "CONVERSATION-INV-002",
+      "relatedEntityId": "conversation.thread",
+      "statement": "매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "id": "CONVERSATION-INV-003",
+      "relatedEntityId": "conversation.message",
+      "statement": "삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-001",
+      "relatedEntityId": "group-meeting.event",
+      "statement": "행사와 신청·참여·메시지·후기·신고는 같은 행사 문맥에 속한다",
+      "basis": "[엔지니어링 가드레일](../policy/engineering-guardrails.md)",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-002",
+      "relatedEntityId": "group-meeting.application",
+      "statement": "한 회원은 같은 행사에 신청을 하나만 가진다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-003",
+      "relatedEntityId": "group-meeting.event",
+      "statement": "남녀 정원은 각각 최소 2명, 합계 최대 20명이고 승인 인원은 해당 정원을 넘지 않는다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-004",
+      "relatedEntityId": "group-meeting.participant",
+      "statement": "호스트 또는 승인 신청 중 정확히 하나의 자격으로 참여한다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-005",
+      "relatedEntityId": "group-meeting.review",
+      "statement": "종료 행사에 유효하게 참여한 회원만 최초 후기와 보상을 받을 수 있다",
+      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-006",
+      "relatedEntityId": "group-meeting.action-history",
+      "statement": "상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다",
+      "basis": "[엔지니어링 가드레일](../policy/engineering-guardrails.md)",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-007",
+      "relatedEntityId": "group-meeting.host",
+      "statement": "매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-008",
+      "relatedEntityId": "group-meeting.event",
+      "statement": "행사 정보는 DRAFT에서만 수정할 수 있으며 OPEN 이후에는 Admin과 Mobile 호스트 모두 수정할 수 없다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-009",
+      "relatedEntityId": "group-meeting.application",
+      "statement": "종료한 N:N 행사의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "KEY-WALLET-INV-001",
+      "relatedEntityId": "key-wallet.wallet",
+      "statement": "현재 잔액은 원장의 순차 적용 결과와 일치해야 한다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "id": "KEY-WALLET-INV-002",
+      "relatedEntityId": "key-wallet.entry",
+      "statement": "Key 변동 성공 응답 전 회원 잔액 갱신과 원장 기록을 모두 완료한다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "id": "KEY-WALLET-INV-003",
+      "relatedEntityId": "key-wallet.profile-access",
+      "statement": "재열람 과금 여부는 서비스 문맥별 서버 실행 경로에서 판정하며 전역 최초 1회로 간주하지 않는다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/matching-key-system.md"
+    },
+    {
+      "id": "LEGACY-MEETING-INV-001",
+      "relatedEntityId": "legacy-meeting.meeting",
+      "statement": "기존 2:2와 신규 그룹미팅의 상태·데이터 계약을 혼용하지 않는다",
+      "basis": "[논리 데이터 모델 정책](../policy/logical-data-model-policy.md)",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "id": "LEGACY-MEETING-INV-002",
+      "relatedEntityId": "legacy-meeting.participation",
+      "statement": "채팅 개설에 사용하는 확정 참가자는 서로 다른 네 회원이어야 한다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "id": "LEGACY-MEETING-INV-003",
+      "relatedEntityId": "legacy-meeting.rating",
+      "statement": "별점 작성자와 대상자는 같은 행사에 참여한 서로 다른 회원이어야 한다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/meeting-system.md"
+    },
+    {
+      "id": "LOUNGE-INV-001",
+      "relatedEntityId": "lounge.comment",
+      "statement": "댓글의 직접 부모는 같은 게시글에 속해야 한다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "id": "LOUNGE-INV-002",
+      "relatedEntityId": "lounge.comment",
+      "statement": "삭제된 댓글은 원문과 액션을 노출하지 않으며 필요한 스레드 위치만 보존한다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "id": "LOUNGE-INV-003",
+      "relatedEntityId": "lounge.post-reaction",
+      "statement": "저장된 반응 수와 회원별 실제 반응 관계는 같은 결론을 가져야 한다",
+      "basis": "[엔지니어링 가드레일](../policy/engineering-guardrails.md)",
+      "ownerDocument": "content/architecture/lounge-system.md"
+    },
+    {
+      "id": "MATCHING-INV-001",
+      "relatedEntityId": "matching.match",
+      "statement": "동일 매칭의 두 참여 회원은 같을 수 없다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "id": "MATCHING-INV-002",
+      "relatedEntityId": "matching.schedule",
+      "statement": "확정 일정은 허용된 제안·수락 상태 전이를 거쳐야 한다",
+      "basis": "[매칭 일정 제안 알고리즘](matching-schedule-algorithm.md)",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "id": "MATCHING-INV-003",
+      "relatedEntityId": "matching.event-history",
+      "statement": "상태 변경과 Key 정산 이력은 원천 상태 변경과 같은 결론을 가져야 한다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "id": "MATCHING-INV-004",
+      "relatedEntityId": "matching.reservation",
+      "statement": "예약 후보는 발송 전 작업 상태이며 발송 완료 또는 운영자 삭제 시 제거된다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "id": "MATCHING-INV-005",
+      "relatedEntityId": "matching.reservation",
+      "statement": "일반 운영자의 예약 작업은 생성 계정 범위로 격리하고 공통 cron은 전체 생성 계정의 발송 대상을 처리한다",
+      "basis": "[매칭 운영 정책](../policy/matching-ops-policy.md)",
+      "ownerDocument": "content/architecture/matching-system.md"
+    },
+    {
+      "id": "MEMBER-INV-001",
+      "relatedEntityId": "member.member",
+      "statement": "회원 생애주기의 현재 상태는 하나만 존재한다",
+      "basis": "[회원 심사 단일 정책](../policy/member-review-policy.md)",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "id": "MEMBER-INV-002",
+      "relatedEntityId": "member.profile",
+      "statement": "현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다",
+      "basis": "[회원 심사 단일 정책](../policy/member-review-policy.md)",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "id": "MEMBER-INV-003",
+      "relatedEntityId": "member.signup-welcome",
+      "statement": "가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다",
+      "basis": "[매칭 Key 시스템](matching-key-system.md)",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
+      "id": "MEMBER-REVIEW-INV-001",
+      "relatedEntityId": "member-review.auth-request",
+      "statement": "회원과 요청 종류별 활성 인증 요청은 동시에 하나만 존재한다",
+      "basis": "[회원 심사 단일 정책](../policy/member-review-policy.md)",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "id": "MEMBER-REVIEW-INV-002",
+      "relatedEntityId": "member-review.profile-version",
+      "statement": "회원이 참조하는 현재 프로필 버전은 승인·활성 상태여야 한다",
+      "basis": "[회원 심사 단일 정책](../policy/member-review-policy.md)",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "id": "MEMBER-REVIEW-INV-003",
+      "relatedEntityId": "member-review.status-projection",
+      "statement": "조회 모델은 판정 원천이 아니며 요청 상태 원천과 회원 생애주기에서만 파생한다",
+      "basis": "[회원 심사 FSM](member-review-fsm.md)",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
+      "id": "MODERATION-INV-001",
+      "relatedEntityId": "moderation.member-report",
+      "statement": "신고자와 대상 회원은 같을 수 없다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "MODERATION-INV-002",
+      "relatedEntityId": "moderation.content-report",
+      "statement": "신고 대상은 존재하는 하나의 원천 콘텐츠 문맥으로 해석돼야 한다",
+      "basis": "[논리 데이터 모델 정책](../policy/logical-data-model-policy.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "MODERATION-INV-003",
+      "relatedEntityId": "moderation.penalty",
+      "statement": "패널티 적용 기간과 사유 없이 회원 이용을 제한하지 않는다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "MODERATION-INV-004",
+      "relatedEntityId": "moderation.content-action-history",
+      "statement": "처리 이력은 게시글 또는 댓글 대상 중 하나만 가리키며 대상 종류와 식별자가 일치해야 한다",
+      "basis": "[논리 데이터 모델 정책](../policy/logical-data-model-policy.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "MODERATION-INV-005",
+      "relatedEntityId": "moderation.content-action-history",
+      "statement": "처리 이력은 추가 전용 감사 기록이며 현재 상태는 원천 콘텐츠 도메인이 판정한다",
+      "basis": "[라운지 시스템](lounge-system.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "MODERATION-INV-006",
+      "relatedEntityId": "moderation.content-action-history",
+      "statement": "작성자 삭제는 회원 행위자만, 신고삭제·강제삭제는 관리자 행위자와 비어 있지 않은 사유만 기록한다",
+      "basis": "[라운지 시스템](lounge-system.md)",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "id": "NOTIFICATION-INV-001",
+      "relatedEntityId": "notification.delivery",
+      "statement": "발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다",
+      "basis": "[푸시알림 운영 정책](../policy/push-notification-policy.md)",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "id": "NOTIFICATION-INV-002",
+      "relatedEntityId": "notification.delivery",
+      "statement": "알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "id": "NOTIFICATION-INV-003",
+      "relatedEntityId": "notification.preference",
+      "statement": "서버는 알림 종류별 설정을 단일 기준으로 판정한다",
+      "basis": "[푸시알림 운영 정책](../policy/push-notification-policy.md)",
+      "ownerDocument": "content/architecture/push-notification.md"
+    },
+    {
+      "id": "PAYMENT-INV-001",
+      "relatedEntityId": "payment.purchase",
+      "statement": "동일 플랫폼 거래 식별자는 한 번만 지급 처리한다",
+      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "id": "PAYMENT-INV-002",
+      "relatedEntityId": "payment.purchase",
+      "statement": "결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다",
+      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "id": "PAYMENT-INV-003",
+      "relatedEntityId": "payment.purchase",
+      "statement": "영수증·서명·접속정보 원문은 최소 권한으로만 조회한다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "id": "PLATFORM-CONFIG-INV-001",
+      "relatedEntityId": "platform-config.setting",
+      "statement": "금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다",
+      "basis": "[엔지니어링 가드레일](../policy/engineering-guardrails.md)",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "id": "PLATFORM-CONFIG-INV-002",
+      "relatedEntityId": "platform-config.app-release",
+      "statement": "최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다",
+      "basis": "[배포/릴리즈 프로세스](../policy/release-process.md)",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "id": "PLATFORM-CONFIG-INV-003",
+      "relatedEntityId": "platform-config.signup-message",
+      "statement": "활성 가입 안내는 적용 범위에서 하나의 결정적인 템플릿으로 선택돼야 한다",
+      "basis": "[엔지니어링 가드레일](../policy/engineering-guardrails.md)",
+      "ownerDocument": "content/architecture/platform-config-system.md"
+    },
+    {
+      "id": "SUPPORT-INV-001",
+      "relatedEntityId": "support.request",
+      "statement": "처리 완료 상태에는 운영 답변 또는 종료 근거가 있어야 한다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/support-system.md"
+    },
+    {
+      "id": "SUPPORT-INV-002",
+      "relatedEntityId": "support.request",
+      "statement": "문의와 답변에는 인증정보·결제 원문 등 불필요한 민감정보를 저장하지 않는다",
+      "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
+      "ownerDocument": "content/architecture/support-system.md"
     }
   ]
 }
