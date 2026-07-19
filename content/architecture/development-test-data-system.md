@@ -514,12 +514,12 @@ coverage entry는 다음 축을 가진다.
 - claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
 - 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다.
 - `upgrade`는 요청 suite가 active suite와 정확히 같고 source가 `applied`이며 모든 source row reference를 소유하는지 preflight한다. 도메인 suite로 `cms-all` 일부만 갱신하는 경로는 없다.
-- cutover 이전 legacy source에 generation-level `t_member` reference만 없으면 명시적으로 승인된 최초 upgrade가 DB의 namespace 합성 회원 exact set을 조회해 한 번 기록할 수 있다. scenario row reference가 다르거나 기존 `t_member` reference가 DB와 다르면 이를 보정하지 않고 중단한다.
+- source는 generation-level 합성 `t_member` reference exact set을 필수로 가진다. 기록이 없거나 scenario row reference·DB의 namespace 합성 회원 exact set과 다르면 자동 채택·보정하지 않고 중단한다.
 - candidate는 generation을 1 증가시키고 새 run/asset key, current catalog/schema와 요청 reference/expiry를 가진다. asset은 `uploads/dev-data/{namespace}/generations/{runId}/`에 stage한다.
 - 한 DB transaction 안에서 source 전체를 reset하고 active suite의 current scenario 전체를 생성한 뒤 asset·DB verifier와 candidate registry prepare까지 마친다. DB commit 전에는 다른 연결이 source 전체를 계속 보고, commit 뒤에는 candidate 전체만 본다.
 - DB commit 뒤 candidate active pointer를 promote하고 다시 검증한 뒤 inactive generation asset과 legacy namespace-level `profiles/`·`videos/`를 정리한다. 순차 전체 reset 뒤 apply하는 `reapply`와 단일 scenario 교체 경로는 두지 않는다.
 - `building` journal의 target catalog/schema 또는 서울 기준 reference/expiry 날짜가 현재 요청과 다르면 source 소유권 전체를 증명한 뒤 abort하고 재실행한다. `prepared` 이후에는 DB 소유권 결과를 먼저 복구하며 혼합 결과는 journal과 maintenance fence를 유지한다.
-- `reset`은 기록된 asset root와 현재 경로의 일치를 확인한 뒤 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한다. asset root가 없는 legacy active record는 reset plan에 전환 필요를 표시하며, 정확한 namespace 확인과 `--adopt-legacy-asset-root`를 함께 받은 경우에만 현재 경로를 한 번 기록하고 진행한다.
+- `reset`은 기록된 asset root와 현재 경로의 exact match를 확인한 뒤 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한다. asset root가 없거나 현재 경로와 다르면 자동 채택·보정하지 않고 DB·asset write 전에 중단한다.
 - DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
 - DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.
 - asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 active 소유권 index를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.

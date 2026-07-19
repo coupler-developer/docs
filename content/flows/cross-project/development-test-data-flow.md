@@ -5,9 +5,9 @@
 - 역할: `시나리오`
 - 문서 종류: `flow`
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../../policy/development-test-data-policy.md)
-- 기준 성격: `to-be`
+- 기준 성격: `as-is`
 
-현재 CLI·정적 coverage·브라우저 smoke의 실제 실행 경계를 설명한다. 공유 개발계 배포와 live apply/reset 증빙 잔여 범위는 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
+현재 CLI·정적 coverage·브라우저 smoke의 실제 실행 경계를 설명한다. 공유 개발계 유지 기간 관측과 종료 시 reset 증빙은 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
 
 ## 목적
 
@@ -56,13 +56,9 @@ DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE
 # 기존 cms-all은 namespace와 suite를 유지한 채 전체 current catalog generation으로 원자 교체한다.
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT"
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply
-# upgrade plan이 legacy asset root 채택 필요를 표시한 기존 run의 최초 cutover에만 아래 옵션을 추가한다.
-DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed upgrade cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply --adopt-legacy-asset-root
 # 유지 종료처럼 재생성하지 않는 정리만 reset을 단독 사용한다.
-pnpm --dir coupler-api data-feed reset --namespace qa-cms
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
-# reset plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
-DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms --adopt-legacy-asset-root
 ```
 
 - 모든 명령은 세 repository가 보이는 workspace root에서 실행한다.
@@ -75,11 +71,10 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 - `apply`는 `--apply`가 없으면 write하지 않는다.
 - `upgrade`는 `--apply`가 없으면 owner·active suite exact match, source/candidate generation, catalog/schema/reference/expiry, asset stage와 cutover journal을 확인할 뿐 write하지 않는다. 실제 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구한다.
 - `upgrade`는 source 전체 reset, active suite current scenario 전체 생성과 verifier를 한 DB transaction에서 수행한다. 실패하면 source generation으로 rollback하고, commit 뒤 registry 승격이 중단되면 같은 명령이 source/candidate row ownership으로 결과를 복구한다.
-- upgrade plan이 `legacyAssetRootAdoptionRequired: true`를 반환한 최초 cutover에만 API 서버의 실제 경로를 다시 확인하고 write 명령에 `--adopt-legacy-asset-root`를 추가한다. 이미 asset root가 기록된 run, 복구 중인 journal 또는 plan 명령에는 이 옵션을 사용할 수 없다.
+- `upgrade`와 `reset`은 active generation에 기록된 asset root와 현재 `DEV_DATA_ASSET_ROOT`의 exact match를 dry-run부터 요구한다. 기록 누락·불일치는 자동 채택하거나 보정하지 않고 중단한다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
 - 첫 번째 `reset`은 삭제 계획만 출력한다.
 - 실제 reset은 namespace와 같은 `--confirm` 값이 필요하다.
-- reset plan이 `legacyAssetRootAdoptionRequired: true`를 반환한 경우 API 서버의 실제 경로를 다시 확인하고 `--adopt-legacy-asset-root`를 추가한다. 이미 asset root가 기록된 run에는 이 옵션을 사용할 수 없다.
 
 ## Apply 메인 흐름
 
@@ -101,11 +96,11 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 ## Generation Upgrade 흐름
 
 1. `active`와 `upgrade <active-suite>` dry-run으로 owner, exact suite, source/target generation과 run ID, catalog/schema/reference/expiry, asset과 cutover journal 상태를 확인한다.
-2. source가 `applied`이고 요청 owner·suite와 정확히 같으며 모든 기록 row reference를 소유해야 한다. 최초 legacy cutover에서 generation-level 합성 `t_member` reference만 없으면 DB의 namespace 합성 회원 exact set과 scenario row reference를 검증한 뒤 한 번 기록한다. 기존 기록이 DB와 다르면 보정하지 않는다. `cms-all`을 `group-meeting-all`로 부분 갱신하거나 suite를 바꾸는 요청은 DB write 전에 중단한다.
+2. source가 `applied`이고 요청 owner·suite와 정확히 같으며 generation-level 합성 `t_member` root exact set을 포함한 모든 기록 row reference를 소유해야 한다. 기록 누락이나 DB 불일치는 보정하지 않는다. `cms-all`을 `group-meeting-all`로 부분 갱신하거나 suite를 바꾸는 요청은 DB write 전에 중단한다.
 3. 실제 실행은 namespace와 같은 `--confirm`, `--apply`를 받고 namespace lock과 cron lease 0건을 확인한다. registry에 source snapshot과 candidate를 기록하고 active를 `applying`으로 전환해 cron을 maintenance `SKIP`한다.
 4. 한 DB transaction 안에서 source namespace 전체를 reset하고 member, matching, meeting, group-meeting, lounge, revenue, statistics, settings, manager current scenario 전체를 다시 생성한다. source는 commit 전까지 다른 DB 연결에 계속 보인다.
 5. candidate actor asset을 `uploads/dev-data/{namespace}/generations/{candidateRunId}/`에 stage하고 WebP 크기·영상 checksum·DB media 경로, 전체 suite obligation과 Admin read model을 같은 transaction에서 검증한다.
-6. 검증된 candidate와 row reference를 journal `prepared`로 기록한 뒤 DB를 commit한다. commit 뒤 candidate row ownership과 asset을 다시 확인하고 active pointer를 promote한 다음 source·inactive·legacy asset만 정리한다.
+6. 검증된 candidate와 row reference를 journal `prepared`로 기록한 뒤 DB를 commit한다. commit 뒤 candidate row ownership과 asset을 다시 확인하고 active pointer를 promote한 다음 source·inactive generation·과거 namespace-level asset만 정리한다.
 7. verifier 또는 DB commit 전 실패는 DB rollback, candidate asset 제거, source active 복구 순서로 처리한다. rollback 결과를 확인할 수 없으면 journal과 maintenance fence를 유지한다.
 8. process·DB 연결·registry 오류 뒤 재실행은 source 전체 존재·candidate 전체 부재만 source로, 그 반대만 candidate로 판정한다. 부분 존재나 양쪽 존재는 자동 추정·수동 SQL 없이 중단한다.
 9. `building` journal의 catalog/schema 또는 서울 기준 reference/expiry 날짜가 현재 목표와 다르면 source 소유권 전체를 증명한 뒤 폐기하고 명시적으로 재실행한다. `prepared` candidate가 이미 commit됐으면 먼저 그 세대를 승격한 뒤 current generation 교체를 계속한다.
@@ -155,9 +150,9 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 1. Run Registry의 namespace, owner, active ETag와 DB root를 reconciliation한다.
 2. read-only reset plan으로 적용 scenario와 명시적으로 추적한 root row reference를 출력한다.
 3. namespace 밖 row 또는 소유권을 증명할 수 없는 row가 포함되면 중단한다.
-4. legacy asset root 채택이 필요하면 작업자가 개발 API host의 실제 `DEV_DATA_ASSET_ROOT`를 확인하고 채택 옵션을 승인한다. 일반 run에서 채택 옵션을 주거나 legacy run에서 생략하면 DB·asset write 전에 중단한다.
+4. active generation에 기록된 asset root와 현재 `DEV_DATA_ASSET_ROOT`가 정확히 일치하는지 확인한다. 누락·불일치는 자동 채택하지 않고 DB·asset write 전에 중단한다.
 5. 작업자가 삭제 계획을 검토하고 namespace와 같은 `--confirm` 값을 입력한다.
-6. CLI가 legacy record의 asset root를 필요할 때 한 번 기록하고, namespace 잠금을 획득해 registry를 `resetting`으로 조건부 전환한다.
+6. CLI가 namespace 잠금을 획득해 registry를 `resetting`으로 조건부 전환한다.
 7. DB 트랜잭션을 시작하고 신고·로그·원장·관계 child를 FK-safe 순서로 삭제한다.
 8. 도메인 root와 마지막 actor root를 삭제한다.
 9. 같은 트랜잭션에서 root 0건, child orphan 0건, 다른 namespace와 기준정보 무변경을 검증한다.
