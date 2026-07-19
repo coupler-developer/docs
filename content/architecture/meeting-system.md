@@ -126,6 +126,15 @@ stateDiagram-v2
 | 사진프로필 보기   | -25 |      |
 | 후기 작성         | +5  | 보상 |
 
+## Admin 운영 화면
+
+- 기존 2:2 `그룹미팅 관리` 상위 메뉴와 `미팅 내역`, `채팅 내역`, `후기 내역`, `신고 내역`, `패널티 내역`
+  하위 메뉴는 Super Admin에게만 노출한다. 일반 매니저 사이드바에서는 상위 메뉴 전체를 숨긴다.
+- `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`, `/meeting/penalty` 라우트와 기존
+  2:2 API 계약은 호환을 위해 유지한다.
+- 메뉴 비노출은 서버 인가를 대신하지 않는다. 직접 URL과 API 요청은
+  [보안/접근통제 정책](../policy/security-access-control-policy.md)에 따라 서버 operation별로 판정한다.
+
 ## 회비/분위기
 
 ### 회비 (MEET_MONEY)
