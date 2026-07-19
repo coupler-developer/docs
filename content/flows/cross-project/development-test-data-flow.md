@@ -47,24 +47,30 @@ pnpm --dir coupler-api data-feed coverage --route-contract /absolute/path/to/cou
 # 아래 두 값은 실행 시점의 RDS CURRENT_DATE() (Asia/Seoul)와 유지 기한으로 치환한다.
 REFERENCE_TIME='YYYY-MM-DDT10:00:00+09:00'
 EXPIRES_AT='YYYY-MM-DDT10:00:00+09:00'
+# 공유 개발계 write는 개발 API host에서 실행하고 실제 서비스 경로를 사용한다.
+DEV_DATA_ASSET_ROOT='/home/ubuntu/coupler-api/uploads'
 pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at "$REFERENCE_TIME"
-pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --apply
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --apply
 pnpm --dir coupler-api data-feed verify --namespace qa-cms
 DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE_STATE=/absolute/path/to/storage-state.json DEV_DATA_MEMBER_ID=123 yarn --cwd /absolute/path/to/coupler-admin-web test:dev-data-ui
 pnpm --dir coupler-api data-feed reset --namespace qa-cms
-pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
+# reset plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms --adopt-legacy-asset-root
 ```
 
 - 모든 명령은 세 repository가 보이는 workspace root에서 실행한다.
+- 공유 개발계 apply/reset은 Run Registry와 `DEV_DATA_ASSET_ROOT`가 API 프로세스와 같은 filesystem을 가리키는 개발 API host에서 실행한다. 다른 작업 디렉터리의 로컬 `uploads`나 임시 registry를 공유 개발계 경로로 사용하지 않는다.
 - API CLI와 Admin browser runner는 서로의 repository를 자동 탐색하지 않는다. `coverage`에는 생성된 Admin route contract의 절대 경로를 넘기고, browser smoke는 Admin repository에서 실행한다.
 - `contract`는 write 없이 접속 DB의 feeder schema fingerprint를 확인한다. namespace 형식은 `plan`부터 검증하고 Admin component route exact set은 `check:dev-data-routes`와 `coverage`가 확인한다.
 - `init-registry`는 DB에 연결하지 않고 private Run Registry의 최초 directory와 빈 fence만 만든다. active record가 있는데 fence가 없으면 재생성하지 않는다.
-- `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다. feeder와 개발 cron이 공유하는 contract parser로 fence·active record 전체를 검증하며, registry metadata, active directory entry, global fence와 active record의 양방향 정합성 또는 active record 상호 간 scope가 유효하지 않으면 fail-closed한다.
+- `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·asset root 기록 여부·유지 종료일·만료 여부·검증 count를 출력한다. feeder와 개발 cron이 공유하는 contract parser로 fence·active record 전체를 검증하며, registry metadata, active directory entry, global fence와 active record의 양방향 정합성 또는 active record 상호 간 scope가 유효하지 않으면 fail-closed한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
 - 첫 번째 `reset`은 삭제 계획만 출력한다.
 - 실제 reset은 namespace와 같은 `--confirm` 값이 필요하다.
+- reset plan이 `legacyAssetRootAdoptionRequired: true`를 반환한 경우 API 서버의 실제 경로를 다시 확인하고 `--adopt-legacy-asset-root`를 추가한다. 이미 asset root가 기록된 run에는 이 옵션을 사용할 수 없다.
 
 ## Apply 메인 흐름
 
@@ -126,18 +132,19 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 1. Run Registry의 namespace, owner, active ETag와 DB root를 reconciliation한다.
 2. read-only reset plan으로 적용 scenario와 명시적으로 추적한 root row reference를 출력한다.
 3. namespace 밖 row 또는 소유권을 증명할 수 없는 row가 포함되면 중단한다.
-4. 작업자가 삭제 계획을 검토하고 namespace와 같은 `--confirm` 값을 입력한다.
-5. CLI가 namespace 잠금을 획득하고 registry를 `resetting`으로 조건부 전환한다.
-6. DB 트랜잭션을 시작하고 신고·로그·원장·관계 child를 FK-safe 순서로 삭제한다.
-7. 도메인 root와 마지막 actor root를 삭제한다.
-8. 같은 트랜잭션에서 root 0건, child orphan 0건, 다른 namespace와 기준정보 무변경을 검증한다.
-9. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
-10. DB 검증이 통과하면 commit한 뒤 namespace media를 idempotent하게 삭제한다. 공용 asset과 기준정보는 유지한다.
-11. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 active 소유권 index를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
-12. DB·asset 잔존 0건이면 active record를 history로 이동해 `cleaned`로 종료한다.
-13. history 저장을 재조회해 확인한 뒤 global fence에서 namespace를 ETag 조건부 제거한다.
-14. history write나 fence 제거가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 cleaned active record만 남겨 같은 reset이 finalization을 재시도한다.
-15. 잠금을 해제하고 실제 삭제 건수, 잔존 건수, history record를 출력한다.
+4. legacy asset root 채택이 필요하면 작업자가 개발 API host의 실제 `DEV_DATA_ASSET_ROOT`를 확인하고 채택 옵션을 승인한다. 일반 run에서 채택 옵션을 주거나 legacy run에서 생략하면 DB·asset write 전에 중단한다.
+5. 작업자가 삭제 계획을 검토하고 namespace와 같은 `--confirm` 값을 입력한다.
+6. CLI가 legacy record의 asset root를 필요할 때 한 번 기록하고, namespace 잠금을 획득해 registry를 `resetting`으로 조건부 전환한다.
+7. DB 트랜잭션을 시작하고 신고·로그·원장·관계 child를 FK-safe 순서로 삭제한다.
+8. 도메인 root와 마지막 actor root를 삭제한다.
+9. 같은 트랜잭션에서 root 0건, child orphan 0건, 다른 namespace와 기준정보 무변경을 검증한다.
+10. 검증이 하나라도 실패하면 DB 전체를 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
+11. DB 검증이 통과하면 commit한 뒤 namespace media를 idempotent하게 삭제한다. 공용 asset과 기준정보는 유지한다.
+12. asset 삭제 실패 시 registry를 `cleanup_failed`로 남기고 active 소유권 index를 유지하며, 재실행은 DB 0건 확인 후 asset 단계부터 시작한다.
+13. DB·asset 잔존 0건이면 active record를 history로 이동해 `cleaned`로 종료한다.
+14. history 저장을 재조회해 확인한 뒤 global fence에서 namespace를 ETag 조건부 제거한다.
+15. history write나 fence 제거가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 cleaned active record만 남겨 같은 reset이 finalization을 재시도한다.
+16. 잠금을 해제하고 실제 삭제 건수, 잔존 건수, history record를 출력한다.
 
 ## 예외 흐름
 
