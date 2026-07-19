@@ -19,6 +19,8 @@
 - 출시 Gate: 소비자 PR 병합, 대상 환경 migration ledger·schema·runtime smoke, FCM·scheduler smoke
 - 제외: 현장 체크인, 좌석/회전 라운드, 호감 선택, 전역 회원 패널티, 외부 결제/정산
 - 호스트는 참가 정원에서 제외한다.
+- 행사 정보는 DRAFT에서만 수정할 수 있다. OPEN 이후에는 Admin과 Mobile 호스트 모두 행사 정보를 수정할 수
+  없으며, 상태 변경은 별도 전이 명령으로만 수행한다.
 - 남녀 정원은 각각 최소 2명이고 합계는 최대 20명이다. 반대 성별 최소값에서 파생되는 성별별 최대는
   18명이며 `10+10`, `18+2`, `7+5`를 허용하고 `11+10`은 거절한다.
 - 모임 확정은 남녀 승인 인원이 각각 2명 이상이면 가능하며 설정 정원 전체 충원을 요구하지 않는다.
@@ -82,6 +84,7 @@
 | `GROUP-MEETING-INV-005` | `group-meeting.review` | 종료 행사에 유효하게 참여한 회원만 최초 후기와 보상을 받을 수 있다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
 | `GROUP-MEETING-INV-006` | `group-meeting.action-history` | 상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
 | `GROUP-MEETING-INV-007` | `group-meeting.host` | 매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+| `GROUP-MEETING-INV-008` | `group-meeting.event` | 행사 정보는 DRAFT에서만 수정할 수 있으며 OPEN 이후에는 Admin과 Mobile 호스트 모두 수정할 수 없다 | 이 문서 |
 
 ## 상태 모델
 
@@ -89,7 +92,7 @@
 
 | 값 | 상태 | 의미 |
 | --- | --- | --- |
-| 0 | DRAFT | Admin 작성 중 |
+| 0 | DRAFT | 행사 정보 작성 중 |
 | 1 | OPEN | 신청 모집 중 |
 | 2 | CLOSED | 신청 마감 |
 | 3 | CONFIRMED | 모임 확정, 채팅 가능 |
@@ -100,6 +103,11 @@
 허용 전이는 `DRAFT -> OPEN -> CLOSED -> CONFIRMED -> FINISHED`다. DRAFT는 DELETED, OPEN/CLOSED/CONFIRMED는
 CANCELED로 종료할 수 있다. OPEN 전에는 ready 상세 이미지가 필요하고, CONFIRMED 전에는 남녀 승인 인원이
 각각 두 명 이상이어야 한다.
+
+행사 정보 수정 API는 Admin과 Mobile 호스트 모두 DRAFT 행사에만 허용한다. 제목, 일시, 신청 마감, 장소,
+참가비, 정원, 공개 범위, 썸네일, 상세 문구, 해시태그를 포함한 모든 행사 정보는 OPEN 이후 수정할 수 없으며
+필드별 예외를 두지 않는다. 호스트 연결은 생성 뒤 행사 정보 수정으로 바꾸지 않고, 행사 상태는 위 허용 전이를
+수행하는 별도 명령으로만 변경한다. 클라이언트가 수정 화면을 숨기더라도 서버가 같은 조건을 최종 판정한다.
 
 ### 신청
 
