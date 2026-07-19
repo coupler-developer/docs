@@ -177,7 +177,7 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: [API #136](https://github.com/coupler-developer/coupler-api/pull/136)에서 N:N 무료 프로필 조회의 열람 행·Key 차감 생성을 제거하고 catalog v6 검증을 반영했으며, [Admin #70](https://github.com/coupler-developer/coupler-admin-web/pull/70)은 기존 2:2 메뉴와 신규 N:N 메뉴를 함께 유지해 55개 component route·53개 데이터 화면 계약을 확정했다. 공유 개발계 catalog v6 재적용과 인증된 Admin browser smoke, 유지 기간 cron·외부 호출 관측, reset 증빙이 남아 있다.
+- 현상: [API #136](https://github.com/coupler-developer/coupler-api/pull/136)에서 N:N 무료 프로필 조회의 열람 행·Key 차감 생성을 제거하고 catalog v6 검증을 반영했으며, Admin은 기존 2:2 메뉴와 신규 N:N 메뉴를 함께 유지하되 일반 매니저에게는 N:N 메뉴만 노출하는 55개 component route·53개 데이터 화면 계약을 사용한다. 공유 개발계 catalog v6 재적용과 권한별 인증 Admin browser smoke, 유지 기간 cron·외부 호출 관측, reset 증빙이 남아 있다.
 - 영향: 합성 데이터가 화면·필터·정리 계약을 충족하는지 확정할 수 없다.
 - 조치: 기존 namespace reset·catalog v6 재적용과 API·Admin 55/53 교차 검증 → browser smoke → 유지 기간 관측 → reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate와 route별 검증 통과.

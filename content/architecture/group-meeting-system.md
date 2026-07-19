@@ -234,10 +234,11 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 
 - 기존 2:2 운영 화면은 `그룹미팅 관리` 아래의 `미팅 내역`, `채팅 내역`, `후기 내역`, `신고 내역`,
   `패널티 내역` 메뉴와 `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`,
-  `/meeting/penalty` 라우트를 그대로 유지한다.
+  `/meeting/penalty` 라우트를 그대로 유지하되, 해당 상위 메뉴는 Super Admin에게만 노출한다. 일반 매니저
+  사이드바에서는 기존 2:2 메뉴 전체를 숨긴다.
 - 신규 N:N은 기존 메뉴의 형제 위치에 별도 `클럽 Host 단체미팅 관리` 상위 메뉴를 두고, 그 아래
   `미팅 내역` 하나만 노출한다. 진입 라우트는 `/group-meeting/list`이며 행사 상세에서 신청, 채팅,
-  후기, 신고, 프로필 열람 이력을 종속시켜 본다.
+  후기, 신고, 프로필 열람 이력을 종속시켜 본다. 이 메뉴는 Super Admin과 일반 매니저 모두에게 노출한다.
 - `groupMeetingChatUserReport` 알림은 미처리 신고가 있는 N:N 행사만 표시하는
   `/group-meeting/list?pending_reports=1`로 이동한다. 행사 목록은 `pending_report_count`를 표시하고 해당 수를
   누르면 행사 상세의 신고 탭을 바로 연다. 기존 2:2 신고 화면으로 연결하지 않는다.
