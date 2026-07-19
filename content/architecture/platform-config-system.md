@@ -14,32 +14,65 @@
 
 - 도메인 ID: `platform-config`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `platform-config.setting` | 운영 설정 | root | entity | reference | Key 비용·보상 등 서버 운영 기준값 | 내부 | 변경 이력을 운영 절차로 추적하며 현재값 유지 |
-| `platform-config.app-release` | 앱 배포 기준 | root | entity | reference | 플랫폼별 버전, 최소 버전과 심사 상태 | 내부 | 앱 릴리스 전환 시 갱신 |
-| `platform-config.notice` | 공지 | root | entity | reference | 사용자 공지 내용과 노출 상태 | 일반 | 게시 기간과 운영 상태에 따라 보관 |
-| `platform-config.signup-message` | 가입 안내 | root | entity | reference | 클럽매니저·성별·지역별 가입 인사와 무료 Key | 내부 | 운영 템플릿 변경 시 갱신 |
-| `platform-config.meeting-place` | 만남 장소 | root | entity | reference | 추천 장소와 지도·연락 정보 | 일반 | 운영 사용 여부에 따라 활성·비활성 |
-| `platform-config.alias` | 별칭 기준 | root | entity | reference | 비공개 활동에 사용하는 성별·유형별 별칭 | 내부 | 운영 목록 변경 시 갱신 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_club_dash_manager_dot_manager["클럽매니저 · 다른 영역<br/>club-manager.manager"]
+    entity_lounge_dot_post["라운지 게시글 · 다른 영역<br/>lounge.post"]
+    entity_matching_dot_match["1:1 매칭 · 다른 영역<br/>matching.match"]
+    entity_platform_dash_config_dot_alias["별칭 기준<br/>platform-config.alias"]
+    entity_platform_dash_config_dot_app_dash_release["앱 배포 기준<br/>platform-config.app-release"]
+    entity_platform_dash_config_dot_meeting_dash_place["만남 장소<br/>platform-config.meeting-place"]
+    entity_platform_dash_config_dot_notice["공지<br/>platform-config.notice"]
+    entity_platform_dash_config_dot_setting["운영 설정<br/>platform-config.setting"]
+    entity_platform_dash_config_dot_signup_dash_message["가입 안내<br/>platform-config.signup-message"]
+    entity_platform_dash_config_dot_signup_dash_message -->|"참고"| entity_club_dash_manager_dot_manager
+    entity_matching_dot_match -->|"참고"| entity_platform_dash_config_dot_meeting_dash_place
+    entity_lounge_dot_post -->|"참고"| entity_platform_dash_config_dot_alias
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `platform-config.signup-message` | `manager` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 과거 발송 근거를 보존 |
-| `matching.match` | `meeting-place` | references | `platform-config.meeting-place` | N:1 | 장소 기준정보 비활성 뒤 기존 매칭 이력은 유지 |
-| `lounge.post` | `display-alias` | references | `platform-config.alias` | N:1 | 공개 프로필 여부에 따라 별칭을 표시 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다
+- 최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다
+- 활성 가입 안내는 적용 범위에서 하나의 결정적인 템플릿으로 선택돼야 한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `PLATFORM-CONFIG-INV-001` | `platform-config.setting` | 금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
-| `PLATFORM-CONFIG-INV-002` | `platform-config.app-release` | 최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다 | [배포/릴리즈 프로세스](../policy/release-process.md) |
-| `PLATFORM-CONFIG-INV-003` | `platform-config.signup-message` | 활성 가입 안내는 적용 범위에서 하나의 결정적인 템플릿으로 선택돼야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `platform-config.setting` | 운영 설정 | root | entity | reference | Key 비용·보상 등 서버 운영 기준값 | 내부 | 변경 이력을 운영 절차로 추적하며 현재값 유지 |
+    | `platform-config.app-release` | 앱 배포 기준 | root | entity | reference | 플랫폼별 버전, 최소 버전과 심사 상태 | 내부 | 앱 릴리스 전환 시 갱신 |
+    | `platform-config.notice` | 공지 | root | entity | reference | 사용자 공지 내용과 노출 상태 | 일반 | 게시 기간과 운영 상태에 따라 보관 |
+    | `platform-config.signup-message` | 가입 안내 | root | entity | reference | 클럽매니저·성별·지역별 가입 인사와 무료 Key | 내부 | 운영 템플릿 변경 시 갱신 |
+    | `platform-config.meeting-place` | 만남 장소 | root | entity | reference | 추천 장소와 지도·연락 정보 | 일반 | 운영 사용 여부에 따라 활성·비활성 |
+    | `platform-config.alias` | 별칭 기준 | root | entity | reference | 비공개 활동에 사용하는 성별·유형별 별칭 | 내부 | 운영 목록 변경 시 갱신 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `platform-config.signup-message` | `manager` | references | `club-manager.manager` | N:1 | 클럽매니저 비활성 뒤에도 과거 발송 근거를 보존 |
+    | `matching.match` | `meeting-place` | references | `platform-config.meeting-place` | N:1 | 장소 기준정보 비활성 뒤 기존 매칭 이력은 유지 |
+    | `lounge.post` | `display-alias` | references | `platform-config.alias` | N:1 | 공개 프로필 여부에 따라 별칭을 표시 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `PLATFORM-CONFIG-INV-001` | `platform-config.setting` | 금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+    | `PLATFORM-CONFIG-INV-002` | `platform-config.app-release` | 최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다 | [배포/릴리즈 프로세스](../policy/release-process.md) |
+    | `PLATFORM-CONFIG-INV-003` | `platform-config.signup-message` | 활성 가입 안내는 적용 범위에서 하나의 결정적인 템플릿으로 선택돼야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 관련 문서
 

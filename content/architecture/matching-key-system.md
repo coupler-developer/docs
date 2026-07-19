@@ -15,31 +15,60 @@
 
 - 도메인 ID: `key-wallet`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `key-wallet.wallet` | Key 지갑 | child | entity | state | 회원이 현재 사용할 수 있는 Key 잔액 | 내부 | 회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴 |
-| `key-wallet.entry` | Key 변동 원장 | child | entity | ledger | 지급·차감·환불과 변경 후 잔액 | 내부 | append-only 서비스 이용·정산 이력으로 보존 |
-| `key-wallet.profile-access` | 프로필 열람 거래 | root | association | ledger | 서비스 문맥별 프로필 열람과 요청 시점의 Key 차감 결과 | 민감 | 열람·과금 확인 기간 동안 보존하고 회원 개인정보 정리 시 삭제 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_key_dash_wallet_dot_entry["Key 변동 원장<br/>key-wallet.entry"]
+    entity_key_dash_wallet_dot_profile_dash_access["프로필 열람 거래<br/>key-wallet.profile-access"]
+    entity_key_dash_wallet_dot_wallet["Key 지갑<br/>key-wallet.wallet"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_member_dot_member -->|"같이 관리"| entity_key_dash_wallet_dot_wallet
+    entity_key_dash_wallet_dot_wallet -->|"같이 관리"| entity_key_dash_wallet_dot_entry
+    entity_key_dash_wallet_dot_profile_dash_access -->|"참고"| entity_key_dash_wallet_dot_entry
+    entity_key_dash_wallet_dot_profile_dash_access -->|"참고"| entity_member_dot_member
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `member.member` | `key-wallet` | owns | `key-wallet.wallet` | 1:1 | 회원 계정마다 하나의 현재 지갑만 유지 |
-| `key-wallet.wallet` | `entries` | owns | `key-wallet.entry` | 1:N | 원장 삭제 없이 잔액 변동을 보존 |
-| `key-wallet.profile-access` | `debit-entry` | references | `key-wallet.entry` | 1:1 | Key를 차감한 열람 요청은 같은 요청에서 한 건의 원장 기록을 생성 |
-| `key-wallet.profile-access` | `viewer` | references | `member.member` | N:1 | 열람 회원과 서비스 문맥에 따라 요청별 과금을 판정 |
-| `key-wallet.profile-access` | `subject` | references | `member.member` | N:1 | 대상 회원이 같아도 서비스 문맥이 다르면 별도 거래로 판정 가능 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 현재 잔액은 원장의 순차 적용 결과와 일치해야 한다
+- Key 변동 성공 응답 전 회원 잔액 갱신과 원장 기록을 모두 완료한다
+- 재열람 과금 여부는 서비스 문맥별 서버 실행 경로에서 판정하며 전역 최초 1회로 간주하지 않는다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `KEY-WALLET-INV-001` | `key-wallet.wallet` | 현재 잔액은 원장의 순차 적용 결과와 일치해야 한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
-| `KEY-WALLET-INV-002` | `key-wallet.entry` | Key 변동 성공 응답 전 회원 잔액 갱신과 원장 기록을 모두 완료한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
-| `KEY-WALLET-INV-003` | `key-wallet.profile-access` | 재열람 과금 여부는 서비스 문맥별 서버 실행 경로에서 판정하며 전역 최초 1회로 간주하지 않는다 | 이 문서 |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `key-wallet.wallet` | Key 지갑 | child | entity | state | 회원이 현재 사용할 수 있는 Key 잔액 | 내부 | 회원 계정과 함께 유지하고 모든 변경을 원장과 일치시킴 |
+    | `key-wallet.entry` | Key 변동 원장 | child | entity | ledger | 지급·차감·환불과 변경 후 잔액 | 내부 | append-only 서비스 이용·정산 이력으로 보존 |
+    | `key-wallet.profile-access` | 프로필 열람 거래 | root | association | ledger | 서비스 문맥별 프로필 열람과 요청 시점의 Key 차감 결과 | 민감 | 열람·과금 확인 기간 동안 보존하고 회원 개인정보 정리 시 삭제 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `member.member` | `key-wallet` | owns | `key-wallet.wallet` | 1:1 | 회원 계정마다 하나의 현재 지갑만 유지 |
+    | `key-wallet.wallet` | `entries` | owns | `key-wallet.entry` | 1:N | 원장 삭제 없이 잔액 변동을 보존 |
+    | `key-wallet.profile-access` | `debit-entry` | references | `key-wallet.entry` | 1:1 | Key를 차감한 열람 요청은 같은 요청에서 한 건의 원장 기록을 생성 |
+    | `key-wallet.profile-access` | `viewer` | references | `member.member` | N:1 | 열람 회원과 서비스 문맥에 따라 요청별 과금을 판정 |
+    | `key-wallet.profile-access` | `subject` | references | `member.member` | N:1 | 대상 회원이 같아도 서비스 문맥이 다르면 별도 거래로 판정 가능 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `KEY-WALLET-INV-001` | `key-wallet.wallet` | 현재 잔액은 원장의 순차 적용 결과와 일치해야 한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+    | `KEY-WALLET-INV-002` | `key-wallet.entry` | Key 변동 성공 응답 전 회원 잔액 갱신과 원장 기록을 모두 완료한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+    | `KEY-WALLET-INV-003` | `key-wallet.profile-access` | 재열람 과금 여부는 서비스 문맥별 서버 실행 경로에서 판정하며 전역 최초 1회로 간주하지 않는다 | 이 문서 |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 정산 구조 요약
 

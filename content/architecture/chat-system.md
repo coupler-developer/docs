@@ -15,32 +15,66 @@
 
 - 도메인 ID: `conversation`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `conversation.thread` | 대화방 | root | entity | state | 상담·매칭·미팅 문맥의 참여자와 대화 가능 상태 | 내부 | 원천 서비스 문맥의 종료·보관 정책을 따름 |
-| `conversation.participant` | 대화 참여자 | child | association | state | 대화방의 회원·운영자 참여 자격과 읽음 경계 | 내부 | 퇴장 뒤에도 메시지 표시 이력을 위해 비식별 보존 가능 |
-| `conversation.message` | 대화 메시지 | child | entity | history | 일반·시스템 메시지와 발송 시각·표시 상태 | 민감 | 신고·CS 기간 동안 보존하고 개인정보 정리 시 비식별화 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_admin_dash_access_dot_operator["관리자 계정 · 다른 영역<br/>admin-access.operator"]
+    entity_conversation_dot_message["대화 메시지<br/>conversation.message"]
+    entity_conversation_dot_participant["대화 참여자<br/>conversation.participant"]
+    entity_conversation_dot_thread["대화방<br/>conversation.thread"]
+    entity_legacy_dash_meeting_dot_meeting["기존 2:2 미팅 · 다른 영역<br/>legacy-meeting.meeting"]
+    entity_matching_dot_match["1:1 매칭 · 다른 영역<br/>matching.match"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_conversation_dot_thread -->|"같이 관리"| entity_conversation_dot_participant
+    entity_conversation_dot_thread -->|"같이 관리"| entity_conversation_dot_message
+    entity_conversation_dot_thread -->|"참고"| entity_matching_dot_match
+    entity_conversation_dot_thread -->|"참고"| entity_legacy_dash_meeting_dot_meeting
+    entity_conversation_dot_participant -->|"참고"| entity_member_dot_member
+    entity_conversation_dot_participant -->|"참고"| entity_admin_dash_access_dot_operator
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `conversation.thread` | `participants` | owns | `conversation.participant` | 1:N | 원천 서비스 자격을 잃어도 과거 참여 이력은 보존 가능 |
-| `conversation.thread` | `messages` | owns | `conversation.message` | 1:N | 메시지는 대화방 문맥 없이 존재할 수 없음 |
-| `conversation.thread` | `match-context` | references | `matching.match` | N:1 | 매칭 종료 상태가 대화 가능 여부를 결정 |
-| `conversation.thread` | `meeting-context` | references | `legacy-meeting.meeting` | N:1 | 기존 미팅 참가 상태가 대화 가능 여부를 결정 |
-| `conversation.participant` | `member` | references | `member.member` | N:1 | 회원 참여자는 회원 생애주기의 접근 가능 상태를 따름 |
-| `conversation.participant` | `operator` | references | `admin-access.operator` | N:1 | 운영자 참여자는 현재 권한을 잃으면 새 메시지 접근을 차단 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다
+- 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다
+- 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `CONVERSATION-INV-001` | `conversation.message` | 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
-| `CONVERSATION-INV-002` | `conversation.thread` | 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
-| `CONVERSATION-INV-003` | `conversation.message` | 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `conversation.thread` | 대화방 | root | entity | state | 상담·매칭·미팅 문맥의 참여자와 대화 가능 상태 | 내부 | 원천 서비스 문맥의 종료·보관 정책을 따름 |
+    | `conversation.participant` | 대화 참여자 | child | association | state | 대화방의 회원·운영자 참여 자격과 읽음 경계 | 내부 | 퇴장 뒤에도 메시지 표시 이력을 위해 비식별 보존 가능 |
+    | `conversation.message` | 대화 메시지 | child | entity | history | 일반·시스템 메시지와 발송 시각·표시 상태 | 민감 | 신고·CS 기간 동안 보존하고 개인정보 정리 시 비식별화 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `conversation.thread` | `participants` | owns | `conversation.participant` | 1:N | 원천 서비스 자격을 잃어도 과거 참여 이력은 보존 가능 |
+    | `conversation.thread` | `messages` | owns | `conversation.message` | 1:N | 메시지는 대화방 문맥 없이 존재할 수 없음 |
+    | `conversation.thread` | `match-context` | references | `matching.match` | N:1 | 매칭 종료 상태가 대화 가능 여부를 결정 |
+    | `conversation.thread` | `meeting-context` | references | `legacy-meeting.meeting` | N:1 | 기존 미팅 참가 상태가 대화 가능 여부를 결정 |
+    | `conversation.participant` | `member` | references | `member.member` | N:1 | 회원 참여자는 회원 생애주기의 접근 가능 상태를 따름 |
+    | `conversation.participant` | `operator` | references | `admin-access.operator` | N:1 | 운영자 참여자는 현재 권한을 잃으면 새 메시지 접근을 차단 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `CONVERSATION-INV-001` | `conversation.message` | 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+    | `CONVERSATION-INV-002` | `conversation.thread` | 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
+    | `CONVERSATION-INV-003` | `conversation.message` | 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 채팅 종류
 

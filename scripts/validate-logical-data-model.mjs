@@ -53,7 +53,11 @@ const invariantHeaders = [
   "기준 문서",
 ];
 const domainHeaders = ["도메인 ID", "표시명", "책임 범위", "소유 문서"];
-const modelSubheadings = ["논리 엔티티", "관계", "불변조건"];
+const developerViewHeading = "먼저 보는 그림";
+const contractSubheadings = ["논리 엔티티", "관계", "불변조건"];
+const contractDetailsMarker = '??? info "정확한 값과 조건 보기"';
+const detailsLintDisable = "<!-- markdownlint-disable MD046 -->";
+const detailsLintEnable = "<!-- markdownlint-enable MD046 -->";
 
 const defaultRoot = process.cwd();
 const defaultIndexPath = path.join(
@@ -82,6 +86,7 @@ export function validateLogicalDataModel({
   plannedIndexPath = defaultPlannedIndexPath,
   catalogPath = defaultCatalogPath,
   checkCatalog = true,
+  checkViews = true,
 } = {}) {
   const errors = [];
   const registries = [
@@ -173,8 +178,11 @@ export function validateLogicalDataModel({
   const invariantIds = new Set();
   const relationshipKeys = new Set();
   const relationships = [];
+  const invariants = [];
   const catalogDomains = [];
   const catalogEntities = [];
+  const modelEntities = [];
+  const ownerModels = [];
 
   for (const domain of domains) {
     const ownerPath = path.join(root, ...domain.ownerDocument.split("/"));
@@ -192,7 +200,9 @@ export function validateLogicalDataModel({
     }
 
     const modelSection = extractSection(ownerSource, "## 논리 데이터 모델");
-    const declaredDomainIds = [...modelSection.matchAll(/^- 도메인 ID:\s*`([^`]+)`\s*$/gmu)];
+    const declaredDomainIds = [
+      ...modelSection.matchAll(/^\s*- 도메인 ID:\s*`([^`]+)`\s*$/gmu),
+    ];
     if (declaredDomainIds.length !== 1) {
       errors.push(
         `${domain.ownerDocument}: 도메인 ID 선언은 정확히 1개여야 합니다. 현재 ${declaredDomainIds.length}개`,
@@ -205,23 +215,32 @@ export function validateLogicalDataModel({
       );
     }
 
-    const actualSubheadings = [...modelSection.matchAll(/^###\s+(.+?)\s*$/gmu)].map(
+    const actualSubheadings = [...modelSection.matchAll(/^\s*###\s+(.+?)\s*$/gmu)].map(
       (match) => match[1],
     );
-    if (canonicalJson(actualSubheadings) !== canonicalJson(modelSubheadings)) {
+    const expectedSubheadings = checkViews
+      ? [developerViewHeading, ...contractSubheadings]
+      : contractSubheadings;
+    const comparableSubheadings = checkViews
+      ? actualSubheadings
+      : actualSubheadings.filter((heading) => heading !== developerViewHeading);
+    if (canonicalJson(comparableSubheadings) !== canonicalJson(expectedSubheadings)) {
       errors.push(
-        `${domain.ownerDocument}: 논리 데이터 모델 하위 절은 논리 엔티티 -> 관계 -> 불변조건 순서로 각각 정확히 1개여야 합니다. actual=${actualSubheadings.join(" -> ") || "(없음)"}`,
+        `${domain.ownerDocument}: 논리 데이터 모델 하위 절은 ${expectedSubheadings.join(" -> ")} 순서로 각각 정확히 1개여야 합니다. actual=${actualSubheadings.join(" -> ") || "(없음)"}`,
       );
     }
+    if (checkViews) {
+      validateContractDetailsLayout(modelSection, domain.ownerDocument, errors);
+    }
 
-    const firstSubheadingOffset = modelSection.search(/^###\s+/mu);
+    const firstSubheadingOffset = modelSection.search(/^\s*###\s+/mu);
     const domainIdOffset = declaredDomainIds[0]?.index ?? -1;
     if (
       declaredDomainIds.length === 1 &&
       firstSubheadingOffset >= 0 &&
       domainIdOffset > firstSubheadingOffset
     ) {
-      errors.push(`${domain.ownerDocument}: 도메인 ID 선언은 논리 엔티티 절보다 앞에 있어야 합니다.`);
+      errors.push(`${domain.ownerDocument}: 도메인 ID 선언은 먼저 보는 그림과 상세 표보다 앞에 있어야 합니다.`);
     }
 
     const status =
@@ -319,6 +338,12 @@ export function validateLogicalDataModel({
         recordRole,
         classification,
       });
+      modelEntities.push({
+        id: entityId,
+        domainId: domain.id,
+        displayName,
+        responsibility,
+      });
     }
 
     if (domainEntityIds.length === 0) {
@@ -350,7 +375,15 @@ export function validateLogicalDataModel({
       if (!rule) {
         errors.push(`${domain.ownerDocument}: 소유·삭제 규칙이 비어 있습니다: ${key}`);
       }
-      relationships.push({ source, role, kind, target, ownerDocument: domain.ownerDocument });
+      relationships.push({
+        source,
+        role,
+        kind,
+        target,
+        cardinality,
+        rule,
+        ownerDocument: domain.ownerDocument,
+      });
     }
 
     for (const row of invariantTable.rows) {
@@ -377,7 +410,19 @@ export function validateLogicalDataModel({
           `${domain.ownerDocument}: 불변조건 관련 논리 ID가 존재하지 않습니다: ${relatedEntityId}`,
         );
       }
+      invariants.push({
+        id: invariantId,
+        relatedEntityId,
+        statement: invariant,
+        basis,
+        ownerDocument: domain.ownerDocument,
+      });
     }
+
+    ownerModels.push({
+      domain,
+      actualView: extractDeveloperView(modelSection),
+    });
 
     catalogDomains.push({
       id: domain.id,
@@ -451,6 +496,32 @@ export function validateLogicalDataModel({
     entities: catalogEntities.sort((left, right) => left.id.localeCompare(right.id)),
   };
 
+  const modelEntityById = new Map(modelEntities.map((entity) => [entity.id, entity]));
+  const views = ownerModels.map(({ domain, actualView }) => {
+    const markdown = renderDeveloperView({
+      domain,
+      entities: modelEntities.filter((entity) => entity.domainId === domain.id),
+      relationships: relationships.filter(
+        (relationship) => relationship.ownerDocument === domain.ownerDocument,
+      ),
+      invariants: invariants.filter(
+        (invariant) => invariant.ownerDocument === domain.ownerDocument,
+      ),
+      entityById: modelEntityById,
+    });
+
+    if (checkViews && actualView && normalizeMarkdown(actualView) !== normalizeMarkdown(markdown)) {
+      errors.push(
+        `${domain.ownerDocument}: 먼저 보는 그림이 상세 표와 다릅니다. 'yarn generate:logical-data-model'로 다시 생성하세요.`,
+      );
+    }
+
+    return {
+      ownerDocument: domain.ownerDocument,
+      markdown,
+    };
+  });
+
   if (checkCatalog) {
     const catalogSource = readFile(
       catalogPath,
@@ -464,7 +535,158 @@ export function validateLogicalDataModel({
     }
   }
 
-  return { errors, catalog };
+  return { errors, catalog, views };
+}
+
+export function writeLogicalModelViews({ root = defaultRoot, views }) {
+  for (const view of views) {
+    const ownerPath = path.join(root, ...view.ownerDocument.split("/"));
+    const source = fs.readFileSync(ownerPath, "utf8");
+    const nextSource = renderLogicalModelDocument(
+      source,
+      view.markdown,
+      view.ownerDocument,
+    );
+
+    if (nextSource !== source) {
+      fs.writeFileSync(ownerPath, nextSource);
+    }
+  }
+}
+
+function renderLogicalModelDocument(source, viewMarkdown, ownerDocument) {
+  const modelRange = findSectionRange(source, "## 논리 데이터 모델");
+  if (modelRange === null) {
+    throw new Error(`${ownerDocument}: 논리 데이터 모델 절을 찾을 수 없습니다.`);
+  }
+
+  const modelSection = modelRange.source;
+  const domainId = modelSection.match(/^\s*- 도메인 ID:\s*`[^`]+`\s*$/mu);
+  const contractRange = findSectionRange(modelSection, "### 논리 엔티티");
+  if (domainId === null || contractRange === null) {
+    throw new Error(`${ownerDocument}: 도메인 ID 또는 상세 표를 찾을 수 없습니다.`);
+  }
+
+  const lintEnableOffset = findExactLineOffset(
+    modelSection,
+    detailsLintEnable,
+    contractRange.start,
+  );
+  const contractEnd = lintEnableOffset < 0 ? modelSection.length : lintEnableOffset;
+  const contract = normalizeContractIndent(
+    modelSection.slice(contractRange.start, contractEnd),
+  );
+  const preamble = modelSection
+    .slice(0, domainId.index + domainId[0].length)
+    .trimEnd();
+  const renderedModel = [
+    preamble,
+    viewMarkdown.trim(),
+    detailsLintDisable,
+    contractDetailsMarker,
+    indentContract(contract),
+    detailsLintEnable,
+  ].join("\n\n");
+  const suffix = source.slice(modelRange.end).replace(/^\s+/u, "");
+
+  return `${source.slice(0, modelRange.start)}${renderedModel}${suffix ? `\n\n${suffix}` : "\n"}`;
+}
+
+function normalizeContractIndent(source) {
+  return source
+    .replace(/\s+$/u, "")
+    .split("\n")
+    .map((line) => line.trimStart())
+    .join("\n");
+}
+
+function indentContract(source) {
+  return source
+    .split("\n")
+    .map((line) => (line.length > 0 ? `    ${line}` : ""))
+    .join("\n");
+}
+
+function renderDeveloperView({ domain, entities, relationships, invariants, entityById }) {
+  const involvedEntityIds = new Set(entities.map((entity) => entity.id));
+  for (const relationship of relationships) {
+    involvedEntityIds.add(relationship.source);
+    involvedEntityIds.add(relationship.target);
+  }
+
+  const diagramRelationships = new Map();
+  for (const relationship of relationships) {
+    const key = [
+      relationship.source,
+      relationship.target,
+      relationship.kind,
+    ].join("#");
+    if (!diagramRelationships.has(key)) {
+      diagramRelationships.set(key, relationship);
+    }
+  }
+
+  const lines = [
+    `### ${developerViewHeading}`,
+    "",
+    "이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.",
+    "정확한 이름과 조건은 아래 상세 표를 따른다.",
+    "",
+    "```mermaid",
+    "flowchart LR",
+  ];
+
+  for (const entityId of [...involvedEntityIds].sort()) {
+    const entity = entityById.get(entityId);
+    const displayName = entity?.displayName || entityId;
+    const external = entity?.domainId !== domain.id;
+    const suffix = external ? " · 다른 영역" : "";
+    lines.push(
+      `    ${mermaidNodeId(entityId)}["${escapeMermaidLabel(displayName)}${escapeMermaidLabel(suffix)}<br/>${escapeMermaidLabel(entityId)}"]`,
+    );
+  }
+
+  for (const relationship of diagramRelationships.values()) {
+    lines.push(
+      `    ${mermaidNodeId(relationship.source)} -->|"${relationshipLabel(relationship.kind)}"| ${mermaidNodeId(relationship.target)}`,
+    );
+  }
+
+  lines.push("```", "", "꼭 지킬 규칙:", "");
+  if (invariants.length === 0) {
+    lines.push("- 따로 등록된 핵심 규칙이 없다.");
+  } else {
+    for (const invariant of invariants) {
+      lines.push(`- ${invariant.statement}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function mermaidNodeId(entityId) {
+  return `entity_${entityId.replaceAll("-", "_dash_").replaceAll(".", "_dot_")}`;
+}
+
+function escapeMermaidLabel(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function relationshipLabel(kind) {
+  return new Map([
+    ["owns", "같이 관리"],
+    ["references", "참고"],
+    ["associates", "연결"],
+    ["derives-from", "계산해 만듦"],
+  ]).get(kind) || kind;
+}
+
+function normalizeMarkdown(source) {
+  return source.replaceAll("\r\n", "\n").trim();
 }
 
 function readFile(filePath, errors, label) {
@@ -501,21 +723,120 @@ function countHeading(source, heading) {
 }
 
 function extractSection(source, heading) {
+  return findSectionRange(source, heading)?.source ?? "";
+}
+
+function findSectionRange(source, heading) {
   const lines = source.split("\n");
   const start = lines.findIndex((line) => line.trim() === heading);
   if (start < 0) {
-    return "";
+    return null;
   }
   const level = heading.match(/^#+/u)?.[0].length ?? 1;
   let end = lines.length;
   for (let index = start + 1; index < lines.length; index += 1) {
-    const match = lines[index].match(/^(#+)\s/u);
+    const match = lines[index].match(/^\s*(#+)\s/u);
     if (match && match[1].length <= level) {
       end = index;
       break;
     }
   }
-  return lines.slice(start, end).join("\n");
+  const offsets = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+  const startOffset = offsets[start];
+  const endOffset = end < lines.length ? offsets[end] : source.length;
+  return {
+    start: startOffset,
+    end: endOffset,
+    source: source.slice(startOffset, endOffset),
+  };
+}
+
+function extractDeveloperView(source) {
+  const section = extractSection(source, `### ${developerViewHeading}`);
+  const boundaries = [detailsLintDisable, contractDetailsMarker]
+    .map((marker) => section.indexOf(`\n${marker}`))
+    .filter((offset) => offset >= 0);
+  return boundaries.length === 0 ? section : section.slice(0, Math.min(...boundaries));
+}
+
+function countExactLine(source, expected) {
+  return source.split("\n").filter((line) => line.trim() === expected).length;
+}
+
+function findExactLineOffset(source, expected, minimumOffset = 0) {
+  let offset = 0;
+  for (const line of source.split("\n")) {
+    if (offset >= minimumOffset && line.trim() === expected) {
+      return offset;
+    }
+    offset += line.length + 1;
+  }
+  return -1;
+}
+
+function validateContractDetailsLayout(modelSection, ownerDocument, errors) {
+  const detailsCount = countExactLine(modelSection, contractDetailsMarker);
+  if (detailsCount !== 1) {
+    errors.push(
+      `${ownerDocument}: 상세 표는 '정확한 값과 조건 보기' 접기 영역에 정확히 한 번 있어야 합니다.`,
+    );
+  }
+  if (
+    countExactLine(modelSection, detailsLintDisable) !== 1 ||
+    countExactLine(modelSection, detailsLintEnable) !== 1
+  ) {
+    errors.push(
+      `${ownerDocument}: 접힌 상세 표의 문서 검사 범위 표시가 없거나 중복되었습니다.`,
+    );
+  }
+
+  const lines = modelSection.split("\n");
+  const expectedOrder = [
+    `### ${developerViewHeading}`,
+    detailsLintDisable,
+    contractDetailsMarker,
+    ...contractSubheadings.map((heading) => `### ${heading}`),
+    detailsLintEnable,
+  ];
+  const positions = expectedOrder.map((expected) =>
+    lines.findIndex((line) => line.trim() === expected),
+  );
+  if (
+    positions.some((position) => position < 0) ||
+    positions.some((position, index) => index > 0 && position <= positions[index - 1])
+  ) {
+    errors.push(
+      `${ownerDocument}: 먼저 보는 그림과 접힌 상세 표의 위치가 표준 순서와 다릅니다.`,
+    );
+    return;
+  }
+
+  const detailsStart = positions[2] + 1;
+  const detailsEnd = positions.at(-1);
+  const escapedLines = lines
+    .slice(detailsStart, detailsEnd)
+    .filter((line) => line.trim().length > 0 && !/^ {4}\S/u.test(line));
+  if (escapedLines.length > 0) {
+    errors.push(
+      `${ownerDocument}: 논리 엔티티·관계·불변조건 표는 '정확한 값과 조건 보기' 안에 들여써야 합니다.`,
+    );
+  }
+  const contentBetweenLintAndDetails = lines
+    .slice(positions[1] + 1, positions[2])
+    .some((line) => line.trim().length > 0);
+  const contentAfterDetails = lines
+    .slice(positions.at(-1) + 1)
+    .some((line) => line.trim().length > 0);
+  if (contentBetweenLintAndDetails || contentAfterDetails) {
+    errors.push(
+      `${ownerDocument}: 접힌 상세 표 바깥에 허용되지 않은 내용이 있습니다.`,
+    );
+  }
 }
 
 function parseTableAfterHeading(source, heading, expectedHeaders, label, errors) {
@@ -584,7 +905,11 @@ const isMain =
 
 if (isMain) {
   const writeCatalog = process.argv.includes("--write-catalog");
-  const result = validateLogicalDataModel({ checkCatalog: !writeCatalog });
+  const writeViews = process.argv.includes("--write-views");
+  const result = validateLogicalDataModel({
+    checkCatalog: !writeCatalog && !writeViews,
+    checkViews: !writeViews,
+  });
 
   if (result.errors.length > 0) {
     result.errors.forEach((error) => console.error(error));
@@ -597,7 +922,19 @@ if (isMain) {
     console.log(
       `논리 데이터 모델 catalog 생성: ${result.catalog.domains.length}개 도메인, ${result.catalog.entities.length}개 엔티티`,
     );
-  } else {
+  }
+
+  if (writeViews) {
+    writeLogicalModelViews({ views: result.views });
+    const verified = validateLogicalDataModel({ checkCatalog: false });
+    if (verified.errors.length > 0) {
+      verified.errors.forEach((error) => console.error(error));
+      process.exit(1);
+    }
+    console.log(`논리 데이터 모델 쉬운 그림 생성: ${result.views.length}개 문서`);
+  }
+
+  if (!writeCatalog && !writeViews) {
     console.log(
       `논리 데이터 모델 검증 통과: ${result.catalog.domains.length}개 도메인, ${result.catalog.entities.length}개 엔티티`,
     );

@@ -20,24 +20,47 @@
 
 - 도메인 ID: `analytics`
 
-### 논리 엔티티
+### 먼저 보는 그림
 
-| 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `analytics.login-statistic` | 로그인 통계 | root | entity | projection | 일자·성별·시간대별 로그인 집계 | 내부 | 원천 데이터에서 재생성 가능하며 집계 보관 정책 적용 |
+이 그림은 데이터가 어디에 속하고 무엇을 참고하는지 먼저 보여준다.
+정확한 이름과 조건은 아래 상세 표를 따른다.
 
-### 관계
+```mermaid
+flowchart LR
+    entity_analytics_dot_login_dash_statistic["로그인 통계<br/>analytics.login-statistic"]
+    entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
+    entity_analytics_dot_login_dash_statistic -->|"계산해 만듦"| entity_member_dot_member
+```
 
-| 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
-| --- | --- | --- | --- | --- | --- |
-| `analytics.login-statistic` | `source-members` | derives-from | `member.member` | N:M | 개인 식별정보 없이 집계하며 원천 회원의 현재 상태를 대체하지 않음 |
+꼭 지킬 규칙:
 
-### 불변조건
+- 집계 데이터는 회원 상태나 권한 판정의 쓰기 기준으로 사용하지 않는다
+- 공개·공유 결과에서 개인을 재식별할 수 있는 세부값을 노출하지 않는다
 
-| 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
-| --- | --- | --- | --- |
-| `ANALYTICS-INV-001` | `analytics.login-statistic` | 집계 데이터는 회원 상태나 권한 판정의 쓰기 기준으로 사용하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
-| `ANALYTICS-INV-002` | `analytics.login-statistic` | 공개·공유 결과에서 개인을 재식별할 수 있는 세부값을 노출하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+<!-- markdownlint-disable MD046 -->
+
+??? info "정확한 값과 조건 보기"
+
+    ### 논리 엔티티
+
+    | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
+    | --- | --- | --- | --- | --- | --- | --- | --- |
+    | `analytics.login-statistic` | 로그인 통계 | root | entity | projection | 일자·성별·시간대별 로그인 집계 | 내부 | 원천 데이터에서 재생성 가능하며 집계 보관 정책 적용 |
+
+    ### 관계
+
+    | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
+    | --- | --- | --- | --- | --- | --- |
+    | `analytics.login-statistic` | `source-members` | derives-from | `member.member` | N:M | 개인 식별정보 없이 집계하며 원천 회원의 현재 상태를 대체하지 않음 |
+
+    ### 불변조건
+
+    | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
+    | --- | --- | --- | --- |
+    | `ANALYTICS-INV-001` | `analytics.login-statistic` | 집계 데이터는 회원 상태나 권한 판정의 쓰기 기준으로 사용하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+    | `ANALYTICS-INV-002` | `analytics.login-statistic` | 공개·공유 결과에서 개인을 재식별할 수 있는 세부값을 노출하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+
+<!-- markdownlint-enable MD046 -->
 
 ## 관련 문서
 
