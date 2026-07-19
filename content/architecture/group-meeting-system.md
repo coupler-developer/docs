@@ -214,9 +214,10 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
 - API·Admin·Mobile은 published latest stable contracts package를 exact pin하고 동일 DTO를 직접 소비한다.
-  채팅 페이지 집계·무료 공개 프로필 계약을 포함한 stable `0.1.13`은 API #135에서 발행됐고 Admin #69도
-  해당 버전으로 전환해 병합됐다. Mobile은 `0.1.12`에서 `0.1.13`으로 별도 전환해야 한다. 별도 normalize,
-  ID fallback, local wire DTO를 추가하지 않는다.
+  소비자별 현재 package version, PR 병합과 운영 전환 현황은
+  [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+  `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서만 추적한다. 이 문서에는 별도 normalize, ID fallback,
+  local wire DTO를 추가하지 않는 목표 구조만 유지한다.
 
 대표 read model은 다음과 같다.
 
