@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 계약 패키지의 목적, 발행, 소비, 수정 절차는 이 문서. JSON 응답 envelope은 `api-response-contract-policy.md`, 실패 `ErrorData`/taxonomy는 `api-error-contract-policy.md`, 운영 배포 순서는 `release-process.md`
+- 충돌 시 우선 문서: 계약 패키지의 목적, 발행, 소비, 수정 절차는 이 문서. JSON 응답 envelope은 `api-response-contract-policy.md`, 실패 `ErrorData`/taxonomy는 `api-error-contract-policy.md`, 운영 릴리즈 scope·증빙은 `release-process.md`, Gate 순서는 `release-automation-pipeline.md`
 - 기준 성격: `as-is`
 
 ## 목적
@@ -31,7 +31,10 @@
 - operation별 public request DTO wire schema: Swagger/OpenAPI
 - operation별 성공 `data` wire schema: Swagger/OpenAPI
 - DTO 필드의 비즈니스 의미와 도메인 제약: 각 도메인 정책
-- package publish와 운영 배포 순서: [배포/릴리즈 프로세스](release-process.md)의 `Contracts Package Release`
+- package publish 규칙: 이 문서의 `필수 규칙`, `Draft PR prerelease 검증`, `첫 발행`,
+  `계약 수정과 version bump`
+- 운영 릴리즈 포함·증빙 기준: [배포/릴리즈 프로세스](release-process.md)의 `Contracts Package Release`
+- 운영 Gate 순서: [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)
 - API 계약 변경 cutover gate: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
 - package 전환 잔여 부채: [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`, `API success DTO schema 정리 미완료`, `API public request DTO 생성/소비 전환 미완료`
 
@@ -119,6 +122,19 @@
 - Request DTO type 공유는 request transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 package public runtime으로 승격하지 않는다. Canonical client request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload `multipart/form-data`로 고정하고, Mobile/Admin request boundary와 API Swagger/parser가 같은 결론을 가리켜야 한다.
 - API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package public request/success DTO 또는 명시 ViewModel mapping을 사용하고, API wire shape를 local DTO, cast, alias fallback, normalize로 보정하지 않는다.
+
+### API producer DTO와 Presenter/Mapper 경계
+
+- Operation별 generated success DTO는 public wire 계약의 단일 타입 기준이다. 서버 내부 값이 이미 정확한 타입과
+  필드 집합이면 object literal에 `satisfies <GeneratedDto>`를 적용하거나 해당 DTO 타입으로 반환하고, 같은
+  필드를 다시 복사·검사하는 identity `toXxxDto` wrapper를 만들지 않는다.
+- Presenter/Mapper는 삭제 문구·익명화·표시 권한처럼 응답 의미를 만들거나 DB flat row를 중첩 DTO로
+  투영하는 실제 변환이 있을 때만 둔다. 입력은 정확한 typed read model/DTO로 제한한다.
+- Presenter/Mapper 입력을 `unknown`, `Record<string, unknown>`으로 넓힌 뒤 generated DTO 필드를 수동
+  재검증하지 않는다. Operation DTO runtime 검증이 필요하면 OpenAPI에서 생성한 단일 schema를 사용한다.
+- API Repository query는 응답 또는 내부 read model에 필요한 컬럼만 명시적으로 조회한다. `SELECT *` 결과를
+  타입 단정해 직접 응답하지 않으며, 내부 컬럼이 포함될 수 있으면 query projection 또는 명시적
+  Presenter/Mapper로 제거한다.
 
 ### 소비자 DTO와 ViewModel 경계
 
@@ -231,6 +247,11 @@
 - [ ] package 이름이 `@coupler-developer/coupler-api-contracts` 하나로 유지되는가?
 - [ ] API public request/success DTO가 Swagger/OpenAPI에서 한 번만 정의되고 package type으로 생성되는가?
 - [ ] 신규 또는 직접 수정한 structured success `data`가 실제 wire shape와 같은 required/optional/nullable/배열 구조로 정의되고 generated contract freshness를 통과하는가?
+- [ ] API producer가 exact generated DTO를 직접 반환하며 identity wrapper나 generated field 수동 재검증을
+      추가하지 않았는가?
+- [ ] Presenter/Mapper가 실제 의미·구조 변환만 소유하고 exact typed input을 사용하는가?
+- [ ] API query가 필요한 컬럼을 투영하거나 typed Presenter/Mapper로 내부 컬럼을 제거해 `SELECT *` 결과를
+      타입 단정만으로 외부 응답에 노출하지 않는가?
 - [ ] 소비자 request payload와 success data가 package generated DTO를 사용하며 동일 wire shape의 local DTO를 재정의하지 않는가?
 - [ ] 기존 loose/local DTO를 이번 변경이 만들거나 확산하지 않았으며, 미수정 잔여분은 기존 기술 부채로 분리했는가?
 - [ ] success DTO 적용을 `N/A`로 둔 opaque JSON passthrough는 소비자가 내부 필드를 읽지 않고 그대로 전달·보관한다는 코드 근거가 있는가?

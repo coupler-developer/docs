@@ -129,7 +129,7 @@
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
-- [ ] 성공 `data` 내부 필드를 읽는 소비자 변경이면 operation별 generated DTO를 API 호출 경계에 적용하고, 화면 변환은 exact DTO → ViewModel 단방향이며 local wire DTO·cast·fallback normalize가 없음을 확인
+- [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리즈 기록 또는 릴리즈 자동화 변경이 있으면 [배포/릴리즈 프로세스](release-process.md)의 `release-metadata` SoT, SoT 분리 금지 기준, `scopeResults` scope 증적, 태그 파생 기준, DB migration SQL/ledger 증빙, Markdown mirror 동기화, API contract cutover Gate 포함 기준을 확인
 - [ ] `release-metadata.schema` 버전 변경이 있으면 해당 이전 버전이 이미 `main`에 병합된 계약인지 확인한다. 미병합 작업 브랜치의 로컬 계약 변경만으로 v2/v3/v4처럼 버전을 올린 변경은 finding으로 기록한다.
@@ -251,50 +251,23 @@
 - 요구사항이 "실제 전송 성공 확인", "발송 성공 집계", "보상 지급 기준"이면 SDK 성공값만으로 완료 처리하지 않는다. 서버 콜백/웹훅, 요청 식별자, 인증 검증, 멱등 처리, 상태 전이 근거를 함께 리뷰한다.
 - Kakao Talk Share에서 전송 성공을 서비스 서버가 알아야 하는 경우, Kakao Developers의 카카오톡 공유 웹훅과 SDK `serverCallbackArgs` 전달 여부를 확인한다.
 
-### 공통 응답/에러 계약 리뷰 기준
+### API 계약·조회 구조 리뷰 라우팅
 
-- JSON API 성공/실패 envelope 추가/수정, Mobile/Admin 응답 boundary 수정은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을 단일 기준으로 리뷰한다.
-- 신규 API 또는 성공 `data`의 구조를 직접 수정한 API는 Swagger/OpenAPI에 실제 wire shape와 같은 operation별 success DTO가 있고 contracts package가 이를 생성하는지 확인한다. Mobile/Admin이 해당 `data` 내부 필드를 읽으면 generated success DTO를 API 호출 경계에서 사용하지 않는 local response DTO를 finding으로 기록한다.
-- exact generated DTO → 선택적 ViewModel 단방향 mapping만 허용한다. mapper 입력을 `unknown`, `Record<string, unknown>`, broad local type으로 넓히거나 ViewModel을 request·다른 operation DTO로 역사용하면 local wire DTO로 판정한다.
-- API 서버 응답값이 이미 generated DTO와 일치하는데 같은 필드를 다시 복사하거나 `requireString`/`requireInteger`로 재검증하는 identity `toXxxDto` wrapper가 추가되면 중복 SoT와 불필요한 구조로 finding을 기록한다. 이 경우 정확한 Repository/read model 타입과 `satisfies <GeneratedDto>` 직접 결합을 우선한다.
-- Presenter/Mapper는 삭제 문구·익명화·권한별 표시처럼 의미를 만들거나 DB flat row를 중첩 DTO로 바꾸는 실제 투영이 있을 때만 허용한다. 입력은 exact typed source여야 하며 `unknown` 입력의 수동 DTO parser를 Presenter로 부르지 않는다.
-- `SELECT *` 또는 broad DB row를 타입 단정만 해서 success `data`로 직접 반환하면 내부 필드 노출 가능성을 finding으로 기록한다. 필요한 컬럼의 query projection 또는 명시적 typed Mapper가 있는지 확인한다.
-- 숫자·문자열 coercion, 누락값 기본값, 미지원 enum 필터링으로 wire 위반을 숨기면 finding으로 기록한다. 사용자 입력·navigation param·Native URI·표시 포맷 변환은 제외한다.
-- structured success fixture는 `satisfies` 또는 동등한 compile-time assertion을 사용하고, 계약 enum의 상태 분기는 가능한 경우 exhaustive check로 고정한다.
-- 현재 diff가 읽거나 수정하지 않는 기존 loose success schema와 consumer-local response DTO는 `기존 부채`로 분류하고 일괄 정리를 병합 조건으로 만들지 않는다. 다만 직접 수정한 operation에서 같은 패턴을 새로 추가하거나 확산하면 finding으로 기록한다.
-- 소비자가 성공 `data` 내부 필드를 해석하지 않고 opaque JSON 값 전체를 그대로 전달·보관하는 passthrough는 success DTO 소비 리뷰를 `N/A`로 둘 수 있다. 필드 접근, local shape 선언, cast 또는 fallback이 있으면 passthrough 예외가 아니다.
-- API 실패 응답 추가/수정, Mobile/Admin 실패 분기 수정, 운영 로그 상관관계 변경은 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 기준으로 리뷰한다.
-- 서버는 계약된 JSON API 성공을 `{ ok: true, data }`, 실패를 `{ ok: false, error: ErrorData }` envelope로 반환하고, 신규 실패 응답은 공통 factory/mapper 경계로 생성해야 한다. 컨트롤러/도메인 로직에서 실패 응답 JSON을 직접 조립하면 finding으로 기록한다.
-- HTTP non-2xx는 API error taxonomy 밖의 transport/protocol/proxy 실패로만 사용해야 한다. 서버가 `ErrorData`를 HTTP 4xx/5xx와 함께 반환하거나, Mobile/Admin이 HTTP status를 `error_action`/`error_code`로 변환하면 finding으로 기록한다.
-- Mobile/Admin은 `ok`로 성공/실패를 1차 분기하고, 실패 시 `error.error_action` 우선, `error.error_code` 보조 기준으로 처리해야 한다. 이 기준은 클라이언트가 display message, legacy numeric code, `error_context` 같은 진단값에 기대지 않는다는 뜻이며, 모든 `error_action`을 공통 request wrapper가 전역 처리해야 한다는 뜻이 아니다. 공통 wrapper가 전역 UX를 결정적으로 완료할 수 없는 경우 operation/screen handler가 generated runtime 또는 semantic failure helper로 처리할 수 있다. `result_msg` 문자열 파싱, 도메인 상태용 top-level `result_code` 추가, `error_context` 기반 분기는 finding으로 기록한다.
-- 토큰 누락/무효/만료처럼 로그인 또는 재인증 경로로 이동해야 하는 실패가 `LOGIN_REQUIRED`가 아니라 `FIX_REQUEST`로 분류되거나, Mobile/Admin consumer-local `ERROR_ACTION` subset에서 `LOGIN_REQUIRED`가 누락되면 finding으로 기록한다. 해당 action을 공통 boundary에서 전역 처리할지 operation/screen handler에서 처리할지는 클라이언트 navigation 책임 경계로 판정하되, 로그인/재인증이 필요한 UX에서 generic message 표시만 하고 흐름을 끝내면 finding으로 기록한다.
-- API/Admin/Mobile 동시 cutover 작업에서 구버전 클라이언트 호환을 이유로 token code fallback, dual parser, legacy envelope branch, shim helper를 추가하거나 유지하면 finding으로 기록한다.
-- 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover 변경에 transition 계층이 포함되면 finding으로 기록한다. 호환이 필요하면 별도 호환 배포 작업으로 분리해야 한다.
-- `ERROR_CATALOG`/`ERROR_SOURCE`/`ERROR_SURFACE`/generated client runtime contract 변경은 분류 체계(taxonomy) 변경으로 리뷰한다. `error_source`는 상위 서버 도메인 또는 안정적인 모듈 축, `error_surfaces`는 소비 제품면/영향 범위 metadata, `error_action`은 클라이언트 권장 동작, `error_code`는 descriptor의 stable wire value로 분리되어야 한다.
-- 서버 production callsite가 `ErrorDescriptor` 대신 raw `error_code` 문자열이나 public `ERROR_CODE` alias를 전달하면 finding으로 기록한다. `ERROR_CODE` 문자열 목록이 필요하면 generator/test 내부 파생값으로만 둔다.
-- `ErrorDescriptor` authoring field는 `code`, `source`, `surfaces`, `action`, `messageKey`, `messageArgContextKeys`로 제한한다. `path`, `group`, `name`, `codePrefix`, singular `error_surface`를 canonical 분류 축으로 설명하거나 사용하는 변경은 finding으로 기록한다.
-- 신규 error code에 `ADMIN_`/`APP_`/`MOBILE_` 제품면, `RETRY`/`LOGIN_REQUIRED` 동작, domain-specific `*_ACCESS` 같은 일반 분류어를 source/top-level 축으로 추가하면 finding으로 기록한다. 제품면은 `error_surfaces`, 접근/권한 의미는 도메인 source와 `error_code` reason segment로 표현해야 한다.
-- `AUTH_ACCOUNT`, `AUTH_LOGIN`, `AUTH_SIGNUP`, `AUTH_TOKEN`, `LOUNGE_CONTENT`, `MATCH_REVIEW`, `MEMBER_AUTH_REVIEW`, `MEMBER_PROFILE_EDIT`, `MEMBER_MANAGER_SELECTION`, `MEMBER_REVIEW`, `REVIEW_STATUS`처럼 operation/flow/화면/판정 상태를 나타내는 세부 namespace를 `error_source`로 추가하거나 유지하는 변경은 finding으로 기록한다. 세부 기능명은 `error_code` segment로 표현해야 한다.
-- 기존 미준수 구현을 건드리지 않는 경우에는 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 미준수 경로를 신규로 추가하거나 확산하면 `정책 위반`으로 분류한다.
-- 구버전 클라이언트 호환 필드가 필요하면 최종 구조/cutover 변경에 섞지 않고 별도 호환 배포 작업으로 분리한다. 호환 작업에는 제거 조건, 목표 시점, 추적 이슈, 검증 근거가 있어야 한다.
-- `error_context`는 중앙 실패 로그에 남는 값이므로 key와 값 모두 민감정보를 담지 않아야 한다. `password`/`pwd`/`token`/`email`/`phone`/`card_number`/`resident_registration_number`/`secret` 계열 key나 이메일/전화번호/토큰/카드번호/주민등록번호로 판정 가능한 value가 통과하면 finding으로 기록한다.
-- 서버와 클라이언트 코드가 최종 envelope 형태여도 API/Admin/Mobile 동시 cutover 릴리즈의 배포 순서, 전환 시점, 강제 업데이트 차단 근거가 없으면 cutover 완료로 판정하지 않는다.
-- 기존 부채나 호환 예외로 분류한 API 응답/에러 계약 경로는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`를 참조한다. PR diff 안에서 새로 추가/수정/사용한 경로가 이 인덱스나 PR 기록 없이 남으면 finding으로 기록한다.
-- `No Findings` 판정은 리뷰 범위 기준이다. 서버 catalog 정리나 client runtime contract 생성만으로 전체 API cutover 완료를 의미하지 않는다. 전체 완료는 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), 기술부채 cutover 인덱스 완료 기준을 함께 만족해야 한다.
+| 변경 신호 | 단일 SoT | 리뷰 증빙 |
+| --- | --- | --- |
+| JSON 성공/실패 envelope, transport 예외 | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 요청·응답 fixture와 boundary diff |
+| 실패 `ErrorData`, taxonomy, client 실패 분기 | [API 에러 계약 정책](api-error-contract-policy.md) | catalog/generated runtime/client 분기와 민감정보 검증 |
+| public request/success DTO, producer·consumer mapping | [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md) | Swagger, generated contract, package version, 소비 경계 diff |
+| 페이지/use-case 조회와 동작 operation | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 페이지 소유 데이터, 요청 그래프, 실패 UX, payload/query 경계 |
 
-### API 조회·동작 구조 리뷰 기준
-
-- 신규 operation, 성공 DTO·endpoint 동작을 직접 수정한 operation, 기존 operation을 조합한 새 페이지/use-case는 [API 조회·동작 설계 정책](api-operation-design-policy.md)을 적용한다.
-- 현재 diff가 호출하거나 수정하지 않는 기존 페이지의 미분류·미준수 요청 그래프는 [기술 부채 정리](../technical-debt/technical-debt.md)의 `기존 API 페이지 조회 구조 감사·전환 미완료`로 분류하고 무관한 PR의 병합 조건으로 만들지 않는다. 직접 수정하거나 새 소비 흐름에서 재사용하면 현재 변경의 finding으로 판정한다.
-- 페이지/use-case, 의미 있는 최초 화면, 화면 데이터 분류, 소비자 요청 그래프가 없으면 operation 경계의 근거가 없는 것으로 finding을 기록한다.
-- 페이지 소유 초기 데이터가 페이지 조회 1회로 완결되지 않으면 각 추가 초기 조회에 정책상 분리 조건과 독립 실패 UX가 있는지 확인한다. 둘 중 하나라도 없으면 finding이다.
-- ID 목록 뒤 visible item별 상세 조회, 권한·설정·상태의 종속 순차 호출, 명령 성공 뒤 동일 페이지 전체 재조회가 구조적 기본값이면 근거 없는 client N+1 또는 waterfall로 finding을 기록한다.
-- 페이지 집계가 서버 query N+1, 무제한 collection, 민감정보 과다 노출, 서로 다른 권한·상태 시점의 혼합 snapshot을 만들면 client 호출 수 감소와 별개로 finding이다.
-- 컴포넌트·버튼·테이블·Repository·담당 팀 차이만 제시한 endpoint 분리는 유효한 분리 근거가 아니다.
-- 범용 batch 또는 임의 `include` endpoint가 요소별 요청을 포장만 하고 typed page DTO·권한·실패·크기 경계를 클라이언트에 맡기면 집계 구조가 아닌 것으로 finding을 기록한다.
-- 조회 `GET`이 읽음 상태·열람 보상·권한·과금을 숨겨 변경하거나, 현재 무료 동작을 같은 계약의 설정 전환만으로 과금할 수 있게 만들면 명시적 동작 명령과 사용자 확인 경계가 없는 것으로 finding을 기록한다. domain 판정에 사용하지 않는 access log·trace·metric은 제외한다.
-- 확정되지 않은 미래 기능을 위한 미사용 endpoint, nullable field, disabled enum mode는 공개 계약 표면 확대로 finding을 기록한다.
-- 동작 명령 성공 응답은 변경된 canonical 상태와 페이지 갱신에 필요한 결과를 제공하는지 확인한다. 실시간·외부 일관성 근거 없이 빈 성공 뒤 전체 재조회를 강제하면 finding이다.
+- 리뷰어는 변경 신호에 해당하는 단일 SoT의 적용 절과 체크리스트를 사용한다. 이 문서는 DTO field, mapper,
+  error taxonomy, operation 분리 조건 같은 기술 값을 다시 정의하지 않는다.
+- 현재 diff가 읽거나 수정하지 않는 기존 불일치는 [엔지니어링 가드레일](engineering-guardrails.md)의
+  `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 직접 수정·재사용·확산한 경로는 현재 변경의
+  Finding으로 판정한다.
+- 동시 배포 계약 묶음과 운영 legacy cutover는 [엔지니어링 가드레일](engineering-guardrails.md)의 기술 이행
+  유형과 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
+  적용한다. 리뷰 범위의 `No Findings`를 전체 운영 cutover 완료로 확대 해석하지 않는다.
 
 ### 런타임 설정 리뷰 기준
 
@@ -317,13 +290,10 @@
 - [ ] 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover로 설명한 변경 범위에 transition 계층이 0건인가?
 - [ ] 변경 범위 안에서 더 단순한 문서/코드 구조, SoT, 책임 경계, 파일 배치로 정리할 수 있는데도 중복/우회/임시 구조를 새로 만들거나 넓히지 않았는가?
 - [ ] 확장성(향후 변경·확대)에 무리가 없는가?
-- [ ] 신규·직접 수정 API 또는 새 페이지/use-case가 [API 조회·동작 설계 정책](api-operation-design-policy.md)의 설계 증빙과 완료 정의를 충족하는가?
-- [ ] 페이지 소유 초기 데이터가 근거 없는 추가 호출 없이 완결되고, client item N+1·종속 waterfall과 server query N+1이 없는가?
-- [ ] 동작 명령 뒤 불필요한 전체 재조회와 확정되지 않은 미래 기능용 공개 endpoint·field·mode가 없는가?
-- [ ] 응답/에러 처리가 [API 공통 응답 계약 정책](api-response-contract-policy.md), [API 에러 계약 정책](api-error-contract-policy.md), [엔지니어링 가드레일](engineering-guardrails.md)의 응답/에러 처리 기준을 따르는가?
-- [ ] 신규 또는 직접 수정한 structured success `data`의 Swagger/OpenAPI DTO, generated contract, 소비자 API 경계 타입이 일치하며 기존 부채와 opaque JSON passthrough 예외를 구분했는가?
-- [ ] generated DTO와 동일한 identity `toXxxDto` wrapper·수동 필드 validator가 없고, 실제 의미/구조 변환이 있는 typed Presenter/Mapper만 남아 있는가?
-- [ ] API success query가 필요한 컬럼만 조회하거나 명시적 Mapper로 내부 컬럼을 제거하며, `SELECT *` 결과가 타입 단정만으로 외부 응답에 노출되지 않는가?
+- [ ] 신규·직접 수정 API 또는 새 페이지/use-case가 [API 조회·동작 설계 정책](api-operation-design-policy.md)의
+  적용 절, 증빙과 완료 정의를 충족하는가?
+- [ ] API 응답·에러·public DTO 변경이 `API 계약·조회 구조 리뷰 라우팅`의 단일 SoT와 각 체크리스트를
+  충족하는가?
 - [ ] 테스트 변경 판정이 충분한가? (`추가`/`갱신`/`미변경` 근거, 중복/누락 시나리오, 함수명-내용 일치, assertion 유효성)
 - [ ] 보안 취약점은 없는가?
 - [ ] 성능 문제는 없는가?
