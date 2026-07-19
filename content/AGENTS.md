@@ -120,7 +120,7 @@
 - [마케팅 앱 이벤트 정책](policy/marketing-app-events-policy.md) - Meta/Appsflyer 앱 이벤트 기록 기준
 - [데이터 거버넌스 정책](policy/data-governance-policy.md) - 분류/보관/접근/삭제 통제
 - [테스트용 개발 데이터 정책](policy/development-test-data-policy.md) - 개발계 합성 데이터 생성/검증/reset 기준
-- [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명 전환 기준
+- [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명과 신규 N:N 그룹미팅 식별자 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
 - [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
 - [논리 데이터 모델 정책](policy/logical-data-model-policy.md) - 공개 논리 모델 taxonomy와 private 매핑
