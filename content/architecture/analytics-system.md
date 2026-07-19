@@ -13,7 +13,8 @@
 
 - 로그인·활동 등 운영 집계
 - 원천 업무 데이터의 재정의나 쓰기 기준은 포함하지 않는다.
-- 통계 조회 권한은 [관리자 권한 시스템](admin-permission.md)을 따른다.
+- 통계 조회 권한은 [보안/접근통제 정책](../policy/security-access-control-policy.md)을 단일 기준으로 사용하고,
+  [관리자 권한 시스템](admin-permission.md)은 현재 구현 구조만 설명한다.
 
 ## 논리 데이터 모델
 
@@ -42,4 +43,5 @@
 
 - [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - [관리자 권한 시스템](admin-permission.md)
+- [보안/접근통제 정책](../policy/security-access-control-policy.md)
 - [논리 데이터 모델 정책](../policy/logical-data-model-policy.md)

@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 매칭 상태·키·일정·대상/예약 세부 조건은 이 문서, 관리자 역할·최대 접근 범위는 `security-access-control-policy.md`
 - 기준 성격: `transition`
 
 ## 목적
@@ -21,6 +21,7 @@
 
 ## 단일 SoT
 
+- 관리자 역할과 매칭 기능별 최대 권한: [보안/접근통제 정책](security-access-control-policy.md)
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
 - 리뷰/증빙 기준: [코드 리뷰 정책](code-review-policy.md)
 - 매칭 상태 읽기/판정 SoT: 서버의 `t_match.match_status`
