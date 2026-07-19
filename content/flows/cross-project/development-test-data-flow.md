@@ -53,6 +53,12 @@ pnpm --dir coupler-api data-feed plan cms-all --namespace qa-cms --at "$REFERENC
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed apply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --apply
 pnpm --dir coupler-api data-feed verify --namespace qa-cms
 DEV_DATA_ADMIN_BASE_URL=https://admin.dev.example.invalid DEV_DATA_ADMIN_STORAGE_STATE=/absolute/path/to/storage-state.json DEV_DATA_MEMBER_ID=123 yarn --cwd /absolute/path/to/coupler-admin-web test:dev-data-ui
+# catalog·scenario 갱신은 reset과 apply를 따로 실행하지 않고 같은 namespace의 reapply를 사용한다.
+pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT"
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply
+# reapply plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
+DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reapply cms-all --namespace qa-cms --owner qa-owner --at "$REFERENCE_TIME" --expires-at "$EXPIRES_AT" --confirm qa-cms --apply --adopt-legacy-asset-root
+# 유지 종료처럼 재생성하지 않는 정리만 reset을 단독 사용한다.
 pnpm --dir coupler-api data-feed reset --namespace qa-cms
 DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 # reset plan이 legacy asset root 채택 필요를 표시한 기존 run에만 아래 옵션을 추가한다.
@@ -67,6 +73,8 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 - `active`는 DB에 연결하지 않고 active namespace별 owner·suite·scope·상태·asset root 기록 여부·유지 종료일·만료 여부·검증 count를 출력한다. feeder와 개발 cron이 공유하는 contract parser로 fence·active record 전체를 검증하며, registry metadata, active directory entry, global fence와 active record의 양방향 정합성 또는 active record 상호 간 scope가 유효하지 않으면 fail-closed한다.
 - `plan`은 read-only다.
 - `apply`는 `--apply`가 없으면 write하지 않는다.
+- `reapply`는 `--apply`가 없으면 기존 reset plan과 새 apply plan을 함께 출력할 뿐 write하지 않는다. 실제 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구하고, owner·시간·schema·catalog preflight가 실패하면 reset을 시작하지 않는다.
+- `reapply`가 reset 뒤 replacement apply에 실패하면 명령 전체가 실패하며 완료로 보고하지 않는다. `active`로 새 run의 존재 여부·상태와 원인을 확인하고, active run이 있으면 같은 catalog의 `apply`를 재시도하며 없으면 새 `plan`부터 복구한다.
 - Admin browser smoke는 로그인 정보 자체를 출력하지 않고 허용된 기존 QA 관리자 storage state를 사용한다.
 - 첫 번째 `reset`은 삭제 계획만 출력한다.
 - 실제 reset은 namespace와 같은 `--confirm` 값이 필요하다.
@@ -96,7 +104,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
-| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, `dummy-female` 승인 신청과 상태별 채팅 멤버십, 확정·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
+| N:N 그룹미팅 | 행사·취소 진입 exhaustive set, `Toto`·`dummy-female` 승인 신청과 상태별 채팅 멤버십, 활성·종료·확정 후 취소 방의 두 기준 참여자·호스트·관리자 삭제 메시지, 신고 상태·미처리 filter·합성 대상 패널티의 Admin 목록 노출, 확정·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
@@ -108,9 +116,9 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 1. 같은 owner·suite·catalog/schema version·reference time의 반복 `apply`는 prepared scenario를 reconciliation하고, 이미 `applied`면 데이터를 재생성하지 않고 verifier만 다시 실행한다.
 2. 새 namespace의 `cms-all`은 다른 active run이 없어야 하고, 도메인 suite는 동일 suite의 active run이 없어야 한다. 서로 다른 도메인 suite만 분할 모드로 함께 유지한다.
 3. 동일 도메인에 추가 화면 상태가 필요하면 병렬 namespace를 만들지 않고 정상 시나리오·verifier를 보강한다.
-4. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace를 먼저 `reset`하고 새 `plan`·`apply`를 실행한다.
+4. scenario version, schema fingerprint, suite 또는 reference time을 바꾸려면 기존 namespace의 `reapply` dry-run에서 reset·apply 계획을 함께 검토한 뒤 단일 `reapply --confirm <namespace> --apply` 명령으로 교체한다.
 5. registry root와 DB root가 불일치하면 apply·verify·reset을 중단하고 수동 SQL update를 금지한다.
-6. reset과 새 apply 사이에는 global cron fence 상태와 root 0건을 확인한다.
+6. `reapply`는 reset 완료 직후 같은 호출에서 새 apply와 verifier를 실행한다. reset 결과만 출력되거나 replacement apply가 실패한 상태는 완료가 아니다.
 
 ## UI·상태·DB 변경 반영 흐름
 

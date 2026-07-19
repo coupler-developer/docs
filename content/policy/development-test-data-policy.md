@@ -108,7 +108,8 @@
     - `cms-all`은 모든 도메인 suite와 scope가 겹치므로 다른 active run이 하나라도 있으면 새 namespace로 claim할 수 없다.
     - 도메인 suite는 동일 suite의 active run과만 충돌하며, 서로 다른 도메인 suite는 각각 최대 1개씩 함께 유지할 수 있다.
     - 동일 namespace의 owner·suite·catalog/schema version·reference time이 같은 반복 apply는 신규 claim이 아니라 기존 run 검증으로 처리한다.
-    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 정상 시나리오와 verifier를 보강한 뒤 기존 namespace를 reset·재적용한다.
+    - 같은 도메인에 추가 상태가 필요하면 병렬 namespace를 만들지 않고 해당 suite의 정상 시나리오와 verifier를 보강한 뒤 기존 namespace를 `reapply`한다.
+    - catalog·scenario version 교체는 기존 run의 reset plan과 새 catalog의 apply plan을 함께 출력하는 `reapply` dry-run을 먼저 검토한다. 실제 교체는 namespace와 같은 `--confirm` 및 `--apply`를 받은 단일 `reapply` 명령으로 reset 직후 같은 namespace를 즉시 apply·검증하며, reset 성공만으로 교체 완료를 보고하지 않는다.
 - scope 충돌 검사는 run registry mutex 안에서 active record 전체를 읽고 claim 직전에 다시 수행한다. `plan` 결과만으로 claim 가능성을 확정하지 않는다.
 - inventory와 claim은 새 요청과 기존 record만 비교하지 않고 기존 active record 전체를 pairwise 검증한다. 이미 손상된 active scope 집합이 있으면 겹치지 않는 suite 요청도 허용하지 않는다.
 - global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
@@ -162,7 +163,9 @@
 - 기존 2:2 그룹미팅은 주최자도 승인된 `t_meeting_member`로 존재해야 하며, `t_meeting.male_cnt`·`female_cnt`는 승인된 멤버의 실제 성별 건수와 일치해야 한다.
 - 기존 2:2 그룹미팅 채팅 작성자는 같은 미팅의 멤버십을 가져야 하며, 원본 `t_meeting_chat` 건수와 Admin 목록의 멤버십 join 노출 건수가 일치해야 한다.
 - N:N 그룹미팅은 행사 상태 전체, 취소 진입 상태, 신청 상태, 시스템 메시지, 신고, 후기, 프로필 공개와 상세 이미지 처리 상태를 각각 exhaustive obligation으로 검증한다. 행사와 신청의 `version`은 기록된 상태 전이 횟수보다 정확히 1 커야 한다.
-- N:N 그룹미팅의 참여 가능한 모든 행사에는 `dummy-female@coupler.dev`의 승인 신청이 존재해야 하며, 확정·종료·확정 후 취소 행사에는 해당 신청의 채팅 멤버십이 정확히 1개 있어야 한다. 그 밖의 행사에는 채팅 멤버십을 만들지 않고, 초안·삭제처럼 신청을 허용하지 않는 상태에는 참여 행도 만들지 않는다.
+- N:N 그룹미팅의 참여 가능한 모든 행사에는 기존 QA 기준 회원 `tt@test.com`(닉네임 `Toto`)과 `dummy-female@coupler.dev`의 승인 신청이 각각 존재해야 하며, 확정·종료·확정 후 취소 행사에는 두 신청의 채팅 멤버십이 각각 정확히 1개 있어야 한다. 그 밖의 행사에는 채팅 멤버십을 만들지 않고, 초안·삭제처럼 신청을 허용하지 않는 상태에는 두 기준 회원의 참여 행도 만들지 않는다. 기준 회원의 프로필·상태·패널티 필드는 feeder가 수정하지 않는다.
+- N:N 그룹미팅의 세 채팅 행사에는 두 기준 회원이 각각 작성한 일반 메시지를 두고, 활성·종료 읽기 전용·확정 후 취소 읽기 전용 방을 모두 검증한다. 확정 행사에는 호스트 메시지와 관리자 삭제 메시지도 두며 Admin read model이 발신자 역할, 삭제 tombstone, 시스템 메시지를 모두 반환해야 한다.
+- N:N 신고는 두 기준 회원을 신고자로 사용하고 신고 대상은 namespace 소유 합성 참가자로 제한한다. 대기·처리·기각 상태와 미처리 행사 filter를 모두 만들고, 신고 대상 합성 참가자에게만 1일·7일·30일 미팅 패널티 이력을 생성한다. 패널티 row와 `meet_block_date`는 namespace reset 대상이며 기존 QA 기준 회원에게 패널티를 적용하지 않는다.
 - N:N 그룹미팅 채팅의 공개 프로필은 확정·종료 행사에서 호스트와 승인 참여자에게 무료로 제공하며 본인 조회도 허용한다. 결제·Key 시스템은 현행이지만 이번 N:N 프로필 조회에는 연결하지 않는다. `group-meeting-all`과 `cms-all`은 N:N 프로필 열람 행 또는 Key 차감 원장을 만들지 않고 verifier가 두 저장 건수 0을 검증한다. 별도 과금 요구가 승인되기 전에는 N:N 그룹미팅 과금 fixture를 추가하지 않는다.
 - 신고 처리, 환불, 패널티는 접수 전·접수 대기·처리 완료·만료 상태를 분리한다.
 - negative 시나리오는 개인 로컬·일회성 CI DB에서만 허용하고, 공유 개발계 적용과 `cms-all` suite 포함을 금지한다.
@@ -198,7 +201,7 @@
 | `member-all` | 심사 단계, 등급, 정상·홀딩·차단·탈퇴·거절, 초대, 추천인, 컨시어지 |
 | `matching-all` | 모든 매칭 진행·취소 상태, 큐레이터, 예약, 일정, 채팅, 후기, 연락처, 직진만남, 신고, 환불 |
 | `meeting-all` | 모집, 참여, 확정, 채팅, 완료, 후기, 신고, 패널티 |
-| `group-meeting-all` | N:N 행사 전체 상태, 취소 진입 상태, 신청, 채팅, 후기, 신고, 프로필 공개, 상세 이미지 처리 |
+| `group-meeting-all` | N:N 행사 전체 상태, 취소 진입 상태, Toto·dummy-female 신청, 활성·종료·취소 채팅, 후기, 신고·미처리 filter, 합성 대상 패널티, 프로필 공개, 상세 이미지 처리 |
 | `lounge-all` | 카테고리, 정상·베스트·삭제 글, 댓글·대댓글·삭제 tombstone, 좋아요, 신고, 회원 차단, 패널티 |
 | `revenue-all` | 결제 상태, 유료·무료 키 원장, 환불, 일·주·월 매출, 랭킹 |
 | `statistics-all` | 시간대·일·주·월별 가입, 로그인, 성별, 인증, 매칭 지표 |
@@ -240,6 +243,7 @@
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
 - reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. 계획에 legacy asset root 채택 필요 여부를 표시하고, 필요한 경우에만 `--adopt-legacy-asset-root`를 허용한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
+- `reapply`는 owner·시간·schema·새 catalog를 write 전에 preflight하고 reset과 같은 확인 규칙을 적용한다. reset 뒤 replacement apply가 실패하면 명령 전체를 실패로 종료하고 완료 보고를 금지하며, 새 active run의 실패 상태를 명시적으로 복구·재시도한다.
 
 ## 운영 절차
 
@@ -279,7 +283,7 @@
 - [ ] 공유 개발계 유지 기간에 정상 개발 target은 처리되고 합성 target 변경은 0건인가?
 - [ ] 정상 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
 - [ ] 기존 그룹미팅의 주최자 멤버십·성별 인원수·Admin 채팅 join이 원본 데이터와 일치하는가?
-- [ ] N:N 그룹미팅의 상태·취소 진입·신청·메시지·신고·후기·프로필 공개·상세 이미지 obligation과 기준 참여자가 일치하고, 현재 무료 프로필 조회의 저장 행·Key 차감 원장이 0건인가?
+- [ ] N:N 그룹미팅의 상태·취소 진입, Toto·dummy-female 신청·채팅 멤버십·메시지, 신고·미처리 filter·합성 대상 패널티, 후기·프로필 공개·상세 이미지 obligation이 일치하고, Admin 행사·채팅·신고·패널티 목록에 노출되며 현재 무료 프로필 조회의 저장 행·Key 차감 원장이 0건인가?
 - [ ] 합성 프로필이 회원별로 구분되고 이미지 최소 수·영상 경로·checksum 검증을 통과하는가?
 - [ ] 상태·전이·권한·filter·시간 경계 branch obligation이 100% 충족되는가?
 - [ ] 안전 모듈 branch 100%와 dependency fault-injection test가 통과하는가?
@@ -287,6 +291,7 @@
 - [ ] 결제·매출·통계가 원천 사건에서 집계되는가?
 - [ ] reset DB 삭제가 단일 트랜잭션이며 asset 실패를 idempotent하게 재시도하는가?
 - [ ] reset이 namespace 밖 데이터와 공용 기준정보를 건드리지 않는가?
+- [ ] catalog 교체가 단일 `reapply` 명령으로 실행되고 reset 성공만으로 완료 처리되지 않는가?
 - [ ] schema 변경과 기존 데이터 보정이 별도 작업으로 분리됐는가?
 - [ ] apply 후 coverage와 reset 후 orphan 검증 근거가 남았는가?
 
