@@ -225,6 +225,28 @@ curl -i https://api.ritzy.fourhundred.co.kr/
 pm2 logs coupler-api --lines 100 --nostream
 ```
 
+큐레이터 실시간 채팅이 배포 범위이면 다음 항목을 API 완료 조건에 추가한다.
+
+1. 외부 reverse proxy/load balancer가 `/realtime/admin`, `/realtime/member`의 HTTP Upgrade와
+   `Connection: upgrade`를 `coupler-api`로 전달하는지 인프라 설정과 브라우저 Network 탭에서 확인한다.
+2. 운영 Admin에 Super 또는 테스트 회원의 현재 `CHARGE` 관리자로 로그인하고 표준 WebSocket 요청이
+   `wss://api.ritzy.fourhundred.co.kr/realtime/admin`에 연결된 뒤 `realtime:ready`를 받는지 확인한다.
+3. 운영 Mobile 빌드를 Android 실제 기기에서 foreground로 열고 같은 WSS에 연결되는지 확인한다. React Native가
+   `https://api.ritzy.fourhundred.co.kr` Origin을 보내도 handshake가 허용돼야 한다.
+4. 테스트 회원과 Admin 사이에 양방향 메시지를 한 번씩 보내 DB 저장 후 즉시 표시되는지, 새로고침 없이 안 읽은
+   수와 양쪽 읽음 표시가 바뀌는지 확인한다. 테스트 본문이나 JWT를 배포 로그에 남기지 않는다.
+5. Mobile을 큐레이터 대화방이 아닌 foreground 화면에 둔 상태에서 Admin 메시지를 보내 시스템 알림은 한 번
+   표시되고, WebSocket과 FCM으로 동일 상태 갱신이 중복 적용되지 않는지 확인한다.
+6. Admin 브라우저 탭을 숨긴 상태와 Mobile 대화 route가 focus를 잃은 상태에서는 읽음이 바뀌지 않고, 다시 보이면
+   읽음과 통합 채팅 목록 배지가 따라잡는지 확인한다.
+7. API 로그에서 인증·권한 거부 급증, 반복 재연결, 이벤트 발행 오류가 없는지 확인한다.
+8. 현재 PM2가 단일 프로세스인지 확인한다. cluster 또는 다중 인스턴스이면 인스턴스 간 이벤트 broker가 없는
+   상태로 배포하지 않는다.
+
+WSS smoke가 실패하면 Admin·Mobile 배포를 진행하지 않는다. HTTP 메시지 저장이 성공하더라도 실시간 완료로
+판정하지 않으며 reverse proxy Upgrade 전달, WebSocket 인증, PM2 프로세스 수 순서로 원인을 분리한다. 상세 계약과
+롤백 순서는 [채팅 시스템](../../architecture/chat-system.md)의 `큐레이터 채팅`을 따른다.
+
 ## Admin 포함 시
 
 상세 실행은 [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)을 따른다. 이 문서는 Admin 배포 명령을 중복 정의하지 않는다.
@@ -425,6 +447,8 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 ## 예외 흐름
 
 - API 외부 응답이 실패하면 `pm2 status coupler-api`, `pm2 logs coupler-api --lines 100 --nostream`, 서버 내부 `curl` 순서로 원인을 분리한다.
+- 큐레이터 WSS 연결만 실패하면 외부 proxy Upgrade 전달, `/realtime/admin`·`/realtime/member` 경로, JWT 인증
+  로그, PM2 프로세스 수를 확인한다. HTTP polling을 임시 fallback으로 추가해 완료 처리하지 않는다.
 - Admin 외부 응답이 실패하면 `sudo nginx -t`, 내부 `curl -I http://127.0.0.1:8000`, 백업 산출물 존재 여부를 먼저 확인한다.
 - DB 반영이 실패하거나 중단되면 같은 SQL을 즉시 재실행하지 않는다. 실제 DB 상태와 ledger를 확인한 뒤 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 실패/중단 분류를 따른다.
 - NextPush 배포를 되돌려야 하면 최신 이전 릴리즈 또는 지정 label로 rollback한다.

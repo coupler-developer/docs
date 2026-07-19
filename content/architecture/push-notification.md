@@ -180,21 +180,28 @@ sequenceDiagram
         Common->>FCM: send(token, type, title, content, data)
         FCM->>Firebase: firebase.messaging().send()
         Firebase-->>FCM: 전송 결과
+        Common->>DB: insertBatch(alarm_data)
     end
-    Common->>DB: insertBatch(alarm_data)
 ```
 
 ## 발송 조건 정책
 
 | 조건 | 체크 항목 | 결과 |
 |------|----------|------|
-| 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT 스킵 |
+| 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT, CONCIERGE_CHAT 스킵 |
 | 매칭 알림 | `alarm_match = NO` | FCM 12-30 스킵 |
 | 그룹미팅 행사 알림(전환 중) | `alarm_event = NO` | FCM 77-81, 83 스킵 |
 | 그룹미팅 채팅 알림(전환 중) | `alarm_chat = NO` | FCM 82 스킵 |
 | 보이스톡 오픈 알림 숨김 | `MATCH_VOICE_CALL` | 전송/저장 스킵, 알림 목록 제외 |
 | FCM 토큰 | `fcm_token` 없음 | 전송 스킵 |
 | OFFLINE_MODE | 개발 환경 | 전송 스킵 |
+
+큐레이터 채팅의 활성 상태 동기화는 [채팅 시스템](chat-system.md)의 WebSocket 이벤트가 담당한다. FCM
+`CONCIERGE_CHAT(67)`은 Admin이 회원에게 보낸 메시지의 Mobile 사용자 알림과 재진입 보조 수단이며,
+`alarm_chat = NO`이면 FCM 전송과 `t_alarm` 저장을 모두 건너뛴다. FCM 수신 여부를 메시지 저장 성공이나 읽음
+상태의 기준으로 사용하지 않는다. Mobile foreground에서는 WebSocket 연결 여부와 무관하게 FCM 시스템 알림을
+표시한다. WebSocket이 연결돼 있으면 같은 FCM으로 `CONCIERGE_CHAT` 상태 갱신 이벤트를 중복 발행하지 않고,
+연결이 끊긴 경우에만 FCM 이벤트를 화면 상태 갱신 fallback으로 사용한다.
 
 ## 메시지 구조
 

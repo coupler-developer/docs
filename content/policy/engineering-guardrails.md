@@ -22,7 +22,7 @@
 
 | 판정 책임 | 단일 SoT | 이 문서의 역할 |
 | --- | --- | --- |
-| 공통 Fail-closed, 책임 분리, 구조 단순화, Shadow Cutover | 이 문서 | 최종 규칙 |
+| 공통 Fail-closed, 책임 분리, 구조 단순화, 외부 의존성 승인, Shadow Cutover | 이 문서 | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
 | 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
@@ -49,6 +49,7 @@
 - **일관성**: 같은 문제는 같은 방식으로 해결한다. 코드, 파일, 문서에서 중복을 만들지 않는다
 - **분류 체계(taxonomy) 일관성**: 도메인, 상태, enum, error source/code/surface, 문서 종류처럼 대상을 분류하는 축은 한 책임만 가져야 한다. 제품면(Admin/Mobile), 도메인, 동작, 원인, 문서 역할을 한 이름에 섞지 않는다
 - **구조 단순화 우선**: 단기 우회보다 근본 원인 해결과 구조 단순화를 우선한다
+- **외부 의존성 최소화**: 표준 라이브러리와 기존 직접 의존성으로 해결할 수 있는 기능에 새 package·SDK를 추가하지 않는다
 
 ## API/Mobile/Admin 코드 작업 공통 패턴
 
@@ -450,6 +451,25 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 기존 패턴과 충돌하는 새 구조/유틸/상태 모델을 추가하기 전에는 재사용 가능한 기존 기준을 먼저 확인한다
 - lint/CI 통과를 merge 조건으로 둔다.
     - docs 검증과 문서 동기화 기준은 [테스트/CI 전략](testing-strategy.md)과 [문서 거버넌스 정책](document-governance-policy.md)을 따른다.
+
+### 외부 의존성 추가 승인 게이트
+
+- 적용 대상은 `package.json`, native manifest, requirements 파일 등 의존성 manifest에 새 외부 package·SDK를
+  추가하거나 기존 의존성을 다른 package·SDK로 대체하는 모든 코드 작업이다. 표준 라이브러리 사용과 이미 선언된
+  직접 의존성 사용은 `N/A`다.
+- manifest·lockfile 수정 또는 install 명령 실행 전에 아래 근거를 작업 요청자에게 제시하고 **명시적 승인**을
+  받아야 한다.
+    1. 필요한 기능과 실제 호출 경로
+    2. 표준 라이브러리와 기존 직접 의존성으로 해결할 수 없는 이유
+    3. 검토한 대안과 제외 이유
+    4. 정확한 package·version·runtime/dev 범위와 manifest·lockfile·빌드·보안 영향
+- 기능 구현, 작업 완료, 리팩터링처럼 범위만 승인한 요청은 외부 의존성 추가 승인으로 해석하지 않는다. 제시한
+  package 또는 적용 범위가 달라지면 다시 승인받는다.
+- 승인 후에는 저장소의 package manager로 설치하고 direct dependency와 lockfile을 함께 고정하며, 실제 import와
+  적용 테스트로 사용 근거를 확인한다. 사용하지 않거나 기존 의존성과 책임이 중복된 package는 완료 범위에 남기지
+  않는다.
+- 승인되지 않은 의존성이 필요해 작업을 안전하게 완료할 수 없으면 추가하거나 불완전한 자체 구현으로 우회하지
+  않고 차단 근거와 승인 필요 항목을 보고한다.
 
 ### 신중/안전 지시 처리
 
