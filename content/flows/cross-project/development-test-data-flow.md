@@ -76,7 +76,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
 7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 fence·active record 전체 snapshot, 기존 active 상호 간 scope, 새 요청의 overlapping scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
 8. 개발 환경 `/admin/cron/*` 공통 target fence는 `planning`·`applying`·`resetting`과 fenced `cleaned` finalization 대기를 maintenance `SKIP`으로 처리한다. 안정 상태에서는 정상 개발 target을 처리하고 active namespace의 합성 target만 제외하며, registry·소유권을 확인할 수 없으면 handler 전에 fail-closed한다.
-9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
+9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, group-meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
 10. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
 11. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 고유 경로로 복사해 `profiles/`·`videos/` namespace 경로에 동기화한다.
 12. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
@@ -90,6 +90,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
+| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, 기준 참여자, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
@@ -252,16 +253,17 @@ environment=development
 namespace=qa-cms
 run_id=qa-cms-20260714t100000k0900
 suite=cms-all
-catalog_version=2
+catalog_version=5
 schema_fingerprint=sha256:7d2f2e0c1b40
 reference_time=2026-07-14T10:00:00+09:00
 scenarios=all-pass
 branch_coverage=100%
 profile_media=PASS
 meeting_admin_chat_join=PASS
-route_classification=54/54
-data_surface_coverage=52/52
-ui_render_coverage=52/52
+group_meeting_state_and_version=PASS
+route_classification=55/55
+data_surface_coverage=53/53
+ui_render_coverage=53/53
 non_data_audit=2/2
 cron_fence=PASS
 external_calls=0

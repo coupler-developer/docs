@@ -177,7 +177,7 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: [docs #71](https://github.com/coupler-developer/docs/pull/71) 기준 공유 개발계 apply는 끝났지만 Admin 52개 화면 smoke, cron·외부 호출 관측, reset 증빙이 남아 있다.
+- 현상: [docs #71](https://github.com/coupler-developer/docs/pull/71) 기준 공유 개발계 apply 뒤 N:N `group-meeting-all` 적용과 API·Admin 53개 데이터 화면 교차 계약 검증까지 끝났다. 인증된 Admin browser smoke, 유지 기간 cron·외부 호출 관측, reset 증빙이 남아 있다.
 - 영향: 합성 데이터가 화면·필터·정리 계약을 충족하는지 확정할 수 없다.
 - 조치: browser smoke → 유지 기간 관측 → reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate와 route별 검증 통과.
