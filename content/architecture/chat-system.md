@@ -42,6 +42,7 @@ flowchart LR
 - 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다
 - 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다
 - 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다
+- 같은 작성자의 같은 client message ID는 하나의 canonical payload와 저장 결과만 식별하며, 동일 요청 재시도는 메시지·이벤트·알림을 중복 생성하지 않는다
 
 <!-- markdownlint-disable MD046 -->
 
@@ -73,6 +74,7 @@ flowchart LR
     | `CONVERSATION-INV-001` | `conversation.message` | 메시지 작성자는 발송 시점에 해당 대화방의 유효한 참여자여야 한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
     | `CONVERSATION-INV-002` | `conversation.thread` | 매칭·미팅 대화 가능 여부는 원천 도메인의 현재 상태에서 판정한다 | [매칭 운영 정책](../policy/matching-ops-policy.md) |
     | `CONVERSATION-INV-003` | `conversation.message` | 삭제·비식별화 뒤에도 메시지 순서와 감사 가능한 상태는 유지한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+    | `CONVERSATION-INV-004` | `conversation.message` | 같은 작성자의 같은 client message ID는 하나의 canonical payload와 저장 결과만 식별하며, 동일 요청 재시도는 메시지·이벤트·알림을 중복 생성하지 않는다 | [API operation 설계 정책](../policy/api-operation-design-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
 
@@ -112,6 +114,9 @@ flowchart LR
 - 메시지 원본은 `t_concierge`이며 HTTP 명령이 DB 저장을 완료한 뒤 표준 WebSocket 이벤트를 발행한다.
 - 활성 Admin·Mobile의 상태 동기화는 WebSocket 이벤트가 담당한다. 주기적 채팅 폴링과 WebSocket 장애 시 폴링
   fallback은 두지 않는다.
+- Admin의 다른 미처리 알림은 기존 60초 주기 조회를 유지하지만 그 요청은 `include_concierge=false`로
+  `t_concierge` 집계를 생략한다. 상담 count는 최초 진입·visibility 복귀·WebSocket 인증 완료·상담 이벤트 때만
+  HTTP snapshot으로 맞추며 주기 조회 응답으로 덮어쓰지 않는다.
 - WebRTC는 사용하지 않는다. 브라우저·앱과 서버 사이의 작은 영속 메시지 이벤트이며 P2P 미디어·데이터 채널,
   NAT traversal, 별도 signaling이 필요하지 않기 때문이다.
 - FCM `CONCIERGE_CHAT(67)`은 Mobile 사용자 알림과 재진입 보조 수단이다. foreground에서도 사용자 알림은
@@ -124,13 +129,21 @@ flowchart LR
 | --- | --- | --- |
 | GET | `/app/chat/chatList` | Mobile 통합 채팅 목록과 안 읽은 상담 메시지 수 조회 |
 | GET | `/app/chat/list` | Mobile 상담 메시지 스냅샷 조회 |
-| POST | `/app/chat/send` | Mobile 메시지 저장 후 이벤트 발행 |
+| POST | `/app/chat/send` | Mobile 멱등 메시지 저장 후 canonical 메시지 반환·신규 이벤트 발행 |
 | GET | `/admin/member/concierge/list` | Admin 권한 범위의 상담 회원·안 읽은 수 조회 |
 | GET | `/admin/member/concierge/chat_list` | Admin 상담 메시지 스냅샷 조회 |
-| POST | `/admin/member/concierge/send` | Admin 메시지 저장 후 이벤트·FCM 발행 |
+| POST | `/admin/member/concierge/send` | Admin 멱등 메시지 저장 후 canonical 메시지 반환·신규 이벤트·FCM 발행 |
 
 `GET` 목록은 읽기 전용이다. 조회 과정에서 `status`를 바꾸지 않으며 읽음 변경은 아래 WebSocket 명령으로만
 수행한다.
+
+두 `POST .../send`는 printable ASCII 64자 이하의 `client_message_id`를 필수로 받는다. 서버는 회원 요청이면
+회원 ID, 관리자 요청이면 관리자 ID와 발신 방향을 함께 저장해 송신자 범위 유일성을 보장한다. 같은 송신자가 같은
+키와 같은 `member`·`content`·`image`를 다시 보내면 최초 저장된 메시지를 그대로 반환하고 WebSocket 이벤트와
+FCM을 다시 발행하지 않는다. 같은 키를 다른 payload에 재사용하면
+`MEMBER_CONCIERGE_MESSAGE_IDEMPOTENCY_CONFLICT`로 거부한다. 두 성공 응답은 `concierge:message`와 같은
+`id`, `member`, `is_send`, `content`, `image`, `create_date`, `status` 전체를 반환하며, 클라이언트는 WebSocket
+echo를 기다리지 않고 이 canonical HTTP 응답을 ID 기준으로 병합한다.
 
 ### WebSocket 계약
 
@@ -148,6 +161,11 @@ flowchart LR
 읽음 명령과 응답을 연결하는 positive integer이며 HTTP API의 진단용 `request_id`와 책임을 섞지 않는다. 인증 전
 업무 이벤트·binary frame·유효하지 않은 JSON/envelope은 적용하지 않는다. 연결 후 5초 안에 인증이 완료되지
 않으면 서버가 연결을 닫는다.
+
+`AUTH_TOKEN_MISSING`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_INVALID`, `AUTH_SUBJECT_RESTRICTED`는 자격 자체가
+유효하지 않은 terminal 인증 오류이므로 클라이언트가 현재 토큰을 폐기하고 자동 재연결을 멈춘다. 반면 인증 중 DB나
+내부 의존성을 사용할 수 없으면 서버는 `REALTIME_UNAVAILABLE`와 close code `1011`을 보내며, 클라이언트는 토큰을
+유지하고 일반 backoff 재연결을 계속한다. 의존성 장애를 terminal 토큰 오류로 바꾸지 않는다.
 
 서버만 연결을 identity room에 배정한다. 클라이언트가 임의 회원 room을 선택할 수 없다. 관리자는 Super이면 전체
 상담에 접근하고, 일반 관리자는 현재 `CHARGE`로 배정되고 현재 `t_manager` 연결이 유효한 회원만 접근한다. 이
@@ -181,15 +199,19 @@ sequenceDiagram
     participant WS as WebSocket
     participant FCM as FCM
 
-    Client->>HTTP: POST message
-    HTTP->>DB: INSERT
-    DB-->>HTTP: message id
-    HTTP->>WS: concierge:message
-    WS-->>Client: canonical persisted message
-    opt Admin to member
-        HTTP->>FCM: user notification (alarm_chat 허용 시)
+    Client->>HTTP: POST message + client_message_id
+    HTTP->>DB: sender-scoped idempotent INSERT/find
+    DB-->>HTTP: canonical persisted message + created
+    alt newly created
+        HTTP->>WS: concierge:message
+        WS-->>Client: canonical persisted message
+        opt Admin to member
+            HTTP->>FCM: user notification (alarm_chat 허용 시)
+        end
+    else same-key retry
+        HTTP-->>HTTP: no duplicate WebSocket/FCM side effect
     end
-    HTTP-->>Client: existing compatible response
+    HTTP-->>Client: canonical persisted message
     Client->>WS: concierge:read:mark
     WS->>DB: UPDATE status through cursor
     WS-->>Client: concierge:read:ack
@@ -224,10 +246,14 @@ sequenceDiagram
   확인한다.
 - 현재 PM2 단일 프로세스에서는 인증된 연결 집합을 메모리에서 관리한다. PM2 cluster 또는 다중 인스턴스로
   확장하기 전 인스턴스 간 이벤트 broker와 재동기화 전략을 먼저 확정해야 한다.
-- 배포 순서는 호환 가능한 API, WSS 연결 smoke, Admin, Mobile 순서다. 로그인한 Super 또는 담당 관리자와 테스트
-  회원으로 메시지 도착·안 읽은 수·양방향 읽음 표시를 확인한다.
+- 배포 순서는 `t_concierge` sender/idempotency nullable expand와 DB gate 검증, API 재시작과 WSS smoke, Admin,
+  Android·iOS Mobile NextPush 순서다. `client_message_id`가 필수인 coordinated cutover이므로 기존 Mobile은
+  양 플랫폼 NextPush를 mandatory로 전환하고 이전 JS bundle의 전송을 계속 허용하는 호환 창을 두지 않는다.
+  JS/TypeScript-only 변경이라 Store 재심사는 하지 않는다. 로그인한 Super 또는 담당 관리자와 테스트 회원으로
+  메시지 도착·멱등 재시도·안 읽은 수·양방향 읽음 표시를 확인한다.
 - 문제가 있으면 Admin·Mobile 실시간 소비 코드를 먼저 롤백한 뒤 API WebSocket 기능을 롤백한다. 기존 HTTP 응답
-  계약과 DB 스키마를 유지하므로 이 순서에서도 메시지 저장·스냅샷 조회는 계속 가능하다.
+  계약과 nullable expand DB 스키마는 유지한다. request contract를 함께 되돌리지 않은 상태에서 구 Mobile bundle을
+  다시 활성화하지 않는다.
 
 ## 매칭 채팅
 

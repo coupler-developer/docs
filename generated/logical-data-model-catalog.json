@@ -2171,6 +2171,13 @@
       "ownerDocument": "content/architecture/chat-system.md"
     },
     {
+      "id": "CONVERSATION-INV-004",
+      "relatedEntityId": "conversation.message",
+      "statement": "같은 작성자의 같은 client message ID는 하나의 canonical payload와 저장 결과만 식별하며, 동일 요청 재시도는 메시지·이벤트·알림을 중복 생성하지 않는다",
+      "basis": "[API operation 설계 정책](../policy/api-operation-design-policy.md)",
+      "ownerDocument": "content/architecture/chat-system.md"
+    },
+    {
       "id": "GROUP-MEETING-INV-001",
       "relatedEntityId": "group-meeting.event",
       "statement": "행사와 신청·참여·메시지·후기·신고는 같은 행사 문맥에 속한다",

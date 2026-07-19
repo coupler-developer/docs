@@ -227,12 +227,19 @@ pm2 logs coupler-api --lines 100 --nostream
 
 큐레이터 실시간 채팅이 배포 범위이면 다음 항목을 API 완료 조건에 추가한다.
 
+배포 전 `t_concierge`의 nullable sender/idempotency expand를 DB Migration Gate 절차로 먼저 적용하고 schema
+postcheck를 통과시킨다. 그 뒤 API를 재시작하고 Admin을 반영한 다음 Android·iOS NextPush를 같은 JS 기준으로
+mandatory 배포한다. `client_message_id` 필수 전환은 coordinated cutover이며 이전 Mobile bundle을 계속 허용하는
+호환 창은 두지 않는다. native 변경이 없으므로 이 단계 자체는 Store 재심사 사유가 아니다.
+
 1. 외부 reverse proxy/load balancer가 `/realtime/admin`, `/realtime/member`의 HTTP Upgrade와
    `Connection: upgrade`를 `coupler-api`로 전달하는지 인프라 설정과 브라우저 Network 탭에서 확인한다.
 2. 운영 Admin에 Super 또는 테스트 회원의 현재 `CHARGE` 관리자로 로그인하고 표준 WebSocket 요청이
    `wss://api.ritzy.fourhundred.co.kr/realtime/admin`에 연결된 뒤 `realtime:ready`를 받는지 확인한다.
-3. 운영 Mobile 빌드를 Android 실제 기기에서 foreground로 열고 같은 WSS에 연결되는지 확인한다. React Native가
-   `https://api.ritzy.fourhundred.co.kr` Origin을 보내도 handshake가 허용돼야 한다.
+3. 운영 Mobile 빌드를 Android와 iOS 실제 기기에서 각각 foreground로 열고 같은 WSS에 연결되는지 확인한다.
+   React Native가 `https://api.ritzy.fourhundred.co.kr` Origin을 보내도 handshake가 허용돼야 한다. 이번 변경이
+   JS/TypeScript·설정 범위의 NextPush-only라면 이 양 플랫폼 smoke는 필요하지만 Store 재심사나 native build
+   제출은 필요하지 않다. native 파일·권한·SDK·빌드 메타데이터 변경이 있을 때만 Store 제출 범위를 별도로 판정한다.
 4. 테스트 회원과 Admin 사이에 양방향 메시지를 한 번씩 보내 DB 저장 후 즉시 표시되는지, 새로고침 없이 안 읽은
    수와 양쪽 읽음 표시가 바뀌는지 확인한다. 테스트 본문이나 JWT를 배포 로그에 남기지 않는다.
 5. Mobile을 큐레이터 대화방이 아닌 foreground 화면에 둔 상태에서 Admin 메시지를 보내 시스템 알림은 한 번
@@ -242,6 +249,9 @@ pm2 logs coupler-api --lines 100 --nostream
 7. API 로그에서 인증·권한 거부 급증, 반복 재연결, 이벤트 발행 오류가 없는지 확인한다.
 8. 현재 PM2가 단일 프로세스인지 확인한다. cluster 또는 다중 인스턴스이면 인스턴스 간 이벤트 broker가 없는
    상태로 배포하지 않는다.
+9. 같은 `client_message_id`와 같은 payload를 한 번 재전송해 최초 canonical 메시지가 반환되고 DB 행,
+   WebSocket 이벤트, Admin 발신 FCM이 중복 생성되지 않는지 확인한다. 같은 키에 다른 payload는 typed conflict로
+   거부돼야 한다.
 
 WSS smoke가 실패하면 Admin·Mobile 배포를 진행하지 않는다. HTTP 메시지 저장이 성공하더라도 실시간 완료로
 판정하지 않으며 reverse proxy Upgrade 전달, WebSocket 인증, PM2 프로세스 수 순서로 원인을 분리한다. 상세 계약과
