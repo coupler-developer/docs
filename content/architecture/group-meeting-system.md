@@ -218,8 +218,8 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 ## Admin 운영 화면
 
 - 신규 N:N은 `/meeting/group`에서 행사 상세에 신청, 채팅, 후기, 신고, 프로필 열람 이력을 종속시켜 본다.
-- 기존 `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`, `/meeting/penalty`는 2:2 전용이며
-  Super Admin 메뉴로 보존한다.
+- 기존 `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`, `/meeting/penalty`는 2:2 전용 코드로만
+  보존하고 CMS 메뉴와 라우트에서는 비활성화한다. 운영 진입점은 N:N `/meeting/group` 하나만 둔다.
 - `groupMeetingChatUserReport` 알림은 N:N 화면 `/meeting/group`으로 이동한다. 기존 2:2 신고 화면으로
   연결하지 않는다.
 - 파트너 Admin은 자신이 소유한 행사만 조회·변경할 수 있고 Super Admin만 최초 호스트 연결과 전체 운영
