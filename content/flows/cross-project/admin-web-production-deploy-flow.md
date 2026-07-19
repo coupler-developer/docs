@@ -21,6 +21,7 @@
 
 - [배포/릴리즈 프로세스](../../policy/release-process.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
+- [테스트/CI 전략](../../policy/testing-strategy.md)
 
 ## 액터
 
@@ -40,7 +41,8 @@
 
 ## 메인 흐름
 
-1. 배포 시작 전 [배포/릴리즈 프로세스](../../policy/release-process.md)의 `No Findings`와 공통 품질 게이트 기준을 통과했는지 확인한다.
+1. 배포 시작 전 [엔지니어링 가드레일](../../policy/engineering-guardrails.md)의 `No Findings 게이트`와
+   [테스트/CI 전략](../../policy/testing-strategy.md)의 공통 품질 게이트를 통과했는지 확인한다.
 2. 로컬 또는 CI에서 `coupler-admin-web` 루트 기준으로 `yarn install`, `yarn build`를 실행해 `build/` 산출물을 만든다.
 3. 운영 서버에서 직접 `yarn install` 또는 `yarn build`를 실행하는 임시/수동 배포라면, 먼저 설치를 실행하는 OS 사용자 예: `ubuntu`, `deploy`, `root`의 user-level npm 설정에 GitHub Packages 인증을 준비한다. GitHub Packages `Manage Actions access`는 GitHub Actions 전용이며 EC2 SSH shell에는 적용되지 않는다.
 

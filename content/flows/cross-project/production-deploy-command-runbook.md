@@ -46,7 +46,7 @@
 | `coupler-admin-web` | Admin 화면 변경을 운영 정적 산출물로 반영함 | [Admin 운영 배포 런북](admin-web-production-deploy-flow.md) |
 | `Mobile Store` | native binary 또는 스토어 제출이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 | `Mobile NextPush` | JS-only OTA 배포가 필요함 | 이 문서의 NextPush 절차 |
-| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 |
+| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포와 정정 규칙 |
 | `Tag/Release Record` | 운영 반영 기준점 기록이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 
 ## 공통 사전 확인
@@ -74,12 +74,12 @@ yarn release:preflight \
   --pending-ref "${PENDING_REF}"
 ```
 
+선택 인자와 허용값은 실행 시점의 `yarn release:preflight --help`를 단일 명령 기준으로 확인한다.
+
 - `PENDING_REF`는 축약 SHA가 아닌 40자 commit SHA를 사용한다.
-- docs는 최신 `origin/main`을 포함한 clean non-main branch이고 `HEAD == origin upstream == PENDING_REF`여야 한다.
-- 전체 릴리즈 metadata는 `pending`이어야 한다. 배포 전 이미 끝난 prerequisite scope는 `released`, 나머지 실행 대상 scope는 `pending`일 수 있으며 파생 전체 상태가 `pending`과 일치해야 한다.
-- 서비스 레포는 계속 clean `main == origin/main`이어야 한다.
-- `planned` PR이나 push되지 않은 로컬 브랜치는 운영 배포 시작 기준으로 사용하지 않는다.
-- `pending`부터 최종 전체 CI 완료 전까지 PR은 Draft로 유지한다.
+- 명령이 `PASS`한 원격 Draft PR 기준점만 운영 배포 입력으로 사용한다. branch·metadata·service repo 판정은
+  [배포/릴리즈 프로세스](../../policy/release-process.md)와 공통 schema/derived model을 따른다.
+- 최종 전체 CI와 리뷰 완료 전까지 PR은 Draft로 유지한다.
 
 `--pending-ref` 없는 기존 main preflight는 과거 terminal 기록 postcheck 또는 corrective reissue 호환용이다. 신규 릴리즈의 배포 시작 기준으로 사용하지 않는다.
 
@@ -289,14 +289,8 @@ nextpush deployment history bluedotstudio.official-gmail.com/coupler Production 
 nextpush deployment history bluedotstudio.official-gmail.com/coupler-ios Production --format json
 ```
 
-NextPush-only 배포는 스토어 binary 배포가 아니다. native version과 store upload는 변경하지 않고, 릴리즈 기록에는 아래를 남긴다.
-
-- Android/iOS app name
-- `Production` label
-- uploaded time
-- target binary version
-- rollout, mandatory, disabled 상태
-- 배포한 git commit SHA
+NextPush-only 배포는 스토어 binary 배포가 아니다. native version과 store upload는 변경하지 않고, 실제 명령
+결과를 [배포/릴리즈 프로세스](../../policy/release-process.md)의 해당 scope terminal evidence 계약에 남긴다.
 
 ## Mobile Store 포함 시
 
@@ -362,20 +356,43 @@ git -C "${REPO}" push origin "${TAG}"
 git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 ```
 
-여러 레포를 같은 릴리스 버전으로 닫을 때는 아래 순서로 기록한다.
-
-1. 운영 반영/검증이 끝난 서비스 레포부터 태그를 push한다.
-2. 같은 docs PR의 `content/releases/vX.Y.Z.md`를 `released`로 바꾸고 서비스별 태그/SHA, 배포 시각, smoke, rollback 결과를 채운 두 번째 커밋을 push한다.
-3. PR transition gate에서 `pending` 이후 scope와 고정 기준이 바뀌지 않았는지 확인하고 전체 docs CI와 문서 안정성 평가를 `No Findings`로 닫는다.
-4. `gh pr ready "${PR_NUMBER}"`로 Ready 전환한 뒤 docs PR을 한 번만 `Rebase and merge`하고 local `main`을 `pull --ff-only`로 동기화한다. `Docs Validation`은 `ready_for_review` 이벤트를 구독하지 않으므로 Ready 전환만으로 CI를 중복 실행하지 않는다.
-5. 병합된 docs main 커밋에 로컬 annotated tag를 만들고 Release Note preview를 리뷰한다.
-6. `No Findings`일 때 docs 태그를 push해 GitHub Release와 문서 artifact를 생성한다.
+서비스 태그 명령이 끝나면 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)의 Final Record Gate로
+돌아간다. 기록 상태 전이, Ready/병합, docs tag 순서는 그 flow가 소유한다.
 
 NextPush-only 모바일 배포, 스토어 심사 중인 빌드, 모바일 릴리즈 태그 생성 기준은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
 ## Docs 포함 시
 
-문서 배포는 [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포 절차 중 GitHub Pages 배포를 따른다. 이 문서는 docs 배포 명령을 중복 정의하지 않는다.
+문서 배포와 정정 허용 조건은 [배포/릴리즈 프로세스](../../policy/release-process.md)의
+`Docs 배포와 정정 규칙`을 따른다. 아래는 해당 Gate가 허용된 뒤 실행할 명령이다.
+
+```bash
+cd docs
+git checkout main
+git pull --ff-only
+
+TAG=vX.Y.Z
+git tag -a "${TAG}" -m "Release ${TAG}"
+
+# 원격 push 전 Release Note preview를 생성하고 리뷰한다.
+PREVIEW_PATH="site/release-notes-${TAG}.md"
+mkdir -p site
+GITHUB_REPOSITORY=coupler-developer/docs \
+  bash .github/scripts/generate-release-notes.sh "${TAG}" \
+  > "${PREVIEW_PATH}"
+
+TAG_COMMIT="$(git rev-list -n 1 "${TAG}")"
+git merge-base --is-ancestor "${TAG_COMMIT}" origin/main
+
+git push origin "${TAG}"
+git ls-remote --tags origin "${TAG}" "${TAG}^{}"
+```
+
+preview에서 Finding이 있으면 원격 tag를 push하지 않는다. 로컬 tag를 갱신한 뒤 Release Note preview,
+`yarn validate:docs`, 문서 안정성 평가를 다시 통과한다.
+
+tag push 뒤 GitHub Actions의 `Release Docs`, 동일 tag의 GitHub Release, Release 본문 릴리즈 기록 링크,
+`docs-site-vX.Y.Z.tar.gz` artifact를 확인한다.
 
 최종 기록에는 최소 아래를 남긴다.
 
@@ -385,7 +402,8 @@ NextPush-only 모바일 배포, 스토어 심사 중인 빌드, 모바일 릴리
 
 docs tag/GitHub Release를 만드는 경우에는 이 문서의 `Tag/Release Record` 범위에도 포함한다. 이때 `release.yml` 결과, GitHub Release 링크, `docs-site-vX.Y.Z.tar.gz` 첨부 여부를 함께 남긴다.
 
-docs GitHub Release를 정정 재발행해야 하는 경우에는 [배포/릴리즈 프로세스](../../policy/release-process.md)의 `docs-only corrective reissue` 조건을 먼저 충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
+docs GitHub Release를 정정 재발행해야 하는 경우에는 정책의 `docs-only corrective reissue` 조건을 먼저
+충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
 
 ## 검증 기록
 
@@ -400,16 +418,9 @@ curl -i https://api.ritzy.fourhundred.co.kr/
 curl -I https://cms.ritzy.fourhundred.co.kr
 ```
 
-최종 기록에는 포함된 범위만 남긴다.
-
-- `DB migration`: 운영 ledger row, checksum, 대상 객체/카운터 preflight, postcheck guard 결과
-- `coupler-api`: 운영 커밋 SHA, 외부 응답
-- `coupler-admin-web`: 운영 커밋 SHA, 외부 응답, `nginx` 검증 결과
-- `Mobile NextPush`: Android/iOS app, `Production` deployment label, target binary version, uploaded time
-- `Mobile Store`: native version, build number, 스토어 제출/승인 증빙
-- `docs`: commit SHA, GitHub Pages workflow 결과, GitHub Pages URL 또는 workflow 링크
-- `Tag/Release Record`: 생성한 서비스 레포별 tag, tag commit SHA; 제출 증빙 이관 후 삭제한 `submitted/*` tag; docs tag 포함 시 docs GitHub Release 링크와 site artifact 첨부 여부
-- `N/A`: 제외 범위별 사유와 근거
+최종 기록에는 포함 범위의 실제 명령·로그·workflow 결과를
+[배포/릴리즈 프로세스](../../policy/release-process.md)의 scope별 evidence 계약에 맞춰 남긴다. 이 runbook의
+섹션별 출력 목록은 실행 보조이며 별도 metadata 계약이 아니다.
 
 ## 예외 흐름
 
