@@ -90,7 +90,7 @@ pnpm --dir coupler-api data-feed reset --namespace qa-cms --confirm qa-cms
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
-| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, 기준 참여자, 정원·고아 0건 |
+| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, `dummy-female` 승인 신청과 상태별 채팅 멤버십, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
