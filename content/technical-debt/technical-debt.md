@@ -177,9 +177,9 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: [docs #71](https://github.com/coupler-developer/docs/pull/71) 기준 공유 개발계 apply 뒤 N:N `group-meeting-all` 적용과 API·Admin 53개 데이터 화면 교차 계약 검증까지 끝났다. 인증된 Admin browser smoke, 유지 기간 cron·외부 호출 관측, reset 증빙이 남아 있다.
+- 현상: [API #134](https://github.com/coupler-developer/coupler-api/pull/134), [Admin #67](https://github.com/coupler-developer/coupler-admin-web/pull/67), [docs #87](https://github.com/coupler-developer/docs/pull/87) 병합 뒤 CMS 모집단은 50개 component route·48개 데이터 화면으로 줄었고, N:N 프로필 열람 fixture에는 열람자의 승인 신청 누락이 확인됐다. catalog v6 코드 계약 보정 뒤 공유 개발계 reset·재적용, 인증된 Admin browser smoke, 유지 기간 cron·외부 호출 관측, reset 증빙이 남아 있다.
 - 영향: 합성 데이터가 화면·필터·정리 계약을 충족하는지 확정할 수 없다.
-- 조치: browser smoke → 유지 기간 관측 → reset·orphan·asset 검증을 수행한다.
+- 조치: catalog v6 병합 → 개발 API host에서 기존 namespace reset·재적용과 API·Admin 48개 화면 교차 검증 → browser smoke → 유지 기간 관측 → reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate와 route별 검증 통과.
 
 ## 25) Admin compiled theme 제거 미완료 `P2` `L`

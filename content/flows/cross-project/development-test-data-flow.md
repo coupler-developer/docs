@@ -96,7 +96,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
-| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, `dummy-female` 승인 신청과 상태별 채팅 멤버십, 정원·고아 0건 |
+| N:N 그룹미팅 | 행사·취소 진입·신청·메시지·신고·후기·프로필 공개·이미지 상태 exhaustive set, `dummy-female` 승인 신청과 상태별 채팅 멤버십, 프로필 열람자·대상의 동일 행사 승인 참여, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
@@ -260,7 +260,7 @@ environment=development
 namespace=qa-cms
 run_id=qa-cms-20260714t100000k0900
 suite=cms-all
-catalog_version=5
+catalog_version=6
 schema_fingerprint=sha256:7d2f2e0c1b40
 reference_time=2026-07-14T10:00:00+09:00
 scenarios=all-pass
@@ -268,9 +268,9 @@ branch_coverage=100%
 profile_media=PASS
 meeting_admin_chat_join=PASS
 group_meeting_state_and_version=PASS
-route_classification=55/55
-data_surface_coverage=53/53
-ui_render_coverage=53/53
+route_classification=50/50
+data_surface_coverage=48/48
+ui_render_coverage=48/48
 non_data_audit=2/2
 cron_fence=PASS
 external_calls=0
