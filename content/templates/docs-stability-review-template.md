@@ -60,6 +60,7 @@
 | Structure Fitness / Simplification Reviewer |  |  |
 | Change Impact / Sync Auditor |  |  |
 | First-time Reader |  |  |
+| Fresh Session / Routing Safety Reviewer |  |  |
 | Writing Quality / Style Editor |  |  |
 | Domain Implementer |  |  |
 | QA / Evidence Reviewer |  |  |
