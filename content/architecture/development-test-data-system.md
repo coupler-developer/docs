@@ -401,7 +401,7 @@ coverage entry는 다음 축을 가진다.
 
 ### 현재 관리자 탭 baseline
 
-2026-07-19 `coupler-admin-web` `origin/main` `2277192f43dabf90f175ae1b4157545d8d25f78b`의 `src/config/page-route.tsx`를 기준으로 component가 연결된 route는 총 55개다.
+2026-07-19 `coupler-admin-web` `origin/main` `ce62445198deb0f86608382c25a72ecaaa048f0a`의 `src/config/page-route.tsx`를 기준으로 component가 연결된 route는 총 55개다.
 
 - sidebar가 사용하는 `getFilteredRouteList(true, false)`의 `Menu` leaf 52개는 모두 `data-surface`다.
 - `Extra`의 `/member/detail/:id` 1개도 `data-surface`이며 member suite의 anchor actor로 검증한다.
