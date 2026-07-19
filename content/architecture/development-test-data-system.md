@@ -175,7 +175,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 
 ## Run 계약과 저장 위치
 
-유지 종료일은 scenario 정의가 아니라 namespace run의 값이다. run record는 다음 필드를 빈값 없이 가진다.
+유지 종료일은 scenario 정의가 아니라 namespace run의 값이다. 새 run record는 다음 필드를 빈값 없이 가진다. asset root identity 도입 전에 생성된 legacy record에 한해 `assetRoot` 부재를 전환 상태로 읽는다.
 
 | 필드 | 의미 |
 | --- | --- |
@@ -184,6 +184,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 | `owner` | 정리 책임자 식별자 |
 | `suite` | 적용 suite |
 | `catalogVersion` | scenario catalog version |
+| `assetRoot` | apply와 reset이 함께 사용하는 API 서버 미디어 저장소의 정규화된 절대 경로. legacy record는 명시적 reset 채택 전까지만 부재 가능 |
 | `schemaFingerprint` | 관련 DB 계약 fingerprint |
 | `referenceTime` | 통계·시간 경계 기준 시각 |
 | `expiresAt` | 공유 개발계 유지 종료일 |
@@ -199,7 +200,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - shared registry mutex: `{registryRoot}/_locks/registry.lock`
 - local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
 - backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
-- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·UTC ISO 8601 표준 형식의 시각과 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·시각·scenario·row reference·count를 같은 기준으로 검증한다.
+- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·UTC ISO 8601 표준 형식의 시각과 active record의 namespace key·suite·상태·owner·catalog/schema fingerprint·asset root·시각·scenario·row reference·count를 같은 기준으로 검증한다. asset root 부재는 도입 전 legacy record로만 읽고 새 claim에서는 거부한다.
 - init 재진입, readiness, inventory, claim, 상태 update, finalization과 개발 cron lease 생성은 registry mutex 안에서 fence와 active directory 전체 snapshot의 형식·양방향 소유권·active scope 충돌을 먼저 검증한다. 한 record만 유효하다는 이유로 손상된 나머지 snapshot을 무시하고 진행하지 않는다.
 - apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
 - reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
@@ -214,7 +215,7 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
     - 통합 모드: `cms-all` 하나만 active
     - 분할 모드: 서로 다른 도메인 suite를 각각 하나씩 active
 - `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
-- claim 뒤 run ID, namespace/key, owner, suite, catalog/schema fingerprint, reference/expiry/created time은 바꾸지 않는다. update는 `updatedAt` 단조 증가와 apply·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
+- claim 뒤 run ID, namespace/key, owner, suite, catalog/schema fingerprint, asset root, reference/expiry/created time은 바꾸지 않는다. 단, asset root가 없는 legacy active record는 명시적 reset 채택에서 현재 정규화 경로를 한 번 기록할 수 있다. update는 `updatedAt` 단조 증가와 apply·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
 - 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
 - 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 정상 시나리오 catalog와 verifier를 확장한 뒤 해당 suite를 reset·재적용한다.
 
@@ -493,7 +494,7 @@ coverage entry는 다음 축을 가진다.
 - 새 namespace claim은 registry mutex 안에서 overlapping active scope를 다시 검사한다. `plan` 뒤 다른 실행이 먼저 claim하면 후속 apply는 DB write 전에 실패한다.
 - claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
 - 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다. 이 식별 계약이 하나라도 다르면 reset 후 새 namespace run으로 다시 적용한다.
-- `reset`은 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한 뒤 시작한다.
+- `reset`은 기록된 asset root와 현재 경로의 일치를 확인한 뒤 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한다. asset root가 없는 legacy active record는 reset plan에 전환 필요를 표시하며, 정확한 namespace 확인과 `--adopt-legacy-asset-root`를 함께 받은 경우에만 현재 경로를 한 번 기록하고 진행한다.
 - DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
 - DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.
 - asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 active 소유권 index를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.

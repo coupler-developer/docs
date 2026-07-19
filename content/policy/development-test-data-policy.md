@@ -114,10 +114,10 @@
 - global fence의 namespace는 active record가 반드시 존재해야 하며, `cleaned` finalization 대기를 제외한 active record는 global fence에 반드시 포함돼야 한다. 어느 방향이든 불일치하면 inventory와 claim을 모두 중단한다.
 - feeder와 개발 cron은 하나의 Run Registry contract validator를 사용한다. fence namespace 중복·UTC ISO 8601 표준 형식이 아닌 시각과 active record metadata 중 하나라도 있으면 두 경로 모두 fail-closed하며 consumer별 완화 해석을 허용하지 않는다.
 - 만료됐거나 `failed`, `cleanup_failed`, `cleaned` finalization 대기 상태인 active record도 명시적 reset·finalization 전에는 새 overlapping suite를 차단한다.
-- claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. 상태 update는 apply·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
+- claim 뒤 run identity와 suite를 update로 바꾸지 않으며 `updatedAt`은 뒤로 이동할 수 없다. 단, asset root identity 도입 전에 생성돼 해당 필드가 없는 legacy active record는 read-only inventory·verify·reset plan을 허용하고, namespace와 같은 `--confirm` 및 `--adopt-legacy-asset-root`를 함께 준 reset에서 현재 `DEV_DATA_ASSET_ROOT`를 정확히 한 번 기록할 수 있다. 상태 update는 apply·재시도·reset의 허용 전이만 사용하고 `cleaned` record는 DB·asset 작업을 반복하지 않으며 현재 record와 ETag가 일치할 때 finalization만 재시도한다.
 - scope 충돌을 우회하는 `--force`, 병렬 허용 옵션, 만료 시 자동 삭제를 제공하지 않는다.
 - 공유 registry backend는 read-after-write consistency와 ETag 조건부 갱신을 보장해야 하며, 보장할 수 없는 저장소는 지원하지 않는다.
-- owner, suite, catalog version, schema fingerprint, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
+- owner, suite, catalog version, schema fingerprint, 정규화된 asset root, reference time, 유지 종료일, 상태, scenario version, 실제 생성·삭제 건수는 namespace가 정리된 뒤에도 history record로 보존한다.
 - owner는 내부 계정 ID만 사용하고 history 보관·삭제는 [데이터 거버넌스 정책](data-governance-policy.md)의 90일 기준을 따른다.
 - run registry에는 접속정보, token, 실제 개인정보, 비밀번호, 영수증을 저장하지 않는다.
 
@@ -220,6 +220,7 @@
 - 합성 회원 프로필은 최소 3개의 서로 다른 이미지 경로를 사용하고, 화면에서 합성 데이터와 actor를 구분할 수 있는 테스트 표식을 포함한다. 모든 회원이 하나의 공용 placeholder를 공유하면 안 된다.
 - 프로필 영상은 선택적으로 생성하되 영상 보유 회원마다 고유한 namespace 경로를 사용하고, repository의 성별·인물별 소형 합성 영상 중 하나와 결정적으로 연결한다.
 - 기준 asset과 동기화된 영상은 checksum으로 검증하고 `uploads/dev-data/{namespace}/profiles/`, `uploads/dev-data/{namespace}/videos/` 아래에만 배치한다.
+- 공유 개발계 write는 API 서버가 실제로 제공하는 미디어 저장소의 절대 경로를 `DEV_DATA_ASSET_ROOT`로 명시해야 한다. apply 시 정규화한 값을 run identity로 보존하고 reset의 값이 다르면 DB와 asset을 모두 변경하지 않고 중단한다. 필드가 없는 legacy active record는 일반 apply·reset에서 중단하며, read-only verify는 허용하고 명시적 legacy 채택 reset만 현재 경로를 기록한 뒤 정리를 계속한다.
 - verifier는 회원별 대표 프로필 경로의 고유성, 프로필 이미지 최소 수·고유 경로 수, 영상 경로 고유성과 양수 건수를 검증한다.
 - reset은 해당 namespace asset만 삭제하며 공용 placeholder와 기존 업로드를 삭제하지 않는다.
 
@@ -236,7 +237,7 @@
 - `active`는 DB에 연결하지 않고 현재 active namespace의 owner, suite, scope, 상태, 기준 시각, 유지 종료일, 만료 여부, 검증 count를 출력한다.
 - dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
-- reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다.
+- reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. 계획에 legacy asset root 채택 필요 여부를 표시하고, 필요한 경우에만 `--adopt-legacy-asset-root`를 허용한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
 
 ## 운영 절차
