@@ -195,6 +195,7 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
     - **Structure Fitness / Simplification Reviewer**: 변경 범위 안에서 문서나 코드가 더 단순한 SoT, 책임 경계, 파일/절 배치로 정리될 수 있는데도 중복, 우회, 임시 구조를 새로 만들거나 넓히지 않는지 확인
     - **Change Impact / Sync Auditor**: 관련 문서, 인덱스, nav, 템플릿, 테스트/CI 동기화
     - **First-time Reader**: 신규 진입자가 추측 없이 다음 필수 문서까지 도달 가능한지
+    - **Fresh Session / Routing Safety Reviewer**: 이전 대화가 없는 새 세션이 워크스페이스 진입 규칙과 작업 신호만으로 필요한 문서까지 도달하고, 열람 범위와 수정 권한을 구분해 요청·필수 동기화 밖의 불필요한 수정을 만들지 않는지 확인
     - **Writing Quality / Style Editor**: 문장 중복, 용어/표현 일관성, 간결성, 작성 기준과 리뷰 기준 일치 여부
     - **Domain Implementer**: API/Mobile/Admin/docs 작업자가 실행 기준으로 사용할 수 있는지
     - **QA / Evidence Reviewer**: 검증 명령, 최신 근거, `N/A` 사유, 로그/출처 증빙
