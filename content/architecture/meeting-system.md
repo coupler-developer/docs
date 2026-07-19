@@ -128,8 +128,11 @@ stateDiagram-v2
 
 ## Admin 운영 화면
 
+- 역할별 최대 범위와 직접 URL/API 허용 기준은
+  [보안/접근통제 정책](../policy/security-access-control-policy.md)을 단일 기준으로 사용한다. 아래는 그 정책을
+  적용한 현재 Admin 화면 구조다.
 - 기존 2:2 `그룹미팅 관리` 상위 메뉴와 `미팅 내역`, `채팅 내역`, `후기 내역`, `신고 내역`, `패널티 내역`
-  하위 메뉴는 Super Admin에게만 노출한다. 일반 매니저 사이드바에서는 상위 메뉴 전체를 숨긴다.
+  하위 메뉴는 Super Admin에게만 노출한다. 일반 클럽매니저 사이드바에서는 상위 메뉴 전체를 숨긴다.
 - `/meeting/list`, `/meeting/chat`, `/meeting/review`, `/meeting/blame`, `/meeting/penalty` 라우트와 기존
   2:2 API 계약은 호환을 위해 유지한다.
 - 메뉴 비노출은 서버 인가를 대신하지 않는다. 직접 URL과 API 요청은

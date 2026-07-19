@@ -4,7 +4,7 @@
 
 - 역할: `설명`
 - 문서 종류: `architecture`
-- 충돌 시 우선 문서: [데이터 거버넌스 정책](../policy/data-governance-policy.md)
+- 충돌 시 우선 문서: 접근 권한은 [보안/접근통제 정책](../policy/security-access-control-policy.md), 데이터 분류·보관은 [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - 기준 성격: `as-is`
 
 고객센터 문의와 운영 답변의 저장 책임을 설명한다. 실시간 큐레이터 메시지는
@@ -36,5 +36,6 @@
 ## 관련 문서
 
 - [채팅 시스템](chat-system.md)
+- [보안/접근통제 정책](../policy/security-access-control-policy.md)
 - [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - [논리 데이터 모델 정책](../policy/logical-data-model-policy.md)
