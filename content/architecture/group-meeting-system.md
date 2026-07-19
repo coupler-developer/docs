@@ -4,7 +4,7 @@
 
 - 역할: `설명`
 - 문서 종류: `architecture`
-- 충돌 시 우선 문서: [보안/접근통제 정책](../policy/security-access-control-policy.md), [결제 운영 정책](../policy/payment-ops-policy.md), [푸시알림 운영 정책](../policy/push-notification-policy.md), [데이터 거버넌스 정책](../policy/data-governance-policy.md)
+- 충돌 시 우선 문서: 권한은 [보안/접근통제 정책](../policy/security-access-control-policy.md), 결제는 [결제 운영 정책](../policy/payment-ops-policy.md), 푸시는 [푸시알림 운영 정책](../policy/push-notification-policy.md), 데이터는 [데이터 거버넌스 정책](../policy/data-governance-policy.md), 사용자 노출명과 신규 N:N 식별자 명명은 [서비스 용어 정책](../policy/service-terminology-policy.md)
 - 기준 성격: `to-be`
 
 이 문서는 신규 N:N 그룹미팅의 논리 모델과 도메인 불변조건을 설명한다. 기존 2:2 미팅은 UI 패턴만
@@ -272,7 +272,7 @@ group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과
 `as-is`로 승격한다.
 
 남은 소비자 cutover와 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`22) 그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
+`그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
 
 ## 관련 문서
 
@@ -287,4 +287,5 @@ group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과
 - [데이터 거버넌스 정책](../policy/data-governance-policy.md)
 - [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)
 - [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)
+- [서비스 용어 정책](../policy/service-terminology-policy.md)
 - [기술 부채 인벤토리](../technical-debt/technical-debt.md)
