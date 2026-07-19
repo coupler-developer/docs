@@ -147,16 +147,21 @@
 - 하나의 물리 객체는 여러 논리 엔티티를 구현할 수 있고, 하나의 논리 엔티티도 여러 물리 객체로 구현할 수
   있다.
 - 내부 운영 객체는 공개 논리 ID를 만들지 않고 내부로 남기는 이유를 기록한다.
-- 비공개 연결 정보는 공개 catalog의 commit과 checksum을 고정한 lock을 사용하며, 존재하지 않는 논리 ID와
-  schema lock에 없는 물리 객체를 참조하면 실패해야 한다.
+- 비공개 연결 정보는 공개 catalog의 canonical JSON snapshot과 SHA-256 checksum을 함께 고정한 local lock을
+  사용한다. 내장 snapshot과 checksum이 다르거나 존재하지 않는 논리 ID와 schema lock에 없는 물리 객체를
+  참조하면 실패해야 한다.
+- lock의 source repository와 catalog path는 출처를 설명하는 metadata다. Git commit, PR head, merge commit은
+  같은 catalog 내용에 여러 값이 생길 수 있고 local 검증에서 도달 가능성도 증명하지 않으므로 lock 불변조건에
+  포함하지 않는다.
 - 생성 catalog는 현행과 예정 엔티티의 단계를 명시한다. 비공개 연결 정보는 현행 논리 엔티티 전체의 역방향
   구현 커버리지를 보장한다. 예정 엔티티는 구현 브랜치 또는 출시 전 `main`에 선행 매핑할 수 있다.
 - 출시 전 `main`에 선행 매핑할 때는 소유 문서가 완료 조건을 추적하는 기술부채·flow·릴리스 기록을 링크하고,
   구현·migration·소비자·운영 전환 Exit Gate와 비적용 범위의 `N/A` 근거를 명시해야 한다. Exit Gate를 모두
   충족하기 전에는 현행 서비스 계약이나 출시 완료로 간주하지 않으며, 충족하면 `소유 문서 형식` 절의 현행
   승격 규칙을 적용한다.
-- GitHub Actions가 실행될 때마다 다른 저장소의 최신 브랜치를 조회하지 않는다. 공개 catalog를 고정한
-  local lock으로 검증하고, 논리 모델 변경 시 연결된 docs commit으로 lock을 명시적으로 갱신한다.
+- GitHub Actions가 실행될 때마다 다른 저장소의 최신 브랜치를 조회하지 않는다. 공개 catalog를 고정한 local
+  lock으로 검증하고, 논리 모델 변경으로 생성 catalog의 checksum이 달라질 때만 lock을 명시적으로 갱신한다.
+  API·docs의 무관한 commit이나 squash·rebase에 따른 Git SHA 변경만으로는 lock을 갱신하지 않는다.
 
 ## 변경 영향 판정
 
@@ -170,6 +175,7 @@
 | 내부 backup·migration ledger 변경 | 불필요 | 필수 |
 
 - 공개 문서 갱신이 불필요하면 PR에 `논리 문서 영향 없음` 근거를 남긴다.
+- 비공개 catalog lock 갱신 여부는 Git 이력 변경이 아니라 생성 catalog checksum 변경으로 판정한다.
 - 새 물리 객체를 논리 엔티티나 내부/파생 객체로 분류하지 않은 상태에서는 DB 변경을 완료로 판정하지 않는다.
 
 ## 충실도 리뷰 판정
@@ -209,6 +215,8 @@
 - 상세 표가 바뀌었는데 먼저 보는 그림을 다시 만들지 않으면 검증에 실패한다.
 - 비공개 DB 구조 검증은 `schema lock`과 연결 정보가 빠짐없이 일치하는지, 객체 종류와 공개 catalog의 논리
   ID가 맞는지 확인한다. 하나라도 맞지 않으면 검증에 실패한다.
+- 비공개 catalog lock 검증은 고정된 repository·catalog path, 내장 canonical snapshot과 checksum의 일치,
+  catalog 구조·참조 무결성을 확인한다. Git commit의 형식·도달 가능성·merge 포함 여부는 검증 대상이 아니다.
 - 기존 문서 전체의 일반 분류값 변경은 이 정책의 논리 모델 절 검증과 분리한다. 이번 표준에 등록된 소유
   문서만 즉시 필수 검사 대상으로 삼는다.
 
