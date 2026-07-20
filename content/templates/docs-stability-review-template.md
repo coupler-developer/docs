@@ -64,6 +64,7 @@
 | Writing Quality / Style Editor |  |  |
 | Domain Implementer |  |  |
 | QA / Evidence Reviewer |  |  |
+| Validation Architecture / Redundancy Reviewer |  |  |
 | Lifecycle Owner |  |  |
 | Policy Composition / Lifecycle Consistency Reviewer (policy 조건부 필수) |  |  |
 | Docs Taxonomy Transition Readiness Reviewer (조건부) |  |  |
@@ -76,10 +77,12 @@
 | SoT 충돌 없음 |  |  |
 | 분류 체계(taxonomy) 충돌 없음 |  |  |
 | 문서/코드 구조가 변경 범위 안에서 SoT, 책임 경계, 중복 관점으로 불필요하게 복잡해지지 않음 |  |  |
+| 검증 실행 경로에 근거 없는 중복 없음, 유지한 재검증은 신뢰 경계·baseline·산출물 차이 근거 있음 |  |  |
 | 문서 역할 혼재 없음 |  |  |
 | `transition`/`임시`/`호환`/`fallback` 제거 조건 또는 미적용 근거 있음 |  |  |
 | 시간 의존 사실 최신 근거 있음 |  |  |
 | To-Be/임시 구조 부채 또는 추적 문서 연결 있음 |  |  |
+| 문서 추가·이동·삭제 시 lifecycle registry stable ID, routing, previousPaths 또는 retired 책임 승계 증빙 있음 |  |  |
 | taxonomy/메타데이터/검증 hard gate 변경에 기존 문서 baseline, 단계적 활성화, 적용 범위의 전환 완료 조건 있음 |  |  |
 | policy 추가·수정·삭제에 대한 전체 정책·역방향 규범 참조, 책임/우선순위, 상태·단계별 Exit Gate, 전역 절 정합성, 삭제 시 책임 승계 증빙 있음 |  |  |
 | 개인 사용자명·개인 개발 장비 절대경로 없음, 공유 환경 경로는 운영 flow/runbook 예외 충족 |  |  |

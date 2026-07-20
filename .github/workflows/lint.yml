@@ -31,6 +31,9 @@ jobs:
           corepack enable
           corepack prepare yarn@1.22.22 --activate
 
+      - name: Install Node dependencies
+        run: yarn install --frozen-lockfile
+
       - name: Determine validation mode
         id: validation_mode
         env:
@@ -45,6 +48,12 @@ jobs:
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "validation mode: $mode"
+
+      - name: Validate document lifecycle transition
+        if: github.event_name == 'pull_request' && steps.validation_mode.outputs.mode != 'full'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: yarn validate:document-lifecycle --base-ref "$BASE_SHA"
 
       - name: Validate release records (lightweight)
         if: steps.validation_mode.outputs.mode != 'full'
@@ -63,6 +72,8 @@ jobs:
 
       - name: Validate full docs static gates
         if: steps.validation_mode.outputs.mode == 'full'
+        env:
+          DOCUMENT_LIFECYCLE_BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: yarn validate:docs-static
 
   markdown-lint:

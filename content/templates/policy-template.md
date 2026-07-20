@@ -50,9 +50,11 @@
 
 ## 체크리스트
 
+- [ ] `document-lifecycle-registry.json` stable ID·routing·필수 Gate 동기화
 - [ ] [문서 거버넌스 정책](../policy/document-governance-policy.md)의 `정책 Composition Gate` 통과
 - [ ] 대상 정책 전체와 정방향·역방향 규범 참조 검토
 - [ ] 책임/우선순위와 상태·단계별 Exit Gate 정합성 확인
+- [ ] 검증 경로의 event·ref·baseline·산출물별 책임과 근거 없는 중복 실행 확인
 - [ ] 적용 전 점검 항목
 - [ ] 적용 후 검증 항목
 - [ ] 실패 시 롤백 항목

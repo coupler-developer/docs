@@ -4,21 +4,27 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 문서 역할·메타데이터·우선순위·문서 동기화·policy composition은 이 문서, 기술·검증·데이터 세부 판정은 `단일 SoT` 절의 문서
+- 충돌 시 우선 문서: 문서 역할·메타데이터·우선순위·문서 동기화·policy composition·에이전트 실행 문서 경계는 이 문서, 에이전트 실행 순서는 `content/AGENTS.md`, 기술·검증·데이터 세부 판정은 `단일 SoT` 절의 문서
 - 기준 성격: `as-is`
 
 ## 목적
 
-- docs의 문서 역할, SoT 경계, 문서 동기화와 policy composition 검토 기준을 단일 정책으로 고정한다.
+- docs의 문서 역할, SoT 경계, 문서 동기화, policy composition과 에이전트 실행 문서의 책임 경계를 단일
+  정책으로 고정한다.
 
 ## 적용 범위
 
 - `docs`
 - 워크스페이스에서 관리하는 architecture, fsm, flow, technical-debt, policy 문서
+- 워크스페이스 root `AGENTS.md`에서 `content/AGENTS.md`와 Core·도메인 SoT로 이어지는 새 세션 실행 경로
 
 ## 단일 SoT
 
 - 문서 역할/메타데이터/우선순위/문서 동기화와 정책 composition 검토 책임은 이 문서를 단일 기준으로 사용한다.
+- 문서 stable ID, active/retired 생명주기, routing 분류와 삭제 책임 승계 규칙은 이 문서를 단일 기준으로
+  사용하고 `document-lifecycle-registry.json`은 그 기계 판정 ledger로 사용한다.
+- 새 세션의 Core 강제 열람, 요청·권한·범위 판정, 관련 SoT 탐색, 실행 단계와 완료 증빙은
+  [`content/AGENTS.md`](../AGENTS.md)의 `작업 실행 제어`를 단일 기준으로 사용한다.
 - 상위 공통 기술 원칙과 기술 이행 유형별 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다. API/DB/테스트 등 세부 판정은 가드레일의 `단일 SoT와 우선순위` 표에 연결된 범위별 문서를 따른다.
 - docs 검증 게이트와 표준 검증 명령은 [테스트/CI 전략](testing-strategy.md)을 단일 기준으로 사용한다.
 - DB 공개 범위와 데이터 분류는 [데이터 거버넌스 정책](data-governance-policy.md)을 단일 기준으로 사용한다.
@@ -81,6 +87,30 @@
 - 최초 진입 경로를 이어주는 부트스트랩 안내(`README -> AGENTS -> policy`)는 단순 중복으로 간주해 삭제하지 않는다.
 - 문서 간 충돌이 보이면 설명 문서를 보강하지 말고 규범 문서를 먼저 고친다.
 - 구현/리뷰/후속 문서 추가 시 어떤 문서가 규범 문서인지 즉시 식별되지 않으면 완료로 간주하지 않는다.
+
+## 에이전트 실행 문서 경계
+
+| 판정 책임 | 단일 SoT | 다른 문서의 역할 |
+| --- | --- | --- |
+| 새 세션 Core, 요청 유형, 권한 집합, 작업 범위, 실행 단계 | [`content/AGENTS.md`](../AGENTS.md) | root `AGENTS.md`와 README는 최초 진입용 최소 mirror |
+| 기술·도메인 판정 | 각 범위별 policy/FSM과 생성 계약 | `content/AGENTS.md`는 신호와 필수 열람 경로만 연결 |
+| 문서 역할·SoT·동기화·안정성 평가 | 이 문서 | `content/AGENTS.md`는 적용 시점을 연결 |
+| 문서 stable ID·생명주기·routing 책임 | 이 문서 | `document-lifecycle-registry.json`은 active/retired ledger와 descriptor mirror |
+| 검증 명령과 CI | [테스트/CI 전략](testing-strategy.md) | `content/AGENTS.md`는 `VERIFY` 단계에서 실행을 요구 |
+| 리뷰 절차와 최종 판정 | [코드 리뷰 정책](code-review-policy.md) | `content/AGENTS.md`는 마지막 변경 이후 `REVIEW`를 요구 |
+
+- workspace root `AGENTS.md`와 README의 bootstrap 예시는 `content/AGENTS.md`에 도달하기 전 필요한
+  워크스페이스 위치, 기존 작업 우선, reviewer 권한 Gate만 mirror할 수 있다.
+- bootstrap mirror의 모든 안전 규칙은 `content/AGENTS.md`에도 존재해야 하며, mirror만이 소유하는 작업 규칙을
+  만들지 않는다.
+- `content/AGENTS.md`는 세부 기술 MUST를 다시 정의하지 않고 필수 Core, 적용 신호, 판정 순서와 범위별
+  단일 SoT를 연결한다.
+- 요청 유형, 권한 집합, 작업 범위, 실행 단계는 독립된 분류 축이다. 하나의 값이나 순차 권한 등급으로 합치지
+  않는다.
+- 적용 상태는 모든 새 세션과 컨텍스트 유실 후 재진입의 `as-is` 실행 경로다. 별도 transition·호환 상태를
+  두지 않는다.
+- 완료 조건은 Core 4 유지, 각 분류 축과 종료 조건의 폐쇄형 정의, 기존 작업 연속성, 관련 SoT 폐쇄 탐색,
+  단계별 재고정, 마지막 변경 이후 검증·리뷰, 권한 없는 외부 작업 차단과 적용 에이전트 작업흐름 검증 통과다.
 
 ## 정책 Composition Gate
 
@@ -168,14 +198,77 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 - DB 변경이 물리 이름, 인덱스, 저장 타입, 내부 정규화처럼 공개 논리 계약을 바꾸지 않으면 공개 docs를 억지로
   수정하지 않고 `논리 문서 영향 없음` 근거와 private schema 검증 결과를 남긴다.
 
+## 문서 Lifecycle Registry
+
+`document-lifecycle-registry.json`은 문서 규범을 다시 정의하는 문서가 아니라, 이 정책이 소유하는 문서
+생명주기와 에이전트 routing 책임을 기계 검증하기 위한 stable ID·tombstone append-only ledger다.
+
+### 문서 항목
+
+| 필드 | 규칙 |
+| --- | --- |
+| `id` | 경로가 바뀌어도 유지하는 lowercase stable ID |
+| `lifecycle` | 현재 문서는 `active`, 삭제된 문서는 `retired` |
+| `path` | `content/` 기준 현재 또는 삭제 직전 Markdown 경로 |
+| `routing` | `core`, `direct`, `closure`, `historical` 중 하나 |
+| `coreOrder` | `core` 문서에만 사용하며 Core 4 순서를 고정 |
+| `requiredHeadings` | 자동 검증할 실제 Markdown Gate heading과 level |
+| `previousPaths` | 개명·이동 전 경로를 제거하지 않고 누적 |
+
+- 모든 nav·인덱스 대상 `content` 문서는 정확히 하나의 `active` 항목과 연결한다. README, AGENTS, CLAUDE와 삽입·작성
+  템플릿은 registry 대상에서 제외한다.
+- `core`는 모든 새 세션이 직접 읽는 Core 4, `direct`는 고위험 신호 route가 직접 가리키는 문서,
+  `closure`는 관련 SoT 폐쇄 탐색으로 도달하는 문서, `historical`은 불변 릴리스 실행 기록에 사용한다.
+- `requiredHeadings`는 fenced code, HTML 주석·block, blockquote 안 문자열이 아니라 실제 최상위 Markdown
+  heading으로 존재해야 한다.
+- 새 문서는 문서·nav·AGENTS 인덱스와 같은 변경 단위에서 `active` 항목을 추가한다. routing 책임을 판정하지
+  않은 새 문서는 완료로 간주하지 않는다.
+- 개명·이동은 `id`를 바꾸지 않고 새 `path`를 기록하며, 기존 경로와 과거 `previousPaths`를 보존한다.
+
+### 삭제와 책임 승계
+
+- 삭제 시 registry 항목 자체를 지우지 않고 `retired`로 바꾼 뒤 `retiredAt`, `retirementReason`과
+  `replacementId` 또는 `noReplacementReason` 중 정확히 하나를 기록한다.
+- retired 문서 항목은 삭제 직전 `path`, `routing`, Core였으면 `coreOrder`, 기존 `requiredHeadings`와
+  `previousPaths`를 그대로 보존한다.
+- `replacementId`는 현재 `active` 항목이어야 한다. 대체가 없으면 규범·설명·시나리오·부채 책임이 왜 더
+  이상 필요하지 않은지 구체적으로 기록한다.
+- `retired` tombstone은 재활성화·삭제·수정하지 않는다. 복원이 필요하면 새 stable ID로 문서를 추가하고
+  기존 tombstone을 근거로 연결한다.
+- 로컬 Gate는 사용 가능한 `origin/main`, PR Gate는 base SHA, main 배포 Gate는 push 이전 SHA의 모든
+  문서·route ID가 현재 registry에도 존재하는지 비교한다. 문서와 registry 항목을 함께 삭제하거나 삭제
+  이력을 rename으로 위장하면 실패해야 한다.
+- PR Gate가 drift의 `main` 유입 자체를 막으려면 GitHub `main` 보호 설정에 `docs-structure`,
+  `markdown-lint`, `build-docs`를 필수 status check로 지정하고 관리자 우회를 허용하지 않는다. 이 보호가
+  없으면 main 배포 Gate는 admission control이 아니라 잘못된 문서의 배포 차단과 사후 탐지만 수행한다.
+
+### Route 항목
+
+- 고위험 신호는 stable route `id`, `active`/`retired` lifecycle, 사용자 입력 `signal`, 표시 계약
+  `targetSource`, stable 문서 ID `targets`를 갖는다.
+- `targetSource`의 경로와 `targets`가 가리키는 active 문서 경로·순서는 정확히 일치해야 한다.
+- `direct` 문서는 하나 이상의 active route가 참조해야 한다. Core 4, 고위험 route와 필수 Gate descriptor는
+  registry에서 파생하며 별도 validator 상수로 중복 소유하지 않는다.
+- active route의 signal·targets를 제거하거나 책임을 교체하려면 기존 route를 `retired` tombstone으로 남기고
+  replacement 또는 무대체 사유를 기록한다. 같은 ID의 의미를 덮어써서 과거 책임을 지우지 않는다.
+- retired route는 삭제 직전 `signal`, `targetSource`, `targets`를 그대로 보존한다.
+
 ## 구조 변경 규칙
 
-- 문서 추가/삭제/이동/개명 시 `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`를 같은 PR에서 함께 갱신한다.
+- 문서 추가/삭제/이동/개명 시 `document-lifecycle-registry.json`, `content/AGENTS.md` 인덱스와
+  `mkdocs.yml` `nav`를 같은 PR에서 함께 갱신한다.
 - 독립 문서 템플릿은 역할/문서 종류/충돌 시 우선 문서/기준 성격 메타데이터를 갖고 같은 역할-종류 조합을
   사용한다. 다른 문서에 삽입되는 `api-contract-cutover-gate-template.md` 조각은 독립 문서 메타데이터
   대상에서 제외한다.
 - 메타데이터 형식, 역할-종류 조합, 디렉터리 분류, 전환 추적 경계, 독립 템플릿, `content/AGENTS.md` 인덱스,
   `mkdocs.yml` `nav` 정합성은 docs 구조 검증으로 자동 확인 가능해야 한다.
+- 모든 nav·인덱스 대상 문서의 active coverage, stable ID·과거 경로, routing 분류, 필수 heading, route target 역참조,
+  retired 증빙과 PR base 대비 문서·route ID 보존은 문서 lifecycle 검증으로 자동 확인 가능해야 한다.
+- `content/AGENTS.md`의 Core 4, 요청 유형별 기본 동작·종료 조건, 독립 권한·요청 표현별 권한 경계,
+  고위험 신호별 문서·필수 Gate, 상태별 허용 동작과 순서, 단계별 기준 재고정, 작업별 완료 증빙, README
+  bootstrap은 에이전트 작업흐름 검증으로 자동 확인 가능해야 한다.
+- 자동 검증 대상 실행 절은 descriptor에서 생성한 전체 계약과 비교해 미인식 의미 문장을 fail-closed로
+  거부한다. 고위험 라우팅은 신호, 문서 경로와 필수 Gate 안내를 포함한 대상 셀 전체를 정확 비교한다.
 - 본문이 실제로 설명·규범·시나리오·부채 역할을 지키는지는 의미 검토가 필요하므로 정규식 hard gate로
   대신하지 않고 문서 안정성 평가에서 판정한다.
 - 기술부채 인벤토리의 번호 연속성, 미해결 `현상` 존재, 완료 이력형 패턴 부재는 기술부채 검증으로 자동 확인 가능해야 한다.
@@ -199,6 +292,8 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
     - **Writing Quality / Style Editor**: 문장 중복, 용어/표현 일관성, 간결성, 작성 기준과 리뷰 기준 일치 여부
     - **Domain Implementer**: API/Mobile/Admin/docs 작업자가 실행 기준으로 사용할 수 있는지
     - **QA / Evidence Reviewer**: 검증 명령, 최신 근거, `N/A` 사유, 로그/출처 증빙
+    - **Validation Architecture / Redundancy Reviewer**: event·ref·baseline·산출물·실패 책임이 같은 Gate의
+      불필요한 재실행은 없는지, 서로 다른 신뢰 경계와 validator 회귀 테스트를 중복으로 오판하지 않는지 확인
     - **Lifecycle Owner**: `transition`, `임시`, `호환`, `fallback` 제거 조건과 부채/추적 연결
 - 조건부 추가 관점은 변경 내용이 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리즈/데이터 거버넌스/다중 레포 계약 기준, 절차, 판정 근거를 직접 바꾸는 경우에만 적용한다.
 - 조건부 추가 관점이 적용되면 [코드 리뷰 정책](code-review-policy.md)의 관련 관점만 선택하고, 적용하지 않은 관점은 `N/A` 근거를 남긴다.
@@ -223,6 +318,7 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
     - SoT 충돌 없음
     - 분류 체계(taxonomy) 충돌 없음
     - 문서/코드 구조가 변경 범위 안에서 SoT, 책임 경계, 중복 관점으로 불필요하게 복잡해지지 않음
+    - 검증 실행 경로에 근거 없는 중복이 없고 유지한 단계별 재검증은 신뢰 경계·baseline·산출물 차이가 있음
     - 문서 역할 혼재 없음
     - `transition`, `임시`, `호환`, `fallback`에 제거 조건 또는 미적용 근거 있음
     - 시간이 지나면 바뀌는 사실에 최신 근거 있음
