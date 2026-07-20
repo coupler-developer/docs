@@ -478,13 +478,13 @@ coverage entry는 다음 축을 가진다.
 
 - `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 fence index와 active record를 함께 확인한다.
 - `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기는 변경·정리 구간이다. cron handler를 시작하지 않고 `x-dev-cron-result: maintenance` 성공 응답을 반환하며 dispatcher는 이를 `SKIP`으로 기록한다.
-- `applied`, `failed`, `cleanup_failed`는 안정 상태다. active namespace key로 합성 회원 root와 연결 meeting을 조회하고 13개 cron job에 `REAL_ONLY` 정책을 적용한다. 정상 개발 데이터는 기존 도메인 로직으로 처리하고 합성 member·match·meeting·reservation·profile target은 변경하지 않는다.
+- `applied`, `failed`, `cleanup_failed`는 안정 상태다. active namespace key로 합성 회원 root와 연결 meeting을 조회하고 14개 cron job에 `REAL_ONLY` 정책을 적용한다. 정상 개발 데이터는 기존 도메인 로직으로 처리하고 합성 member·match·meeting·reservation·profile target은 변경하지 않는다.
 - Run Registry 소유권이 없는 합성 root, 유효하지 않은 fence·active record·active scope 집합, 읽을 수 없는 registry는 handler 전에 실패한다. cron은 feeder와 같은 contract parser를 사용하며 소유권을 추측하거나 전체 개발 데이터를 실행 대상으로 되돌리지 않는다.
 - cron 진입은 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하고 같은 job의 중복 호출은 `already-running` `SKIP`으로 처리한다.
 - feeder의 새 claim과 `applying`·`resetting` 상태 전환은 같은 mutex 안에서 active cron lease 0건을 확인한다. 따라서 cron과 합성 데이터 DB 변경 중 하나만 먼저 시작할 수 있다.
 - production에서는 target policy를 별도로 만들지 않고 기존 `ALL_TARGETS` 동작을 유지한다. production startup은 `DEV_CRON_*` 또는 feeder·registry enable 설정이 하나라도 있으면 실패한다.
 - run이 만료돼도 active 소유권 index를 자동 해제하지 않는다. reset 또는 소유권 reconciliation 완료 뒤에만 해제한다.
-- 회귀 테스트는 13개 handler 모두의 target 경계, 정상 개발 target 유지, 합성 target 제외, maintenance·중복 실행 `SKIP`, lease 경쟁 차단을 확인한다.
+- 회귀 테스트는 14개 handler 모두의 target 경계, 정상 개발 target 유지, 합성 target 제외, maintenance·중복 실행 `SKIP`, lease 경쟁 차단을 확인한다.
 
 ## Admin browser smoke 구현
 

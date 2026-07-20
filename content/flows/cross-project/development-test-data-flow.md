@@ -247,7 +247,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 - `planning`, `applying`, `resetting` 또는 fenced `cleaned` finalization 대기인데 cron handler가 실행되거나 `applied`, `failed`, `cleanup_failed`에서 합성 target이 변경되면 apply와 cron 호출을 모두 중단한다.
 - active run의 합성 소유권을 확인할 수 없거나 같은 조건의 정상 개발 target까지 장기간 정지되면 target policy와 registry adapter를 수정한다.
 - active cron lease가 있는데 feeder claim이 성공하거나 같은 job lease가 중복 생성돼도 동일하게 중단한다.
-- router 공통 middleware 순서, 13개 handler target 경계와 registry adapter를 수정하고 회귀 테스트를 통과하기 전 공유 개발계 데이터를 유지하지 않는다.
+- router 공통 middleware 순서, 14개 handler target 경계와 registry adapter를 수정하고 회귀 테스트를 통과하기 전 공유 개발계 데이터를 유지하지 않는다.
 - 만료됐지만 정리되지 않은 run은 자동 해제하지 않는다. reset 또는 reconciliation 전까지 소유권 index를 유지하고 cron은 합성 target만 제외한다.
 
 ### Asset cleanup 실패

@@ -132,7 +132,7 @@ crontab -l
 - 평상시에는 개발 cron을 실행한다.
 - 합성 데이터 `apply` claim과 `applying`·`resetting` 전환은 shared registry mutex 안에서 active cron lease가 0건일 때만 시작한다. 실행 중인 cron이 있으면 DB write 전에 실패하므로 cron을 수동으로 끄고 주입하지 않는다.
 - `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기 동안 cron은 maintenance `SKIP`이다. 상태가 `applied`, `failed`, `cleanup_failed`로 안정되면 다음 dispatcher부터 정상 개발 target 처리를 재개하고 합성 target만 제외한다.
-- 화면 검증과 유지 기간에는 cron을 전체 중지하지 않는다. 13개 job 각각에서 정상 개발 row의 기존 동작과 합성 row 0건 변경을 함께 검증한다.
+- 화면 검증과 유지 기간에는 cron을 전체 중지하지 않는다. 14개 job 각각에서 정상 개발 row의 기존 동작과 합성 row 0건 변경을 함께 검증한다.
 - reset과 registry finalization이 끝나 active 소유권이 제거되면 다음 dispatcher는 별도 target 제외 없이 정상 개발 데이터를 처리한다.
 - fence를 개발 cron 미설치 사유나 장기 중지 수단으로 사용하지 않는다.
 
