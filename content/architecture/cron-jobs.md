@@ -19,6 +19,7 @@
 | match2Day                 | 30분 간격       | D-2일 매칭 채팅 활성화        |
 | matchToday                | 매일 10시       | D-day 매칭 알림               |
 | checkReview               | 30분 간격       | 만남 3시간 후 후기 상태 전환  |
+| finishGroupMeetings       | 개발 1분, 운영 외부 설정 | N:N 시작 24시간 후 종료 영속화 |
 | checkMeetMember           | 30분 간격       | 모임 30분 전 인원 미달 체크   |
 | checkMatch                | 1분 간격        | 만료 매칭 자동 취소           |
 | checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
@@ -63,6 +64,17 @@ match_expire_date: 만남일 + 3일 23:59:59
 | 예정시간 1시간 경과 | status → FINISH               |
 | 예정시간 2시간 경과 | chat_open → FINISH, 후기 알림 |
 | 30분 전 인원 미달   | status → FINISH, 삭제 알림    |
+
+## N:N 그룹미팅 자동 종료
+
+- 업무 판정의 기준은 KST `event_at + 24시간`이다. 정확히 경계 시각부터 API가 유효 상태를 FINISHED로 계산하므로
+  후기 작성, 미작성 후기 신청 제한, 채팅 쓰기 차단과 Admin 변경 차단은 cron 지연·중단의 영향을 받지 않는다.
+- `finishGroupMeetings`는 저장 상태가 CONFIRMED인 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
+  감사 로그·종료 시스템 메시지·후기 가능 알림을 따라잡는 sweeper다. 이미 후기를 쓴 회원에게는 뒤늦은 후기
+  알림을 보내지 않는다.
+- 개발계 dispatcher는 매분 실행하므로 정상 상태의 영속화 지연은 보통 다음 1분 이내다. `flock` 대기, handler
+  실패, 배포 중단이나 backlog가 있으면 더 늦어질 수 있으며 이 지연을 사용자 권한의 정확성 근거로 삼지 않는다.
+- 운영 호출 주기는 repository가 아니라 외부 scheduler가 소유하므로 배포 Gate에서 별도로 확인한다.
 
 ## 회원 자동 상태 변경
 
@@ -118,6 +130,7 @@ GET /admin/cron/checkSignup
 GET /admin/cron/match2Day
 GET /admin/cron/matchToday
 GET /admin/cron/checkReview
+GET /admin/cron/finishGroupMeetings
 GET /admin/cron/checkMeetMember
 GET /admin/cron/checkMatch
 GET /admin/cron/checkMember
@@ -146,7 +159,7 @@ GET /admin/cron/cleanupOldProfileVersions
 - 개발 cron 문맥에서는 `DEV_CRON_EXTERNAL_DELIVERY_ENABLED=false`를 기본값으로 사용해 FCM 외부 전송만 차단한다. 화면 검증에 필요한 `t_alarm`과 도메인 상태 변경은 유지한다.
 - `autoDeleteMember`, `cleanupOldProfileVersions`는 `DEV_CRON_DESTRUCTIVE_ENABLED=false`에서 scheduler 대상과 API handler 양쪽이 fail-closed한다.
 - `DEV_CRON_*` 설정은 production startup에서 거부한다. 운영 cron의 실행 방식과 환경은 이 개발계 설정으로 변경하지 않는다.
-- 개발 cron은 active namespace 소유권에서 합성 회원과 연결 meeting을 읽고 13개 job에 `REAL_ONLY` target policy를 적용한다. 정상 개발 데이터는 처리하고 합성 member·match·meeting·reservation·profile은 변경하지 않는다.
+- 개발 cron은 active namespace 소유권에서 합성 회원과 연결 meeting을 읽고 14개 job에 `REAL_ONLY` target policy를 적용한다. 정상 개발 데이터는 처리하고 합성 member·match·meeting·reservation·profile은 변경하지 않는다.
 - 합성 데이터가 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 idempotent success와 `x-dev-cron-result: maintenance`를 반환하고 dispatcher는 `SKIP`으로 기록한다. `applied`, `failed`, `cleanup_failed`에서는 cron을 멈추지 않고 합성 target만 제외한다.
 - registry 소유권이 없는 합성 root나 읽을 수 없는 registry는 handler 전에 fail-closed한다. 데이터 주입을 위해 crontab 전체를 직접 끄거나 소유권 실패를 `ALL_TARGETS`로 우회하지 않는다.
 
