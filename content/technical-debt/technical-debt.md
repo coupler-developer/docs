@@ -203,6 +203,20 @@
 - 조치: 모든 Admin component route와 API operation을 기능군·행위·데이터 범위에 매핑하고 서버 인가를 먼저 적용한 뒤, `manager/all`의 각 목록 item을 `id`, `nickname`만 반환하는 공개 선택 DTO로 분리하며, 명시적 route audience와 역할별 허용·거부·타 담당/소유자·응답 필드 회귀 테스트를 같은 변경 단위로 반영한다.
 - 완료: Admin route·API operation 매핑 100%, 미정의 operation 0건, 직접 URL/API 우회 0건, `manager/all`이 `cnt`, `list` envelope를 유지하면서 각 목록 item은 `id`, `nickname`으로만 구성되고 `user_id`, `password`, `password_raw`, 로그인·인증 설정 필드가 없다는 회귀 테스트, Super Admin·유효 연결 일반 클럽매니저·연결 누락 관리자·타 담당/소유자의 허용/거부 테스트 통과.
 
+## 28) 운영 cron 서비스 인증 경계 증빙 미완료 `P1` `L`
+
+- 현상: 개발 cron은 loopback·`x-dev-cron-token`으로 fail-closed하지만 production에서는 개발 guard가 통과하고 `/admin/cron/*` route 자체의 서비스 인증이 없다. 외부 scheduler와 network/ingress 제한이 실제 접근 경계라면 그 설정·negative smoke 근거가 repository에 없다.
+- 영향: 운영 ingress가 잘못 열리거나 설정이 drift하면 상태 전이·알림·삭제 작업을 권한 없는 호출자가 실행할 수 있다.
+- 조치: 운영 scheduler 호출 경로·보안그룹·reverse proxy baseline 확인 → 서비스 인증 또는 검증 가능한 private ingress 계약 확정 → scheduler credential/header cutover → 외부 거부·정상 호출·회전·rollback smoke를 기록한다.
+- 완료: 운영 `/admin/cron/*`의 허용 호출자와 인증·network 경계가 문서·설정·자동 negative test로 일치하고, 삭제성 endpoint를 포함한 운영 scheduler smoke와 credential 회전·rollback 증빙 통과.
+
+## 29) 상태 전이 후 푸시 전달 재시도 미완료 `P1` `L`
+
+- 현상: 그룹미팅을 포함한 도메인 상태 transaction이 commit된 뒤 FCM을 직접 발송하며 provider 실패를 기록만 하고 durable outbox·재시도·전송 멱등 원장이 없다.
+- 영향: 상태는 정상 변경돼도 사용자 알림이 유실될 수 있고 장애 복구 뒤 어떤 대상을 재발송해야 하는지 확정할 수 없다.
+- 조치: 알림 intent outbox와 멱등 key·시도 상태·재시도/격리 정책을 정의하고 기존 `t_alarm` 의미와 중복 없이 worker가 처리하도록 전환한 뒤 provider 실패·process crash·중복 실행을 검증한다.
+- 완료: 상태 commit과 알림 intent가 원자적으로 기록되고, provider 실패·process crash 뒤 재시도와 중복 억제·운영 관측·격리/재처리 smoke 통과.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
