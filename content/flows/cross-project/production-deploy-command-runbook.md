@@ -228,9 +228,10 @@ pm2 logs coupler-api --lines 100 --nostream
 큐레이터 실시간 채팅이 배포 범위이면 다음 항목을 API 완료 조건에 추가한다.
 
 배포 전 `t_concierge`의 nullable sender/idempotency expand를 DB Migration Gate 절차로 먼저 적용하고 schema
-postcheck를 통과시킨다. 그 뒤 API를 재시작하고 Admin을 반영한 다음 Android·iOS NextPush를 같은 JS 기준으로
-mandatory 배포한다. `client_message_id` 필수 전환은 coordinated cutover이며 이전 Mobile bundle을 계속 허용하는
-호환 창은 두지 않는다. native 변경이 없으므로 이 단계 자체는 Store 재심사 사유가 아니다.
+postcheck를 통과시킨다. contracts package `0.1.16` stable 발행과 Admin·Mobile exact pin을 확인한 뒤 API 호환
+버전을 재시작하고 Admin을 반영한 다음 Android·iOS NextPush를 같은 JS 기준으로 `Production` mandatory 배포한다.
+API는 기존 artifact/bundle이 `client_message_id`를 생략한 요청만 일시 수용하므로 이 배포에서 필수 cutover를 함께
+하지 않는다. native 변경이 없으므로 이 단계 자체는 Store 재심사 사유가 아니다.
 
 1. 외부 reverse proxy/load balancer가 `/realtime/admin`, `/realtime/member`의 HTTP Upgrade와
    `Connection: upgrade`를 `coupler-api`로 전달하는지 인프라 설정과 브라우저 Network 탭에서 확인한다.
@@ -246,12 +247,29 @@ mandatory 배포한다. `client_message_id` 필수 전환은 coordinated cutover
    표시되고, WebSocket과 FCM으로 동일 상태 갱신이 중복 적용되지 않는지 확인한다.
 6. Admin 브라우저 탭을 숨긴 상태와 Mobile 대화 route가 focus를 잃은 상태에서는 읽음이 바뀌지 않고, 다시 보이면
    읽음과 통합 채팅 목록 배지가 따라잡는지 확인한다.
-7. API 로그에서 인증·권한 거부 급증, 반복 재연결, 이벤트 발행 오류가 없는지 확인한다.
+7. API 로그에서 인증·권한 거부 급증, 반복 재연결, 이벤트 발행 오류가 없는지 확인한다. Admin 수신자 조회 실패 뒤
+   `REALTIME_UNAVAILABLE`·`1011` 재연결과 HTTP cursor 최신 페이지 복구가 동작하고 소켓이 정상인 것처럼 남지 않아야 한다.
+   연결 뒤 관리자 역할 또는 `t_manager` 연결을 회수한 테스트에서는 다음 읽음 명령이
+   `AUTH_SUBJECT_RESTRICTED`·`4403`으로 닫히고, 특정 회원의 `CHARGE` 배정만 회수하면 해당 대상만
+   `FORBIDDEN`인지 확인한다. 연결된 테스트 회원을 보류 상태로 바꾼 뒤에는 다음 읽음 명령과 새 상담 이벤트가
+   적용·전달되지 않고 해당 회원 소켓이 `AUTH_SUBJECT_RESTRICTED`·`4403`으로 닫히는지도 확인한다.
 8. 현재 PM2가 단일 프로세스인지 확인한다. cluster 또는 다중 인스턴스이면 인스턴스 간 이벤트 broker가 없는
    상태로 배포하지 않는다.
 9. 같은 `client_message_id`와 같은 payload를 한 번 재전송해 최초 canonical 메시지가 반환되고 DB 행,
    WebSocket 이벤트, Admin 발신 FCM이 중복 생성되지 않는지 확인한다. 같은 키에 다른 payload는 typed conflict로
    거부돼야 한다.
+10. `[concierge-client-message-id] compatibility fallback used` 로그를 `ADMIN_WEB`, `MOBILE_APP` surface별로
+    집계한다. 새 Admin과 mandatory NextPush 적용 직후에는 감소를 확인하고, 이전 bundle 강제 업데이트 차단 뒤
+    24시간 연속 0건을 릴리즈 기록에 남긴다. 그 전에는 호환 helper나 nullable DB 컬럼을 제거하지 않는다.
+11. 위 0건 근거와 contracts package published latest·Admin·Mobile exact version 일치가 확보되면 별도 cutover
+    PR에서만 Swagger `client_message_id` required 복원과 API 호환 helper 제거를 진행한다.
+12. Admin·Mobile에서 첫 cursor 페이지와 `next_before_id` 과거 페이지를 각각 조회하고, 페이지 사이에 새 메시지를
+    보내도 ID 누락·중복이 없는지 확인한다. Deprecated `/admin/member/concierge/chat_list`, `/app/chat/list` 호출은
+    surface별로 계측한다. 호환 기간에는 100건이 넘는 구 Admin 대화도 기존 전체 배열 범위를 유지하는지 확인하고,
+    구 Admin·Mobile 조회가 실제 응답에 포함한 상대방 발신 최대 ID까지만 읽음으로 바꾸는지 점검한다. 목록 조회와
+    읽음 처리 사이에 새 메시지를 보내 그 미전달 ID는 읽음이 되지 않아야 하며, 혼합 버전 상대 소비자에는 관찰된
+    경계만 실시간 반영돼야 한다. 새 Admin·mandatory Mobile 전환 뒤 24시간 연속 0건일 때만 해당 읽음 side effect와
+    endpoint를 같은 별도 cutover에서 제거한다.
 
 WSS smoke가 실패하면 Admin·Mobile 배포를 진행하지 않는다. HTTP 메시지 저장이 성공하더라도 실시간 완료로
 판정하지 않으며 reverse proxy Upgrade 전달, WebSocket 인증, PM2 프로세스 수 순서로 원인을 분리한다. 상세 계약과
@@ -296,22 +314,25 @@ nextpush whoami
 ```
 
 현재 NextPush OTA 배포는 `Production` label만 사용한다.
-현재 레포 스크립트는 `nextpush release-react -a <app> -d Production` 형식이며, target binary version은 native metadata에서 추론한다.
+현재 레포의 운영 스크립트는 app과 platform을 positional argument로 넘기고, mandatory와 target binary
+`2.2.1`을 명시한다. 실행 전 Store의 운영 binary가 `2.2.1`인지 확인하며 대상 버전이 바뀌면 스크립트와
+릴리즈 기록을 같은 변경 단위에서 갱신한다.
 
 ```bash
 cd coupler-mobile-app
 
-# 레포 스크립트 사용: native metadata에서 target binary version을 추론한다.
+# 레포 스크립트 사용: Android/iOS 모두 Production mandatory, target 2.2.1
 yarn codepush-and-prod
 yarn codepush-ios-prod
 ```
 
-target binary version을 명시 고정해야 하는 배포는 레포 스크립트 대신 아래 형식을 사용한다. 같은 플랫폼에 대해 스크립트와 직접 명령을 둘 다 실행하지 않는다.
+다른 target binary version을 명시해야 하는 배포는 레포 스크립트를 먼저 갱신·리뷰하거나 아래 형식을 직접
+사용한다. 같은 플랫폼에 대해 스크립트와 직접 명령을 둘 다 실행하지 않는다.
 
 ```bash
 cd coupler-mobile-app
-nextpush release-react bluedotstudio.official-gmail.com/coupler android -d Production -t <binary-version>
-nextpush release-react bluedotstudio.official-gmail.com/coupler-ios ios -d Production -t <binary-version>
+nextpush release-react bluedotstudio.official-gmail.com/coupler android -d Production -m -t <binary-version>
+nextpush release-react bluedotstudio.official-gmail.com/coupler-ios ios -d Production -m -t <binary-version>
 ```
 
 배포 후 NextPush 이력을 확인한다.
