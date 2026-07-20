@@ -19,7 +19,7 @@
 | match2Day                 | 30분 간격       | D-2일 매칭 채팅 활성화        |
 | matchToday                | 매일 10시       | D-day 매칭 알림               |
 | checkReview               | 30분 간격       | 만남 3시간 후 후기 상태 전환  |
-| finishGroupMeetings       | 개발 1분, 운영 외부 설정 | N:N 시작 24시간 후 종료 영속화 |
+| finishGroupMeetings       | 30분 간격       | N:N 시작 24시간 후 종료 영속화 |
 | checkMeetMember           | 30분 간격       | 모임 30분 전 인원 미달 체크   |
 | checkMatch                | 1분 간격        | 만료 매칭 자동 취소           |
 | checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
@@ -72,9 +72,11 @@ match_expire_date: 만남일 + 3일 23:59:59
 - `finishGroupMeetings`는 저장 상태가 CONFIRMED인 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
   감사 로그·종료 시스템 메시지·후기 가능 알림을 따라잡는 sweeper다. 이미 후기를 쓴 회원에게는 뒤늦은 후기
   알림을 보내지 않는다.
-- 개발계 dispatcher는 매분 실행하므로 정상 상태의 영속화 지연은 보통 다음 1분 이내다. `flock` 대기, handler
-  실패, 배포 중단이나 backlog가 있으면 더 늦어질 수 있으며 이 지연을 사용자 권한의 정확성 근거로 삼지 않는다.
-- 운영 호출 주기는 repository가 아니라 외부 scheduler가 소유하므로 배포 Gate에서 별도로 확인한다.
+- 개발계 dispatcher는 매분 실행하지만 이 job은 매시 00분·30분에 선택되므로 정상 상태의 영속화와 종료 시스템
+  메시지·후기 가능 알림·감사 로그는 최대 약 30분 늦을 수 있다. `flock` 대기, handler 실패, 배포 중단이나
+  backlog가 있으면 더 늦어질 수 있으며 이 지연을 사용자 권한의 정확성 근거로 삼지 않는다.
+- 운영 호출 설정은 repository가 아니라 외부 scheduler가 소유한다. 운영도 매시 00분·30분에 호출하도록 설정하고
+  배포 Gate에서 실제 주기와 인증·실패 관측을 별도로 확인한다.
 
 ## 회원 자동 상태 변경
 
