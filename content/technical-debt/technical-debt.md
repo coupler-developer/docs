@@ -177,9 +177,9 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: API catalog v7과 N:N scenario v4 데이터 계약, Admin 55개 component route·53개 데이터 화면 계약이 구현됐다. 공유 개발계 `qa-cms-20260716`도 generation 2·catalog v7 `cms-all`로 원자 cutover돼 임시 단일-domain·legacy asset 채택 경로가 제거됐다. 권한별 인증 Admin browser smoke, 유지 기간 cron·외부 호출 관측과 종료 시 최종 reset 증빙은 남아 있다.
+- 현상: API catalog v8과 N:N scenario v5는 활성·종료·확정 후 취소 채팅 fixture의 전날 13시 개방 경계를 검증하는 계약을 포함한다. 공유 개발계 `qa-cms-20260716`은 generation 2·catalog v7 `cms-all`이므로 변경 병합 뒤 다음 원자 generation cutover가 필요하다. 임시 단일-domain·legacy asset 채택 경로는 제거됐지만 권한별 인증 Admin browser smoke, 유지 기간 cron·외부 호출 관측과 종료 시 최종 reset 증빙도 남아 있다.
 - 영향: 권한별 화면·필터와 유지 기간 동작, 종료 시 orphan·asset 0건을 실제 운영 증빙으로 확정하지 못했다.
-- 조치: 권한별 browser smoke → 유지 기간 cron·외부 호출 관측 → 유지 종료 시 reset·orphan·asset 검증을 수행한다.
+- 조치: catalog v8 전체 `cms-all` 다음 generation 원자 cutover → 권한별 browser smoke → 유지 기간 cron·외부 호출 관측 → 유지 종료 시 reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate, 전체 catalog generation 장애 복구·rollback, 공유 개발계 current generation, 권한별 route 검증과 최종 reset 증빙 통과.
 
 ## 25) Admin compiled theme 제거 미완료 `P2` `L`
