@@ -39,6 +39,10 @@
 - `event_at`은 KST 기준 행사 시작 시각이다. CONFIRMED 행사는 정확히 `event_at + 24시간`부터 API의 조회·권한·
   쓰기 판정에서 FINISHED로 취급하며 후기 작성, 미작성 후기 신청 제한, 채팅 비활성화와 Admin 변경 제한은 cron
   실행 여부에 의존하지 않는다. 별도 실제 종료 시각(`end_at`)은 현재 모델에 없다.
+- CONFIRMED 행사의 채팅은 KST 기준 `event_at`의 달력상 전날 오후 1시부터 열린다. 개방 여부는 별도 상태로
+  저장하거나 cron으로 전환하지 않고 API가 매 요청에서 최신 `event_at`, 유효 행사 상태와 현재 참여 자격으로
+  계산한다. 개방 전에는 채팅 목록의 기존 `last_message`·`unread_count`를 유지한 대기 카드를 행사 상세로
+  연결하고, 채팅방 상세·메시지 목록·읽음 갱신·전송은 거부한다.
 - 서버 job은 유효하게 종료된 행사의 저장 상태를 FINISHED로 따라잡고 같은 transaction에서 감사 로그와 종료
   시스템 메시지를 기록한 뒤 후기 알림을 발송한다. Admin 수동 종료 API는 두지 않는다.
 
@@ -157,7 +161,7 @@ flowchart LR
 | 0 | DRAFT | 행사 정보 작성 중 |
 | 1 | OPEN | 신청 모집 중 |
 | 2 | CLOSED | 신청 마감 |
-| 3 | CONFIRMED | 모임 확정, 채팅 가능 |
+| 3 | CONFIRMED | 모임 확정, 전날 오후 1시부터 채팅 가능 |
 | 4 | FINISHED | 행사 종료, 후기 가능 |
 | -1 | CANCELED | 행사 취소 |
 | -2 | DELETED | 모집 전 삭제 |
@@ -209,12 +213,14 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
   부호는 fallback하지 않고 전체 transaction을 실패시킨다.
 - 알림은 원천 transaction commit 뒤 기존 `sendFCMPush()` 한 경로에서만 발송·저장한다. 그룹미팅 코드가
   `t_alarm`을 직접 추가하지 않는다.
-- 행사당 채팅은 하나이며 별도 room 상태를 중복 저장하지 않는다. 송신 가능 여부는 행사 상태, 참가자 자격은
-  신청 상태에서 판정한다.
+- 행사당 채팅은 하나이며 별도 room 상태를 중복 저장하지 않는다. 송신 가능 여부는 유효 행사 상태와 KST 기준
+  행사 전날 오후 1시 개방 경계, 참가자 자격은 신청 상태에서 매 요청 판정한다. FINISHED·CANCELED 채팅 이력은
+  기존처럼 읽기 전용으로 유지한다.
 - 채팅 메시지는 `USER`와 `SYSTEM`의 tagged union이다. `USER`만 채팅 구성원과 client idempotency key를
   가지며 Mobile 전송 API로 생성한다. `SYSTEM`은 sender 없이 서버 상태 전이와 연결된 action log를 원천으로
   같은 transaction에서 한 번만 생성한다.
-- `EVENT_CONFIRMED`는 채팅 구성원 생성, `PARTICIPANT_JOINED`는 CONFIRMED 뒤 승인 참가자 합류,
+- `EVENT_CONFIRMED`는 채팅 구성원과 개방 전 대기 카드를 생성하고 전날 오후 1시 개방 시각을 안내한다.
+  `PARTICIPANT_JOINED`는 CONFIRMED 뒤 승인 참가자 합류,
   `PARTICIPANT_CANCELED`는 Admin의 승인 확정 취소, `PARTICIPANT_LEFT`는 참가자의 명시적 퇴장,
   `EVENT_FINISHED`는 행사 종료, `EVENT_CANCELED`는 기존 채팅이 있는 CONFIRMED 행사 취소와 함께
   기록한다. 후기 완료로 자격만 정리하는 `LEFT`와 채팅 생성 전 행사 취소에는 시스템 메시지를 만들지 않는다.
@@ -226,8 +232,8 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 
 - 해시태그는 `#단어`를 ASCII 공백 한 칸으로 구분한 canonical 문자열만 허용한다. trim, 중복 제거, 공백
   정규화로 잘못된 요청을 보정하지 않는다.
-- 신청·승인 성별 인원수, 역할, unread, 접근 권한은 원천 상태에서 계산한다. 같은 의미의 상태나 합계를
-  별도 필드에 중복 저장하지 않는다.
+- 신청·승인 성별 인원수, 역할, unread, 접근 권한과 채팅 개방 여부는 원천 상태와 최신 `event_at`에서 계산한다.
+  같은 의미의 상태나 합계를 별도 필드에 중복 저장하지 않는다.
 - 신청 당시 성별과 별칭은 시간축 snapshot이며 현재 회원 프로필 SoT로 사용하지 않는다.
 - 현재 무료 공개 프로필 조회는 Key 변동을 만들지 않는다. 후기 보상과 향후 별도 유료 열람 명령의 실제 Key
   변동량·잔액만 기존 Key 원장에 한 번 기록한다.
@@ -252,8 +258,11 @@ CONFIRMED 참가자의 명시적 퇴장은 APPROVED를 LEFT로 전이한다. FIN
 
 그룹미팅 알림 타입 77~83의 의미와 사용자 설정은 [푸시알림 시스템](push-notification.md)을 단일 설명
 진입점으로 사용한다. 모든 target은 행사 ID이고 원천 write가 실제로 한 번 commit된 경우에만 발송한다.
-기존 2:2 신고 알림이나 라우트를 N:N에 재사용하지 않는다. Mobile은 그룹미팅 알림 타입을 N:N 목록·상세·
-채팅 화면으로만 연결한다. 소비자 병합·배포와 FCM smoke 전에는 운영 발송을 활성화하지 않는다.
+기존 2:2 신고 알림이나 라우트를 N:N에 재사용하지 않는다. Mobile은 신청 상태 알림 77~79를 행사 상세,
+새 메시지·취소·후기 알림 81~83을 채팅 이력으로 연결한다. `GROUP_MEETING_EVENT_CONFIRMED(80)`은 클릭 시
+서버의 최신 `can_chat`을 확인해 개방됐으면 채팅, 아직 미개방이면 행사 상세로 연결한다. 확정과 개방 예정
+시각은 80에서 안내하며, 전날 오후 1시 개방 자체에 대한 별도 예약 푸시는 현재 범위에 없다. 소비자 병합·
+배포와 FCM smoke 전에는 운영 발송을 활성화하지 않는다.
 
 ## API와 DTO 계약
 

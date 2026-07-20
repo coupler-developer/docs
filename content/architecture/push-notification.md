@@ -150,19 +150,20 @@ flowchart LR
 
 ### 그룹미팅 타입 (77-83, transition)
 
-아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile의 타입 인식과 화면
-라우팅, 운영 발송 활성화는 후속 범위다. 이 후속 범위가 끝나기 전에는 그룹미팅 푸시를 운영에서 활성화하지
-않는다. 모든 `target`은 그룹미팅 행사 ID다.
+아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile은 신청 상태
+77~79는 행사 상세, 취소·새 메시지·후기 81~83은 채팅 이력으로 연결한다. 확정 80은 클릭 시 서버의 최신
+`can_chat`을 확인해 개방됐으면 채팅, 아직 미개방이면 행사 상세로 연결한다. 소비자 병합·배포와 운영 발송
+활성화가 끝나기 전에는 그룹미팅 푸시를 운영에서 활성화하지 않는다. 모든 `target`은 그룹미팅 행사 ID다.
 
-| 값 | 상수 | 의미 | 사용자 설정 |
-| --- | --- | --- | --- |
-| 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | `alarm_event` |
-| 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | `alarm_event` |
-| 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | `alarm_event` |
-| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | `alarm_event` |
-| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` |
-| 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` |
-| 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` |
+| 값 | 상수 | 의미 | 사용자 설정 | Mobile 이동 |
+| --- | --- | --- | --- | --- |
+| 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | `alarm_event` | 행사 상세 |
+| 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | `alarm_event` | 행사 상세 |
+| 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | `alarm_event` | 행사 상세 |
+| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | `alarm_event` | 개방 시 채팅, 미개방 시 행사 상세 |
+| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` | 채팅 이력 |
+| 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` | 채팅 이력 |
+| 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` | 채팅 이력 |
 
 ## 발송 흐름
 
