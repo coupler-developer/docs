@@ -23,6 +23,7 @@
 
 ```mermaid
 flowchart LR
+    entity_admin_dash_access_dot_operator["관리자 계정 · 다른 영역<br/>admin-access.operator"]
     entity_club_dash_manager_dot_manager["클럽매니저 · 다른 영역<br/>club-manager.manager"]
     entity_member_dot_invitation["회원 초대<br/>member.invitation"]
     entity_member_dot_member["회원 계정<br/>member.member"]
@@ -34,6 +35,7 @@ flowchart LR
     entity_platform_dash_config_dot_signup_dash_message["가입 안내 · 다른 영역<br/>platform-config.signup-message"]
     entity_member_dot_member -->|"같이 관리"| entity_member_dot_profile
     entity_member_dot_member -->|"같이 관리"| entity_member_dot_status_dash_history
+    entity_member_dot_status_dash_history -->|"참고"| entity_admin_dash_access_dot_operator
     entity_member_dot_member -->|"같이 관리"| entity_member_dot_sleep_dash_history
     entity_member_dot_member -->|"같이 관리"| entity_member_dot_invitation
     entity_member_dot_recommendation -->|"참고"| entity_member_dot_member
@@ -47,6 +49,7 @@ flowchart LR
 - 회원 생애주기의 현재 상태는 하나만 존재한다
 - 현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다
 - 가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다
+- Super Admin의 회원 차단·차단 해제 이력은 처리 관리자와 비어 있지 않은 사유를 함께 기록한다
 
 <!-- markdownlint-disable MD046 -->
 
@@ -60,7 +63,7 @@ flowchart LR
     | `member.profile` | 회원 프로필 | child | entity | state | 현재 승인된 프로필과 매칭 선호 정보 | 민감 | 회원 계정과 함께 유지하고 이전 제출본은 심사 도메인이 관리 |
     | `member.invitation` | 회원 초대 | child | entity | history | 초대 코드의 생성·사용·만료 결과 | 내부 | 사용·만료 결과를 이력으로 보존 |
     | `member.recommendation` | 회원 추천사 | root | association | history | 작성 회원과 대상 회원 사이의 추천 내용 | 민감 | 노출 상태와 개인정보 정리 정책을 함께 적용 |
-    | `member.status-history` | 회원 상태 이력 | child | entity | history | 생애주기 상태 변경과 변경 사유 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
+    | `member.status-history` | 회원 상태 이력 | child | entity | history | 생애주기 상태 변경, 변경 사유와 관리자 처리 행위자 | 민감 | 감사·운영 목적의 append-only 이력으로 보존 |
     | `member.sleep-history` | 휴면 이력 | child | entity | history | 휴면 전환 기간과 복귀 근거 | 내부 | 휴면 정책 확인 기간 동안 보존 |
     | `member.signup-welcome` | 가입 안내 발송 이력 | child | entity | history | 가입 안내와 무료 Key 최초 지급 결과 | 내부 | 중복 지급 방지를 위해 이력 보존 |
 
@@ -70,6 +73,7 @@ flowchart LR
     | --- | --- | --- | --- | --- | --- |
     | `member.member` | `profile` | owns | `member.profile` | 1:1 | 계정 개인정보 정리 시 현재 프로필도 함께 정리 |
     | `member.member` | `status-history` | owns | `member.status-history` | 1:N | 상태 이력은 계정 삭제 뒤 비식별 보존 가능 |
+    | `member.status-history` | `operator-actor` | references | `admin-access.operator` | N:1 | Super Admin의 차단·차단 해제 행은 처리 관리자 식별자를 보존 |
     | `member.member` | `sleep-history` | owns | `member.sleep-history` | 1:N | 회원 생애주기와 함께 관리 |
     | `member.member` | `sent-invitations` | owns | `member.invitation` | 1:N | 초대자의 개인정보 정리 뒤에도 사용·만료 결과는 비식별 보존 가능 |
     | `member.recommendation` | `writer` | references | `member.member` | N:1 | 작성 회원과 대상 회원은 같을 수 없음 |
@@ -85,6 +89,7 @@ flowchart LR
     | `MEMBER-INV-001` | `member.member` | 회원 생애주기의 현재 상태는 하나만 존재한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
     | `MEMBER-INV-002` | `member.profile` | 현재 프로필은 회원이 사용할 수 있는 승인 상태와 일치해야 한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
     | `MEMBER-INV-003` | `member.signup-welcome` | 가입 안내와 무료 Key 최초 지급은 회원당 한 번만 성공한다 | [매칭 Key 시스템](matching-key-system.md) |
+    | `MEMBER-INV-004` | `member.status-history` | Super Admin의 회원 차단·차단 해제 이력은 처리 관리자와 비어 있지 않은 사유를 함께 기록한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
 
@@ -123,6 +128,7 @@ stateDiagram-v2
     HOLD --> NORMAL : 관리자 해제
     HOLD --> [*] : 재가입 (정책 기준, 정보 리셋)
 
+    BLOCK --> NORMAL : Super Admin 차단 해제
     BLOCK --> [*] : 재가입 (정책 기준, 정보 리셋)
 
     LEAVE --> [*] : 재가입 (정책 기준, 정보 리셋)
@@ -163,7 +169,7 @@ stateDiagram-v2
 ### BLOCK (영구정지)
 
 - **진입**: Super Admin 차단
-- **복귀**: 없음 (재가입 대기 기준은 정책 참조)
+- **복귀**: Super Admin 차단 해제 시 `NORMAL`
 - **재가입**: 정책 기준 경과 후 정보 리셋하여 신규 가입
 - **제한**: 로그인/매칭 불가
 - **개인정보 파기**: [데이터 거버넌스 정책](../policy/data-governance-policy.md) 참조

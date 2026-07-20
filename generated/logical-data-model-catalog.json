@@ -905,7 +905,7 @@
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "history",
-      "responsibility": "생애주기 상태 변경과 변경 사유",
+      "responsibility": "생애주기 상태 변경, 변경 사유와 관리자 처리 행위자",
       "classification": "민감",
       "lifecycle": "감사·운영 목적의 append-only 이력으로 보존"
     },
@@ -983,7 +983,7 @@
       "lifecycleRole": "child",
       "entityShape": "entity",
       "recordRole": "ledger",
-      "responsibility": "이용 제한 종류·기간·사유",
+      "responsibility": "이용 제한 종류·기간·사유와 처리 관리자",
       "classification": "민감",
       "lifecycle": "적용·해제 이력을 append-only로 보존"
     },
@@ -1894,6 +1894,15 @@
       "ownerDocument": "content/architecture/member-lifecycle.md"
     },
     {
+      "sourceEntityId": "member.status-history",
+      "role": "operator-actor",
+      "kind": "references",
+      "targetEntityId": "admin-access.operator",
+      "cardinality": "N:1",
+      "lifecycleRule": "Super Admin의 차단·차단 해제 행은 처리 관리자 식별자를 보존",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
       "sourceEntityId": "moderation.content-action-history",
       "role": "author-actor",
       "kind": "references",
@@ -1999,6 +2008,15 @@
       "targetEntityId": "member.member",
       "cardinality": "N:1",
       "lifecycleRule": "신고자와 대상 회원은 같을 수 없음",
+      "ownerDocument": "content/architecture/moderation-system.md"
+    },
+    {
+      "sourceEntityId": "moderation.penalty",
+      "role": "operator-actor",
+      "kind": "references",
+      "targetEntityId": "admin-access.operator",
+      "cardinality": "N:1",
+      "lifecycleRule": "패널티 적용 행은 처리 관리자 식별자를 보존",
       "ownerDocument": "content/architecture/moderation-system.md"
     },
     {
@@ -2335,6 +2353,13 @@
       "ownerDocument": "content/architecture/member-lifecycle.md"
     },
     {
+      "id": "MEMBER-INV-004",
+      "relatedEntityId": "member.status-history",
+      "statement": "Super Admin의 회원 차단·차단 해제 이력은 처리 관리자와 비어 있지 않은 사유를 함께 기록한다",
+      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "ownerDocument": "content/architecture/member-lifecycle.md"
+    },
+    {
       "id": "MEMBER-REVIEW-INV-001",
       "relatedEntityId": "member-review.auth-request",
       "statement": "회원과 요청 종류별 활성 인증 요청은 동시에 하나만 존재한다",
@@ -2372,7 +2397,7 @@
     {
       "id": "MODERATION-INV-003",
       "relatedEntityId": "moderation.penalty",
-      "statement": "패널티 적용 기간과 사유 없이 회원 이용을 제한하지 않는다",
+      "statement": "Super Admin이 적용한 패널티는 기간·사유·처리 관리자를 함께 기록한다",
       "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
       "ownerDocument": "content/architecture/moderation-system.md"
     },
