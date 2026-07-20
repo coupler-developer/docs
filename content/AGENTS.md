@@ -1,8 +1,15 @@
 # AGENTS
 
+## 최소 운영 규칙
+
 - 이 문서에는 문서 인덱스와 에이전트 최소 운영 규칙만 포함한다
 - 중복이 없이 다른 개념으로 새 문서가 필요할 경우 새 문서 생성 후 여기에 링크 추가
-- 문서 추가/삭제/이동/개명 시 `mkdocs.yml`의 `nav`도 반드시 함께 동기화한다
+- 문서 추가/삭제/이동/개명 시 `document-lifecycle-registry.json`, `content/AGENTS.md` 문서 인덱스와
+  `mkdocs.yml`의 `nav`를 반드시 함께 동기화한다
+- 새 nav·인덱스 대상 문서는 lifecycle registry에 stable ID와 `active` 항목을 추가하고 `core`/`direct`/`closure`/
+  `historical` routing 책임을 명시한다
+- 문서 개명·이동은 stable ID를 유지하고 이전 경로를 `previousPaths`에 남긴다. 삭제는 registry 항목을
+  제거하지 않고 `retired` tombstone, 사유와 replacement 또는 무대체 사유를 남긴다
 - 작업 완료 전 문서 동기화를 확인한다(필요 시 반영, 불필요 시 근거 기록). 상세 기준은 `content/policy/document-governance-policy.md`를 단일 SoT로 따른다
 - 템플릿 문서는 `content/templates/`에 둔다
 - 신규 문서 작성 시 `content/templates/` 템플릿을 우선 사용하고, 적합한 템플릿이 없으면 템플릿부터 추가한 뒤 문서를 작성한다
@@ -59,6 +66,139 @@
     - 테스트 파일을 추가/갱신한 경우 최종 보고에 변경 파일과 변경 이유를 함께 남긴다
     - `skip/only`, assertion 완화, 무검토 snapshot 갱신처럼 테스트를 약화하는 변경은 금지한다
     - 필요 시 `docs/.github/scripts/`로 테스트 파일 변경 여부를 확인한다
+
+## 작업 실행 제어
+
+### 기본 원칙
+
+- Core 4 전체 강제 열람은 모든 요청에 유지한다. 요청이 단순하거나 read-only라는 이유로 생략하지 않는다.
+- Core 열람은 작업 기준을 현재 컨텍스트에 고정하는 안전 Gate다. 요약문, 이전 세션 기록, 상위 에이전트의
+  전달 내용으로 대체하지 않는다.
+- 새 세션, 컨텍스트 유실 후 재진입, 독립 작업을 위임받은 에이전트는 각각 Core 4를 직접 다시 읽는다.
+- 작업은 `요청 유형`, `권한 집합`, `작업 범위`, `실행 단계`를 서로 독립된 축으로 판정한다. 한 축의 값으로
+  다른 축의 권한이나 완료 조건을 추론하지 않는다.
+- 요청을 분류할 수 없거나 관련 단일 SoT를 확정할 수 없으면 파일을 수정하지 않고 `스펙 공백`과 필요한
+  확인 범위를 보고한다.
+
+### 요청 유형과 종료 조건
+
+| 요청 유형 | 기본 동작 | 종료 조건 |
+| --- | --- | --- |
+| `설명·상태 확인` | 근거를 read-only로 확인한다 | 확인 범위, 근거, 결론 보고 |
+| `진단` | 원인, 영향, 재현 경로를 확인한다 | 원인과 근거 보고; 수정은 별도 요청이 있을 때만 수행 |
+| `설계·계획` | 기준 SoT와 대안을 검토한다 | 포함·제외 범위, 책임 경계, 검증·rollback, 계획 최종 리뷰 |
+| `변경·구현` | 요청 범위의 코드·문서·테스트를 수정한다 | 구현, 검증, 문서 동기화, 마지막 변경 이후 최종 리뷰 |
+| `리뷰` | 대상 diff·문서·커밋·PR을 read-only로 평가한다 | 근거 있는 Finding 또는 `No Findings` 판정; 요청 없이는 수정 금지 |
+| `운영·관찰` | 승인된 운영 동작 또는 상태 관찰만 수행한다 | 명시된 종료 조건, 결과, 잔여 위험 보고 |
+
+- `변경·구현` 요청은 계획 작성만으로 완료하지 않는다. 안전한 범위에서 구현, 검증, 문서 동기화와 최종
+  리뷰까지 계속한다.
+- `설계·계획`, `리뷰`, `진단`은 파일 변경 권한을 포함하지 않는다. 사용자가 같은 요청에서 변경까지 명시한
+  경우에만 `변경·구현`을 함께 적용한다.
+
+### 권한 집합
+
+- 기본 권한은 요청 유형의 종료 조건을 달성하는 데 필요한 read-only 또는 workspace 파일 변경까지다.
+- 테스트 파일 변경 권한은 상단 `테스트 파일 변경` Gate를 따른다.
+- branch/worktree 생성, commit, push, PR 생성, reviewer 변경, deploy, force push·삭제는 서로 독립된 권한이다.
+- 사용자가 명시하지 않은 외부 상태 변경 권한을 작업의 자연스러운 후속 단계라는 이유로 추가하지 않는다.
+- `수정하고 PR 올려줘`는 수정·검증·commit·push·PR 생성 권한을 포함하지만 reviewer 변경·deploy 권한을
+  포함하지 않는다.
+- 권한이 없는 단계 직전에는 현재 완료 상태와 필요한 추가 권한을 보고하고 멈춘다.
+
+### 작업 범위 판정
+
+작업 시작 전에 아래 범위를 고정한다.
+
+- 대상 레포와 기존 branch/worktree/PR
+- 산출물 종류: 코드, 테스트, 문서, 설정, DB migration, 릴리스 기록
+- 제품·운영 도메인과 관련 architecture/policy/FSM/flow
+- 위험 표면: API 계약, DB, 권한·보안, 결제, 푸시, 개인정보, 배포, 모바일 릴리즈, 다중 레포
+- 사용자 요청의 포함 범위와 명시적 제외 범위
+
+- 같은 요청, 연관 PR·이슈, 도메인 또는 SoT를 다루는 적합한 기존 branch/worktree/PR이 있으면 새 작업을
+  만들지 않고 해당 작업에서 계속한다. 리뷰·상태 확인만 요청받았으면 새 작업을 만들지 않는다.
+- 기존 작업이 부적합해 대체 작업이 필요하면 근거와 이관·정리 계획을 먼저 보고하고 사용자 승인을 받는다.
+  같은 범위의 활성 PR을 병렬로 유지하지 않는다.
+- read-only 탐색을 마치고 첫 파일 변경·branch/worktree 생성·외부 작업 전에 아래 형식으로 실행 계약을
+  기록한다. 단순 설명·상태 확인은 같은 항목을 최종 보고에 포함할 수 있다.
+    - `ROUTE: 요청=<유형> | 레포=<대상> | 산출물=<종류> | 도메인=<범위> | 위험=<표면> | 권한=<집합> | 필수문서=<경로> | 완료=<종료 조건>`
+
+### 관련 SoT 폐쇄 탐색
+
+1. 요청 문구와 변경 대상에서 도메인·위험 표면을 식별한다.
+2. `문서 인덱스`에서 가장 가까운 architecture 또는 policy를 연다.
+3. 선택한 문서 상단의 `충돌 시 우선 문서`와 본문에서 단일 SoT·상위 규범으로 지정한 직접 링크를 연다.
+4. `관련 문서` 절이 있으면 직접 연결된 policy, architecture, FSM, flow, technical-debt를 확인한다. 없으면
+   본문의 직접 규범 링크를 같은 범위로 확인한다.
+5. 각 판정 책임이 하나의 단일 SoT에 연결될 때까지 2~4를 반복한다.
+6. 충돌, 누락, 불명확한 기대 동작이 있으면 구현보다 규범 문서를 먼저 확정한다.
+
+최종 필수 열람 집합은 `Core 4 + 고위험 신호 라우팅 문서 + 도메인 SoT 폐쇄 탐색 결과`다.
+문서 링크가 존재한다는 사실만으로 열람 완료로 간주하지 않는다.
+
+### 고위험 신호 라우팅
+
+| 변경·리뷰 신호 | 추가 필수 문서 |
+| --- | --- |
+| docs 작성·수정·삭제·리뷰 | `content/policy/document-governance-policy.md`와 적용 템플릿 |
+| policy 추가·수정·삭제·리뷰 | `content/policy/document-governance-policy.md`의 `정책 Composition Gate` |
+| 논리 데이터 모델 | `content/policy/logical-data-model-policy.md`의 적용 절과 충실도 리뷰 판정 |
+| DB, migration, DB schema, `DBM-GATE-*` | `content/policy/db-migration-gate-policy.md` |
+| API 성공·실패 envelope | `content/policy/api-response-contract-policy.md` |
+| API ErrorData·error taxonomy | `content/policy/api-error-contract-policy.md` |
+| public DTO·계약 package | `content/policy/api-client-contract-package-policy.md` |
+| 페이지/use-case 조회·동작 operation | `content/policy/api-operation-design-policy.md` |
+| 인증·인가·관리자 권한·민감정보 | `content/policy/security-access-control-policy.md`, `content/policy/data-governance-policy.md` |
+| 결제·환불·정산 | `content/policy/payment-ops-policy.md` |
+| 매칭 상태·키·일정 | `content/policy/matching-ops-policy.md` |
+| 회원 심사 | `content/policy/member-review-policy.md`와 연결 architecture/FSM |
+| 푸시 타입·발송·장애 대응 | `content/policy/push-notification-policy.md` |
+| 배포·릴리즈·태그 | `content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook |
+
+- 표에 없는 도메인은 비적용으로 추론하지 않고 `관련 SoT 폐쇄 탐색`을 적용한다.
+- 여러 신호가 함께 있으면 해당 행의 문서를 합집합으로 읽고 판정 책임별 우선순위를 고정한다.
+
+### 작업 상태 머신
+
+모든 작업은 아래 순서를 사용한다. 비적용 단계는 생략하지 않고 근거 있는 `N/A`로 판정한다.
+
+1. `BOOT`: Core 4를 전체 열람하고 ACK/EVIDENCE를 출력한다.
+2. `CONTINUITY`: 변경·branch·PR 작업이면 같은 범위의 기존 worktree, branch, PR을 먼저 확인한다.
+3. `CLASSIFY`: 요청 유형, 권한 집합, 작업 범위, 위험 표면을 서로 분리해 고정한다.
+4. `ROUTE`: 관련 SoT 폐쇄 탐색을 완료하고 추가 필수 문서를 읽는다.
+5. `BASELINE`: 현재 코드·문서·Git·외부 상태와 사용자 변경을 read-only로 확인한다.
+6. `PLAN`: 목표, 제외 범위, 기준 문서, 영향 범위, 검증, rollback을 고정한다. 신중/안전 지시는 계획 자체를
+   먼저 리뷰한다.
+7. `EXECUTE`: 요청 유형과 권한 집합 안에서만 작성·수정·운영 작업을 수행한다.
+8. `VERIFY`: 적용 테스트/CI, 문서 동기화, 수동·운영 검증을 수행한다.
+9. `REVIEW`: 마지막 파일 변경 이후 같은 범위로 코드 리뷰 또는 문서 안정성 평가를 수행한다.
+10. `EXTERNAL_ACTION`: 명시 권한이 있을 때만 commit, push, PR, reviewer, deploy Gate를 각각 적용한다.
+11. `REPORT`: 범위, 변경, 검증, 문서 동기화, 열린 Finding, 최종 판정, 잔여 위험을 보고한다.
+
+- `VERIFY` 또는 `REVIEW` 뒤 파일이 바뀌면 이전 검증·리뷰 판정은 만료된다. `VERIFY -> REVIEW`를 다시 수행한다.
+- Finding이 있으면 `원인 수정 -> 적용 검증 -> 동일 범위 재리뷰`를 반복한다.
+- 요청 범위 밖 기존 부채는 근거와 함께 분리하고 완료를 위해 임의로 확장하지 않는다.
+
+### 단계별 기준 재고정
+
+- 세션 시작: Core 4 전체
+- 설계·구현 전: 관련 도메인 SoT 전체
+- 마지막 파일 변경 후: 적용된 Core와 도메인 정책의 검증·Exit Gate 절
+- 문서 변경 후: 문서 거버넌스 정책과 적용 템플릿
+- commit 전: 코드 리뷰, Git 브랜치, 커밋 정책
+- push·PR 전: 코드 리뷰 정책의 Push 전 자체 리뷰 Gate
+- deploy 전: release 정책, 적용 runbook, DB 변경 시 DB Migration Gate
+- 컨텍스트 유실, 새 세션, 독립 에이전트 위임: Core 4 전체 재열람
+
+### 작업별 필수 완료 증빙
+
+- 문서 작성·수정: 적용 템플릿, 직접 연결 문서, 문서 동기화, docs 검증, 문서 안정성 최종 판정
+- policy 변경: 대상 정책 전체, 정방향·역방향 규범 참조, 책임·우선순위, 생명주기, Composition Gate
+- 설계·계획: 포함·제외, 기준 SoT, 책임 경계, 대안, 검증, rollback, 계획 최종 리뷰
+- 코드 변경: 테스트 변경 판정, 적용 품질 Gate, 문서 동기화, 7개 관점 점검, 마지막 변경 이후 최종 판정
+- 코드·문서 리뷰: 고정된 리뷰 범위, 적용 기준, 근거 있는 Finding, 검증 상태, 최종 판정
+- 외부 작업: 각 권한별 사전 Gate, 실행 결과, 실패·rollback 기준
 
 ## 문서 인덱스
 

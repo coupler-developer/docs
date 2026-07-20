@@ -8,6 +8,7 @@
     "picomatch": "2.3.2"
   },
   "devDependencies": {
+    "markdown-it": "14.2.0",
     "markdownlint-cli2": "0.17.2"
   },
   "scripts": {
@@ -15,9 +16,13 @@
     "test:release-preflight": "node --test scripts/release-record-metadata.test.mjs scripts/validate-release-records.test.mjs scripts/release-status-gate.test.mjs scripts/release-transition.test.mjs scripts/validate-release-pr-transition.test.mjs scripts/release-validation-mode.test.mjs scripts/release-preflight.test.mjs",
     "validate:release-pr-transition": "node scripts/validate-release-pr-transition.mjs",
     "test:docs-structure": "node --test scripts/validate-docs-structure.test.mjs",
+    "test:document-lifecycle": "node --test scripts/validate-document-lifecycle.test.mjs",
+    "test:agent-workflow": "node --test scripts/validate-agent-workflow.test.mjs",
     "test:docs-validation-config": "node --test scripts/docs-validation-config.test.mjs",
     "test:technical-debt": "node --test scripts/validate-technical-debt.test.mjs",
     "validate:docs-structure": "node scripts/validate-docs-structure.mjs",
+    "validate:document-lifecycle": "node scripts/validate-document-lifecycle.mjs",
+    "validate:agent-workflow": "node scripts/validate-agent-workflow.mjs",
     "validate:docs-sensitive": "node scripts/validate-docs-structure.mjs --sensitive-only",
     "generate:logical-data-model": "node scripts/validate-logical-data-model.mjs --write-views && node scripts/validate-logical-data-model.mjs --write-catalog",
     "generate:logical-data-model-catalog": "node scripts/validate-logical-data-model.mjs --write-catalog",
@@ -28,7 +33,7 @@
     "build:docs": "node scripts/run-mkdocs-build.mjs",
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
     "test:logical-data-model": "node --test scripts/validate-logical-data-model.test.mjs",
-    "validate:docs-static": "yarn validate:docs-structure && yarn validate:logical-data-model && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:docs-structure && yarn test:logical-data-model && yarn test:technical-debt && yarn test:release-preflight && yarn test:docs-validation-config",
+    "validate:docs-static": "yarn validate:docs-structure && yarn validate:document-lifecycle && yarn validate:agent-workflow && yarn validate:logical-data-model && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:docs-structure && yarn test:document-lifecycle && yarn test:agent-workflow && yarn test:logical-data-model && yarn test:technical-debt && yarn test:release-preflight && yarn test:docs-validation-config",
     "validate:docs": "yarn validate:docs-static && yarn lint:md && yarn build:docs"
   }
 }

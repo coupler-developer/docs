@@ -1,0 +1,607 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "architecture.admin-permission",
+      "lifecycle": "active",
+      "path": "architecture/admin-permission.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.analytics-system",
+      "lifecycle": "active",
+      "path": "architecture/analytics-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.chat-system",
+      "lifecycle": "active",
+      "path": "architecture/chat-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.club-manager-system",
+      "lifecycle": "active",
+      "path": "architecture/club-manager-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.cron-jobs",
+      "lifecycle": "active",
+      "path": "architecture/cron-jobs.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.development-test-data-system",
+      "lifecycle": "active",
+      "path": "architecture/development-test-data-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.group-meeting-system",
+      "lifecycle": "active",
+      "path": "architecture/group-meeting-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.logical-data-model-index",
+      "lifecycle": "active",
+      "path": "architecture/logical-data-model-index.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.logical-data-model-planned-index",
+      "lifecycle": "active",
+      "path": "architecture/logical-data-model-planned-index.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.lounge-system",
+      "lifecycle": "active",
+      "path": "architecture/lounge-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.matching-fsm",
+      "lifecycle": "active",
+      "path": "architecture/matching-fsm.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.matching-key-system",
+      "lifecycle": "active",
+      "path": "architecture/matching-key-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.matching-schedule-algorithm",
+      "lifecycle": "active",
+      "path": "architecture/matching-schedule-algorithm.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.matching-system",
+      "lifecycle": "active",
+      "path": "architecture/matching-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.meeting-system",
+      "lifecycle": "active",
+      "path": "architecture/meeting-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.member-lifecycle",
+      "lifecycle": "active",
+      "path": "architecture/member-lifecycle.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.member-review-fsm",
+      "lifecycle": "active",
+      "path": "architecture/member-review-fsm.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.member-review-system",
+      "lifecycle": "active",
+      "path": "architecture/member-review-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.mobile-app-to-be",
+      "lifecycle": "active",
+      "path": "architecture/mobile-app-to-be.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.moderation-system",
+      "lifecycle": "active",
+      "path": "architecture/moderation-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.payment-system",
+      "lifecycle": "active",
+      "path": "architecture/payment-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.platform-config-system",
+      "lifecycle": "active",
+      "path": "architecture/platform-config-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.push-notification",
+      "lifecycle": "active",
+      "path": "architecture/push-notification.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.repo-overview",
+      "lifecycle": "active",
+      "path": "architecture/repo-overview.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.support-system",
+      "lifecycle": "active",
+      "path": "architecture/support-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "architecture.upload-media-system",
+      "lifecycle": "active",
+      "path": "architecture/upload-media-system.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.admin-web-production-deploy-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/admin-web-production-deploy-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.api-contract-cutover-final-review",
+      "lifecycle": "active",
+      "path": "flows/cross-project/api-contract-cutover-final-review.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.api-contract-mobile-release-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/api-contract-mobile-release-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.development-cron-operation-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/development-cron-operation-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.development-test-data-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/development-test-data-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.firebase-apple-sdk-migration-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/firebase-apple-sdk-migration-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.kakao-native-login-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/kakao-native-login-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.matching-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/matching-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.production-deploy-command-runbook",
+      "lifecycle": "active",
+      "path": "flows/cross-project/production-deploy-command-runbook.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.release-automation-pipeline",
+      "lifecycle": "active",
+      "path": "flows/cross-project/release-automation-pipeline.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.api-client-contract-package-policy",
+      "lifecycle": "active",
+      "path": "policy/api-client-contract-package-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.api-error-contract-policy",
+      "lifecycle": "active",
+      "path": "policy/api-error-contract-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.api-operation-design-policy",
+      "lifecycle": "active",
+      "path": "policy/api-operation-design-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.api-response-contract-policy",
+      "lifecycle": "active",
+      "path": "policy/api-response-contract-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.code-review-policy",
+      "lifecycle": "active",
+      "path": "policy/code-review-policy.md",
+      "routing": "core",
+      "coreOrder": 2,
+      "requiredHeadings": [
+        {
+          "level": 3,
+          "title": "Push 전 자체 리뷰 게이트"
+        }
+      ]
+    },
+    {
+      "id": "policy.commit-convention",
+      "lifecycle": "active",
+      "path": "policy/commit-convention.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.data-governance-policy",
+      "lifecycle": "active",
+      "path": "policy/data-governance-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.db-migration-gate-policy",
+      "lifecycle": "active",
+      "path": "policy/db-migration-gate-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.development-test-data-policy",
+      "lifecycle": "active",
+      "path": "policy/development-test-data-policy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.document-governance-policy",
+      "lifecycle": "active",
+      "path": "policy/document-governance-policy.md",
+      "routing": "direct",
+      "requiredHeadings": [
+        {
+          "level": 2,
+          "title": "정책 Composition Gate"
+        }
+      ]
+    },
+    {
+      "id": "policy.engineering-guardrails",
+      "lifecycle": "active",
+      "path": "policy/engineering-guardrails.md",
+      "routing": "core",
+      "coreOrder": 3
+    },
+    {
+      "id": "policy.git-branch-strategy",
+      "lifecycle": "active",
+      "path": "policy/git-branch-strategy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.git-sync-rebase-policy",
+      "lifecycle": "active",
+      "path": "policy/git-sync-rebase-policy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.log-policy",
+      "lifecycle": "active",
+      "path": "policy/log-policy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.logical-data-model-policy",
+      "lifecycle": "active",
+      "path": "policy/logical-data-model-policy.md",
+      "routing": "direct",
+      "requiredHeadings": [
+        {
+          "level": 2,
+          "title": "충실도 리뷰 판정"
+        }
+      ]
+    },
+    {
+      "id": "policy.marketing-app-events-policy",
+      "lifecycle": "active",
+      "path": "policy/marketing-app-events-policy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.matching-ops-policy",
+      "lifecycle": "active",
+      "path": "policy/matching-ops-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.member-review-policy",
+      "lifecycle": "active",
+      "path": "policy/member-review-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.payment-ops-policy",
+      "lifecycle": "active",
+      "path": "policy/payment-ops-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.push-notification-policy",
+      "lifecycle": "active",
+      "path": "policy/push-notification-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.release-process",
+      "lifecycle": "active",
+      "path": "policy/release-process.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.release-tag-policy",
+      "lifecycle": "active",
+      "path": "policy/release-tag-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.security-access-control-policy",
+      "lifecycle": "active",
+      "path": "policy/security-access-control-policy.md",
+      "routing": "direct"
+    },
+    {
+      "id": "policy.service-terminology-policy",
+      "lifecycle": "active",
+      "path": "policy/service-terminology-policy.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.signup-response-contract",
+      "lifecycle": "active",
+      "path": "policy/signup-response-contract.md",
+      "routing": "closure"
+    },
+    {
+      "id": "policy.testing-strategy",
+      "lifecycle": "active",
+      "path": "policy/testing-strategy.md",
+      "routing": "core",
+      "coreOrder": 4,
+      "requiredHeadings": [
+        {
+          "level": 2,
+          "title": "테스트 변경 판정"
+        }
+      ]
+    },
+    {
+      "id": "releases.v2.0.0",
+      "lifecycle": "active",
+      "path": "releases/v2.0.0.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.1.0",
+      "lifecycle": "active",
+      "path": "releases/v2.1.0.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.0",
+      "lifecycle": "active",
+      "path": "releases/v2.2.0.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.1",
+      "lifecycle": "active",
+      "path": "releases/v2.2.1.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.2",
+      "lifecycle": "active",
+      "path": "releases/v2.2.2.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.3",
+      "lifecycle": "active",
+      "path": "releases/v2.2.3.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.4",
+      "lifecycle": "active",
+      "path": "releases/v2.2.4.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.5",
+      "lifecycle": "active",
+      "path": "releases/v2.2.5.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.6",
+      "lifecycle": "active",
+      "path": "releases/v2.2.6.md",
+      "routing": "historical"
+    },
+    {
+      "id": "releases.v2.2.7",
+      "lifecycle": "active",
+      "path": "releases/v2.2.7.md",
+      "routing": "historical"
+    },
+    {
+      "id": "technical-debt.firebase-apple-sdk-cocoapods-migration-plan",
+      "lifecycle": "active",
+      "path": "technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md",
+      "routing": "closure"
+    },
+    {
+      "id": "technical-debt.technical-debt",
+      "lifecycle": "active",
+      "path": "technical-debt/technical-debt.md",
+      "routing": "core",
+      "coreOrder": 1
+    }
+  ],
+  "routes": [
+    {
+      "id": "route.docs",
+      "lifecycle": "active",
+      "signal": "docs 작성·수정·삭제·리뷰",
+      "targetSource": "`content/policy/document-governance-policy.md`와 적용 템플릿",
+      "targets": [
+        "policy.document-governance-policy"
+      ]
+    },
+    {
+      "id": "route.policy",
+      "lifecycle": "active",
+      "signal": "policy 추가·수정·삭제·리뷰",
+      "targetSource": "`content/policy/document-governance-policy.md`의 `정책 Composition Gate`",
+      "targets": [
+        "policy.document-governance-policy"
+      ]
+    },
+    {
+      "id": "route.logical-data-model",
+      "lifecycle": "active",
+      "signal": "논리 데이터 모델",
+      "targetSource": "`content/policy/logical-data-model-policy.md`의 적용 절과 충실도 리뷰 판정",
+      "targets": [
+        "policy.logical-data-model-policy"
+      ]
+    },
+    {
+      "id": "route.db-migration",
+      "lifecycle": "active",
+      "signal": "DB, migration, DB schema, `DBM-GATE-*`",
+      "targetSource": "`content/policy/db-migration-gate-policy.md`",
+      "targets": [
+        "policy.db-migration-gate-policy"
+      ]
+    },
+    {
+      "id": "route.api-response",
+      "lifecycle": "active",
+      "signal": "API 성공·실패 envelope",
+      "targetSource": "`content/policy/api-response-contract-policy.md`",
+      "targets": [
+        "policy.api-response-contract-policy"
+      ]
+    },
+    {
+      "id": "route.api-error",
+      "lifecycle": "active",
+      "signal": "API ErrorData·error taxonomy",
+      "targetSource": "`content/policy/api-error-contract-policy.md`",
+      "targets": [
+        "policy.api-error-contract-policy"
+      ]
+    },
+    {
+      "id": "route.api-client-contract",
+      "lifecycle": "active",
+      "signal": "public DTO·계약 package",
+      "targetSource": "`content/policy/api-client-contract-package-policy.md`",
+      "targets": [
+        "policy.api-client-contract-package-policy"
+      ]
+    },
+    {
+      "id": "route.api-operation",
+      "lifecycle": "active",
+      "signal": "페이지/use-case 조회·동작 operation",
+      "targetSource": "`content/policy/api-operation-design-policy.md`",
+      "targets": [
+        "policy.api-operation-design-policy"
+      ]
+    },
+    {
+      "id": "route.security",
+      "lifecycle": "active",
+      "signal": "인증·인가·관리자 권한·민감정보",
+      "targetSource": "`content/policy/security-access-control-policy.md`, `content/policy/data-governance-policy.md`",
+      "targets": [
+        "policy.security-access-control-policy",
+        "policy.data-governance-policy"
+      ]
+    },
+    {
+      "id": "route.payment",
+      "lifecycle": "active",
+      "signal": "결제·환불·정산",
+      "targetSource": "`content/policy/payment-ops-policy.md`",
+      "targets": [
+        "policy.payment-ops-policy"
+      ]
+    },
+    {
+      "id": "route.matching",
+      "lifecycle": "active",
+      "signal": "매칭 상태·키·일정",
+      "targetSource": "`content/policy/matching-ops-policy.md`",
+      "targets": [
+        "policy.matching-ops-policy"
+      ]
+    },
+    {
+      "id": "route.member-review",
+      "lifecycle": "active",
+      "signal": "회원 심사",
+      "targetSource": "`content/policy/member-review-policy.md`와 연결 architecture/FSM",
+      "targets": [
+        "policy.member-review-policy"
+      ]
+    },
+    {
+      "id": "route.push",
+      "lifecycle": "active",
+      "signal": "푸시 타입·발송·장애 대응",
+      "targetSource": "`content/policy/push-notification-policy.md`",
+      "targets": [
+        "policy.push-notification-policy"
+      ]
+    },
+    {
+      "id": "route.release",
+      "lifecycle": "active",
+      "signal": "배포·릴리즈·태그",
+      "targetSource": "`content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook",
+      "targets": [
+        "policy.release-process",
+        "policy.release-tag-policy"
+      ]
+    }
+  ]
+}

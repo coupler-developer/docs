@@ -14,9 +14,9 @@
 ## 공통 품질 게이트 (단일 SoT)
 
 - 코드 레포의 표준 품질 게이트는 `test`, `typecheck`, `lint`, `format`이다.
-- docs의 표준 품질 게이트는 `docs 구조 검증`, `논리 데이터 모델 검증`, `기술부채 인벤토리 검증`,
-  `릴리스 기록 검증`, `API 에러 문서 검증`, `릴리즈 preflight 스크립트 검증`, `markdownlint`,
-  `mkdocs build --strict`다.
+- docs의 표준 품질 게이트는 `docs 구조 검증`, `문서 lifecycle 검증`, `에이전트 작업흐름 검증`, `논리 데이터 모델 검증`,
+  `기술부채 인벤토리 검증`, `릴리스 기록 검증`, `API 에러 문서 검증`, `릴리즈 preflight 스크립트 검증`,
+  `markdownlint`, `mkdocs build --strict`다.
 - 레포에서 미제공인 항목은 `N/A`로 표기하고, 미적용 근거를 PR/작업 보고에 남긴다.
 - 표준 검증 명령은 아래를 단일 기준으로 사용한다.
     - `coupler-api`: `pnpm lint && pnpm typecheck && pnpm format && pnpm test:ci`
@@ -26,6 +26,21 @@
 - API 공통 응답/에러 계약 또는 generated contract 변경이 포함되면 `coupler-api` 표준 검증에 `pnpm check:contracts`, `pnpm pack:contracts`를 추가한다.
 - Admin/Mobile 계약 소비 검증은 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 published latest stable version을 목표로 삼고, GitHub Packages registry/auth 설정, `package.json`, lockfile의 `@coupler-developer/coupler-api-contracts` exact version, 각 소비자 레포 표준 품질 게이트를 기준으로 한다.
 - Admin/Mobile이 계약 패키지 버전을 갱신하는 PR은 해당 소비자 레포의 표준 품질 게이트를 통과해야 한다. 이때 GitHub Packages registry/auth 설정과 `package.json`/lockfile의 `@coupler-developer/coupler-api-contracts` version이 일치하는지 확인한다.
+
+### 검증 중복 판정
+
+- 검증 실행 경로를 리뷰할 때는 event, 대상 ref, 비교 baseline, 검증 명령, 생성 산출물과 실패 책임을 먼저
+  펼친다. 이 항목이 같고 새 증빙을 만들지 않는 동일 Gate 재실행은 중복으로 판정해 공통 runner 한 번으로
+  합친다.
+- baseline 전환 검증이 공통 runner의 validator와 같은 현재 상태 검증을 포함하면 별도 선행 실행을 추가하지
+  않고 baseline을 공통 runner에 주입한다. 경량 경로처럼 공통 runner를 실행하지 않는 경우에만 전환 검증을
+  독립 실행한다.
+- 현재 산출물의 계약 검증과 validator 자체의 반대 조건·변이 회귀 테스트는 판정 대상이 다르므로 중복이
+  아니다.
+- PR admission, main 배포 artifact, release tag artifact처럼 event·ref·산출물 또는 신뢰 경계가 달라진 뒤의
+  재검증은 단계별 Gate다. 유지 사유가 신뢰 경계나 산출물로 설명되지 않으면 중복으로 판정한다.
+- 중복 제거는 검증 범위·실패 차단력을 약화해서는 안 된다. 유지하는 겹침과 제거한 중복의 근거를
+  PR/작업 보고에 남긴다.
 
 ### 모바일 Storybook·native visual 게이트
 
@@ -143,6 +158,10 @@
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
 - 문서 민감 인프라 식별자 검증(로컬·경량 CI): `yarn validate:docs-sensitive`
 - 문서 구조 검증 테스트(로컬): `yarn test:docs-structure`
+- 문서 lifecycle 검증(로컬, 사용 가능한 `origin/main` baseline 포함): `yarn validate:document-lifecycle`
+- 문서 lifecycle 검증 테스트(로컬): `yarn test:document-lifecycle`
+- 에이전트 작업흐름 검증(로컬): `yarn validate:agent-workflow`
+- 에이전트 작업흐름 검증 테스트(로컬): `yarn test:agent-workflow`
 - 논리 데이터 모델 검증(로컬): `yarn validate:logical-data-model`
 - 논리 데이터 모델 검증 테스트(로컬): `yarn test:logical-data-model`
 - 기술부채 인벤토리 검증(로컬): `yarn validate:technical-debt`
@@ -164,8 +183,13 @@
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
-  다시 열거하지 않는다.
-- docs 레포: PR 병합 뒤 `push(main)`에서는 `Deploy Docs`가 `yarn validate:docs`를 다시 실행한 뒤에만 Pages artifact를 배포하므로, `Docs Validation`을 중복 실행하지 않는다.
+  다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 lifecycle 현재
+  상태와 전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle 전환을 독립 실행한다.
+- docs 레포: PR 병합 뒤 `push(main)`에서는 push 이전 SHA를 `DOCUMENT_LIFECYCLE_BASE_REF`로 주입한
+  `yarn validate:docs` 한 번이 새 main의 Pages artifact를 검증한다. PR admission과 main 배포는 ref·산출물·
+  신뢰 경계가 다르므로 단계별 검증이며, 같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다.
+- docs 레포: release tag workflow의 `yarn validate:docs`는 tag ref에서 패키징할 site artifact를 다시 생성·검증하는
+  release Gate이며 PR·main 배포 검증과 산출물이 다르다.
 - docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면
   `docs-structure`에서 민감 인프라 식별자, metadata, PR transition을 경량 검증한다. `released`/terminal 기록,
   일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
