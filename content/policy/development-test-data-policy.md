@@ -163,11 +163,11 @@
 - cron lease가 하나라도 있으면 새 namespace claim과 generation `applying`·`resetting` 전환을 시작하지 않는다. 반대로 합성 데이터 변경 상태에서는 새 cron lease를 만들지 않는다.
 - Run Registry 소유권이 없는 합성 root, 읽을 수 없는 registry, 유효하지 않은 fence·active record·active scope 집합은 cron을 실패시킨다. 소유권을 추측하거나 `ALL_TARGETS`로 fallback하지 않는다.
 - 운영 cron은 개발 Run Registry와 `DEV_CRON_*` 설정을 사용하지 않고 기존 `ALL_TARGETS` 동작을 유지한다. 운영 process는 개발 cron·feeder 설정이 감지되면 시작 단계에서 실패한다.
-- 공유 개발계 apply 전에 13개 `/admin/cron/*` handler의 target fence, maintenance `SKIP`, lease 상호 배제가 자동 검증되는지 확인한다.
+- 공유 개발계 apply 전에 14개 `/admin/cron/*` handler의 target fence, maintenance `SKIP`, lease 상호 배제가 자동 검증되는지 확인한다.
 - run registry의 global fence index는 `cleaned` finalization 대기를 제외한 active namespace 소유권을 유지한다. `planning`, `applying`, `resetting`과 아직 fenced 상태인 `cleaned` finalization 대기는 handler 전에 maintenance `SKIP`하고 안정 상태는 소유권으로 합성 target을 제외한다.
 - cron route는 같은 registry mutex 안에서 active 상태와 같은 job lease를 확인한 뒤 job별 lease를 생성하고, handler가 반환한 비동기 작업이 끝난 뒤에만 lease를 해제한다. 같은 job의 active lease가 있으면 중복 실행하지 않는다.
 - feeder의 apply claim과 upgrade generation 시작, `applying`·`resetting` 상태 전환은 같은 registry mutex 안에서 active cron lease가 0건임을 확인한다. cron lease가 하나라도 있거나 lease·mutex 상태를 읽지 못하면 DB write를 시작하지 않는다.
-- target fence는 router 공통 경계에 한 번 적용하고 13개 handler는 각 도메인 target을 명시적으로 필터링한다. route test는 공통 경계보다 먼저 등록된 handler가 없고 모든 handler에 target 제외 경계가 있음을 검증한다.
+- target fence는 router 공통 경계에 한 번 적용하고 14개 handler는 각 도메인 target을 명시적으로 필터링한다. route test는 공통 경계보다 먼저 등록된 handler가 없고 모든 handler에 target 제외 경계가 있음을 검증한다.
 - 개발 환경 cron route에서 registry 조회가 실패해도 cron을 실행하지 않으며, production startup은 개발 데이터 registry나 cron fence 활성화 설정이 있으면 실패해야 한다.
 - cron 자체 동작을 검증하는 시나리오는 개인 로컬·일회성 CI DB에서만 실행하며 공유 개발계 `cms-all`과 동시에 실행하지 않는다.
 - 허용된 외부 write는 환경 검증 뒤 사용하는 개발 전용 media와 private run registry뿐이며, 둘 다 운영 bucket·prefix와 분리한다.
@@ -283,7 +283,7 @@
     - source/candidate generation과 run ID, asset key, owner, 유지 종료일, registry version·journal·상태
     - dry-run과 apply의 생성·갱신·유지 건수
     - branch·route·API·브라우저 coverage 결과와 미분류·`live-only`·`non-data` 목록
-    - maintenance `SKIP`, 13개 target 제외와 유지 기간 외부 호출 0건 검증 결과
+    - maintenance `SKIP`, 14개 target 제외와 유지 기간 외부 호출 0건 검증 결과
     - reset 실행 여부와 orphan·미디어 잔존 건수
 - 공유 개발계 데이터는 owner와 유지 종료일을 기록한다.
 - 실제 개인정보, 접속정보, 비밀번호, token, 영수증은 증빙에 포함하지 않는다.
