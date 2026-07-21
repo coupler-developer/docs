@@ -24,7 +24,9 @@ import {
   releaseMetadataRequiredTopLevelKeys,
   releaseMetadataTopLevelKeys,
   semverTagPattern,
+  serviceRepoNames,
   sha256Pattern,
+  stableSemverPattern,
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
@@ -581,6 +583,7 @@ function validateApiContractCutoverMetadata(metadata, context, errors) {
   }
 
   validateApiContractCutoverKeys(cutover, context, errors);
+  validateApiContractSourceClosure(metadata, context, errors);
 
   if (!isNonEmptyString(cutover.status)) {
     errors.push(`${context}: release-metadata apiContractCutover.status is required`);
@@ -607,17 +610,27 @@ function validateApiContractCutoverMetadata(metadata, context, errors) {
 }
 
 function validateApiContractCutoverKeys(cutover, context, errors) {
-  validateExactObjectKeys({
+  const requiredKeys = [
+    "status",
+    "comparisonRefs",
+    "contractArtifactSync",
+    "nPlusOneDeployment",
+    "legacyTrafficBlock",
+    "adminVerification",
+    "rollback",
+  ];
+
+  validateAllowedObjectKeys({
     value: cutover,
-    allowedKeys: [
-      "status",
-      "comparisonRefs",
-      "contractArtifactSync",
-      "nPlusOneDeployment",
-      "legacyTrafficBlock",
-      "adminVerification",
-      "rollback",
-    ],
+    allowedKeys: [...requiredKeys, "sourceClosure"],
+    context,
+    fieldPath: "apiContractCutover",
+    errors,
+  });
+
+  validateRequiredObjectKeys({
+    value: cutover,
+    requiredKeys,
     context,
     fieldPath: "apiContractCutover",
     errors,
@@ -665,6 +678,127 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     fieldPath: "apiContractCutover.rollback",
     errors,
   });
+}
+
+function validateApiContractSourceClosure(metadata, context, errors) {
+  const cutover = metadata.apiContractCutover;
+  const sourceClosure = cutover?.sourceClosure;
+
+  if (sourceClosure == null) {
+    if (cutover?.status === "pending" || cutover?.status === "ready") {
+      errors.push(
+        `${context}: active release-metadata apiContractCutover.sourceClosure is required`,
+      );
+    }
+    return;
+  }
+
+  if (typeof sourceClosure !== "object" || Array.isArray(sourceClosure)) {
+    errors.push(
+      `${context}: release-metadata apiContractCutover.sourceClosure must be a JSON object`,
+    );
+    return;
+  }
+
+  validateExactObjectKeys({
+    value: sourceClosure,
+    allowedKeys: ["postMergeContract", "dependsOn"],
+    context,
+    fieldPath: "apiContractCutover.sourceClosure",
+    errors,
+  });
+
+  if (
+    typeof sourceClosure.postMergeContract !== "string" ||
+    !stableSemverPattern.test(sourceClosure.postMergeContract)
+  ) {
+    errors.push(
+      `${context}: release-metadata apiContractCutover.sourceClosure.postMergeContract must be stable MAJOR.MINOR.PATCH`,
+    );
+  }
+
+  validateApiContractDependencies(metadata, context, errors);
+
+  if (cutover.status === "released") {
+    const publishedPackage = metadata
+      ?.scopeResults
+      ?.["contracts-package"]
+      ?.evidence
+      ?.publishedPackage;
+    const expectedPackage =
+      `@coupler-developer/coupler-api-contracts@${sourceClosure.postMergeContract}`;
+
+    if (
+      typeof publishedPackage === "string" &&
+      !publishedPackage.includes(expectedPackage)
+    ) {
+      errors.push(
+        `${context}: released sourceClosure.postMergeContract must match ${expectedPackage} in contracts-package evidence`,
+      );
+    }
+  }
+}
+
+function validateApiContractDependencies(metadata, context, errors) {
+  const dependencies = metadata.apiContractCutover?.sourceClosure?.dependsOn;
+  const fieldPath = "apiContractCutover.sourceClosure.dependsOn";
+
+  if (!Array.isArray(dependencies)) {
+    errors.push(`${context}: release-metadata ${fieldPath} must be an array`);
+    return;
+  }
+
+  const dependencyRepos = new Set();
+  const metadataRepoRefs = getMetadataRepoRefNames(metadata);
+
+  for (const [index, dependency] of dependencies.entries()) {
+    const dependencyPath = `${fieldPath}.${index}`;
+    if (!dependency || typeof dependency !== "object" || Array.isArray(dependency)) {
+      errors.push(`${context}: release-metadata ${dependencyPath} must be a JSON object`);
+      continue;
+    }
+
+    validateExactObjectKeys({
+      value: dependency,
+      allowedKeys: ["repo", "pullRequest"],
+      context,
+      fieldPath: dependencyPath,
+      errors,
+    });
+
+    if (!serviceRepoNames.includes(dependency.repo)) {
+      errors.push(
+        `${context}: release-metadata ${dependencyPath}.repo must be a service repo`,
+      );
+    } else {
+      if (dependencyRepos.has(dependency.repo)) {
+        errors.push(
+          `${context}: release-metadata ${fieldPath} has duplicate repo: ${dependency.repo}`,
+        );
+      }
+      dependencyRepos.add(dependency.repo);
+
+      if (!metadataRepoRefs.has(dependency.repo)) {
+        errors.push(
+          `${context}: release-metadata ${dependencyPath}.repo must be included by releaseScopes or extraRepoRefs: ${dependency.repo}`,
+        );
+      }
+    }
+
+    if (!Number.isInteger(dependency.pullRequest) || dependency.pullRequest <= 0) {
+      errors.push(
+        `${context}: release-metadata ${dependencyPath}.pullRequest must be a positive integer`,
+      );
+    }
+  }
+
+  for (const repoName of serviceRepoNames) {
+    if (!dependencyRepos.has(repoName)) {
+      errors.push(
+        `${context}: release-metadata ${fieldPath} is missing service repo: ${repoName}`,
+      );
+    }
+  }
 }
 
 function validateNestedObjectKeys({
@@ -1407,6 +1541,20 @@ function validateAllowedObjectKeys({
   for (const key of Object.keys(value)) {
     if (!allowedKeySet.has(key)) {
       errors.push(`${context}: release-metadata ${fieldPath} has unknown key: ${key}`);
+    }
+  }
+}
+
+function validateRequiredObjectKeys({
+  value,
+  requiredKeys,
+  context,
+  fieldPath,
+  errors,
+}) {
+  for (const key of requiredKeys) {
+    if (!Object.hasOwn(value, key)) {
+      errors.push(`${context}: release-metadata ${fieldPath} is missing ${key}`);
     }
   }
 }

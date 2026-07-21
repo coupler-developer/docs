@@ -85,7 +85,8 @@
 - API 계약 판정 범위: `동시 배포 계약 묶음` / `운영 legacy cutover` / `N/A`
 - 동시 배포 계약 묶음: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면, 요청·응답 wire 계약 정렬 결과
 - 다중 레포 문서 최종 상태: 관련 PR 전체 병합 후 source main version·기능 상태, 선행 PR과 merge order,
-  브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과
+  브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과. API contract cutover이면
+  `sourceClosure.dependsOn`과 `postMergeContract`, 원격 merged 증빙, local release preflight 결과를 포함
 - 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store 출시 activation 강제 업데이트 또는 NextPush
   mandatory, 현재 코드 소비 경로 0건, 릴리즈 기록 적용/N/A 근거
 
@@ -139,6 +140,8 @@
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 다중 레포 최종 상태 문서가 관련 PR 전체 병합 후에도 사실이고, branch-local version·`main 병합 대기`를
   `as-is` 문서나 기술부채의 최종 상태로 남기지 않았으며 선행 PR과 merge order가 기록됐는지 확인
+- [ ] API contract cutover 릴리스 기록이면 API/Admin/Mobile PR이 `sourceClosure.dependsOn`에 한 번씩 있고
+  `postMergeContract`가 stable exact version이며, 원격 merged 상태와 source main preflight가 일치하는지 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리즈 기록·자동화 변경이면 [배포/릴리즈 프로세스](release-process.md)의 적용 절과 체크리스트,
   공통 release schema/derived model, 전환 검증 결과를 확인

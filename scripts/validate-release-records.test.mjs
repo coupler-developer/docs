@@ -46,6 +46,10 @@ describe("validate release records metadata sync", () => {
     );
     assert.doesNotMatch(template, /^### API contract cutover Gate$/m);
     assert.match(cutoverTemplate, /^### API contract cutover Gate$/m);
+    assert.match(cutoverTemplate, /"sourceClosure": \{/);
+    assert.match(cutoverTemplate, /"postMergeContract": "X\.Y\.Z"/);
+    assert.match(cutoverTemplate, /"repo": "coupler-admin-web", "pullRequest": 0/);
+    assert.match(cutoverTemplate, /"repo": "coupler-mobile-app", "pullRequest": 0/);
   });
 
   it("fails when API cutover markdown exists without metadata cutover object", () => {
@@ -310,7 +314,9 @@ function releaseRecordSource({
   const effectiveReleaseScopes = metadataReleaseScopes
     ?? (apiContractCutover ? ["docs", "contracts-package"] : ["docs"]);
   const effectiveScopeTargetLine = scopeTargetLine
-    ?? (effectiveReleaseScopes.includes("contracts-package")
+    ?? (apiContractCutover?.sourceClosure
+      ? "`docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`"
+      : effectiveReleaseScopes.includes("contracts-package")
       ? "`docs`, `coupler-api`"
       : "`docs`");
   const metadata = {
@@ -318,7 +324,9 @@ function releaseRecordSource({
     version: "v9.9.0",
     status: releaseStatus,
     releaseScopes: effectiveReleaseScopes,
-    extraRepoRefs: metadataExtraRepoRefs,
+    extraRepoRefs: apiContractCutover?.sourceClosure && metadataExtraRepoRefs.length === 0
+      ? ["coupler-api", "coupler-admin-web", "coupler-mobile-app"]
+      : metadataExtraRepoRefs,
     versionMapping: {
       docs: {
         tag: releaseStatus === "released" ? "v9.9.0" : null,
@@ -441,6 +449,7 @@ function releaseRecordSource({
 function cutoverMetadata(status) {
   return {
     status,
+    sourceClosure: sourceClosureMetadata(),
     comparisonRefs: {
       "coupler-api": "pending",
       "coupler-mobile-app": "pending",
@@ -476,6 +485,7 @@ function cutoverMetadata(status) {
 function releasedCutoverMetadata() {
   return {
     status: "released",
+    sourceClosure: sourceClosureMetadata(),
     comparisonRefs: {
       "coupler-api": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "coupler-mobile-app": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -512,6 +522,17 @@ function rollbackCutoverMetadata() {
   return {
     ...releasedCutoverMetadata(),
     status: "rollback",
+  };
+}
+
+function sourceClosureMetadata() {
+  return {
+    postMergeContract: "9.9.0",
+    dependsOn: [
+      { repo: "coupler-api", pullRequest: 101 },
+      { repo: "coupler-admin-web", pullRequest: 102 },
+      { repo: "coupler-mobile-app", pullRequest: 103 },
+    ],
   };
 }
 

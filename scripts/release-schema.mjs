@@ -330,6 +330,7 @@ export const apiContractCutoverStatuses = [
 export const allowedApiContractCutoverStatuses = new Set(apiContractCutoverStatuses);
 
 export const semverTagPattern = /^v\d+\.\d+\.\d+$/;
+export const stableSemverPattern = /^\d+\.\d+\.\d+$/;
 export const commitShaPattern = /^[0-9a-f]{7,40}$/i;
 export const sha256Pattern = /^[0-9a-f]{64}$/i;
 export const contractsPackagePattern =
@@ -529,6 +530,7 @@ export const pendingTransitionFrozenPaths = [
   ["apiContractCutover", "comparisonRefs", "coupler-api"],
   ["apiContractCutover", "comparisonRefs", "coupler-admin-web"],
   ["apiContractCutover", "comparisonRefs", "coupler-mobile-app"],
+  ["apiContractCutover", "sourceClosure"],
 ];
 
 export function isEmptyRefValue(value) {

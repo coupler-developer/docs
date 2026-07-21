@@ -169,6 +169,8 @@
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리즈 preflight·pending transition·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
+- API contract cutover local release preflight: `sourceClosure.dependsOn`에 포함된 API/Admin/Mobile의 최신
+  `origin/main` package source/dependency version을 `sourceClosure.postMergeContract`와 exact 비교
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
