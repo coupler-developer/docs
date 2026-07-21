@@ -119,8 +119,7 @@
 - 릴리즈 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
 - SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리즈 자동화 변경과 함께 기록한다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `release-metadata.extraRepoRefs`에 canonical repo name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
-- API contract cutover 포함 여부는 `release-metadata.apiContractCutover`가 `null`인지 object인지로만 판정한다. API 계약 변경이 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않으며, `검증 근거`에 `N/A - <사유>`만 남긴다. API 계약 변경이 있으면 `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, `sourceClosure.postMergeContract`와 API/Admin/Mobile 선행 PR을 `sourceClosure.dependsOn`에 구조화한다. 세 dependency repo는 `releaseScopes` 또는 `extraRepoRefs` 검증 범위에 포함하고 pending 이후 source closure target을 바꾸지 않는다. Cutover Gate의 published package 줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
-- 릴리즈 metadata 검증은 active cutover의 source closure 누락, repo 중복·누락, 잘못된 PR 번호, prerelease version, pending 이후 target 변경을 차단한다. local release preflight는 각 dependency repo의 최신 `origin/main`에서 API package source와 Admin/Mobile exact dependency가 `postMergeContract`와 같은지 확인한다. 선행 PR의 실제 `merged` 상태와 해당 PR이 source main에 반영됐는지는 GitHub 원격 증빙으로 최종 리뷰하고, 비공개 형제 repo를 읽을 권한이 없는 docs CI가 이를 통과로 추정하지 않는다.
+- API contract cutover 포함 여부는 `release-metadata.apiContractCutover`가 `null`인지 object인지로만 판정한다. API 계약 변경이 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않으며, `검증 근거`에 `N/A - <사유>`만 남긴다. API 계약 변경이 있으면 `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package 줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
 - `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
 - 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`pending`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck와 필요 시 corrective reissue로 막는다.
@@ -203,7 +202,6 @@
 - [ ] 포함·제외 scope와 `N/A` 근거가 release metadata와 사람이 읽는 mirror에서 일치하는가?
 - [ ] 전체 상태가 scope 결과에서 파생된 상태와 일치하고, 허용되지 않은 역전이나 기준점 변경이 없는가?
 - [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
-- [ ] API contract cutover이면 `sourceClosure`에 API/Admin/Mobile 선행 PR과 post-merge exact version이 고정됐고, 선행 PR merged 확인 뒤 local preflight의 세 source main version 검증을 통과했는가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [배포 태그 정책](release-tag-policy.md), Gate 순서는 릴리즈 자동화 파이프라인, 명령과
       rollback은 운영 배포 명령어 런북을 단일 기준으로 사용하는가?

@@ -126,7 +126,7 @@
 - `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
 - `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
 - `버전 매핑` 섹션은 사람이 읽는 mirror다. 자동화 기준은 `release-metadata.versionMapping`이며, 둘이 서로 다른 기준점을 가리키지 않게 같이 갱신한다.
-- API contract cutover가 포함되면 `release-metadata.apiContractCutover`를 cutover 상태/비교 기준/운영 cutover 증적의 기계 판정 SoT로 채우고, `sourceClosure.postMergeContract`와 API/Admin/Mobile의 `dependsOn` PR을 구조화한다. 각 dependency repo는 `releaseScopes` 또는 `extraRepoRefs` 검증 범위에 포함하며 pending 이후 `sourceClosure`를 바꾸지 않는다. contracts package publish 증적은 `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만 `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을 `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
+- API contract cutover가 포함되면 `release-metadata.apiContractCutover`를 cutover 상태/비교 기준/운영 cutover 증적의 기계 판정 SoT로 채우고, contracts package publish 증적은 `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만 `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을 `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
 - API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다. `검증 근거`에는 `N/A - API 계약 변경 없음`처럼 사유만 남긴다.
 - 이 기본 템플릿은 non-cutover 기본형이다. API contract cutover가 포함된 릴리스에서만 `content/templates/api-contract-cutover-gate-template.md`의 cutover Gate 항목을 별도로 삽입한다.
 - 검증 근거에는 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 남긴다.
