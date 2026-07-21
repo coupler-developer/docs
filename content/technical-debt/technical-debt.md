@@ -172,7 +172,7 @@
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
 - 조치: 세 source main의 latest stable exact version을 merge gate로 확인 → 대상 환경 migration ledger·schema 확인 →
   API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
-- 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
+- 완료: dev/prod Gate, 세 레포 exact version, 신규 발송 FCM `77, 78, 79, 81, 82, 83, 84, 85`의 runtime·저장 smoke, 타입 80의 Mobile 호환 재진입, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
@@ -183,9 +183,16 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: API catalog v9과 N:N scenario v6 계약을 공유 개발계 `qa-cms-20260716` generation 3·catalog v9 `cms-all`에 적용했고 verifier, 단일 active namespace, transition·cron lease 0건, dispatcher와 API smoke를 통과했다([API #160](https://github.com/coupler-developer/coupler-api/pull/160)). 실제 DB 서버 식별값은 비어 있지 않은지만 확인해 allowlist와 결합되지 않고, Admin route coverage는 audience·권한별 session이 없으며 browser smoke가 표준 CI Gate에 포함되지 않는다. 권한별 인증 화면, 유지 기간 cron·외부 호출 0건 관측과 종료 시 최종 reset 증빙도 남아 있다.
+- 현상: API catalog v10과 N:N scenario v7 계약은 독립 lifecycle·채팅 이력 경계를 포함하지만 공유 개발계
+  `qa-cms-20260716`은 generation 3·catalog v9 `cms-all`이다. 기존 generation은 verifier, 단일 active namespace,
+  transition·cron lease 0건, dispatcher와 API smoke를 통과했다([API #160](https://github.com/coupler-developer/coupler-api/pull/160)).
+  실제 DB 서버 식별값은 비어 있지 않은지만 확인해 allowlist와 결합되지 않고, Admin route coverage는 audience·
+  권한별 session이 없으며 browser smoke가 표준 CI Gate에 포함되지 않는다. 다음 원자 generation cutover와 권한별
+  인증 화면, 유지 기간 cron·외부 호출 0건 관측, 종료 시 최종 reset 증빙이 남아 있다.
 - 영향: 이후 공유 개발계 write가 예상하지 않은 실제 DB 서버를 코드에서 차단하지 못하고, 권한별 화면·필터와 유지 기간 동작, 종료 시 orphan·asset 0건을 실제 운영 증빙으로 확정하지 못했다.
-- 조치: 실제 DB 서버 식별값 allowlist 결합 → route audience·권한별 session과 browser smoke 표준 CI Gate 반영 → 유지 기간 cron·외부 호출 관측 → 유지 종료 시 reset·orphan·asset 검증을 수행한다.
+- 조치: catalog v10 전체 `cms-all` 다음 generation 원자 cutover → 실제 DB 서버 식별값 allowlist 결합 → route
+  audience·권한별 session과 browser smoke 표준 CI Gate 반영 → 유지 기간 cron·외부 호출 관측 → 유지 종료 시
+  reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate, 전체 catalog generation 장애 복구·rollback, 공유 개발계 current generation, 권한별 route 검증과 최종 reset 증빙 통과.
 
 ## 25) Admin compiled theme 제거 미완료 `P2` `L`

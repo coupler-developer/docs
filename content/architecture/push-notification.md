@@ -9,7 +9,7 @@
 
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 이 문서의 타입 섹션은 대표 타입과 범주를 설명하는 요약본이며, 전체 타입 인벤토리를 1:1로 열거하지 않는다.
-기존 알림 흐름과 그룹미팅 77~83의 API 타입은 현행이다. 별도 Mobile 소비자 cutover와 운영 증빙은
+기존 알림 흐름과 그룹미팅 77~85의 API 타입은 현행이다. 별도 Mobile 소비자 cutover와 운영 증빙은
 [기술 부채 정리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
 
 ## 논리 데이터 모델
@@ -41,7 +41,7 @@ flowchart LR
 꼭 지킬 규칙:
 
 - 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다
-- 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다
+- 알림에 인증정보를 포함하지 않고, 대화 원문은 채팅 미리보기 허용 타입 37·82의 표시 문구에만 포함한다
 - 서버는 알림 종류별 설정을 단일 기준으로 판정한다
 
 <!-- markdownlint-disable MD046 -->
@@ -53,14 +53,14 @@ flowchart LR
     | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
     | --- | --- | --- | --- | --- | --- | --- | --- |
     | `notification.preference` | 알림 설정 | child | entity | state | 회원의 채팅·매칭·행사 알림 수신 선택 | 내부 | 회원 계정과 함께 유지하고 변경 시 현재값 갱신 |
-    | `notification.delivery` | 알림 발송 이력 | child | entity | history | 수신자, 알림 종류, 표시 문구와 이동 대상 | 민감 | 알림함·운영 확인 기간 동안 보존 후 정리 |
+    | `notification.delivery` | 알림 발송 이력 | child | entity | history | 수신자, 알림 종류, 표시 문구와 이동 대상 | 민감 | 활성 회원의 알림함에 보존하고 탈퇴·차단 회원은 상태 변경 30일 뒤 개인정보 자동 정리 때 삭제 |
 
     ### 관계
 
     | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
     | --- | --- | --- | --- | --- | --- |
     | `member.member` | `notification-preference` | owns | `notification.preference` | 1:1 | 회원 계정 삭제 시 설정도 함께 정리 |
-    | `member.member` | `notification-deliveries` | owns | `notification.delivery` | 1:N | 회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능 |
+    | `member.member` | `notification-deliveries` | owns | `notification.delivery` | 1:N | 회원 개인정보 자동 정리 시 수신자 연결과 문구를 함께 삭제 |
     | `notification.delivery` | `match-target` | references | `matching.match` | N:1 | 이동 대상이 매칭이면 해당 문맥을 참조 |
     | `notification.delivery` | `meeting-target` | references | `legacy-meeting.meeting` | N:1 | 이동 대상이 기존 미팅이면 해당 문맥을 참조 |
     | `notification.delivery` | `group-meeting-target` | references | `group-meeting.event` | N:1 | 이동 대상이 그룹미팅이면 해당 행사 문맥을 참조 |
@@ -71,7 +71,7 @@ flowchart LR
     | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
     | --- | --- | --- | --- |
     | `NOTIFICATION-INV-001` | `notification.delivery` | 발송과 저장 여부는 같은 회원 설정 판정 결과를 사용한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
-    | `NOTIFICATION-INV-002` | `notification.delivery` | 알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+    | `NOTIFICATION-INV-002` | `notification.delivery` | 알림에 인증정보를 포함하지 않고, 대화 원문은 채팅 미리보기 허용 타입 37·82의 표시 문구에만 포함한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
     | `NOTIFICATION-INV-003` | `notification.preference` | 서버는 알림 종류별 설정을 단일 기준으로 판정한다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
@@ -149,11 +149,11 @@ flowchart LR
 
 - 위 표는 전체 타입 목록이 아니라 대표 타입 예시와 범주 요약이다.
 
-### 그룹미팅 타입 (77-83)
+### 그룹미팅 타입 (77-85)
 
-아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile 연결 계약은 신청 상태
-알림 77~79를 행사 상세, 취소·새 메시지·후기 알림 81~83을 채팅 이력으로 연결한다. 확정 80은 클릭 시 서버의 최신
-`can_chat`을 확인해 개방됐으면 채팅, 아직 미개방이면 행사 상세로 연결한다. 소비자 cutover와 운영 전환 상태는
+아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile 연결 계약은 신청·승인·
+확정 취소·행사 취소 77~79·81과 신청 완료 84를 행사 상세, 새 메시지·후기·채팅 개방 82·83·85를 채팅 이력으로
+연결한다. 확정 80은 과거 알림 재진입 호환용으로 소비하되 신규 확정에서는 발송하지 않는다. 소비자 cutover와 운영 전환 상태는
 [기술 부채 정리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서
 추적한다. 모든 `target`은 그룹미팅 행사 ID다.
 
@@ -162,10 +162,18 @@ flowchart LR
 | 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | 행사 상세 |
 | 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | 행사 상세 |
 | 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | 행사 상세 |
-| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | 개방 시 채팅, 미개방 시 행사 상세 |
-| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | 채팅 이력 |
+| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 과거 모임 확정 알림 호환 | 개방 시 채팅, 미개방 시 행사 상세 |
+| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | 행사 상세 |
 | 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | 채팅 이력 |
 | 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | 채팅 이력 |
+| 84 | `GROUP_MEETING_APPLICATION_SUBMITTED` | 신청자 참여 신청 완료 | 행사 상세 |
+| 85 | `GROUP_MEETING_CHAT_OPENED` | 행사 전날 KST 13시 채팅 접근 개방 | 채팅 이력 |
+
+그룹미팅 알림 본문은 실제 행사 제목을 포함한다. 82는 실제 메시지 내용을 함께 포함하고 발신자를 제외한 현재
+채팅 구성원에게 발송한다. 85는 호스트와 현재 APPROVED 참가자를 대상으로 같은 개방 경계에 한 번만 발송하며,
+행사 일시가 변경되어 경계가 달라지면 새 경계를 기준으로 다시 계산한다. 수신자 준비나 내구성 있는 알림 저장이 실패하면
+개방 경계 marker를 복구해 다음 cron에서 재시도한다. 83은 행사 시작 +24시간 뒤 현재
+APPROVED이면서 후기가 없는 참가자에게만 발송하므로 LEFT·CANCELED는 제외한다.
 
 ## 발송 흐름
 
@@ -180,10 +188,16 @@ sequenceDiagram
     C->>Common: sendFCMPush(user_data, type, data)
     Common->>Common: 알림 설정 체크 (alarm_chat, alarm_match, alarm_event)
     alt 알림 허용
-        Common->>FCM: send(token, type, title, content, data)
-        FCM->>Firebase: firebase.messaging().send()
-        Firebase-->>FCM: 전송 결과
-        Common->>DB: insertBatch(alarm_data)
+        opt token 있음 AND sendPush AND not OFFLINE_MODE
+            Common->>FCM: send(token, type, title, content, data)
+            FCM->>Firebase: firebase.messaging().send()
+            Firebase-->>FCM: 전송 결과
+        end
+        opt 표시 문구 있음
+            Common->>DB: insertBatch(alarm_data)
+        end
+    else 알림 설정 거부 또는 숨김 타입
+        Common-->>C: FCM·t_alarm 모두 생략
     end
 ```
 
@@ -223,8 +237,11 @@ sequenceDiagram
 
 ## 알림 저장
 
-발송된 사용자 알림은 `notification.delivery`로 저장한다. 수신자, 알림 종류, 사용자에게 표시한 문구와 이동
-대상만 보존하며, FCM 토큰이나 원천 도메인의 민감 본문은 알림 이력에 복제하지 않는다.
+사용자 설정과 저장 조건을 통과한 알림은 FCM 토큰 유무·외부 전송 여부와 독립적으로 `notification.delivery`에
+저장한다. 수신자, 알림 종류, 사용자에게 표시한 문구와 이동 대상만 보존하며, FCM 토큰이나 원천 도메인의 민감
+본문을 별도로 복제하지 않는다. 채팅 미리보기 허용 타입은 기존 2:2 채팅 37과 N:N 그룹미팅 채팅 82이며, 두
+타입만 실제로 표시한 메시지 문구를 알림 이력에 함께 보존한다. 보관·삭제 기준은
+[데이터 거버넌스 정책](../policy/data-governance-policy.md)을 따른다.
 
 운영 집계 호환 규칙:
 

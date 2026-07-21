@@ -19,7 +19,7 @@
 | match2Day                 | 30분 간격       | D-2일 매칭 채팅 활성화        |
 | matchToday                | 매일 10시       | D-day 매칭 알림               |
 | checkReview               | 30분 간격       | 만남 3시간 후 후기 상태 전환  |
-| finishGroupMeetings       | 30분 간격       | N:N 시작 24시간 후 종료 영속화 |
+| finishGroupMeetings       | 30분 간격       | N:N D-1 13시 개방 알림·시작 24시간 후 종료 영속화 |
 | checkMeetMember           | 30분 간격       | 모임 30분 전 인원 미달 체크   |
 | checkMatch                | 1분 간격        | 만료 매칭 자동 취소           |
 | checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
@@ -65,11 +65,19 @@ match_expire_date: 만남일 + 3일 23:59:59
 | 예정시간 2시간 경과 | chat_open → FINISH, 후기 알림 |
 | 30분 전 인원 미달   | status → FINISH, 삭제 알림    |
 
-## N:N 그룹미팅 자동 종료
+## N:N 그룹미팅 채팅 개방 알림과 자동 종료
+
+- 채팅 접근 권한 자체는 cron이 아니라 최신 `event_at`으로 계산한다. 최초 확정으로 채팅이 초기화된 활성 행사는
+  달력상 전날 KST 13시에 즉시 접근 가능하다.
+- `finishGroupMeetings`는 같은 실행에서 아직 처리하지 않은 현재 개방 경계를 최대 100건씩 따라잡아 호스트와
+  현재 APPROVED 참가자에게 채팅 개방 알림을 보낸다. 행사 일시 변경으로 경계가 달라지면 새 경계를 기준으로
+  다시 한 번 처리하며 같은 경계는 중복 처리하지 않는다.
+- 개방 경계를 먼저 claim해 중복 cron 발송을 막되, 수신자 준비 또는 `t_alarm` 저장이 실패하면 이전 marker로
+  복구해 다음 cron이 재시도한다. 내구성 있는 알림 저장이 완료된 경우에만 현재 경계 marker를 유지한다.
 
 - 업무 판정의 기준은 KST `event_at + 24시간`이다. 정확히 경계 시각부터 API가 유효 상태를 FINISHED로 계산하므로
   후기 작성, 미작성 후기 신청 제한, 채팅 쓰기 차단과 Admin 변경 차단은 cron 지연·중단의 영향을 받지 않는다.
-- `finishGroupMeetings`는 저장 상태가 CONFIRMED인 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
+- `finishGroupMeetings`는 채팅이 초기화된 저장 상태 OPEN·CLOSED·CONFIRMED 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
   감사 로그·종료 시스템 메시지·후기 가능 알림을 따라잡는 sweeper다. 이미 후기를 쓴 회원에게는 뒤늦은 후기
   알림을 보내지 않는다.
 - 개발계 dispatcher는 매분 실행하지만 이 job은 매시 00분·30분에 선택되므로 정상 상태의 영속화와 종료 시스템
