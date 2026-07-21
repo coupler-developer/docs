@@ -55,7 +55,7 @@
 | 1:1 매칭 타입 12~30, 70, 71 | `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `MATCH_NEW_CHAT(22)` | `alarm_chat = NO` 또는 `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `CONCIERGE_CHAT(67)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
-| 그룹미팅 77~81, 83 | `alarm_event = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| 그룹미팅 77~81, 83~85 | `alarm_event = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `GROUP_MEETING_CHAT_MESSAGE(82)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `MATCH_VOICE_CALL(53)` | 항상 | FCM 전송과 `t_alarm` 저장을 모두 건너뛰고 알림 목록에서 제외 |
 | FCM 토큰 없음 | 다른 발송·저장 조건은 충족 | FCM만 건너뛰고 `t_alarm`은 저장 |
@@ -117,7 +117,7 @@
 
 - [ ] 타입 ID 충돌/재사용 없이 문서와 코드가 동기화됐는가?
 - [ ] `alarm_chat`/`alarm_match`/`alarm_event`, 토큰 부재, 환경 조건 스킵이 일관되게 동작하는가?
-- [ ] 1:1 매칭 12~30·70·71과 그룹미팅 77~83이 폐쇄형 설정 매핑과 일치하는가?
+- [ ] 1:1 매칭 12~30·70·71과 그룹미팅 77~85가 폐쇄형 설정 매핑과 일치하는가?
 - [ ] `CONCIERGE_CHAT(67)`은 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고, WebSocket·FCM 상태
       갱신을 중복 적용하지 않는가?
 - [ ] 토큰 부재·`sendPush = false`·`OFFLINE_MODE`는 FCM만 생략하고, `MATCH_VOICE_CALL(53)`은 FCM과

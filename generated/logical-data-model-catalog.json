@@ -998,7 +998,7 @@
       "recordRole": "history",
       "responsibility": "수신자, 알림 종류, 표시 문구와 이동 대상",
       "classification": "민감",
-      "lifecycle": "알림함·운영 확인 기간 동안 보존 후 정리"
+      "lifecycle": "활성 회원의 알림함에 보존하고 탈퇴·차단 회원은 상태 변경 30일 뒤 개인정보 자동 정리 때 삭제"
     },
     {
       "id": "notification.preference",
@@ -1773,7 +1773,7 @@
       "kind": "owns",
       "targetEntityId": "notification.delivery",
       "cardinality": "1:N",
-      "lifecycleRule": "회원 개인정보 정리 시 수신자 연결과 문구를 정리 가능",
+      "lifecycleRule": "회원 개인정보 자동 정리 시 수신자 연결과 문구를 함께 삭제",
       "ownerDocument": "content/architecture/push-notification.md"
     },
     {
@@ -2202,14 +2202,14 @@
       "id": "GROUP-MEETING-INV-004",
       "relatedEntityId": "group-meeting.participant",
       "statement": "호스트 또는 승인 신청 중 정확히 하나의 자격으로 참여한다",
-      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
     {
       "id": "GROUP-MEETING-INV-005",
       "relatedEntityId": "group-meeting.review",
-      "statement": "종료 행사에 유효하게 참여한 회원만 최초 후기와 보상을 받을 수 있다",
-      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "statement": "종료 행사에서 현재 APPROVED인 회원만 최초 후기를 작성할 수 있고 후기 작성은 신청 상태를 바꾸지 않는다",
+      "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
     {
@@ -2223,20 +2223,41 @@
       "id": "GROUP-MEETING-INV-007",
       "relatedEntityId": "group-meeting.host",
       "statement": "매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다",
-      "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
+      "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
     {
       "id": "GROUP-MEETING-INV-008",
       "relatedEntityId": "group-meeting.event",
-      "statement": "Admin은 DRAFT·OPEN에서 행사 정보 수정 API의 모든 필드를 변경할 수 있다. CLOSED·CONFIRMED에서는 참가비·신청 마감·사진 공개를 제외한 필드만 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다",
+      "statement": "Admin은 DRAFT·OPEN에서 행사 정보 수정 API의 모든 필드를 변경할 수 있다. CLOSED·CONFIRMED에서는 참가비·사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
     {
       "id": "GROUP-MEETING-INV-009",
       "relatedEntityId": "group-meeting.application",
-      "statement": "종료한 N:N 행사의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다",
+      "statement": "종료한 N:N 행사에서 현재 APPROVED인 신청의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-010",
+      "relatedEntityId": "group-meeting.event",
+      "statement": "OPEN·CLOSED·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-011",
+      "relatedEntityId": "group-meeting.participant",
+      "statement": "채팅 초기화 뒤 승인된 참가자는 승인 안내 메시지부터 이력을 볼 수 있고 승인 전 메시지는 볼 수 없다",
+      "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-012",
+      "relatedEntityId": "group-meeting.review",
+      "statement": "최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
@@ -2439,7 +2460,7 @@
     {
       "id": "NOTIFICATION-INV-002",
       "relatedEntityId": "notification.delivery",
-      "statement": "알림 문구와 이동 대상에는 인증정보나 대화 원문을 포함하지 않는다",
+      "statement": "알림에 인증정보를 포함하지 않고, 대화 원문은 채팅 미리보기 허용 타입 37·82의 표시 문구에만 포함한다",
       "basis": "[데이터 거버넌스 정책](../policy/data-governance-policy.md)",
       "ownerDocument": "content/architecture/push-notification.md"
     },
