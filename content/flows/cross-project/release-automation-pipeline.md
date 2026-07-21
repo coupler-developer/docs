@@ -112,13 +112,16 @@
 3. 레포에서 미제공인 항목은 `N/A`로 표시하고 미적용 근거를 릴리즈 기록에 남긴다.
 4. 검증 실패가 있으면 배포 실행으로 넘어가지 않는다.
 
-### 5) Cross Repo Compatibility Gate
+### 5) Cross Repo Contract Gate
 
 1. API 계약 변경이 없으면 `N/A` 근거를 릴리즈 기록에 남긴다.
-2. API 계약 변경이 있으면 [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)에 따라 호환 배포와 cutover 배포를 분리한다.
+2. API 계약 변경이 있으면 [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)에 따라
+   단일 최종 계약과 Store 출시 activation 강제 업데이트 또는 NextPush mandatory 방식을 고정한다.
 3. 계약 package가 포함되면 [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의
    발행·소비 정렬 Gate와 증빙을 완료한다.
-4. 호환·cutover 결과를 해당 scope 증빙에 반영한 뒤 Deploy Evidence Gate로 전달한다.
+4. 호환 경로가 있으면 작업 요청자의 명시 승인 근거를 확인한다. 근거가 없으면 Gate를 실패시키고 최종 계약에서
+   해당 경로를 제거한다.
+5. 계약 정렬과 강제 업데이트/mandatory 계획을 해당 scope 증빙에 반영한 뒤 Deploy Evidence Gate로 전달한다.
 
 ### 6) Deploy Evidence Gate
 
@@ -128,8 +131,10 @@
    해당 scope result에 남긴다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
    기준점, smoke와 rollback 증빙을 남긴다.
-4. DB expand/backfill과 service cutover/contract가 함께 있는 통합 배포는 `DB expand/backfill -> API/Admin ->
-   Mobile -> 안정화·의존성 0건 확인 -> DB contract` 순서로 실행한다. 각 단계의 진입·종료 판정은
+4. DB expand/backfill과 service cutover/contract가 함께 있는 통합 배포는 `DB expand/backfill 준비 -> 사용자
+   요청 activation barrier -> API/Admin + Mobile 강제 업데이트/mandatory 적용 -> smoke -> barrier 해제 ->
+   의존성 0건 확인 -> DB contract` 순서로 실행한다. 각 단계의
+   진입·종료 판정은
    [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)과
    [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)를 사용한다.
 
@@ -177,7 +182,8 @@
 
 - preflight가 실패하면 실패 항목을 릴리즈 기록 또는 PR 체크리스트에 반영하고, 원인 수정 후 다시 실행한다.
 - 원격 fetch가 실패하거나 `origin/main`을 확인할 수 없으면 preflight가 실패하므로, 네트워크/remote 설정을 복구한 뒤 다시 실행한다.
-- Store 심사가 지연되면 호환 배포는 유지하고, Mobile 릴리즈 태그와 cutover는 보류한다.
+- Store 심사가 지연되면 제출 artifact와 최종 계약 snapshot만 유지하고 운영 `min_version`, API/Admin activation과
+  Mobile 릴리즈 태그를 보류한다. 사용자 명시 승인 없는 호환 배포를 추가하지 않는다.
 - NextPush-only 배포면 native version, Store upload, 모바일 릴리즈 태그를 자동 변경하지 않는다.
 - docs Release Note 정정만 필요한 경우 [배포/릴리즈 프로세스](../../policy/release-process.md)의 docs-only corrective reissue 조건을 따른다.
 
@@ -187,7 +193,11 @@
 - 이 문서에 배포 명령어를 중복 정의하지 않는다. 명령어는 [운영 배포 명령어 런북](production-deploy-command-runbook.md)을 따른다.
 - `release-preflight`는 원격 최신성 확인을 위한 git fetch와 tag 조회 외에 배포, DB write, Store 제출, NextPush 배포, tag push를 실행하지 않는다.
 - 서비스 레포 태그를 docs 태그로 대체하지 않는다.
-- API 계약 변경 cutover를 도메인 테스트 계정 통과, 내부테스트 통과, 앱 심사 승인만으로 진행하지 않는다.
+- API 계약 변경을 설치된 구버전 공존 가정만으로 호환/cutover 2단계로 분리하지 않는다.
+- Store 출시 activation 강제 업데이트 또는 NextPush mandatory 설정과 최종 계약 정렬 없이 API 계약 배포를 완료 처리하지
+  않는다.
+- API/Admin과 Mobile 교체가 모두 끝나기 전 혼합 계약 사용자 요청을 막는 activation barrier가 없으면 배포를
+  시작하지 않는다.
 
 ## 관련 문서
 

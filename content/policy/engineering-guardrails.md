@@ -57,7 +57,8 @@
 
 - 최종 상태의 API, Mobile, Admin 코드가 단일 계약(스키마/enum/상태전이)으로 동작하도록 고정한다.
 - 도메인/상태/에러/문서 역할 분류 체계가 단일 기준으로 설명되고, 코드와 문서에서 같은 축을 사용한다.
-- 최종 상태에는 레거시 호환/파생 fallback/이중 경로를 남기지 않고, 호환 배포 상태의 예외는 제거 조건이 보이는 경계로 통제한다.
+- 최종 상태에는 레거시 호환/파생 fallback/이중 경로를 남기지 않는다. 호환 배포는 작업 요청자의 명시적 승인이
+  있는 예외에만 허용하고 제거 조건이 보이는 경계로 통제한다.
 - DB/API/Admin/Mobile 책임 경계가 코드에서 즉시 드러나게 유지한다.
 - `No Findings` 상태가 확인될 때까지 점검-수정-재검증 루프를 반복한다.
 
@@ -65,8 +66,11 @@
 
 - 스펙 단일화: 요청/응답 필드명, enum, nullable 규칙은 한 가지 표현만 허용한다.
 - 책임 분리: 상세 기준은 본 문서 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 따른다.
-- 호환 장치 통제: 임시 호환 로직은 기본 금지한다. 운영 버전 공존 때문에 필요하면 `기술 이행 유형`의 호환 배포 기준으로 제한하고, 같은 의미의 구·신 로직을 교체할 때만 Shadow Cutover를 적용한다.
-- 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시 호환/중간 산출물 계층)을 둘 수 없다. 호환이 필요하면 별도 호환 배포 작업으로 분리한다.
+- 호환 장치 통제: 임시 호환 로직은 기본 금지한다. 설치된 구버전의 존재, 일반적인 안전 관행, 트래픽 가능성은
+  호환 필요성이나 승인 근거가 아니다. 작업 요청자가 공존 요구를 명시적으로 승인한 경우에만 `기술 이행 유형`의
+  호환 배포 기준으로 제한하고, 같은 의미의 구·신 로직을 교체할 때만 Shadow Cutover를 적용한다.
+- 최종 구조 고정: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover PR에는 transition 계층(임시
+  호환/중간 산출물 계층)을 둘 수 없다. 승인된 호환이 필요하면 별도 호환 배포 작업으로 분리한다.
 - 명세 가시성: 코드만 읽어도 의도가 파악되도록 네이밍/타입/에러 처리를 명시한다.
 
 ### 2-1) 기술 이행 유형
@@ -75,43 +79,57 @@
 
 | 기술 이행 유형 | 적용 조건 | 허용 구조 | Exit Gate |
 | --- | --- | --- | --- |
-| `최종 상태` | 운영 호환 경로가 필요하지 않은 일반 구현, 동시 배포 계약 묶음, 최종 구조 리뷰 | 단일 계약, transition 계층 0건 | 계약·책임·품질 게이트 통과 |
-| `호환 배포` | 기존 운영 버전과 다음 버전이 같은 API/Admin/RDS를 사용 | 경계가 명시된 adapter, versioned DTO, dual-write | 두 버전 시나리오 통과, 제거 조건·목표 시점·추적 이슈·검증 근거 확보 |
+| `최종 상태` | 일반 구현, Store 출시 activation 강제 업데이트 또는 NextPush mandatory를 포함한 동시 배포 계약 묶음, 최종 구조 리뷰 | 단일 계약, transition 계층 0건 | 계약·책임·품질 게이트와 배포 수단별 교체 설정 통과 |
+| `호환 배포` | 작업 요청자가 서로 다른 운영 계약의 공존을 명시적으로 승인 | 경계가 명시된 adapter, versioned DTO, dual-write | 승인 근거, 두 버전 시나리오, 제거 조건·목표 시점·추적 이슈·검증 근거 확보 |
 | `Shadow Cutover` | 같은 입력에서 같은 의미의 결과를 내야 하는 구·신 로직 교체 | 병렬 계산과 diff 계측 | 검증 범위가 명시된 불일치 0건 |
-| `운영 legacy cutover` | 배포된 구버전 경로, parser, dual-write, DB contract/drop을 실제 제거 | 제거 대상으로 고정된 호환 경로의 삭제만 허용 | 운영 배포·legacy 차단·rollback·적용 Gate 충족 |
+| `운영 legacy cutover` | 이미 배포된 승인 예외 경로, parser, dual-write, DB contract/drop을 실제 제거 | 제거 대상으로 고정된 호환 경로의 삭제만 허용 | 강제 업데이트/mandatory·현재 소비 0건·rollback·적용 Gate 충족 |
 | `DB migration stage` | DDL, backfill, read/write 기준 변경, contract/drop | DB Migration Gate의 Expand/Backfill/Cutover/Contract | 적용 `DBM-GATE-*` 통과와 비적용 Gate의 근거 있는 `N/A` |
 
 - `호환 배포`는 서로 다른 버전 계약을 의도적으로 함께 지원하므로 그 자체를 `Shadow Cutover`로 분류하지 않는다.
 - `Shadow Cutover`는 구·신 결과의 의미가 같아 diff 0건을 기대할 수 있을 때만 적용한다.
 - DB 변경은 [DB Migration Gate 정책](db-migration-gate-policy.md)의 stage를 먼저 고정한다. 신규 객체 추가인 Expand에 read/write 기준 전환용 `DBM-GATE-300`을 자동 적용하지 않는다.
 
-### 2-2) API 계약 변경과 Cutover 분리
+### 2-2) API 계약 변경과 강제 업데이트 배포
 
-모바일 운영 버전이 남아 있는 상태에서 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작, DB 읽기/쓰기 계약이 바뀌면 변경을 `호환 배포`와 `cutover 배포`로 분리한다.
+이 프로젝트의 기본 배포는 API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로 전환한다.
+Store 배포는 심사 승인과 출시 가능 상태를 확인한 뒤 사용자 요청이 차단된 activation window에서 새 build를
+`version_code`와 `min_version` 기준으로 고정해 이전 build에 `force_update=2`를 반환하고, NextPush 배포도
+같은 장벽 안에서 Android·iOS `Production` mandatory로 이전 bundle을 교체한다.
 배포 순서는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
 
-호환 배포 코드 기준:
+기본 코드 기준:
 
-- 기존 모바일 버전과 다음 모바일 버전이 같은 운영 API/Admin/RDS에서 모두 동작해야 한다.
-- 기존 계약을 삭제하거나 의미 변경하지 않는다. 필요한 DB 변경은 additive expand/backfill 범위로 제한한다.
-- 호환 경로는 API 경계의 명시적 adapter, versioned DTO, dual-write처럼 제거 범위가 보이는 구조로 둔다. 같은 의미의 로직 교체가 함께 있으면 해당 부분에만 Shadow Cutover를 추가 적용한다.
-- 호환 경로에는 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 남긴다.
-- 호환 경로를 추가/수정/사용하는 모든 PR은 현재 제거 조건 충족 여부를 재평가한다. 조건이 충족됐으면 호환 변경에 섞지 않고 별도 cutover PR로 제거한다.
-- 조용한 fallback, legacy 필드 coalesce, 출처 추측, 여러 레이어에 흩어진 임시 `if` 분기로 계약 차이를 숨기지 않는다.
+- Swagger/OpenAPI, contracts package source, API runtime, Admin·Mobile dependency/lockfile과 실제 요청 경로가
+  한 최종 계약을 가리켜야 한다.
+- 누락 필드 자동 생성, legacy 필드 coalesce, 구형 endpoint, GET 부수효과, version branch를 배포 안전장치로
+  추가하지 않는다. 기존에 같은 범위로 남아 있으면 최종 계약 변경에서 함께 제거한다.
+- DB rollback을 위한 nullable expand 보존은 허용하지만 public API의 누락 필드 수용 근거로 사용하지 않는다.
+- Store는 출시 activation의 강제 업데이트 설정, NextPush는 mandatory 이력과 양 플랫폼 적용을 교체 근거로 사용한다.
+  별도의 24시간 legacy traffic 관찰을 기본 Exit Gate로 요구하지 않는다.
+- API/Admin과 Mobile 교체가 모두 끝나기 전 혼합 계약 사용자 요청을 막는 activation barrier가 없으면 배포를
+  `BLOCKED`로 둔다. 이를 이유로 호환 fallback을 추가하지 않는다.
+- rollback은 API, Admin, Mobile과 강제 업데이트/mandatory 기준을 직전 검증 snapshot으로 함께 되돌린다.
 
-cutover 배포 코드 기준:
+호환 배포 예외 기준:
 
-- cutover PR은 호환 경로 제거, contract/drop, 단일 계약 수렴만 포함한다.
-- cutover PR은 다음 모바일 버전의 운영 배포/적용(Mobile Store 출시 또는 Mobile NextPush 적용)과 기존 버전 강제 업데이트 차단이 확인된 뒤 merge한다.
-- cutover 후에는 남은 호환 helper, dual-write, version branch가 0건이어야 한다.
-- cutover가 기존 보호 동작을 바꾸면 회귀 안전성 게이트의 `기준 변경`으로 분류하고 기준 문서와 검증 결과를 같은 변경 단위에 포함한다.
+- 작업 요청자가 서로 다른 계약의 공존을 명시적으로 승인한 경우에만 별도 호환 배포를 만들 수 있다.
+- 승인 기록에는 공존 대상, 이유, 허용 경로, 제거 조건, 목표 시점, 추적 이슈와 검증 근거를 남긴다.
+- 설치된 구버전이 있을 수 있다는 추정, 일반적인 모바일 관행, Store 심사 지연 가능성은 명시적 승인을 대신하지
+  못한다.
+- 승인된 호환 경로도 API 경계의 adapter나 versioned DTO처럼 제거 범위가 보여야 하며 조용한 fallback이나
+  여러 레이어의 임시 분기로 숨기지 않는다.
+- 승인 범위가 끝나면 별도 cutover에서 호환 경로를 제거하고 단일 계약으로 수렴한다.
 
 ### 2-3) 최종 계약 동시 배포 묶음과 운영 legacy cutover 분리
 
 - API/Admin/Mobile 최종 구조 리뷰는 세 레포를 하나의 동시 배포 묶음으로 보고, API package source version과 Admin/Mobile의 dependency/lockfile version, 실제 소비 runtime 공개 표면, 요청/응답 wire 계약이 모두 같은 최종 계약을 가리키는지 판정한다.
 - 동시 배포 묶음 안에서 package version이 다르면 현재 사용하는 symbol이 우연히 호환되더라도 최종 계약 정렬 미완료로 판정한다.
-- 최종 구조의 코드 호환성 판정에는 Store/NextPush 배포 이력, `min_version`/`force_update`, legacy traffic 로그, 운영 릴리즈 기록을 요구하지 않는다. 세 레포가 같은 최종 계약에 연결된 상태에서 함께 배포되는 것을 전제로 한다.
-- 운영 legacy cutover 증빙은 이미 배포된 구버전 소비자와의 호환 경로, URL-encoded parser, dual-write, DB contract/drop처럼 기존 운영 경로를 실제로 제거하는 작업에만 적용한다.
+- 최종 구조의 코드 판정에는 Store/NextPush 배포 이력이나 traffic 로그를 요구하지 않는다. 세 레포가 같은 최종
+  계약에 연결되고 강제 업데이트/mandatory를 포함해 함께 배포되는 것을 전제로 한다.
+- 운영 legacy cutover 증빙은 이미 배포된 승인 예외 호환 경로, URL-encoded parser, dual-write, DB
+  contract/drop처럼 기존 운영 경로를 실제로 제거하는 작업에만 적용한다. 이때도 Mobile 경로 제거의 기본 증빙은
+  Store 출시 activation 강제 업데이트 또는 NextPush mandatory와 현재 코드 소비 경로 0건이며, 24시간 traffic 관찰은
+  작업 요청자가 별도로 요구한 경우에만 추가한다.
 - 브랜치 이름이나 커밋 메시지에 `cutover`가 포함된 사실만으로 운영 legacy cutover 범위를 추론하지 않는다. 리뷰 요청과 실제 diff에서 호환 경로 제거 여부를 확인해 판정 범위를 고정한다.
 - 최종 리뷰에는 `동시 배포 계약 묶음`과 `운영 legacy cutover` 중 적용한 판정 범위를 명시하고, 적용하지 않은 운영 증빙은 Finding으로 요구하지 않는다.
 
@@ -201,7 +219,8 @@ cutover 배포 코드 기준:
 - `기술 이행 유형`이 명시되고 해당 유형의 Exit Gate를 충족한다.
 - API/Mobile/Admin 계약을 바꾸는 `최종 상태`는 해당 소비 범위가 단일 계약만으로 동작하고 transition 계층이 0건이다.
 - `운영 legacy cutover`는 제거 대상으로 고정한 호환 경로가 0건이고 남은 소비 범위가 단일 계약을 가리킨다.
-- `호환 배포`는 기존/다음 버전 시나리오와 제거 추적 근거가 모두 있으며, 서로 다른 계약을 조용한 fallback으로 합치지 않는다.
+- `호환 배포`는 작업 요청자의 명시적 승인, 기존/다음 버전 시나리오와 제거 추적 근거가 모두 있으며, 서로
+  다른 계약을 조용한 fallback으로 합치지 않는다.
 - `Shadow Cutover`는 같은 의미의 구·신 결과에 대해 검증 범위가 명시된 불일치 0건을 충족한다.
 - `DB migration stage`는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 적용 Gate와 `N/A` 근거를 충족한다.
 - 분류 체계가 단일 축으로 설명된다. 같은 이름이 도메인, 제품면, 상태, 동작을 동시에 뜻하지 않는다.
@@ -239,7 +258,10 @@ cutover 배포 코드 기준:
     - method/path/media type과 operation wire schema는 Swagger/OpenAPI, package 공개 표면·발행·소비 절차는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 단일 기준으로 따른다
     - Mobile/Admin은 패키지 정책이 생성 계약 적용 대상으로 판정한 공개 DTO를 사용하고 같은 wire DTO나 transport runtime을 local 계약으로 다시 정의하지 않는다
     - Swagger request body, Mobile/Admin request boundary, API parser가 같은 계약을 가리켜야 한다
-    - API URL-encoded parser는 구버전 Mobile 운영 트래픽을 위한 호환 입력 경로로만 허용한다. 제거는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의 Legacy traffic Gate 충족 후 별도 cutover PR에서 수행한다
+    - API URL-encoded parser는 작업 요청자가 명시적으로 승인한 Mobile 호환 입력 경로로만 허용한다. 승인되지
+      않은 parser는 최종 계약 변경에서 제거하고, 승인된 parser의 제거는
+      [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
+      예외 호환 Exit Gate를 따른다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다
     - 화면 표시/로그 출력 등 포맷 목적 변환은 허용하되, 원본 도메인 필드 타입을 덮어쓰지 않는다
@@ -409,7 +431,8 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 제출 payload의 생성 계약 적용 범위는 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)을 따르고, 적용 대상에서는 package generated public request DTO와 요청 스펙 필드만 사용한다(consumer-local wire DTO 및 응답 필드 재사용 금지).
 - 화면 컴포넌트에서 normalize/resolve/fallback로 계약 불일치를 보정하지 않는다.
 - 서버 enum 미정의 값은 조용히 무시하지 않고 명시적으로 에러/신고 경로를 태운다.
-- 최종 상태에는 구/신 API 이중 경로를 유지하지 않는다. 호환 배포에서는 API 경계의 명시적 version 계약만 사용하고, 같은 의미의 클라이언트 로직 교체에만 Shadow Cutover를 적용한다.
+- 최종 상태에는 구/신 API 이중 경로를 유지하지 않는다. 명시 승인된 호환 배포에서는 API 경계의 version
+  계약만 사용하고, 같은 의미의 클라이언트 로직 교체에만 Shadow Cutover를 적용한다.
 - typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
 
 #### Mobile 파일 구조와 네이밍
@@ -491,7 +514,9 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 ### 안전한 로직 이행 (Shadow Cutover)
 
-- 같은 입력에서 같은 의미의 결과를 내야 하는 기존 로직을 통합 함수/신규 로직으로 바꿀 때만 아래 4단계를 순서대로 강제한다. 버전별 wire 계약이 의도적으로 다른 호환 배포와 DB Expand는 이 절의 적용 대상이 아니다.
+- 같은 입력에서 같은 의미의 결과를 내야 하는 기존 로직을 통합 함수/신규 로직으로 바꿀 때만 아래 4단계를
+  순서대로 강제한다. 버전별 wire 계약이 의도적으로 다른 명시 승인 호환 배포와 DB Expand는 이 절의 적용
+  대상이 아니다.
     1. `통합 함수 도입`: 기존 로직은 제거하지 않고 유지한다. 신규 로직은 병렬 계산(shadow)만 수행한다.
     2. `diff 계측`: 동일 입력에 대해 기존/신규 결과를 비교하는 diff 로그를 남기고 불일치 원인을 제거한다.
     3. `점진 교체`: 불일치 0건이 확인된 뒤에만 호출부를 한 곳씩 교체한다.

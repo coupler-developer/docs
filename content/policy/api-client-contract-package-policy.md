@@ -89,7 +89,10 @@
   write 권한을 주지 않고, 별도 publish job이 Draft 상태와 head SHA 및 tarball metadata를 다시 검증한 뒤
   lifecycle script를 끄고 발행한다.
 - 최종 구조 리뷰에서는 API package source와 Admin/Mobile dependency·lockfile을 하나의 동시 배포 계약 묶음으로 비교한다. 세 레포의 exact version과 실제 runtime 공개 표면이 같으면 함께 배포 가능한 최종 계약으로 판정하며, 이 코드 판정 자체에 Store/NextPush 이력이나 legacy traffic 운영 증빙을 요구하지 않는다.
-- 운영 배포 증빙은 구버전 소비자 호환 경로나 URL-encoded parser 같은 legacy 입력 경로를 실제 제거할 때 별도 Cutover Gate로 확인한다. 브랜치 이름에 `cutover`가 있다는 이유만으로 package 정렬 리뷰에 운영 Gate를 추가하지 않는다.
+- 운영 배포 증빙은 작업 요청자가 승인해 이미 배포된 호환 경로나 URL-encoded parser 같은 legacy 입력 경로를
+  실제 제거할 때 확인한다. Mobile 제거 근거는 Store 출시 activation 강제 업데이트 또는 NextPush mandatory와 현재 코드
+  소비 경로 0건이며, 별도 24시간 traffic 관찰은 기본 Gate가 아니다. 브랜치 이름에 `cutover`가 있다는 이유만으로
+  package 정렬 리뷰에 운영 Gate를 추가하지 않는다.
 - 변경된 계약 symbol을 특정 consumer가 직접 import하지 않더라도 version 갱신 대상에서 제외하지 않는다. 계약 package는 active consumer가 함께 고정하는 공용 계약 스냅샷이다.
 - 새 stable version을 발행하면 같은 릴리즈 작업 단위에서 Admin/Mobile dependency와 lockfile 갱신 PR을 모두 준비하고 품질 게이트를 통과시킨다. 두 PR이 `main`에 병합되기 전에는 계약 package 소비 정렬을 완료로 기록하지 않는다.
 - 소비자 version 지연은 별도 호환 릴리즈로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer, 현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 cutover 완료로 판정하지 않는다.

@@ -80,10 +80,12 @@
 - 검증 방법: 테스트/검증 스크립트/로그/수동 시나리오
 - 상태 분류: 없음/회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백
 - N/A 사유: 회귀 영향이 없다고 판단한 근거
-- API 계약 변경/Cutover: 필요/불필요, 신규/기존 호환 경로 여부, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거
+- API 계약 변경/Cutover: 단일 최종 계약 배포 여부, Store 출시 activation 강제 업데이트 또는 NextPush mandatory 방식,
+  신규/기존 호환 경로 여부, 호환이 있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈·검증 근거
 - API 계약 판정 범위: `동시 배포 계약 묶음` / `운영 legacy cutover` / `N/A`
 - 동시 배포 계약 묶음: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면, 요청·응답 wire 계약 정렬 결과
-- 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store/NextPush, `min_version`/`force_update`, traffic 로그, 릴리즈 기록 적용/N/A 근거
+- 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store 출시 activation 강제 업데이트 또는 NextPush
+  mandatory, 현재 코드 소비 경로 0건, 릴리즈 기록 적용/N/A 근거
 
 ## 문서 동기화
 
@@ -132,7 +134,8 @@
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
 - [ ] 외부 의존성을 추가·대체하면 [엔지니어링 가드레일](engineering-guardrails.md)의 `외부 의존성 추가 승인 게이트` 근거와 작업 요청자의 명시적 승인 기록을 확인
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
-- [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
+- [ ] API 계약 변경이면 단일 최종 계약과 강제 업데이트/mandatory 방식을 기록하고, 호환 경로 추가/수정/사용이
+  있으면 작업 요청자의 명시적 승인, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
@@ -317,7 +320,8 @@
 - [ ] 기능 회귀 가능성이 있는 변경은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 분류/검증됐는가?
 - [ ] DB/API 런타임 설정 변경 시 `coupler-api` 재배포/재시작 필요 여부와 post-deploy 확인 항목을 기록했는가?
 - [ ] React Native `StyleSheet.create`에 신규 style key를 추가한 경우 `lowerCamelCase`로 작성했는가?
-- [ ] API 계약 변경 또는 호환 경로 추가/수정/사용이 있으면 cutover 필요성, 현재 제거 가능 여부, 제거 조건, 목표 시점, 추적 이슈가 PR/릴리즈 기록에 남았는가?
+- [ ] API 계약 변경이면 단일 최종 계약과 강제 업데이트/mandatory 방식이 남았고, 호환 경로 추가/수정/사용이
+  있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈가 PR/릴리즈 기록에 남았는가?
 - [ ] 기존 정책 불일치를 회귀로 오판하지 않고, 이번 변경이 새로 만들거나 확산한 문제인지 근거로 구분했는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기준을 따르는가? (예외 시 근거 확인)
@@ -327,8 +331,15 @@
 ### 리뷰 전제
 
 - 기술 이행 전제는 [엔지니어링 가드레일](engineering-guardrails.md)의 `기술 이행 유형`에서 먼저 고정한다.
-- 기존 버전이 동시 배포로 전부 교체된다는 전제는 `최종 상태`의 `동시 배포 계약 묶음`으로 판정한 범위에만 적용한다.
-- `호환 배포`는 기존/다음 버전 공존을 전제로 하며, `운영 legacy cutover`는 운영 제거 Gate 증빙 없이 동시 교체를 가정하지 않는다.
+- 이 프로젝트의 기본 전제는 Store 심사 승인과 출시 가능 상태 확인 뒤 activation window에서
+  `version_code`·`min_version` 갱신으로 이전 build를 `force_update=2`로 차단하고, NextPush도 같은 장벽 안에서
+  Android·iOS `Production` mandatory로 이전 bundle을 교체하는 `동시 배포 계약 묶음`이다.
+- API/Admin과 Mobile 교체가 모두 끝나기 전에 혼합 계약 사용자 요청이 통과하면 Finding이다. activation
+  barrier를 보장할 수 없으면 fallback을 요구하지 않고 배포 차단으로 판정한다.
+- 설치된 구버전의 존재나 일반적인 공존 가능성만으로 `호환 배포`를 제안하거나 Finding으로 요구하지 않는다.
+  호환 배포는 작업 요청자의 명시적 승인 근거가 있을 때만 판정한다.
+- 승인된 운영 legacy를 제거할 때는 강제 업데이트/mandatory와 현재 코드 소비 경로 0건을 확인하며, 24시간
+  traffic 관찰은 작업 요청자가 별도로 요구하지 않는 한 Gate로 추가하지 않는다.
 
 ## 작성자 가이드
 
