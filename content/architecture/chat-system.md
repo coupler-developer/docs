@@ -298,8 +298,9 @@ sequenceDiagram
 - API 배포 전에 외부 `api.ritzy.fourhundred.co.kr`의 reverse proxy/load balancer가
   `/realtime/member`, `/realtime/admin`의 HTTP Upgrade와 `Connection: upgrade`를 API 프로세스로 전달하는지
   확인한다.
-- 현재 PM2 단일 프로세스에서는 인증된 연결 집합을 메모리에서 관리한다. PM2 cluster 또는 다중 인스턴스로
-  확장하기 전 인스턴스 간 이벤트 broker와 재동기화 전략을 먼저 확정해야 한다.
+- 현재 PM2 단일 프로세스에서는 큐레이터·매칭 채팅이 공유하는 인증 회원 연결 집합과 관리자 연결 집합을
+  메모리에서 관리한다. PM2 cluster 또는 다중 인스턴스로 확장하기 전 인스턴스 간 이벤트 broker와
+  재동기화 전략을 먼저 확정해야 한다.
 - 배포 순서는 `t_concierge` sender/idempotency nullable expand와 DB gate 검증, contracts package `0.1.16`
   stable 발행과 Admin·Mobile exact pin, API 호환 배포와 WSS smoke, Admin, Android·iOS Mobile NextPush
   `Production` mandatory 순서다. API 호환 배포는 필드가 누락된 기존 요청을 일시 수용하므로 API가 먼저 나가도
@@ -313,19 +314,104 @@ sequenceDiagram
 
 ## 매칭 채팅
 
+### 책임과 전송 선택
+
+- 메시지 원본은 `t_match_chat`이며 회원 일반 메시지와 서버가 만드는 시스템 메시지는 하나의 저장 서비스를
+  통해 DB 저장을 완료한 뒤 `match:message`를 발행한다. 특정 controller·cron이 테이블에 직접 쓰고 이벤트를
+  빠뜨리는 별도 경로를 두지 않는다.
+- 활성 Mobile 화면의 상태 동기화는 큐레이터 채팅과 같은 `/realtime/member` WebSocket 연결을 사용한다.
+  매칭 채팅 전용 소켓, 주기적 채팅 polling, WebSocket 전송 명령은 추가하지 않는다.
+- 메시지 생성과 읽음 변경은 HTTP 명령이 담당한다. WebSocket 이벤트는 저장 완료 결과를 빠르게 전달하며,
+  연결 단절 뒤 원본 복구는 HTTP cursor가 담당한다.
+- FCM `MATCH_NEW_CHAT(22)`은 새 회원 일반 메시지의 사용자 알림과 재진입 보조 수단이다. 같은 멱등 키의 재시도와
+  서버 시스템 메시지 저장은 이 알림을 중복 생성하지 않는다. FCM이나 WebSocket 이벤트를 메시지 원본으로
+  사용하지 않는다.
+- HTTP endpoint는 요청 회원이 현재 매칭의 두 참여자 중 한 명인지 매번 확인한다. 이벤트 발행도 저장된
+  `match`에서 현재 두 회원 ID를 다시 읽어 identity room으로만 전달하며, 클라이언트가 임의 room을 선택하지
+  않는다. 접근 판정은 [보안/접근통제 정책](../policy/security-access-control-policy.md)을 따른다.
+
 ### API
 
 | 메서드 | 엔드포인트 | 설명 |
-|--------|----------|------|
+| --- | --- | --- |
 | POST | `/match/chat` | 3일 채팅 활성화 |
 | GET | `/match/chat/detail` | 채팅방 상세 |
-| GET | `/match/chat/list` | 메시지 목록 |
-| POST | `/match/chat/send` | 메시지 전송 |
+| GET | `/match/chat/list` | 기존 Mobile offset 소비자 호환용 목록과 상대방 발신 읽음 처리(Deprecated) |
+| GET | `/match/chat/messages` | 읽기 전용 `before_id` cursor 목록과 양방향 읽음 경계 |
+| POST | `/match/chat/read` | 상대방 발신 메시지의 명시적 읽음 경계 갱신 |
+| POST | `/match/chat/send` | 회원 범위 멱등 저장 후 canonical 메시지 반환·실시간 이벤트·FCM 발행 |
 | POST | `/match/chat/leave` | 채팅방 나가기 |
 | POST | `/match/chat/changeSchedule` | 일정 변경 |
 | POST | `/match/chat/reactivate` | 재활성화 요청 |
 | POST | `/match/chat/acceptReactivate` | 재활성화 수락 |
 | POST | `/match/chat/blameUser` | 회원 신고 |
+
+신규 `GET /match/chat/messages`는 최신순으로 최대 `limit`건을 반환하며 조회 자체로 읽음 상태를 바꾸지 않는다.
+더 오래된 메시지가 있으면 마지막 반환 ID를 `next_before_id`로 주고, 다음 요청은 이를 `before_id`로 보내
+`id < before_id`인 행을 조회한다. 응답의 `last_read_by_me_message_id`는 내가 확인한 상대방 발신 메시지 경계,
+`last_read_by_peer_message_id`는 상대방이 확인한 내 발신 메시지 경계이며 읽은 메시지가 없으면 `0`이다.
+클라이언트는 두 경계를 현재 메모리의 전체 목록에 방향별로 적용하되 `status=Y`를 `N`으로 되돌리지 않는다.
+
+신규 소비자는 화면 focus에 있을 때 `POST /match/chat/read`로 실제 상대방 발신 메시지 ID를 보낸다. 서버는 그
+ID가 같은 매칭의 상대방 메시지인지 확인한 뒤 해당 방향의 `id <= last_message_id`만 읽음 처리하고 단조 증가한
+`last_read_message_id`를 반환한다. 기존 bundle에만 남겨 둔 Deprecated `/match/chat/list`는 실제 반환 페이지에
+포함된 상대방 발신 최대 ID까지만 같은 읽음 처리를 수행하고 `match:read:updated`를 발행한다. 신규 cursor와
+명시적 읽음 전환 뒤 제거 조건은 [기술 부채 정리](../technical-debt/technical-debt.md)의
+`매칭 채팅 offset 목록 endpoint 제거 대기`에서 추적한다.
+
+`POST /match/chat/send`의 신규 Mobile 요청은 1~255자 `content`와 printable ASCII 64자 이하
+`client_message_id`를 보낸다. 같은 회원과 같은 키의 `match`·`type`·`content`가 같으면 최초 canonical
+메시지를 반환하고 WebSocket·FCM을 다시 발행하지 않으며, payload가 다르면 멱등 충돌로 거부한다. 기존 bundle
+호환 기간에는 필드가 생략된 요청에만 서버가 요청별 호환 키를 생성하고 로그를 남기며, 빈 문자열이나 형식 오류는
+호환하지 않는다. 호환 제거 조건은
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `매칭 채팅 client_message_id 호환 경로 제거 대기`에서
+추적한다. 서버 시스템 메시지도 서버 생성 키로 같은 저장 서비스를 통과하므로 저장 성공 메시지만 이벤트로
+발행된다. 공개 request·success DTO와 exact pin 기준은
+[API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)을 따른다.
+
+### WebSocket 계약
+
+| 항목 | 값 |
+| --- | --- |
+| 회원 endpoint | 큐레이터 채팅과 공유하는 `/realtime/member` |
+| 인증 | `realtime:auth` 후 `realtime:ready`; 현재 회원 상태를 서버에서 검증 |
+| 서버 이벤트 | `match:message`, `match:read:updated` |
+| 매칭 채팅 클라이언트 명령 | 없음; 전송·읽음은 HTTP 사용 |
+
+`match:message` payload는 `id`, `match`, `member`, `type`, `content`, `create_date`, `status` 전체 canonical
+메시지다. `id`는 정렬·중복 제거 기준이고 `status`는 상대방이 읽었으면 `Y`다.
+`match:read:updated` payload는 `match_id`, `reader_member_id`, `last_read_message_id`이며, 클라이언트는
+`reader_member_id` 반대편이 작성한 해당 ID 이하 메시지만 `Y`로 승격한다.
+
+### 연결·복구
+
+- 최초 진입은 cursor 첫 페이지를 조회한 뒤 focus 상태에서 가장 최근 상대방 메시지를 명시적으로 읽음 처리한다.
+- HTTP 전송 응답, WebSocket, FCM foreground 보조 이벤트, reconnect cursor가 겹쳐도 canonical DB `id`로
+  병합한다. 전송 요청은 성공 응답 전까지 같은 `client_message_id`를 유지하고 동시에 같은 명령을 중복 전송하지
+  않는다.
+- 재연결·focus 복귀 시 cursor 최신 페이지를 다시 조회한다. 최신 페이지의 가장 오래된 ID가 마지막으로 HTTP
+  동기화를 마친 ID보다 새로우면 별도 gap cursor로 두 경계가 만날 때까지 직렬 조회한다. 사용자가 과거 메시지를
+  탐색하는 cursor와 gap 복구 cursor는 분리한다.
+- 복구 도중 요청이 실패하면 완료 경계를 전진시키지 않는다. 다음 재연결·focus에서 마지막 완료 경계부터 다시
+  시작하며, 진행 중 복구 신호는 현재 요청 뒤 한 번으로 합친다.
+- WebSocket·FCM 발행은 DB 저장 이후 best-effort 전달이다. 전달 실패 뒤 화면 상태는 HTTP 원본으로 복구하며,
+  durable 알림 outbox·재시도는 [기술 부채 정리](../technical-debt/technical-debt.md)의
+  `상태 전이 후 푸시 전달 재시도 미완료` 범위에서 추적한다.
+
+### 운영·확장·롤백
+
+- `t_match_chat`의 nullable 멱등 키 expand를 먼저 적용하고
+  [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)의 대상 환경 preflight·ledger·postcheck를
+  통과한 뒤 API 호환 배포와 contracts package exact pin Admin·Mobile을 순서대로 전환한다. 현재 전환 버전과
+  배포 증빙은 기술부채 또는 릴리스 기록에서만 관리한다.
+- 큐레이터·매칭 이벤트는 한 `/realtime/member` 연결과 API 프로세스 메모리 연결 집합을 공유한다. 현재 단일
+  프로세스에서는 별도 broker가 필요 없지만 다중 인스턴스 전환 전에는 인스턴스 간 이벤트 전달과 HTTP 재동기화
+  전략을 먼저 확정한다.
+- 문제가 있으면 Mobile 실시간 소비를 먼저 롤백하고 API 이벤트 발행을 롤백한다. 기존 HTTP 목록과 nullable
+  expand 스키마, 누락 필드 호환 경로는 구 bundle이 남아 있는 동안 유지한다. DB 스키마를 즉시 축소하거나 기존
+  메시지를 삭제하지 않는다.
+- 이번 범위에는 presence, typing, 첨부 미디어, 메시지 수정·삭제, durable outbox, 다중 인스턴스 broker를
+  포함하지 않는다.
 
 ### 채팅 활성화 조건
 

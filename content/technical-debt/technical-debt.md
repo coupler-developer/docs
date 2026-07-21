@@ -231,6 +231,20 @@
 - 조치: contracts package `0.1.16` stable exact pin → 새 Admin 배포 → Android·iOS NextPush `Production` mandatory → 이전 bundle 강제 업데이트 차단 → 두 Deprecated endpoint access 로그를 surface별로 관측한다.
 - 완료: 두 Deprecated endpoint 운영 호출 24시간 연속 0건, Admin·Mobile cursor 회귀와 재연결 복구 smoke 통과, 별도 cutover PR에서 route·controller·Swagger·legacy local type·호환 읽음 side effect 제거.
 
+## 32) 매칭 채팅 `client_message_id` 호환 경로 제거 대기 `P1` `S`
+
+- 현상: 매칭 1:1 실시간 채팅 호환 배포에서 기존 Mobile bundle의 전송을 깨지 않기 위해, `client_message_id`가 생략된 요청에만 API가 요청별 `compat-` 키를 생성하고 `MOBILE_APP` 사용 로그를 남긴다. 명시적 오류 값은 거부하며 새 Mobile은 키를 직접 보낸다.
+- 영향: 호환 요청은 재시도 멱등성을 보장하지 않고, helper를 영구 유지하면 최종 request 계약이 optional로 남는다.
+- 조치: contracts package `0.1.17` stable 발행과 API·Admin·Mobile exact pin → DB expand와 API 호환 배포 → Android·iOS NextPush `Production` mandatory → 이전 bundle 강제 업데이트 차단 → `[match-chat-client-message-id] compatibility fallback used` 로그를 관측한다.
+- 완료: 24시간 연속 `MOBILE_APP` 호환 로그 0건, published latest와 API·Admin·Mobile exact 계약 버전 일치, 별도 cutover PR에서 호환 helper 삭제·Swagger required 복원, 신규 요청 누락 거부 회귀 테스트와 운영 smoke 통과.
+
+## 33) 매칭 채팅 offset 목록 endpoint 제거 대기 `P2` `M`
+
+- 현상: 신규 Mobile은 읽기 전용 `before_id` keyset cursor와 명시적 HTTP 읽음 명령을 사용하지만 API 배포 시점의 기존 Mobile bundle을 위해 `/match/chat/list` offset 응답이 Deprecated 호환 endpoint로 남는다. 구 bundle은 별도 읽음 명령이 없으므로 해당 GET이 실제 반환한 상대방 발신 메시지 경계까지의 읽음 변경과 혼합 버전용 `match:read:updated` 발행도 endpoint 수명 동안 유지한다.
+- 영향: 호환 endpoint를 영구 유지하면 목록 계약이 이원화되고, 실시간 append 사이 offset 페이지 경계 이동과 큰 offset 비용을 유지한다.
+- 조치: contracts package `0.1.17` stable exact pin → 새 Mobile 배포 → Android·iOS NextPush `Production` mandatory → 이전 bundle 강제 업데이트 차단 → Deprecated endpoint access 로그를 관측한다.
+- 완료: `/match/chat/list` 운영 호출 24시간 연속 0건, Mobile cursor·명시적 읽음·재연결 gap 복구 smoke 통과, 별도 cutover PR에서 route·controller·Swagger·legacy local type·호환 읽음 side effect 제거.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
