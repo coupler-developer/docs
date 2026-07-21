@@ -11,6 +11,10 @@ const docsRoot = path.dirname(scriptsRoot);
 const contentRoot = path.join(docsRoot, "content");
 const baseAgentsSource = fs.readFileSync(path.join(contentRoot, "AGENTS.md"), "utf8");
 const baseReadmeSource = fs.readFileSync(path.join(contentRoot, "README.md"), "utf8");
+const baseTestingStrategySource = fs.readFileSync(
+  path.join(contentRoot, "policy", "testing-strategy.md"),
+  "utf8",
+);
 
 test("현재 에이전트 작업흐름 계약을 허용한다", () => {
   assert.deepEqual(validate(), []);
@@ -134,7 +138,7 @@ test("요청 유형의 기본 동작 약화를 거부한다", () => {
 
 test("요청 유형의 종료 조건 약화를 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "구현, 검증, 문서 동기화, 마지막 변경 이후 최종 리뷰",
+    "구현, 문서 동기화, 마지막 변경 이후 독립 리뷰·검증·최종 판정",
     "계획 작성만 보고",
   );
 
@@ -433,8 +437,8 @@ test("라우팅 대상의 Gate heading level 변경을 거부한다", () => {
 
 test("작업 상태 머신 순서 변경을 거부한다", () => {
   const agentsSource = baseAgentsSource
-    .replace("8. `VERIFY`:", "8. `REVIEW`:")
-    .replace("9. `REVIEW`:", "9. `VERIFY`:");
+    .replace("8. `REVIEW`:", "8. `VERIFY`:")
+    .replace("9. `VERIFY`:", "9. `REVIEW`:");
 
   assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 순서는 BOOT -> CONTINUITY/);
 });
@@ -450,8 +454,8 @@ test("작업 상태의 허용 동작 약화를 거부한다", () => {
 
 test("마지막 변경 이후 검증 만료 규칙 누락을 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "이전 검증·리뷰 판정은 만료된다",
-    "이전 검증·리뷰 판정을 유지한다",
+    "이전 리뷰·검증·최종 판정은 모두 만료된다",
+    "이전 리뷰·검증·최종 판정을 유지한다",
   );
 
   assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 Exit Gate에 필수 값이 없습니다/);
@@ -459,11 +463,53 @@ test("마지막 변경 이후 검증 만료 규칙 누락을 거부한다", () =
 
 test("재검증 규칙 뒤의 반대 조건 추가를 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "이전 검증·리뷰 판정은 만료된다. `VERIFY -> REVIEW`를 다시 수행한다.",
-    "이전 검증·리뷰 판정은 만료된다. `VERIFY -> REVIEW`를 다시 수행한다. 단, 이전 판정을 재사용한다.",
+    "새 최종 후보로\n  `REVIEW -> VERIFY -> FINALIZE`를 다시 수행한다.",
+    "새 최종 후보로\n  `REVIEW -> VERIFY -> FINALIZE`를 다시 수행한다. 단, 이전 판정을 재사용한다.",
   );
 
   assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 Exit Gate 계약이 다릅니다/);
+});
+
+test("Finding이 남은 후보의 통합 품질 게이트 실행을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "열린 Finding이 0건이 되기 전에는 로컬 표준\n  통합 품질 게이트를 실행하지 않는다.",
+    "열린 Finding이 남아 있어도 로컬 표준 통합 품질 게이트를 실행한다.",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 Exit Gate/);
+});
+
+test("검증 실패를 No Findings로 판정하는 조건을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "검증 실패는 `No Findings`로 판정하지 않는다.",
+    "검증 실패도 `No Findings`로 판정한다.",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 Exit Gate/);
+});
+
+test("동일 최종 후보의 통합 품질 게이트 반복을 거부한다", () => {
+  const testingStrategySource = baseTestingStrategySource.replace(
+    "표준 통합 품질 게이트를 1회만 시작한다.",
+    "표준 통합 품질 게이트를 필요할 때마다 반복한다.",
+  );
+
+  assert.match(
+    validate({ testingStrategySource }).join("\n"),
+    /로컬 최종 후보 검증 절 전체 계약이 다릅니다/,
+  );
+});
+
+test("환경 실패에서 통합 명령 전체 재실행 허용을 거부한다", () => {
+  const testingStrategySource = baseTestingStrategySource.replace(
+    "같은 통합 명령 전체를 근거 없이 처음부터 다시 실행하지 않는다.",
+    "같은 통합 명령 전체를 처음부터 다시 실행한다.",
+  );
+
+  assert.match(
+    validate({ testingStrategySource }).join("\n"),
+    /로컬 최종 후보 검증 절 전체 계약이 다릅니다/,
+  );
 });
 
 test("단계별 기준 재고정 누락을 거부한다", () => {
@@ -551,12 +597,14 @@ test("content AGENTS reviewer 승인 조건 반전을 거부한다", () => {
 function validate({
   agentsSource = baseAgentsSource,
   readmeSource = baseReadmeSource,
+  testingStrategySource = baseTestingStrategySource,
   routeExists = (relativePath) => fs.existsSync(path.join(docsRoot, relativePath)),
   readRouteSource = readContent,
 } = {}) {
   return validateAgentWorkflow({
     agentsSource,
     readmeSource,
+    testingStrategySource,
     routeExists,
     readRouteSource,
   });

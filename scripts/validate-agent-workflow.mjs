@@ -38,7 +38,7 @@ const REQUIRED_REQUEST_CONTRACTS = [
   {
     type: "변경·구현",
     action: "요청 범위의 코드·문서·테스트를 수정한다",
-    completion: "구현, 검증, 문서 동기화, 마지막 변경 이후 최종 리뷰",
+    completion: "구현, 문서 동기화, 마지막 변경 이후 독립 리뷰·검증·최종 판정",
   },
   {
     type: "리뷰",
@@ -53,7 +53,7 @@ const REQUIRED_REQUEST_CONTRACTS = [
 ];
 
 const REQUIRED_REQUEST_RULES = [
-  "`변경·구현` 요청은 계획 작성만으로 완료하지 않는다. 안전한 범위에서 구현, 검증, 문서 동기화와 최종 리뷰까지 계속한다.",
+  "`변경·구현` 요청은 계획 작성만으로 완료하지 않는다. 안전한 범위에서 구현, 문서 동기화, 마지막 변경 이후 독립 리뷰와 검증, 최종 판정까지 계속한다.",
   "`설계·계획`, `리뷰`, `진단`은 파일 변경 권한을 포함하지 않는다. 사용자가 같은 요청에서 변경까지 명시한 경우에만 `변경·구현`을 함께 적용한다.",
 ];
 
@@ -171,12 +171,18 @@ const REQUIRED_STATE_CONTRACTS = [
     action: "요청 유형과 권한 집합 안에서만 작성·수정·운영 작업을 수행한다.",
   },
   {
-    state: "VERIFY",
-    action: "적용 테스트/CI, 문서 동기화, 수동·운영 검증을 수행한다.",
+    state: "REVIEW",
+    action:
+      "마지막 파일 변경 이후 같은 범위로 독립 코드 리뷰 또는 문서 안정성 평가를 수행한다. 열린 Finding이 0건이면 최종 판정 전 체크포인트인 `열린 Finding 0건·검증 대기`를 기록한다.",
   },
   {
-    state: "REVIEW",
-    action: "마지막 파일 변경 이후 같은 범위로 코드 리뷰 또는 문서 안정성 평가를 수행한다.",
+    state: "VERIFY",
+    action:
+      "체크포인트와 동일한 최종 후보에 대해 적용 테스트/CI, 문서 동기화, 수동·운영 검증을 수행한다. 로컬 표준 통합 품질 게이트는 [테스트/CI 전략](policy/testing-strategy.md)의 후보별 1회 원칙을 따른다.",
+  },
+  {
+    state: "FINALIZE",
+    action: "동일 최종 후보의 독립 리뷰와 적용 검증이 모두 유효할 때만 최종 판정을 확정한다.",
   },
   {
     state: "EXTERNAL_ACTION",
@@ -189,10 +195,31 @@ const REQUIRED_STATE_CONTRACTS = [
 ];
 
 const REQUIRED_STATE_EXIT_RULES = [
-  "`VERIFY` 또는 `REVIEW` 뒤 파일이 바뀌면 이전 검증·리뷰 판정은 만료된다. `VERIFY -> REVIEW`를 다시 수행한다.",
-  "Finding이 있으면 `원인 수정 -> 적용 검증 -> 동일 범위 재리뷰`를 반복한다.",
+  "`REVIEW`, `VERIFY` 또는 `FINALIZE` 뒤 파일이 바뀌면 이전 리뷰·검증·최종 판정은 모두 만료된다. 새 최종 후보로 `REVIEW -> VERIFY -> FINALIZE`를 다시 수행한다.",
+  "Finding이 있으면 `원인 수정 -> 동일 범위 독립 재리뷰`를 반복한다. 열린 Finding이 0건이 되기 전에는 로컬 표준 통합 품질 게이트를 실행하지 않는다.",
+  "검증 실패는 `No Findings`로 판정하지 않는다. 파일 수정이 필요하면 새 최종 후보로 돌아가고, 후보가 바뀌지 않은 환경 실패의 재시도는 [테스트/CI 전략](policy/testing-strategy.md)의 예외 기준을 따른다.",
   "요청 범위 밖 기존 부채는 근거와 함께 분리하고 완료를 위해 임의로 확장하지 않는다.",
 ];
+
+const REQUIRED_LOCAL_FINAL_CANDIDATE_CONTRACT = `- \`최종 후보\`는 비교 baseline, 리뷰 범위의 파일 집합과 내용이 마지막 파일 변경 이후 동일한 상태다. 다중 레포
+  변경은 영향받은 각 레포의 후보를 같은 변경 묶음으로 고정한다.
+- [코드 리뷰 정책](code-review-policy.md)의 독립 최종 리뷰에서 열린 Finding이 0건이고
+  \`열린 Finding 0건·검증 대기\` 체크포인트가 기록된 뒤에만 해당 레포의 표준 통합 품질 게이트를 실행한다.
+- 동일한 최종 후보에서는 영향받은 각 레포의 표준 통합 품질 게이트를 1회만 시작한다. 통합 명령에 포함된
+  \`lint\`, \`typecheck\`, \`format\`, \`test\`를 관행적으로 먼저 각각 실행한 뒤 같은 통합 명령으로 반복하지 않는다.
+- 아래 표적 검증은 표준 통합 품질 게이트와 판정 대상이 다를 때만 별도로 허용한다.
+    - 최초 실패 재현
+    - 새로 추가·갱신한 테스트의 red/green 확인
+    - 통합 품질 게이트 실패 원인 격리
+    - 표준 통합 명령에 포함되지 않은 도메인 정책의 필수 검사
+- 표적 검증은 입력, 파일 내용 또는 확인할 실패 책임이 달라지지 않으면 같은 명령을 반복하지 않는다. 표적 검증
+  결과로 표준 통합 품질 게이트를 대체하지 않는다.
+- 통합 품질 게이트가 코드·문서·설정 문제로 실패해 파일을 수정하면 기존 후보와 리뷰 체크포인트는 만료된다.
+  새 최종 후보의 독립 리뷰에서 열린 Finding이 0건이 된 뒤 표준 통합 품질 게이트를 새로 1회 실행한다.
+- 후보가 바뀌지 않은 비코드 환경 실패는 실패 원인과 앞서 통과한 하위 Gate를 기록하고 실패하거나 실행되지 않은
+  하위 Gate만 재시도한다. 같은 통합 명령 전체를 근거 없이 처음부터 다시 실행하지 않는다.
+- 검증 명령이 리뷰 범위의 파일을 변경하면 성공 여부와 관계없이 후보가 바뀐 것으로 판정하고 독립 리뷰부터
+  다시 수행한다.`;
 
 const REQUIRED_REANCHOR_CONTRACTS = [
   { phase: "세션 시작", requirement: "Core 4 전체" },
@@ -325,6 +352,7 @@ const REQUIRED_SECTIONS = [
 export const validateAgentWorkflow = ({
   agentsSource,
   readmeSource,
+  testingStrategySource,
   routeExists = () => true,
   readRouteSource = () => "",
 }) => {
@@ -495,8 +523,11 @@ export const validateAgentWorkflow = ({
   requireText(
     stateSection,
     [
-      "이전 검증·리뷰 판정은 만료된다",
-      "원인 수정 -> 적용 검증 -> 동일 범위 재리뷰",
+      "이전 리뷰·검증·최종 판정은 모두 만료된다",
+      "원인 수정 -> 동일 범위 독립 재리뷰",
+      "열린 Finding이 0건이 되기 전에는 로컬 표준",
+      "통합 품질 게이트를 실행하지 않는다",
+      "검증 실패는 `No Findings`로 판정하지 않는다",
       "요청 범위 밖 기존 부채",
     ],
     "작업 상태 머신 Exit Gate",
@@ -512,6 +543,21 @@ export const validateAgentWorkflow = ({
     stateSection,
     renderStateSection(),
     "작업 상태 머신 절 전체",
+    errors,
+  );
+
+  const localFinalCandidateSection = extractSection(
+    testingStrategySource,
+    3,
+    "로컬 최종 후보 검증",
+  );
+  if (countExactHeadings(testingStrategySource, 3, "로컬 최종 후보 검증") !== 1) {
+    errors.push("testing-strategy.md의 '로컬 최종 후보 검증' 절은 정확히 1개여야 합니다.");
+  }
+  validateNormalizedContract(
+    localFinalCandidateSection,
+    REQUIRED_LOCAL_FINAL_CANDIDATE_CONTRACT,
+    "로컬 최종 후보 검증 절 전체",
     errors,
   );
 
@@ -1137,12 +1183,19 @@ if (isMainModule) {
   const docsRoot = process.cwd();
   const agentsPath = path.join(docsRoot, "content", "AGENTS.md");
   const readmePath = path.join(docsRoot, "content", "README.md");
+  const testingStrategyPath = path.join(
+    docsRoot,
+    "content",
+    "policy",
+    "testing-strategy.md",
+  );
   const routeExists = (relativePath) => fs.existsSync(path.join(docsRoot, relativePath));
   const readRouteSource = (relativePath) =>
     fs.readFileSync(path.join(docsRoot, relativePath), "utf8");
   const errors = validateAgentWorkflow({
     agentsSource: fs.readFileSync(agentsPath, "utf8"),
     readmeSource: fs.readFileSync(readmePath, "utf8"),
+    testingStrategySource: fs.readFileSync(testingStrategyPath, "utf8"),
     routeExists,
     readRouteSource,
   });
