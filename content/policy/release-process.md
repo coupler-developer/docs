@@ -61,10 +61,22 @@
 - 릴리즈 자동화 gate 순서는 [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)을 따르되, 충돌 시 이 문서와 각 policy를 우선한다.
 - 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
 - 배포 태그, 스토어 제출 마커 태그, 태그 증빙 기준은 [배포 태그 정책](release-tag-policy.md)을 단일 기준으로 따른다.
-- Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는 OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다.
-- Mobile Store 제출은 운영 출시와 별도 상태다. 릴리즈 기록에서 Mobile Store 승인/운영 출시를 통합 릴리즈 완료 조건으로 잡은 경우, 해당 gate에 묶인 `vX.Y.Z` 릴리즈 태그는 완료 전 생성하지 않는다.
+- Mobile Store와 Mobile NextPush는 별도 배포 범위다. NextPush-only 배포는 기존 스토어 binary를 대상으로 하는
+  OTA이므로 native version, store upload, 모바일 git tag를 자동으로 변경하지 않는다. API 계약 변경을 포함하면
+  Android·iOS `Production` mandatory로 배포한다.
+- Mobile Store 제출은 운영 출시와 별도 상태다. API 계약 변경을 포함하면 제출 시 운영 `min_version`을 바꾸지
+  않고, 심사 승인과 출시 가능 상태를 확인한 뒤 사용자 요청이 차단된 단일 activation window에서 플랫폼별 새
+  build를 `version_code`와 `min_version`으로 고정하고 이전 build 응답이 `force_update=2`인지 검증한다. 릴리즈 기록에서
+  Mobile Store 승인/운영 출시를 통합 릴리즈 완료 조건으로 잡은 경우, 해당 gate에 묶인 `vX.Y.Z` 릴리즈 태그는
+  완료 전 생성하지 않는다.
 - Mobile Store gate와 독립적으로 완료되는 범위는 운영 반영/검증 완료 후 [배포 태그 정책](release-tag-policy.md)에 따라 별도 태그를 생성할 수 있다.
-- API 명세 변경이 포함된 Mobile Store 또는 Mobile NextPush 배포는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다. 기존 운영 앱을 깨는 cutover는 다음 버전 배포 전 호환 배포에 포함하지 않는다.
+- API 명세 변경이 포함된 Mobile Store 또는 Mobile NextPush 배포는
+  [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다.
+  기본 경로는 강제 업데이트/mandatory를 포함한 단일 최종 계약 배포이며, 작업 요청자의 명시 승인 없이 구버전
+  공존용 호환 배포를 추가하지 않는다.
+- activation window에서 API/Admin과 Store 강제 업데이트 또는 Android·iOS mandatory가 모두 적용되고 smoke를
+  통과하기 전에는 사용자 요청 장벽을 해제하지 않는다. 이 장벽을 보장할 수 없으면 호환 fallback을 추가하지 않고
+  배포를 `BLOCKED`로 둔다.
 
 ## Contracts Package Release
 
@@ -159,7 +171,7 @@
 | 전체 scope/Gate 순서와 장기 릴리즈 상태 반영 | [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md) |
 | DB/API/Admin/Mobile/docs/tag 명령과 rollback | [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md) |
 | Admin 정적 artifact 배포 | [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md) |
-| API 계약 호환·cutover 배포 | [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md) |
+| API 계약 최종 snapshot 배포·승인 예외 cutover | [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md) |
 | DB expand/backfill/cutover/contract Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) |
 | 계약 package 생성·발행·소비 | [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md) |
 

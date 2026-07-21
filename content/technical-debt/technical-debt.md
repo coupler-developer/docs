@@ -149,10 +149,13 @@
 
 ## 20) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
-- 현상: 코드 계약은 수렴했지만 API/Admin/Mobile 배포 순서와 legacy 차단 근거가 없다.
-- 영향: 구버전 client와 임시 호환 경로를 남긴 채 완료로 오인할 수 있다.
-- 조치: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로 동시 cutover를 기록한다.
-- 완료: exact package·배포 순서·`min_version/force_update`·legacy 제거 근거 확보.
+- 현상: 코드 계약은 수렴했지만 API/Admin/Mobile exact package와 Store 출시 activation 강제 업데이트 또는 NextPush
+  mandatory를 하나의 최종 계약 배포로 정렬한 기록이 없다.
+- 영향: 일부 구성요소만 다른 계약으로 활성화되거나 승인되지 않은 임시 호환 경로를 남긴 채 완료로 오인할 수 있다.
+- 조치: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로 단일 최종
+  계약 snapshot과 배포 수단별 교체 설정을 기록한다.
+- 완료: exact package·배포 순서·Store `min_version/force_update` 또는 NextPush mandatory·legacy 코드 소비
+  0건과 전체 snapshot rollback 근거 확보.
 
 ## 21) API success DTO schema 정리 미완료 `P2` `L`
 
@@ -163,9 +166,13 @@
 
 ## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
 
-- 현상: API·Admin source main은 채팅 페이지 집계·무료 공개 프로필을 포함한 stable contract `0.1.15`에 exact pin되어 있다. Mobile source main은 `0.1.9`이고, 그룹미팅 소비 PR `coupler-mobile-app#154`만 `0.1.15`에 exact pin된 상태라 세 레포 source main 정렬부터 남아 있다. 실제 배포물의 exact version 일치 증빙과 대상 환경별 migration ledger·runtime, FCM, scheduler smoke, 운영 전환도 남아 있다.
+- 현상: 그룹미팅 소비 구현은 세 source main에 반영됐고 API source main은 stable contract `0.1.18`, Admin·Mobile
+  source main은 `0.1.17`이다. 채팅 cutover 후속 refs의 Admin·Mobile은 `0.1.18` exact pin까지 준비됐지만 main
+  병합과 실제 배포물의 exact version 일치 증빙, 대상 환경별 migration ledger·runtime, FCM, scheduler smoke와
+  운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
-- 조치: 세 레포 배포물의 `0.1.15` exact version 일치 확인 → 대상 환경 migration ledger·schema 확인 → API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
+- 조치: 세 source main을 latest stable exact version으로 정렬 → 대상 환경 migration ledger·schema 확인 →
+  API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
 - 완료: dev/prod Gate, 세 레포 exact version, FCM 77~83, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
@@ -191,10 +198,14 @@
 
 ## 26) 기존 API 페이지 조회 구조 감사·전환 미완료 `P2` `L`
 
-- 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존 Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과 전체 채팅 첫 화면의 API 집계 계약은 `0.1.13`에서 도입됐고 API·Admin source main은 stable `0.1.15`에 exact pin되어 있지만 Mobile source main은 `0.1.9`다. 그룹미팅 소비 PR `coupler-mobile-app#154` 병합과 실제 배포 확인, 나머지 화면 감사가 남아 있다.
+- 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존
+  Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과
+  전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source main에 반영됐고 API source main은 stable `0.1.18`,
+  Admin·Mobile source main은 `0.1.17`이다. 채팅 cutover 후속 refs의 소비자는 `0.1.18` exact pin까지 준비됐지만
+  main 병합과 실제 배포 확인, 나머지 화면 감사가 남아 있다.
 - 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
-- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 cutover → traffic 확인 후 legacy endpoint 제거.
-- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 legacy traffic 0건 및 제거.
+- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → 현재 코드 소비 경로 0건과 강제 업데이트/mandatory 근거 확인 후 legacy endpoint 제거.
+- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 현재 코드 소비 0건·강제 업데이트/mandatory 증빙 및 제거.
 
 ## 27) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
 

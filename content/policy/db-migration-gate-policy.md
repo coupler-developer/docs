@@ -149,7 +149,9 @@
 - DB 변경은 `Expand`, `Backfill`, `Cutover`, `Contract` 중 하나로 분류하고 그에 맞춰 배포 순서를 정한다.
 - backward-compatible `Expand`는 같은 배포 윈도우에서 애플리케이션보다 먼저 반영할 수 있다.
 - DB-only 선반영이 기존 코드의 허용 범위를 넓히면 허용 범위, 기간, 후속 API/Admin/Mobile 배포 범위를 PR/릴리즈에 남긴다.
-- `Contract`/`drop`/호환 제거는 호환 애플리케이션 배포와 운영 검증 후 별도 단계로 진행한다.
+- `Contract`/`drop`은 현재 API/Admin/Mobile 코드의 의존성 0건과 DB Gate를 확인한 뒤 실행한다. 이 저장소
+  순서는 public API의 구버전 호환이나 별도 traffic 관찰을 요구하는 근거가 아니다. 강제 업데이트/mandatory로
+  하나의 최종 계약을 배포하는 경우 같은 릴리즈 윈도우의 검증된 후속 단계로 실행할 수 있다.
 - Mobile/Admin/API 영향은 DB 직접 접속 여부가 아니라 API 계약, 서버 동작, 배포 버전 기준으로 판단한다.
 
 ## 적용 이력 테이블

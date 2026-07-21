@@ -357,6 +357,12 @@ xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version
 ```
 
+API 계약 변경이 포함되면 심사 제출 시 운영 `min_version`을 바꾸지 않는다. 심사 승인과 새 build의 출시 가능
+상태를 확인한 뒤 사용자 요청이 차단된 activation window에서 API/Admin 반영, Store 출시와 Android·iOS 각각의
+`version_code`·`min_version` 갱신을 연속 실행한다. 실제 이전 build의 bootstrap 응답이 `force_update=2`, 새
+build가 `force_update=0`인지 두 플랫폼에서 확인하고 smoke를 통과한 뒤에만 장벽을 해제한다. 장벽 시작·종료,
+설정 변경 시각과 검증 결과를 릴리즈 기록에 남기며, 이 장벽을 보장할 수 없으면 배포하지 않는다.
+
 스토어 심사 제출 직후에는 운영 출시 완료 전 기준점을 잃지 않도록 [배포 태그 정책](../../policy/release-tag-policy.md)에 따라 제출 마커 태그를 만든다.
 
 ```bash

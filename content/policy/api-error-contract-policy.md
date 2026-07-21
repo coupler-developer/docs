@@ -369,7 +369,9 @@ transition 계층으로 본다:
 - 서버 public `ERROR_CODE` alias
 - `path`/`group`/`name`/`codePrefix` 기반 taxonomy DSL
 
-구버전 클라이언트 호환이 필요하면 최종 구조 PR에 섞지 않고 별도 호환 배포 작업으로 분리한다.
+구버전 클라이언트 호환은 작업 요청자가 서로 다른 계약의 공존을 명시 승인한 경우에만 최종 구조 PR과 분리한
+별도 호환 배포 작업으로 다룬다. 설치된 구버전의 존재나 Store 심사 지연 가능성을 승인으로 추정하지 않으며,
+승인되지 않은 transition 계층은 강제 업데이트/mandatory가 포함된 단일 최종 계약에서 제거한다.
 
 ## 변경 절차
 
