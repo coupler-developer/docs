@@ -162,7 +162,8 @@ flowchart LR
 | API | 설명 |
 |-----|------|
 | `GET /match/chat/detail` | 채팅방 정보 |
-| `GET /match/chat/list` | 메시지 목록 |
+| `GET /match/chat/messages` | 읽기 전용 cursor 메시지 목록 |
+| `POST /match/chat/read` | 상대방 발신 메시지의 명시적 읽음 경계 갱신 |
 | `POST /match/chat/send` | 메시지 전송 |
 | `POST /match/chat/leave` | 채팅방 나가기 |
 | `POST /match/chat/changeSchedule` | 일정 변경 |
