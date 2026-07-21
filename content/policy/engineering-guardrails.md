@@ -22,7 +22,7 @@
 
 | 판정 책임 | 단일 SoT | 이 문서의 역할 |
 | --- | --- | --- |
-| 공통 Fail-closed, 책임 분리, 구조 단순화, 외부 의존성 승인, Shadow Cutover | 이 문서 | 최종 규칙 |
+| 공통 Fail-closed, 책임 분리, 구조 단순화, 외부 의존성 최소화·기술 검토, Shadow Cutover | 이 문서 | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
 | 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
@@ -477,19 +477,17 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - lint/CI 통과를 merge 조건으로 둔다.
     - docs 검증과 문서 동기화 기준은 [테스트/CI 전략](testing-strategy.md)과 [문서 거버넌스 정책](document-governance-policy.md)을 따른다.
 
-### 외부 의존성 추가 승인 게이트
+### 외부 의존성 변경 사전 검토
 
 - 적용 대상은 `package.json`, native manifest, requirements 파일 등 의존성 manifest에 새 외부 package·SDK를
   추가하거나 기존 의존성을 다른 package·SDK로 대체하는 모든 코드 작업이다. 표준 라이브러리 사용과 이미 선언된
   직접 의존성 사용은 `N/A`다.
-- manifest·lockfile 수정 또는 install 명령 실행 전에 아래 근거를 작업 요청자에게 제시하고 **명시적 승인**을
-  받아야 한다.
+- 외부 의존성 변경 권한은 [에이전트 운영 규칙](../AGENTS.md)의 `권한 집합`을 단일 기준으로 판정한다. 독립
+  승인을 요청하기 전에 아래 기술 근거를 작업 요청자에게 제시한다.
     1. 필요한 기능과 실제 호출 경로
     2. 표준 라이브러리와 기존 직접 의존성으로 해결할 수 없는 이유
     3. 검토한 대안과 제외 이유
     4. 정확한 package·version·runtime/dev 범위와 manifest·lockfile·빌드·보안 영향
-- 기능 구현, 작업 완료, 리팩터링처럼 범위만 승인한 요청은 외부 의존성 추가 승인으로 해석하지 않는다. 제시한
-  package 또는 적용 범위가 달라지면 다시 승인받는다.
 - 승인 후에는 저장소의 package manager로 설치하고 direct dependency와 lockfile을 함께 고정하며, 실제 import와
   적용 테스트로 사용 근거를 확인한다. 사용하지 않거나 기존 의존성과 책임이 중복된 package는 완료 범위에 남기지
   않는다.

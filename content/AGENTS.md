@@ -100,6 +100,11 @@
 
 - 기본 권한은 요청 유형의 종료 조건을 달성하는 데 필요한 read-only 또는 workspace 파일 변경까지다.
 - 테스트 파일 변경 권한은 상단 `테스트 파일 변경` Gate를 따른다.
+- 외부 의존성 추가·대체와 이를 위한 manifest·lockfile 수정 또는 install 명령은 일반 workspace 파일 변경
+  권한에 포함되지 않는다.
+- [엔지니어링 가드레일](policy/engineering-guardrails.md)의 `외부 의존성 변경 사전 검토` 근거를 먼저 제시하고
+  작업 요청자의 명시적 승인을 받아야 한다. 기능 구현·리팩터링 같은 일반 변경 요청은 외부 의존성 승인으로
+  해석하지 않으며, package 또는 적용 범위가 달라지면 다시 승인받는다.
 - branch/worktree 생성, commit, push, PR 생성, reviewer 변경, deploy, force push·삭제는 서로 독립된 권한이다.
 - 사용자가 명시하지 않은 외부 상태 변경 권한을 작업의 자연스러운 후속 단계라는 이유로 추가하지 않는다.
 - `수정하고 PR 올려줘`는 수정·검증·commit·push·PR 생성 권한을 포함하지만 reviewer 변경·deploy 권한을
