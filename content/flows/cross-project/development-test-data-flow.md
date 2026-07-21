@@ -7,7 +7,7 @@
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../../policy/development-test-data-policy.md)
 - 기준 성격: `as-is`
 
-현재 CLI·정적 coverage·브라우저 smoke의 실제 실행 경계를 설명한다. 공유 개발계 유지 기간 관측과 종료 시 reset 증빙은 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서 추적한다.
+현재 CLI·정적 coverage·브라우저 smoke의 실제 실행 경계를 설명한다. 공유 개발계 적용·검증의 현재 상태와 잔여 범위는 [기술 부채 정리](../../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료` 항목에서만 추적한다.
 
 ## 목적
 

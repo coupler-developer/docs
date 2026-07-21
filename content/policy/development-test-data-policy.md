@@ -7,7 +7,6 @@
 - 충돌 시 우선 문서: 이 문서
 - 기준 성격: `as-is`
 - 현재 구조: active namespace는 하나의 완전한 suite generation만 가리키며 모든 갱신은 원자 generation cutover로 수행
-- 전환 완료: 공유 개발계 `qa-cms-20260716`을 catalog v7 generation 2로 승격하고 임시 단일-domain·legacy asset 채택 경로를 제거
 
 공유 개발계 검증과 고도화 잔여 범위는 [기술 부채 정리](../technical-debt/technical-debt.md)의
 `테스트용 개발 데이터 운영 검증·고도화 미완료`에서 추적한다.
@@ -73,7 +72,6 @@
 - generation·run-scoped asset identity 또는 합성 `t_member` root exact set이 없는 active record는 자동 채택·보정하지 않고 fail-closed한다.
 - 단일 domain 추가·교체, 순차 `reset -> apply`, 임시 namespace 복제와 legacy asset 채택 옵션은 제공하지 않는다.
 - cutover journal은 DB commit과 registry 승격 사이 장애를 복구하는 영구 원자성 장치이며 임시 호환 경로가 아니다.
-- 2026-07-20 공유 개발계 cutover에서 generation 2, catalog v7, current schema fingerprint, exact scenario manifest, run-scoped asset, journal 0건과 cron 정상 실행을 확인했다.
 
 ## 필수 규칙
 
