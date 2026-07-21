@@ -119,9 +119,9 @@ flowchart LR
   HTTP snapshot으로 맞추며 주기 조회 응답으로 덮어쓰지 않는다.
 - WebRTC는 사용하지 않는다. 브라우저·앱과 서버 사이의 작은 영속 메시지 이벤트이며 P2P 미디어·데이터 채널,
   NAT traversal, 별도 signaling이 필요하지 않기 때문이다.
-- FCM `CONCIERGE_CHAT(67)`은 Mobile 사용자 알림과 재진입 보조 수단이다. foreground에서도 사용자 알림은
-  표시하되 WebSocket이 연결돼 있으면 같은 FCM으로 상태 갱신 이벤트를 중복 발행하지 않는다. 활성 화면 실시간
-  상태의 원천은 WebSocket이고, 메시지 원본은 항상 DB다.
+- 활성 화면 실시간 상태의 원천은 WebSocket이고 메시지 원본은 항상 DB다. FCM `CONCIERGE_CHAT(67)`의 사용자
+  설정, foreground 표시와 상태 갱신 보조 경로 판정은 [푸시알림 운영 정책](../policy/push-notification-policy.md)을
+  따른다.
 
 ### HTTP API
 
@@ -233,7 +233,7 @@ sequenceDiagram
         HTTP->>WS: concierge:message
         WS-->>Client: canonical persisted message
         opt Admin to member
-            HTTP->>FCM: user notification (alarm_chat 허용 시)
+            HTTP->>FCM: user notification (푸시 정책 허용 시)
         end
     else same-key retry
         HTTP-->>HTTP: no duplicate WebSocket/FCM side effect

@@ -9,7 +9,8 @@
 
 Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이다.
 이 문서의 타입 섹션은 대표 타입과 범주를 설명하는 요약본이며, 전체 타입 인벤토리를 1:1로 열거하지 않는다.
-기존 알림 흐름은 `as-is`이고 그룹미팅 77~83의 Mobile 연결과 운영 활성화만 전환 중이다.
+기존 알림 흐름과 그룹미팅 77~83의 API 타입은 현행이다. 별도 Mobile 소비자 cutover와 운영 증빙은
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
 
 ## 논리 데이터 모델
 
@@ -148,22 +149,23 @@ flowchart LR
 
 - 위 표는 전체 타입 목록이 아니라 대표 타입 예시와 범주 요약이다.
 
-### 그룹미팅 타입 (77-83, transition)
+### 그룹미팅 타입 (77-83)
 
-아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile은 신청 상태
-77~79는 행사 상세, 취소·새 메시지·후기 81~83은 채팅 이력으로 연결한다. 확정 80은 클릭 시 서버의 최신
-`can_chat`을 확인해 개방됐으면 채팅, 아직 미개방이면 행사 상세로 연결한다. 소비자 병합·배포와 운영 발송
-활성화가 끝나기 전에는 그룹미팅 푸시를 운영에서 활성화하지 않는다. 모든 `target`은 그룹미팅 행사 ID다.
+아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile 연결 계약은 신청 상태
+알림 77~79를 행사 상세, 취소·새 메시지·후기 알림 81~83을 채팅 이력으로 연결한다. 확정 80은 클릭 시 서버의 최신
+`can_chat`을 확인해 개방됐으면 채팅, 아직 미개방이면 행사 상세로 연결한다. 소비자 cutover와 운영 전환 상태는
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서
+추적한다. 모든 `target`은 그룹미팅 행사 ID다.
 
-| 값 | 상수 | 의미 | 사용자 설정 | Mobile 이동 |
-| --- | --- | --- | --- | --- |
-| 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | `alarm_event` | 행사 상세 |
-| 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | `alarm_event` | 행사 상세 |
-| 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | `alarm_event` | 행사 상세 |
-| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | `alarm_event` | 개방 시 채팅, 미개방 시 행사 상세 |
-| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | `alarm_event` | 채팅 이력 |
-| 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | `alarm_chat` | 채팅 이력 |
-| 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | `alarm_event` | 채팅 이력 |
+| 값 | 상수 | 의미 | Mobile 이동 |
+| --- | --- | --- | --- |
+| 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | 행사 상세 |
+| 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | 행사 상세 |
+| 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | 행사 상세 |
+| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 모임 확정 | 개방 시 채팅, 미개방 시 행사 상세 |
+| 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | 채팅 이력 |
+| 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | 채팅 이력 |
+| 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | 채팅 이력 |
 
 ## 발송 흐름
 
@@ -185,24 +187,11 @@ sequenceDiagram
     end
 ```
 
-## 발송 조건 정책
+## 발송 조건
 
-| 조건 | 체크 항목 | 결과 |
-|------|----------|------|
-| 채팅 알림 | `alarm_chat = NO` | MATCH_NEW_CHAT, CONCIERGE_CHAT 스킵 |
-| 매칭 알림 | `alarm_match = NO` | FCM 12-30 스킵 |
-| 그룹미팅 행사 알림(전환 중) | `alarm_event = NO` | FCM 77-81, 83 스킵 |
-| 그룹미팅 채팅 알림(전환 중) | `alarm_chat = NO` | FCM 82 스킵 |
-| 보이스톡 오픈 알림 숨김 | `MATCH_VOICE_CALL` | 전송/저장 스킵, 알림 목록 제외 |
-| FCM 토큰 | `fcm_token` 없음 | 전송 스킵 |
-| OFFLINE_MODE | 개발 환경 | 전송 스킵 |
-
-큐레이터 채팅의 활성 상태 동기화는 [채팅 시스템](chat-system.md)의 WebSocket 이벤트가 담당한다. FCM
-`CONCIERGE_CHAT(67)`은 Admin이 회원에게 보낸 메시지의 Mobile 사용자 알림과 재진입 보조 수단이며,
-`alarm_chat = NO`이면 FCM 전송과 `t_alarm` 저장을 모두 건너뛴다. FCM 수신 여부를 메시지 저장 성공이나 읽음
-상태의 기준으로 사용하지 않는다. Mobile foreground에서는 WebSocket 연결 여부와 무관하게 FCM 시스템 알림을
-표시한다. WebSocket이 연결돼 있으면 같은 FCM으로 `CONCIERGE_CHAT` 상태 갱신 이벤트를 중복 발행하지 않고,
-연결이 끊긴 경우에만 FCM 이벤트를 화면 상태 갱신 fallback으로 사용한다.
+타입별 사용자 설정 매핑, FCM·`t_alarm` 생략 조건, foreground 처리와 상태 갱신 보조 경로 판정은
+[푸시알림 운영 정책](../policy/push-notification-policy.md)이 소유한다. 이 문서는 발송 구성요소와 데이터 흐름만
+설명한다. 큐레이터 채팅의 활성 상태 동기화 구조는 [채팅 시스템](chat-system.md)의 WebSocket 절을 따른다.
 
 ## 메시지 구조
 
