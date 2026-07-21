@@ -109,6 +109,7 @@
 - 문서 안정성 평가: 완료/N/A
 - N/A 관점과 근거:
 - 열린 Finding:
+- 독립 최종 리뷰 체크포인트: `열린 Finding 0건·검증 대기` / `미도달` + 근거
 - 마지막 변경 이후 검증:
 - 최종 판정:
 
@@ -124,8 +125,10 @@
 - [ ] 문서/릴리즈 기록에 개인 사용자명·개인 개발 장비 절대경로가 없고, 공유 환경 경로는
   [문서 거버넌스 정책](document-governance-policy.md)의 운영 flow/runbook 예외를 충족하는지 확인
 - [ ] policy를 추가·수정·삭제하면 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate` 증빙과 **Policy Composition / Lifecycle Consistency Reviewer** 판정을 기록
-- [ ] 자체 테스트 완료
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
+- [ ] 독립 최종 리뷰 체크포인트 이후 동일 최종 후보에서 로컬 표준 통합 품질 게이트를 레포별 1회만 실행했는지와
+  별도 표적 검증을 실행했다면 허용 사유·명령·결과를, 환경 실패가 있었다면 실패·미실행 하위 Gate의 재시도
+  근거를 확인
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
 - [ ] 외부 의존성을 추가·대체하면 [엔지니어링 가드레일](engineering-guardrails.md)의 `외부 의존성 추가 승인 게이트` 근거와 작업 요청자의 명시적 승인 기록을 확인
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록

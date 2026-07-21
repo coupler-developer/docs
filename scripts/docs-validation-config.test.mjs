@@ -170,6 +170,44 @@ test("validation redundancy review stays synchronized across policies and templa
   );
 });
 
+test("final candidate validation follows independent review evidence", () => {
+  const orderedHeadings = [
+    "## 정책 Composition Gate (policy 추가·수정·삭제 시)",
+    "## 독립 리뷰 판정",
+    "## Findings",
+    "## 독립 리뷰 체크포인트",
+    "## 검증",
+    "## 결론",
+  ];
+  const headingIndexes = orderedHeadings.map((heading) =>
+    docsStabilityReviewTemplate.indexOf(heading),
+  );
+
+  assert.ok(headingIndexes.every((index) => index >= 0));
+  assert.deepEqual(headingIndexes, [...headingIndexes].sort((a, b) => a - b));
+  assert.match(
+    docsStabilityReviewTemplate,
+    /구현·문서 구조와 검증 계획을 판정한다\. 실제 검증 결과와 최종 Exit Gate는 아래 `결론`에서 결합한다\./,
+  );
+  assert.doesNotMatch(codeReviewPolicy, /^[-] \[ \] 자체 테스트 완료$/mu);
+  assert.match(
+    codeReviewPolicy,
+    /별도 표적 검증을 실행했다면 허용 사유·명령·결과를/,
+  );
+  assert.match(
+    codeReviewPolicy,
+    /독립 최종 리뷰 체크포인트: `열린 Finding 0건·검증 대기` \/ `미도달` \+ 근거/,
+  );
+  assert.match(
+    codeReviewPolicy,
+    /검증 결과는 독립 리뷰나 체크포인트를 대체하지 않는다/,
+  );
+  assert.doesNotMatch(
+    codeReviewPolicy,
+    /독립 최종 리뷰 체크포인트:[^\n]*N\/A/,
+  );
+});
+
 test("Core and high-risk route descriptors come from the lifecycle registry", () => {
   assert.match(
     agentWorkflowValidator,
