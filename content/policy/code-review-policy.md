@@ -84,6 +84,8 @@
   신규/기존 호환 경로 여부, 호환이 있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈·검증 근거
 - API 계약 판정 범위: `동시 배포 계약 묶음` / `운영 legacy cutover` / `N/A`
 - 동시 배포 계약 묶음: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면, 요청·응답 wire 계약 정렬 결과
+- 다중 레포 문서 최종 상태: 관련 PR 전체 병합 후 source main version·기능 상태, 선행 PR과 merge order,
+  브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과
 - 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store 출시 activation 강제 업데이트 또는 NextPush
   mandatory, 현재 코드 소비 경로 0건, 릴리즈 기록 적용/N/A 근거
 
@@ -138,6 +140,8 @@
   있으면 작업 요청자의 명시적 승인, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
 - [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
+- [ ] 다중 레포 최종 상태 문서가 관련 PR 전체 병합 후에도 사실이고, branch-local version·`main 병합 대기`를
+  `as-is` 문서나 기술부채의 최종 상태로 남기지 않았으며 선행 PR과 merge order가 기록됐는지 확인
 - [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리즈 기록·자동화 변경이면 [배포/릴리즈 프로세스](release-process.md)의 적용 절과 체크리스트,
   공통 release schema/derived model, 전환 검증 결과를 확인
@@ -322,6 +326,8 @@
 - [ ] React Native `StyleSheet.create`에 신규 style key를 추가한 경우 `lowerCamelCase`로 작성했는가?
 - [ ] API 계약 변경이면 단일 최종 계약과 강제 업데이트/mandatory 방식이 남았고, 호환 경로 추가/수정/사용이
   있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈가 PR/릴리즈 기록에 남았는가?
+- [ ] 다중 레포 계약 묶음의 문서가 개별 브랜치의 리뷰 시점이 아니라 관련 PR 전체 병합 후 source main 상태를
+  설명하고, 문서 PR이 선행 consumer PR 이후에 merge되도록 의존 순서가 기록됐는가?
 - [ ] 기존 정책 불일치를 회귀로 오판하지 않고, 이번 변경이 새로 만들거나 확산한 문제인지 근거로 구분했는가?
 - [ ] 문서 변경 시 기존 내용과 충돌하는 부분은 없는가?
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기준을 따르는가? (예외 시 근거 확인)

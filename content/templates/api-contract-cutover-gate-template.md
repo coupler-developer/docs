@@ -13,6 +13,10 @@ API/Admin/Mobile 공통 응답 또는 ErrorData contract 변경이 포함될 때
     - `coupler-api`:
     - `coupler-mobile-app`:
     - `coupler-admin-web`:
+- 병합 후 최종 source main:
+    - contracts exact version:
+    - 선행 consumer PR과 merge order:
+    - docs merge 전 선행 PR 반영 확인:
 - Contract artifact sync:
     - 명령:
     - 결과:
