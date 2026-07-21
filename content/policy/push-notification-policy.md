@@ -49,8 +49,23 @@
 ### 2) 발송 조건 통제
 
 - 사용자 알림 설정(`alarm_chat`, `alarm_match`, `alarm_event`)을 서버 발송 경로에서 일관되게 적용한다.
-- 그룹미팅 77~81과 83은 `alarm_event`, 새 채팅 82는 `alarm_chat`을 적용한다. 설정이 꺼져 있으면 FCM과
-  `t_alarm` 저장을 모두 건너뛴다.
+
+| 대상 | 적용 조건 | 결과 |
+| --- | --- | --- |
+| 1:1 매칭 타입 12~30, 70, 71 | `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| `MATCH_NEW_CHAT(22)` | `alarm_chat = NO` 또는 `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| `CONCIERGE_CHAT(67)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| 그룹미팅 77~81, 83 | `alarm_event = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| `GROUP_MEETING_CHAT_MESSAGE(82)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| `MATCH_VOICE_CALL(53)` | 항상 | FCM 전송과 `t_alarm` 저장을 모두 건너뛰고 알림 목록에서 제외 |
+| FCM 토큰 없음 | 다른 발송·저장 조건은 충족 | FCM만 건너뛰고 `t_alarm`은 저장 |
+| `sendPush = false` 또는 `OFFLINE_MODE` | 다른 발송·저장 조건은 충족 | FCM만 건너뛰고 `t_alarm`은 저장 |
+
+- `CONCIERGE_CHAT(67)`은 Admin이 회원에게 보낸 메시지의 Mobile 사용자 알림과 재진입 보조 수단이다. FCM
+  수신 여부를 메시지 저장 성공이나 읽음 상태의 기준으로 사용하지 않는다.
+- Mobile foreground에서는 WebSocket 연결 여부와 무관하게 `CONCIERGE_CHAT(67)` 시스템 알림을 표시한다.
+  WebSocket이 연결돼 있으면 같은 FCM으로 상태 갱신 이벤트를 중복 적용하지 않고, 연결이 끊긴 경우에만 FCM
+  이벤트를 화면 상태 갱신 보조 경로로 사용한다.
 - 토큰 없음/발송 비활성 조건은 명시적으로 기록하고 스킵 사유를 남긴다.
 - 동일 이벤트의 다중 발송을 방지하기 위해 idempotency key 또는 중복 체크 키를 사용한다.
 
@@ -102,6 +117,11 @@
 
 - [ ] 타입 ID 충돌/재사용 없이 문서와 코드가 동기화됐는가?
 - [ ] `alarm_chat`/`alarm_match`/`alarm_event`, 토큰 부재, 환경 조건 스킵이 일관되게 동작하는가?
+- [ ] 1:1 매칭 12~30·70·71과 그룹미팅 77~83이 폐쇄형 설정 매핑과 일치하는가?
+- [ ] `CONCIERGE_CHAT(67)`은 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고, WebSocket·FCM 상태
+      갱신을 중복 적용하지 않는가?
+- [ ] 토큰 부재·`sendPush = false`·`OFFLINE_MODE`는 FCM만 생략하고, `MATCH_VOICE_CALL(53)`은 FCM과
+      `t_alarm`을 모두 생략하는가?
 - [ ] 중복 발송 방지 키 또는 동등한 통제가 있는가?
 - [ ] 라운지 댓글/대댓글 알림은 최상위 댓글과 직접 부모 댓글 기준이 분리되어 있는가?
 - [ ] 실패 재시도 제한 횟수와 종료 조건이 명시됐는가?
