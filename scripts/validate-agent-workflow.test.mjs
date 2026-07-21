@@ -151,6 +151,24 @@ test("독립 외부 권한 누락을 거부한다", () => {
   assert.match(validate({ agentsSource }).join("\n"), /권한 집합에 필수 값이 없습니다: reviewer 변경/);
 });
 
+test("외부 의존성 독립 승인 누락을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "외부 의존성 추가·대체와 이를 위한 manifest·lockfile 수정 또는 install 명령은 일반 workspace 파일 변경\n  권한에 포함되지 않는다.",
+    "외부 의존성 변경은 일반 workspace 파일 변경 권한에 포함된다.",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /권한 계약이 다릅니다/);
+});
+
+test("일반 변경 요청을 외부 의존성 승인으로 해석하지 않는다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "기능 구현·리팩터링 같은 일반 변경 요청은 외부 의존성 승인으로\n  해석하지 않으며",
+    "기능 구현·리팩터링 같은 일반 변경 요청은 외부 의존성 승인으로 해석하며",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /권한 계약이 다릅니다/);
+});
+
 test("PR 요청의 deploy 권한 반전을 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
     "포함하지 않는다.\n- 권한이 없는 단계",
