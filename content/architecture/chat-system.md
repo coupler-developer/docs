@@ -370,7 +370,7 @@ sequenceDiagram
 
 - `t_match_chat`의 nullable 멱등 키 migration 90과 exact schema postcheck migration 91을 순서대로 적용하고
   [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)의 대상 환경 preflight·ledger·column·unique
-  index·check clause·invalid identity 검증을 통과한 뒤에만 contracts `0.1.18`의 API·Admin·Mobile 단일 배포
+  index·check clause·invalid identity 검증을 통과한 뒤에만 contracts·API·Admin·Mobile 단일 배포
   단위를 활성화한다. 하나라도 없으면 배포를 시작하지 않는다.
 - 큐레이터·매칭 이벤트는 한 `/realtime/member` 연결과 API 프로세스 메모리 연결 집합을 공유한다. 현재 단일
   프로세스에서는 별도 broker가 필요 없지만 다중 인스턴스 전환 전에는 인스턴스 간 이벤트 전달과 HTTP 재동기화

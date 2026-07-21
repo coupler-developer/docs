@@ -86,10 +86,6 @@
 - 다중 레포 문서 PR은 선행 consumer PR과 merge order를 명시하고, 선행 PR이 source main에 반영되기 전에는
   merge하지 않는다. 최종 리뷰는 개별 브랜치의 현재 상태가 아니라 관련 PR 전체가 병합된 뒤 문서가 사실인지
   판정한다.
-- API contract cutover 릴리스 기록은 위 진행 상태를 자유 문장만으로 소유하지 않는다.
-  `apiContractCutover.sourceClosure.dependsOn`에 API/Admin/Mobile 선행 PR을, `postMergeContract`에 병합 후 세
-  source main의 stable exact version을 구조화한다. pending 이후 target은 동결하고, 최종 리뷰에서 원격 PR
-  merged 상태와 local release preflight의 source main version 결과를 함께 확인한다.
 - 새 문서, 절, 항목을 만들기 전에는 같은 목적이나 문제를 다루는 기존 문서나 항목을 먼저 확인하고, 가능하면 기존 내용을 보강한다.
 - 별도 분리가 필요하면 기존 문서나 항목과의 관계와 분리 사유를 작업 요청자 또는 리뷰어에게 알리고 확인한 뒤 진행한다.
 - Wiki, Notion, 공유 문서함 같은 저장소 밖 문서를 현재 규범 또는 DB SoT로 사용하지 않는다. 외부 도구는 초안과

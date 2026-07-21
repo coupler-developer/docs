@@ -231,10 +231,10 @@ pm2 logs coupler-api --lines 100 --nostream
 채팅이 포함되면 `90_expand_match_chat_idempotency.sql`과 `91_postcheck_match_chat_idempotency.sql` ledger 각
 1건, `t_match_chat.client_message_id` exact column, `uq_t_match_chat_member_client(member, client_message_id)`
 unique index, `chk_t_match_chat_message_identity` exact check clause, invalid identity 0건을 DB Migration Gate로
-확인한다. migration 90의 ledger·column·index·check가 모두 없는 현재 운영 baseline은 `BLOCKED`이며 migration
-90 적용과 migration 91 postcheck가 성공하기 전에는 API·Admin·Mobile을 배포하지 않는다.
+확인한다. 한 항목이라도 없거나 migration 91 postcheck가 실패하면 `BLOCKED`이며
+API·Admin·Mobile을 배포하지 않는다.
 
-contracts `0.1.18` published latest와 API source, Admin·Mobile dependency·lockfile의 exact version이 같아야 한다.
+contracts published latest와 API source, Admin·Mobile dependency·lockfile의 exact version이 같아야 한다.
 API, Admin, Android·iOS NextPush는 큐레이터·매칭 최종 계약의 단일 배포 단위로 반영하며 일부만 활성 상태로 남겨
 완료 처리하지 않는다. `client_message_id` 누락 수용이나 구형 목록 endpoint는 배포 안전장치로 두지 않는다.
 native 변경이 없으면 이 단계 자체는 Store 재심사 사유가 아니다.
