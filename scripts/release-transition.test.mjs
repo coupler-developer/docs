@@ -57,6 +57,19 @@ describe("pending to released transition", () => {
       ],
     );
   });
+
+  it("rejects source closure dependency or contract changes after pending", () => {
+    const pending = pendingMetadata();
+    const released = releasedMetadata();
+    released.apiContractCutover.sourceClosure.dependsOn[1].pullRequest = 999;
+
+    assert.deepEqual(
+      validatePendingToReleasedTransition(pending, released, "v9.9.0"),
+      [
+        "v9.9.0: frozen release target changed at apiContractCutover.sourceClosure ({\"postMergeContract\":\"9.9.0\",\"dependsOn\":[{\"repo\":\"coupler-api\",\"pullRequest\":101},{\"repo\":\"coupler-admin-web\",\"pullRequest\":102},{\"repo\":\"coupler-mobile-app\",\"pullRequest\":103}]} -> {\"postMergeContract\":\"9.9.0\",\"dependsOn\":[{\"repo\":\"coupler-api\",\"pullRequest\":101},{\"repo\":\"coupler-admin-web\",\"pullRequest\":999},{\"repo\":\"coupler-mobile-app\",\"pullRequest\":103}]})",
+      ],
+    );
+  });
 });
 
 function pendingMetadata() {
@@ -85,6 +98,14 @@ function pendingMetadata() {
     scopeResults: {},
     apiContractCutover: {
       status: "pending",
+      sourceClosure: {
+        postMergeContract: "9.9.0",
+        dependsOn: [
+          { repo: "coupler-api", pullRequest: 101 },
+          { repo: "coupler-admin-web", pullRequest: 102 },
+          { repo: "coupler-mobile-app", pullRequest: 103 },
+        ],
+      },
       comparisonRefs: {
         "coupler-api": apiCommit,
         "coupler-mobile-app": mobileCommit,

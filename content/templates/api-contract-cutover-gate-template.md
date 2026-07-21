@@ -4,6 +4,28 @@ API/Admin/Mobile 공통 응답 또는 ErrorData contract 변경이 포함될 때
 `content/templates/release-record-template.md`의 `검증 근거` 아래에 이 섹션을 삽입한다.
 값을 확인하지 못한 적용 항목은 `N/A`가 아니라 `pending`으로 남기고 최종 계약 배포 완료로 판정하지 않는다.
 
+## Source closure metadata
+
+`release-metadata.apiContractCutover`에는 아래 `sourceClosure`를 추가한다. `dependsOn`은 API와 두 consumer의
+선행 source PR을 canonical repo name으로 한 번씩 기록하며, `postMergeContract`는 세 source `main`이 함께
+소비할 stable exact version이다. pending 기록 이후 이 object 전체를 바꾸지 않는다.
+
+```json
+{
+  "sourceClosure": {
+    "postMergeContract": "X.Y.Z",
+    "dependsOn": [
+      { "repo": "coupler-api", "pullRequest": 0 },
+      { "repo": "coupler-admin-web", "pullRequest": 0 },
+      { "repo": "coupler-mobile-app", "pullRequest": 0 }
+    ]
+  }
+}
+```
+
+실제 작성 시 `pullRequest`의 `0`은 각 선행 PR의 양의 정수 번호로 바꾼다. 각 repo는 `releaseScopes` 또는
+`extraRepoRefs`의 검증 범위에도 포함해야 한다.
+
 ## 삽입 섹션
 
 ### API contract cutover Gate
@@ -14,9 +36,9 @@ API/Admin/Mobile 공통 응답 또는 ErrorData contract 변경이 포함될 때
     - `coupler-mobile-app`:
     - `coupler-admin-web`:
 - 병합 후 최종 source main:
-    - contracts exact version:
-    - 선행 consumer PR과 merge order:
-    - docs merge 전 선행 PR 반영 확인:
+    - contracts exact version (`sourceClosure.postMergeContract` mirror):
+    - 선행 source PR (`sourceClosure.dependsOn` mirror)과 merge order:
+    - docs merge 전 선행 PR의 merged 상태와 source main 반영 확인:
 - Contract artifact sync:
     - 명령:
     - 결과:

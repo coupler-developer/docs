@@ -26,6 +26,23 @@ import {
   setsAreEqual,
 } from "./release-record-parser.mjs";
 
+const contractSourceDescriptors = {
+  "coupler-api": {
+    packagePath: "packages/contracts/package.json",
+    readVersion: (packageJson) => packageJson.version,
+  },
+  "coupler-admin-web": {
+    packagePath: "package.json",
+    readVersion: (packageJson) =>
+      packageJson.dependencies?.["@coupler-developer/coupler-api-contracts"],
+  },
+  "coupler-mobile-app": {
+    packagePath: "package.json",
+    readVersion: (packageJson) =>
+      packageJson.dependencies?.["@coupler-developer/coupler-api-contracts"],
+  },
+};
+
 const docsRoot = process.cwd();
 const errors = [];
 let args = {};
@@ -580,7 +597,61 @@ function inspectReleaseRecord(releaseRecord, repoStates, errors) {
     );
   }
 
+  validateApiContractSourceVersions(releaseRecord, repoStates, errors);
   validateDbMigrationSqlFiles(releaseRecord, repoStates, errors);
+}
+
+function validateApiContractSourceVersions(releaseRecord, repoStates, errors) {
+  const sourceClosure = releaseRecord.metadata
+    ?.apiContractCutover
+    ?.sourceClosure;
+
+  if (!sourceClosure || typeof sourceClosure !== "object") {
+    return;
+  }
+
+  const expectedVersion = sourceClosure.postMergeContract;
+  const dependencies = Array.isArray(sourceClosure.dependsOn)
+    ? sourceClosure.dependsOn
+    : [];
+  const repoStateByName = new Map(repoStates.map((state) => [state.name, state]));
+
+  for (const dependency of dependencies) {
+    const descriptor = contractSourceDescriptors[dependency?.repo];
+    if (!descriptor) {
+      continue;
+    }
+
+    const repoState = repoStateByName.get(dependency.repo);
+    if (!repoState) {
+      errors.push(
+        `${releaseRecord.version}: source closure repo is not included in preflight: ${dependency.repo}`,
+      );
+      continue;
+    }
+
+    if (!repoState.exists) {
+      continue;
+    }
+
+    const packagePath = path.join(repoState.root, descriptor.packagePath);
+    let packageJson;
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    } catch (error) {
+      errors.push(
+        `${releaseRecord.version}: cannot read ${dependency.repo}/${descriptor.packagePath}: ${error.message}`,
+      );
+      continue;
+    }
+
+    const actualVersion = descriptor.readVersion(packageJson);
+    if (actualVersion !== expectedVersion) {
+      errors.push(
+        `${releaseRecord.version}: ${dependency.repo} source main contract version must equal sourceClosure.postMergeContract (${actualVersion ?? "missing"} != ${expectedVersion})`,
+      );
+    }
+  }
 }
 
 function validateScopeFields(version, scopeFields, releaseModel, errors) {

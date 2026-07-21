@@ -226,6 +226,103 @@ describe("release metadata scope results", () => {
     );
   });
 
+  it("requires structured source closure while a cutover is active", () => {
+    const cutover = releasedApiContractCutover();
+    cutover.status = "pending";
+    delete cutover.sourceClosure;
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "planned",
+        "contracts-package": "planned",
+      },
+      apiContractCutover: cutover,
+    });
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) => /active release-metadata apiContractCutover\.sourceClosure is required/.test(error)),
+    );
+  });
+
+  it("requires one structured dependency for every service repo", () => {
+    const cutover = releasedApiContractCutover();
+    cutover.status = "pending";
+    cutover.sourceClosure.dependsOn = [
+      { repo: "coupler-api", pullRequest: 101 },
+      { repo: "coupler-api", pullRequest: 102 },
+    ];
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "planned",
+        "contracts-package": "planned",
+      },
+      apiContractCutover: cutover,
+    });
+
+    const errors = validate(metadata);
+
+    assert(errors.some((error) => /has duplicate repo: coupler-api/.test(error)));
+    assert(errors.some((error) => /is missing service repo: coupler-admin-web/.test(error)));
+    assert(errors.some((error) => /is missing service repo: coupler-mobile-app/.test(error)));
+  });
+
+  it("rejects unstable source contract versions and invalid PR identifiers", () => {
+    const cutover = releasedApiContractCutover();
+    cutover.status = "pending";
+    cutover.sourceClosure.postMergeContract = "0.1.18-next.1";
+    cutover.sourceClosure.dependsOn[0].pullRequest = 0;
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "planned",
+        "contracts-package": "planned",
+      },
+      apiContractCutover: cutover,
+    });
+
+    const errors = validate(metadata);
+
+    assert(errors.some((error) => /postMergeContract must be stable MAJOR\.MINOR\.PATCH/.test(error)));
+    assert(errors.some((error) => /pullRequest must be a positive integer/.test(error)));
+  });
+
+  it("requires released package evidence to match the post-merge contract", () => {
+    const cutover = releasedApiContractCutover();
+    cutover.sourceClosure.postMergeContract = "9.9.1";
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+      },
+      apiContractCutover: cutover,
+    });
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) => /released sourceClosure\.postMergeContract must match @coupler-developer\/coupler-api-contracts@9\.9\.1/.test(error)),
+    );
+  });
+
+  it("keeps historical terminal cutover metadata valid without source closure", () => {
+    const cutover = releasedApiContractCutover();
+    delete cutover.sourceClosure;
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+      },
+      apiContractCutover: cutover,
+    });
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
   it("rejects released cutover N/A evidence and non-SHA comparison refs", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "contracts-package"],
@@ -694,7 +791,9 @@ function buildMetadata({
     version,
     status: status ?? deriveStatus(scopes, statuses),
     releaseScopes: scopes,
-    extraRepoRefs: [],
+    extraRepoRefs: apiContractCutover?.sourceClosure
+      ? ["coupler-api", "coupler-admin-web", "coupler-mobile-app"]
+      : [],
     versionMapping: versionMappingFor(statuses),
     scopeResults: Object.fromEntries(
       scopes.map((scopeName) => [scopeName, scopeResult(scopeName, statuses[scopeName])]),
@@ -913,6 +1012,14 @@ function ledgerEvidence(targetEnv) {
 function releasedApiContractCutover() {
   return {
     status: "released",
+    sourceClosure: {
+      postMergeContract: "9.9.0",
+      dependsOn: [
+        { repo: "coupler-api", pullRequest: 101 },
+        { repo: "coupler-admin-web", pullRequest: 102 },
+        { repo: "coupler-mobile-app", pullRequest: 103 },
+      ],
+    },
     comparisonRefs: {
       "coupler-api": apiCommit,
       "coupler-mobile-app": mobileCommit,

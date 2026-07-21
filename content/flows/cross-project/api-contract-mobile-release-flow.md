@@ -59,6 +59,8 @@ API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로
 ### 0) 범위와 기준점 고정
 
 1. Store와 NextPush 중 적용 수단, 플랫폼, 제출 build 또는 target binary, API/Admin/Mobile/docs ref를 기록한다.
+   API/Admin/Mobile 선행 source PR과 병합 후 stable exact version은 릴리즈 metadata의
+   `apiContractCutover.sourceClosure`에 고정한다.
 2. 변경을 contracts package, API, Admin, Mobile, DB로 나누고 포함하지 않은 범위는 `N/A` 근거를 남긴다.
 3. 작업 요청자가 별도 호환을 명시 승인하지 않았다면 기술 이행 유형을 `최종 상태`로 고정한다.
 
@@ -76,6 +78,8 @@ API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로
 아래 조건이 모두 충족되지 않으면 운영 반영을 시작하지 않는다.
 
 - API package source, published latest stable, Admin·Mobile dependency/lockfile version 일치
+- `sourceClosure.dependsOn`의 API/Admin/Mobile PR merged 확인과 local release preflight의 세 source main
+  `postMergeContract` exact match
 - API/Admin/Mobile에서 제거 대상 legacy symbol과 runtime 호출 0건
 - Store 제출 artifact 또는 NextPush bundle과 배포 commit 연결
 - 강제 업데이트 또는 mandatory 설정을 적용·검증할 작업자와 rollback 기준점 확보
@@ -135,6 +139,7 @@ API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로
 
 - [ ] 기술 이행 유형이 기본 `최종 상태`이거나 호환 예외의 사용자 명시 승인 근거가 있는가?
 - [ ] API package source, published stable, Admin·Mobile exact version이 같은가?
+- [ ] `sourceClosure`의 세 선행 PR이 merged이고 local release preflight가 post-merge source main exact version을 확인했는가?
 - [ ] compatibility helper, legacy endpoint, GET read side effect, legacy Mobile/Admin 호출이 0건인가?
 - [ ] Store 출시 activation 뒤 이전 build `force_update=2` 또는 NextPush 양 플랫폼 mandatory가 확인됐는가?
 - [ ] activation window에서 혼합 계약 사용자 요청이 차단되고 smoke 뒤 장벽이 해제됐는가?
