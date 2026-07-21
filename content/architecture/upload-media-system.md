@@ -47,7 +47,7 @@ flowchart TD
 ```
 uploads/
 ├── image/{type}/{year}/{month}/{day}/
-│   ├── image_1700000000000.jpg
+│   ├── image_1700000000000_2f8b6f10-4de8-4c62-bf18-950e1f2c8030.jpg
 ├── image/manager-detail-source/{year}/{month}/{day}/
 │   └── image_1700000000000.png       ← 업로드 원본 보관
 ├── image/manager-detail-slice/{year}/{month}/{day}/
@@ -63,13 +63,15 @@ uploads/
 ```
 
 - `:type` 파라미터: `profile`, `lounge`, `auth` 등 용도별 서브디렉토리
-- 파일명: `{prefix}_{timestamp}{ext}` 형식 (`getDir()` 함수로 경로 생성)
+- 이미지 파일명: `image_{timestamp}_{uuid}{ext}` 형식으로 요청 내·동시 요청 간 basename 충돌을 방지한다.
+- 비디오·오디오·일반 파일명은 기존 `{prefix}_{timestamp}{ext}` 형식을 유지한다 (`getDir()` 함수로 경로 생성).
 
 ## 파일 타입별 처리
 
 | 타입                   | 후처리                                                                               | 라이브러리          | 비고                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------ | ------------------- | ----------------------------------------------------------------------------------------- |
 | 이미지                 | 기본: 원본 저장, `manager-list`는 `webp` 변환 + 최대 `720x1280` 최적화               | Sharp (libvips)     | `_thumb` 생성 없음                                                                        |
+| 인증 서류 이미지       | 실제 바이트를 판독하고 Crop 없이 최대 `2560x2560`, 품질 90의 JPEG로 정규화           | GraphicsMagick + Sharp | HEVC 기반 HEIC/HEIF는 HEIF 지원 `gm`으로 디코딩하며 결과 경로는 `.jpg`                  |
 | 긴 manager 상세 이미지 | 원본 업로드 → pending version 생성 → background worker가 `manager-detail-slice` 생성 | Sharp (libvips)     | `target_width=1080`, `slice_height=2048`, `status=ready`일 때만 `detail_profile_set` 반환 |
 | 비디오                 | 10초 프레임 추출 → JPG 썸네일                                                        | FFmpeg              | 썸네일 실패 시 에러 응답                                                                  |
 | 오디오                 | 원본 → MP3 변환 후 원본 삭제                                                         | FFmpeg              |                                                                                           |
@@ -90,6 +92,9 @@ Mobile의 갤러리/카메라 선택과 Crop 여부는 업로드 API 호출 전 
 | 동영상 | Crop 없음 | `/app/upload/video` |
 
 - API 서버는 Mobile이 보낸 파일을 현재 업로드 타입(`profile`, `auth`, `lounge` 등)에 맞는 저장 경로에 저장하고 상대경로를 반환한다.
+- `auth` 업로드는 클라이언트 확장자나 MIME이 아닌 실제 바이트 포맷을 기준으로 이미지를 판독한다. HEVC 기반 HEIC/HEIF를 포함한 유효 이미지는 원본 비율을 유지한 JPEG로 정규화한 뒤 `.jpg` 상대경로만 반환한다.
+- HEIC 디코딩 중간파일은 정적 서빙 경로 밖에서 처리하고, 변환 결과는 정적 서빙에서 제외되는 고유 숨김 파일에서 완성한다. 확장자가 바뀌는 결과는 기존 대상이 없을 때만 원자적으로 게시하며 대상이 이미 있으면 덮어쓰지 않고 실패한다.
+- 교체와 원본 정리가 모두 성공한 경우에만 업로드 성공을 반환한다. 다중 업로드의 한 파일이라도 실패하면 완료 결과, 실패 파일과 아직 처리하지 않은 원본을 모두 롤백한다.
 - 서버는 인증 서류 이미지의 원본 비율 유지 여부를 별도 DB 상태로 저장하지 않는다.
 - Crop 정책 변경은 Mobile 제출 전 처리 기준 변경이며, 업로드 엔드포인트/DB 저장 경로/심사 큐 라우팅 계약을 변경하지 않는다.
 
