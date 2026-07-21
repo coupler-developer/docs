@@ -2222,7 +2222,7 @@
     {
       "id": "GROUP-MEETING-INV-007",
       "relatedEntityId": "group-meeting.host",
-      "statement": "매니저와 정상 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다",
+      "statement": "매니저와 Group Meeting 이용 자격을 충족한 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
