@@ -130,7 +130,9 @@ DB 변경은 이 문서의 명령어만으로 승인하지 않는다. [DB Migrat
 
 운영 write 전에 read-only preflight를 남긴다. preflight는 `공통 식별값 + ledger + 변경 대상 객체/카운터` 3종이 모두 있어야 완료다.
 
-합의된 영구 migration 경로가 없는 서비스 레포에는 feature PR에서 새 migration 디렉터리를 만들지 않는다. 수동 SQL과 배포 순서는 DB Migration Gate 정책의 `SQL 산출물 위치`, `DB와 애플리케이션 배포 순서` 기준을 따른다.
+합의된 영구 migration 경로가 없는 서비스 레포에는 feature PR에서 새 migration 디렉터리를 만들지 않는다.
+수동 SQL artifact와 배포 순서는 DB Migration Gate 정책의 `Migration artifact 생명주기`, `Migration 단계`,
+`실행 검증 파이프라인`을 따른다.
 
 공통 preflight:
 
@@ -184,7 +186,9 @@ WHERE <변경 전 실패 조건>;
 
 변경 대상 객체가 테이블이 아니거나 SQL 예시와 맞지 않으면 동일 목적의 read-only 조회로 대체하고, `Gate ID + 조회 SQL + 결과 로그 경로`를 남긴다.
 
-운영 반영 후에는 성공한 SQL만 `schema_migrations`에 기록한다. 실패 또는 중단된 SQL은 ledger에 넣지 않고, [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 실패/중단 분류 절차를 따른다.
+운영 반영 후에는 선언된 완료 조건과 적용 Gate를 충족한 SQL만 `schema_migrations`에 기록한다. 실패·중단·
+부분 적용은 즉시 ledger에 넣지 않고 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의
+`실패와 복구`를 따른다.
 
 최종 확인에 최소 아래를 남긴다.
 
@@ -491,7 +495,8 @@ curl -I https://cms.ritzy.fourhundred.co.kr
   직전 검증 기준점으로 함께 rollback한다. nullable expand DB 스키마는 과거 행 보존과 rollback 호환을 위해
   유지하지만, 현재 배포에 누락 필드 수용이나 구형 목록 endpoint를 새로 추가하지 않는다.
 - Admin 외부 응답이 실패하면 `sudo nginx -t`, 내부 `curl -I http://127.0.0.1:8000`, 백업 산출물 존재 여부를 먼저 확인한다.
-- DB 반영이 실패하거나 중단되면 같은 SQL을 즉시 재실행하지 않는다. 실제 DB 상태와 ledger를 확인한 뒤 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 실패/중단 분류를 따른다.
+- DB 반영이 실패하거나 중단되면 같은 SQL을 즉시 재실행하지 않는다. 실제 DB 상태와 ledger를 확인한 뒤
+  [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 `실패와 복구`를 따른다.
 - NextPush 배포를 되돌려야 하면 최신 이전 릴리즈 또는 지정 label로 rollback한다.
 
 ```bash
