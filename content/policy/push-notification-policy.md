@@ -66,6 +66,10 @@
 - Mobile foreground에서는 WebSocket 연결 여부와 무관하게 `CONCIERGE_CHAT(67)` 시스템 알림을 표시한다.
   WebSocket이 연결돼 있으면 같은 FCM으로 상태 갱신 이벤트를 중복 적용하지 않고, 연결이 끊긴 경우에만 FCM
   이벤트를 화면 상태 갱신 보조 경로로 사용한다.
+- `GROUP_MEETING_CHAT_MESSAGE(82)`도 foreground 시스템 알림은 WebSocket 연결 여부와 무관하게 표시한다.
+  WebSocket이 연결돼 있으면 같은 FCM으로 그룹미팅 방·통합 채팅 목록 상태를 중복 갱신하지 않고, 연결이 끊긴
+  경우에만 FCM 이벤트를 HTTP snapshot 갱신 보조 경로로 사용한다. 메시지 원본과 연결·복구 기준은
+  [채팅 시스템](../architecture/chat-system.md)의 N:N 그룹미팅 채팅 절을 따른다.
 - 토큰 없음/발송 비활성 조건은 명시적으로 기록하고 스킵 사유를 남긴다.
 - 동일 이벤트의 다중 발송을 방지하기 위해 idempotency key 또는 중복 체크 키를 사용한다.
 
@@ -120,6 +124,8 @@
 - [ ] 1:1 매칭 12~30·70·71과 그룹미팅 77~85가 폐쇄형 설정 매핑과 일치하는가?
 - [ ] `CONCIERGE_CHAT(67)`은 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고, WebSocket·FCM 상태
       갱신을 중복 적용하지 않는가?
+- [ ] `GROUP_MEETING_CHAT_MESSAGE(82)`는 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고,
+      foreground 표시를 유지하면서 WebSocket 연결 중 상태 갱신을 중복 적용하지 않는가?
 - [ ] 토큰 부재·`sendPush = false`·`OFFLINE_MODE`는 FCM만 생략하고, `MATCH_VOICE_CALL(53)`은 FCM과
       `t_alarm`을 모두 생략하는가?
 - [ ] 중복 발송 방지 키 또는 동등한 통제가 있는가?

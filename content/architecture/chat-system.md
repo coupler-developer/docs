@@ -424,6 +424,23 @@ flowchart TD
 
 - 기존 2:2 미팅 채팅과 데이터·상태·API를 공유하지 않는다. 상세 계약은
   [그룹미팅 시스템](group-meeting-system.md)을 따른다.
+- 활성 Mobile 화면의 사용자 메시지 상태 동기화는 큐레이터·매칭 채팅과 같은 `/realtime/member` WebSocket
+  연결을 사용한다. 그룹미팅 전용 소켓, WebSocket 전송 명령, 주기적 채팅 polling은 추가하지 않는다.
+- `POST /group-meetings/{event_id}/chat/messages`가 DB transaction을 완료하고 canonical `USER` 메시지를
+  조회한 뒤, 새로 생성된 요청에만 `group_meeting:message`를 발행한다. payload는 기존
+  `GroupMeetingChatUserMessageItem` 전체이며 `id`가 정렬·중복 제거 기준이다. 같은 송신자의 같은
+  `client_message_id` 재시도에는 WebSocket과 FCM을 다시 발행하지 않는다.
+- 서버는 현재 호스트와 `APPROVED` 참가자에게만 identity room으로 전달하고 발신자도 포함해 다른 기기의 상태를
+  맞춘다. 공통 realtime 경계가 전달 직전 현재 회원 상태를 다시 확인하며, 클라이언트는 임의 행사 room을
+  선택하지 않는다.
+- Mobile은 현재 화면의 `event_id`와 같은 이벤트만 병합하고 navigation focus에 있을 때 기존
+  `POST /group-meetings/{event_id}/chat/read`로 읽음을 기록한다. WebSocket 재인증 완료와 focus 복귀 시 기존
+  채팅방·최신 메시지 HTTP snapshot을 다시 조회해 단절 중 누락을 복구한다.
+- FCM `GROUP_MEETING_CHAT_MESSAGE(82)`는 사용자 알림과 재진입 보조 수단이다. foreground에서 WebSocket이
+  연결돼 있으면 같은 FCM으로 상태 갱신 이벤트를 중복 적용하지 않고, 연결이 끊긴 경우에만 HTTP snapshot 갱신
+  신호로 사용한다. WebSocket·FCM 실패는 DB 저장을 되돌리지 않으며 HTTP 원본으로 복구한다.
+- 이번 실시간 이벤트는 `USER` 메시지만 다룬다. 참가자 합류·취소·퇴장·행사 상태의 `SYSTEM` 메시지는 기존
+  상태 알림과 reconnect/focus HTTP snapshot으로 복구한다.
 - 최초 모임 확정은 승인 인원과 무관하게 행사당 채팅 principal과 현재 승인 구성원을 한 번만 초기화한다.
   이후 모집 중·모집 마감·모임 확정 상태를 왕복해도 방·구성원·메시지를 삭제하거나 다시 만들지 않는다.
 - 실제 접근은 최신 행사 일시의 달력상 전날 KST 13시에 열리고 행사 시작 +24시간에 읽기 전용으로 바뀐다.
@@ -450,6 +467,7 @@ flowchart TD
 | 22 | MATCH_NEW_CHAT | 매칭 채팅 |
 | 37 | MEET_SEND_CHAT | 미팅 채팅 |
 | 67 | CONCIERGE_CHAT | 큐레이터 채팅 |
+| 82 | GROUP_MEETING_CHAT_MESSAGE | N:N 그룹미팅 채팅 |
 | 70 | MATCH_CHAT_OPEN | 매칭 채팅방 오픈 |
 | 48 | MATCH_REACTIVATE | 재활성화 요청 |
 | 49 | MATCH_REACTIVATE_ACCEPT | 재활성화 수락 |
