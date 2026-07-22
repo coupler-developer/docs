@@ -180,7 +180,9 @@
 - 기존 2:2 그룹미팅은 주최자도 승인된 `t_meeting_member`로 존재해야 하며, `t_meeting.male_cnt`·`female_cnt`는 승인된 멤버의 실제 성별 건수와 일치해야 한다.
 - 기존 2:2 그룹미팅 채팅 작성자는 같은 미팅의 멤버십을 가져야 하며, 원본 `t_meeting_chat` 건수와 Admin 목록의 멤버십 join 노출 건수가 일치해야 한다.
 - N:N 그룹미팅은 저장 행사 상태(`persisted_status`), 기준 시각에서 계산한 실효 상태(`effective_status`), 최초 확정에 따른 채팅 초기화 여부(`chat_initialized`), 취소 진입 상태, 신청 상태, 시스템 메시지, 신고, 후기, 프로필 공개와 상세 이미지 처리 상태를 독립 coverage 축으로 검증한다. 행사와 신청의 `version`은 기록된 상태 전이 횟수보다 정확히 1 커야 한다.
-- N:N 그룹미팅의 참여 가능한 모든 행사에는 기존 QA 기준 회원 `tt@test.com`(닉네임 `Toto`)과 `dummy-female@coupler.dev`의 승인 신청이 각각 존재해야 한다. 두 신청의 채팅 멤버십은 현재 행사 상태가 아니라 `chat_initialized`를 따라 `true`이면 각각 정확히 1개, `false`이면 0개여야 한다. 최초 확정 CONFIRMED, 최초 확정 뒤 재개한 OPEN, 다시 마감한 CLOSED, FINISHED, 채팅 초기화 뒤 CANCELED 조합을 명시 obligation으로 포함한다. 초안·삭제처럼 신청을 허용하지 않는 상태에는 두 기준 회원의 참여 행을 만들지 않고, 기준 회원의 프로필·상태·패널티 필드는 feeder가 수정하지 않는다.
+- N:N 그룹미팅의 발행 CMS 관리자는 namespace owner와 별개인 `t_admin.user_id = meenseek`이다. 기존 QA 기준 회원 `tt@test.com`(닉네임 `Toto`), `dummy-female@coupler.dev`, `m1@dev`, `m2@coupler`는 모두 `NORMAL` 계약을 만족하고 발행 관리자에게 `CHARGE` 또는 `SHARE`로 정확히 한 번 배정돼야 한다. 다른 관리자에 대한 정상 배정은 유지할 수 있다. 이 회원·관리자·호스트 연결은 외부 기준정보이며 feeder가 생성·수정·reset하지 않는다.
+- 참여 가능한 모든 N:N 행사에는 Toto와 dummy-female의 승인 신청이 존재한다. 모집마감 3인 분기는 `m1@dev`, 확정 왕복과 종료 4인 분기는 `m1@dev`·`m2@coupler`를 추가한다. 각 신청의 채팅 멤버십은 현재 행사 상태가 아니라 `chat_initialized`를 따라 `true`이면 정확히 1개, `false`이면 0개여야 한다. 최초 확정 CONFIRMED, 최초 확정 뒤 재개한 OPEN, 다시 마감한 CLOSED, FINISHED, 채팅 초기화 뒤 CANCELED 조합을 명시 obligation으로 포함한다. 초안·삭제처럼 신청을 허용하지 않는 상태에는 기준 회원의 참여 행을 만들지 않고, 기준 회원의 프로필·상태·패널티·매니저 배정은 feeder가 수정하지 않는다.
+- `group-meeting-all` 또는 `cms-all`의 `plan`, 최초 `apply`의 namespace claim 전, `verify`, generation `upgrade` 전환 전에는 위 외부 기준정보를 read-only로 검사한다. 실제 그룹미팅 생성 transaction은 같은 회원·발행 관리자 배정 행을 다시 검사하고 잠근다. 누락·중복·타입 불일치는 자동 보정하지 않고 DB write 전에 fail-closed하며 별도 data repair 뒤 전체 preflight부터 다시 수행한다.
 - 개방 경계를 지난 채팅 초기화 행사에는 두 기준 회원이 각각 작성한 일반 메시지를 두고, 재개 OPEN·재마감 CLOSED·CONFIRMED의 활성 방과 FINISHED·초기화 후 CANCELED의 읽기 전용 방을 검증한다. 활성 행사 하나의 `event_at`은 기준 시각에서 전날 오후 1시 개방 경계 이후이면서 `event_at + 24시간` 종료 전인 구간에 두고 verifier가 운영과 같은 파생식을 기준 시각에 대입해 실제 개방 여부와 채팅 초기화·개방 알림 marker를 확인한다. 채팅 초기화 행사에는 호스트 메시지와 관리자 삭제 메시지도 두며 Admin read model이 발신자 역할, 삭제 tombstone, 시스템 메시지를 모두 반환해야 한다. 최초 확정 뒤 승인된 참여자의 멤버십에는 입장 안내 메시지를 과거 이력 공개 경계로 기록한다.
 - N:N 후기는 승인 신청에만 연결하며 작성 뒤에도 신청 상태와 채팅 멤버십을 `APPROVED`로 유지한다. 명시적 관리자 승인 취소와 사용자 채팅방 퇴장만 각각 `CANCELED`, `LEFT`를 만든다.
 - N:N 신고는 두 기준 회원을 신고자로 사용하고 신고 대상은 namespace 소유 합성 참가자로 제한한다. 대기·처리·기각 상태와 미처리 행사 filter를 모두 만들고, 신고 대상 합성 참가자에게만 1일·7일·30일 미팅 패널티 이력을 생성한다. 패널티 row와 `meet_block_date`는 namespace reset 대상이며 기존 QA 기준 회원에게 패널티를 적용하지 않는다.
@@ -257,12 +259,12 @@
 
 - 공유 개발계 명령은 기본적으로 dry-run하며 실제 write에는 명시적 `--apply`가 필요하다.
 - `active`는 DB에 연결하지 않고 현재 active namespace의 owner, suite, scope, 상태, 기준 시각, 유지 종료일, 만료 여부, 검증 count를 출력한다.
-- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
+- dry-run은 대상 DB 식별값, namespace, suite, run registry 상태, overlapping active scope, schema fingerprint, 기존 namespace root 건수, 적용할 scenario 목록, 필요한 외부 기준정보 계약, cron fence 필요 여부와 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 transaction mutation counter로 집계해 registry에 기록한다.
 - upgrade dry-run은 기존 active run을 바꾸지 않고 source·candidate generation, current/target catalog·schema·reference·expiry, cutover journal 단계, asset stage·복구 필요 여부와 확인값을 출력한다.
 - apply 직후 DB 불변식, branch obligation, 관리자 API, 브라우저 smoke를 검증하고 데이터·화면 coverage가 모두 100%가 아니면 성공으로 판정하지 않는다.
 - reset은 먼저 삭제 계획과 소유권을 검증하고 명시적 확인값을 받은 뒤 실행한다. active generation에 기록된 asset root가 없거나 현재 설정과 정확히 다르면 DB·asset write 전에 중단한다.
 - reset은 DB 삭제 트랜잭션 commit 뒤 namespace asset을 정리하고, root·child orphan·media가 모두 0건일 때만 registry를 `cleaned`로 전환한다.
-- `upgrade`는 owner·active suite exact match, source status·row ownership, target catalog/schema/reference/expiry와 asset root를 write 전에 preflight한다. DB commit과 registry 승격 사이의 실패는 source/candidate generation row reference로 복구하며 어느 결과도 증명할 수 없으면 `applying` fence와 journal을 유지한다.
+- `upgrade`는 owner·active suite exact match, source status·row ownership, target catalog/schema/reference/expiry, 외부 기준정보와 asset root를 generation 전환 write 전에 preflight한다. candidate 생성 transaction에서도 외부 기준정보를 다시 검사하고 잠근다. DB commit과 registry 승격 사이의 실패는 source/candidate generation row reference로 복구하며 어느 결과도 증명할 수 없으면 `applying` fence와 journal을 유지한다.
 
 ## 운영 절차
 
@@ -302,7 +304,8 @@
 - [ ] 공유 개발계 유지 기간에 정상 개발 target은 처리되고 합성 target 변경은 0건인가?
 - [ ] 정상 시나리오가 도메인 SoT와 원장 불변식을 만족하는가?
 - [ ] 기존 그룹미팅의 주최자 멤버십·성별 인원수·Admin 채팅 join이 원본 데이터와 일치하는가?
-- [ ] N:N 그룹미팅의 저장·실효 상태·취소 진입, 채팅 개방 전·후·종료 경계, Toto·dummy-female 신청·채팅 멤버십·메시지·읽음 위치, 후기 완료 `LEFT`와 `APPROVED`·`LEFT` 미작성 분기, 신고·미처리 filter·합성 대상 패널티, 프로필 공개·상세 이미지 obligation이 일치하고, Admin 행사·채팅·신고·패널티 목록에 노출되며 현재 무료 프로필 조회의 저장 행·Key 차감 원장이 0건인가?
+- [ ] N:N 그룹미팅의 `meenseek` 발행 관리자와 Toto·dummy-female·m1·m2 `CHARGE`/`SHARE` 기준정보가 생성 전·검증·upgrade 경계에서 fail-closed로 확인되고 reset 대상에서 제외되는가?
+- [ ] N:N 그룹미팅의 저장·실효 상태·취소 진입, 채팅 개방 전·후·종료 경계, Toto·dummy-female 기본 신청과 m1·m2 3인·4인 분기, 채팅 멤버십·메시지·읽음 위치, 네 계정의 Mobile 공개 목록 노출, 후기 완료 `LEFT`와 `APPROVED`·`LEFT` 미작성 분기, 신고·미처리 filter·합성 대상 패널티, 프로필 공개·상세 이미지 obligation이 일치하고, Admin 행사·채팅·신고·패널티 목록에 노출되며 현재 무료 프로필 조회의 저장 행·Key 차감 원장이 0건인가?
 - [ ] 합성 프로필이 회원별로 구분되고 이미지 최소 수·영상 경로·checksum 검증을 통과하는가?
 - [ ] 상태·전이·권한·filter·시간 경계 branch obligation이 100% 충족되는가?
 - [ ] 안전 모듈 branch 100%와 dependency fault-injection test가 통과하는가?

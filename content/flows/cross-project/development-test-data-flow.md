@@ -82,12 +82,12 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 2. `active`로 기존 namespace의 owner·suite·scope·상태·유지 종료일을 확인한다.
 3. namespace, owner, 유지 종료일, reference time을 정한다.
 4. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
-5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root와 적용 scenario를 write 없이 확인한다.
-6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario 목록, cron fence와 외부 호출 0건 계획을 검토한다.
-7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고, shared registry mutex 안에서 fence·active record 전체 snapshot, 기존 active 상호 간 scope, 새 요청의 overlapping scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
+5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root, 적용 scenario와 suite별 외부 기준정보 계약을 write 없이 확인한다. N:N 그룹미팅은 `meenseek` 발행 관리자·호스트와 Toto·dummy-female·m1·m2의 `CHARGE`/`SHARE` 배정을 포함한다.
+6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario·외부 기준정보 목록, cron fence와 외부 호출 0건 계획을 검토한다.
+7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고 외부 기준정보를 다시 검사한다. 이후 shared registry mutex 안에서 fence·active record 전체 snapshot, 기존 active 상호 간 scope, 새 요청의 overlapping scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
 8. 개발 환경 `/admin/cron/*` 공통 target fence는 `planning`·`applying`·`resetting`과 fenced `cleaned` finalization 대기를 maintenance `SKIP`으로 처리한다. 안정 상태에서는 정상 개발 target을 처리하고 active namespace의 합성 target만 제외하며, registry·소유권을 확인할 수 없으면 handler 전에 fail-closed한다.
 9. 기준 매니저를 조회하고 actor pool을 만든 뒤 member, matching, meeting, group-meeting, lounge, revenue, statistics, settings, manager 순서로 scenario를 적용한다.
-10. 각 scenario는 독립 transaction으로 실행한다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
+10. 각 scenario는 독립 transaction으로 실행한다. 외부 기준정보를 사용하는 builder는 transaction 안에서 해당 행을 다시 검사하고 잠근다. commit 직전 `prepared`, commit 뒤 `committed`를 기록하며 재시도 시 DB marker로 commit 여부를 reconciliation한다.
 11. 전체 scenario 뒤 기준 합성 asset checksum과 대상 경로 containment를 검증한다. actor별 프로필 3장을 렌더링하고 선택 영상을 `generations/{runId}/profiles/`·`generations/{runId}/videos/` 경로에 동기화한다.
 12. DB 불변식과 suite obligation 검증이 통과하면 registry를 `applied`로 전환하고 잠금을 해제한다.
 13. 작업자는 별도 `verify`, `coverage`, Admin browser smoke를 실행한다. 세 검증이 모두 통과해야 공유 개발계 데이터 피딩 증빙을 완료한 것으로 판정한다.
@@ -96,9 +96,9 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 ## Generation Upgrade 흐름
 
 1. `active`와 `upgrade <active-suite>` dry-run으로 owner, exact suite, source/target generation과 run ID, catalog/schema/reference/expiry, asset과 cutover journal 상태를 확인한다.
-2. source가 `applied`이고 요청 owner·suite와 정확히 같으며 generation-level 합성 `t_member` root exact set을 포함한 모든 기록 row reference를 소유해야 한다. 기록 누락이나 DB 불일치는 보정하지 않는다. `cms-all`을 `group-meeting-all`로 부분 갱신하거나 suite를 바꾸는 요청은 DB write 전에 중단한다.
+2. source가 `applied`이고 요청 owner·suite와 정확히 같으며 generation-level 합성 `t_member` root exact set을 포함한 모든 기록 row reference를 소유하고 suite별 외부 기준정보가 유효해야 한다. 기록 누락이나 DB·기준정보 불일치는 보정하지 않는다. `cms-all`을 `group-meeting-all`로 부분 갱신하거나 suite를 바꾸는 요청은 DB write 전에 중단한다.
 3. 실제 실행은 namespace와 같은 `--confirm`, `--apply`를 받고 namespace lock과 cron lease 0건을 확인한다. registry에 source snapshot과 candidate를 기록하고 active를 `applying`으로 전환해 cron을 maintenance `SKIP`한다.
-4. 한 DB transaction 안에서 source namespace 전체를 reset하고 member, matching, meeting, group-meeting, lounge, revenue, statistics, settings, manager current scenario 전체를 다시 생성한다. source는 commit 전까지 다른 DB 연결에 계속 보인다.
+4. 한 DB transaction 안에서 외부 기준정보를 다시 검사해 잠근 뒤 source namespace 전체를 reset하고 member, matching, meeting, group-meeting, lounge, revenue, statistics, settings, manager current scenario 전체를 다시 생성한다. source는 commit 전까지 다른 DB 연결에 계속 보인다.
 5. candidate actor asset을 `uploads/dev-data/{namespace}/generations/{candidateRunId}/`에 stage하고 WebP 크기·영상 checksum·DB media 경로, 전체 suite obligation과 Admin read model을 같은 transaction에서 검증한다.
 6. 검증된 candidate와 row reference를 journal `prepared`로 기록한 뒤 DB를 commit한다. commit 뒤 candidate row ownership과 asset을 다시 확인하고 active pointer를 promote한 다음 source·inactive generation·과거 namespace-level asset만 정리한다.
 7. verifier 또는 DB commit 전 실패는 DB rollback, candidate asset 제거, source active 복구 순서로 처리한다. rollback 결과를 확인할 수 없으면 journal과 maintenance fence를 유지한다.
@@ -114,7 +114,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
-| N:N 그룹미팅 | 행사·취소 진입 exhaustive set, `persisted_status`·`effective_status`·`chat_initialized` 축, `Toto`·`dummy-female` 승인 신청과 최초 확정 뒤 재개 OPEN·재마감 CLOSED를 포함한 상태별 채팅 멤버십, 전날 13시 개방 및 시작 +24시간 종료의 1초 전·정각·1초 후와 marker, 행사·이미지·상태 action·신청/승인·취소/퇴장·메시지·후기/신고의 인과 순서와 미래 row 0건, 활성 초기화·종료·초기화 후 취소 방의 기준 참여자·호스트·관리자 삭제 메시지·읽음 위치, 최초 확정 뒤 승인자의 과거 이력 공개 경계, 후기 뒤 `APPROVED` 유지와 명시적 `LEFT` 후기 제외, 신고 상태·미처리 filter·합성 대상 패널티의 Admin 목록 노출, 초기화·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
+| N:N 그룹미팅 | `meenseek` 발행 관리자·호스트와 Toto·dummy-female·m1·m2 `CHARGE`/`SHARE` 기준정보, 네 계정의 공개 행사 목록 exact set, 행사·취소 진입 exhaustive set, `persisted_status`·`effective_status`·`chat_initialized` 축, Toto·dummy-female 기본 승인 신청과 m1·m2 3인·4인 분기, 최초 확정 뒤 재개 OPEN·재마감 CLOSED를 포함한 상태별 채팅 멤버십, 전날 13시 개방 및 시작 +24시간 종료의 1초 전·정각·1초 후와 marker, 행사·이미지·상태 action·신청/승인·취소/퇴장·메시지·후기/신고의 인과 순서와 미래 row 0건, 활성 초기화·종료·초기화 후 취소 방의 기준 참여자·호스트·관리자 삭제 메시지·읽음 위치, 최초 확정 뒤 승인자의 과거 이력 공개 경계, 후기 뒤 `APPROVED` 유지와 명시적 `LEFT` 후기 제외, 신고 상태·미처리 filter·합성 대상 패널티의 Admin 목록 노출, 초기화·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
@@ -209,6 +209,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 ### 기준정보 누락·불일치
 
 - feeder가 기존 기준정보를 생성·수정하지 않는다.
+- N:N 그룹미팅의 발행 관리자·호스트·QA 회원·매니저 배정은 plan, apply claim 전, verify, generation 전환 전과 생성 transaction에서 같은 계약으로 검사한다. 누락·중복·`CHARGE`/`SHARE` 외 타입이면 registry claim 또는 generation 전환을 시작하지 않는다.
 - schema 변경이면 migration, 잘못된 기존 값이면 data repair로 별도 처리한다.
 - 별도 작업 완료 뒤 전체 preflight부터 다시 수행한다.
 
