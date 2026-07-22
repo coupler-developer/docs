@@ -77,7 +77,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 - 업무 판정의 기준은 KST `event_at + 24시간`이다. 정확히 경계 시각부터 API가 유효 상태를 FINISHED로 계산하므로
   후기 작성, 미작성 후기 신청 제한, 채팅 쓰기 차단과 Admin 변경 차단은 cron 지연·중단의 영향을 받지 않는다.
-- `finishGroupMeetings`는 채팅이 초기화된 저장 상태 OPEN·CLOSED·CONFIRMED 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
+- `finishGroupMeetings`는 채팅이 초기화된 저장 상태 OPEN·CONFIRMED 종료 대상을 한 번에 최대 100건씩 FINISHED로 영속화하고,
   감사 로그·종료 시스템 메시지·후기 가능 알림을 따라잡는 sweeper다. 이미 후기를 쓴 회원에게는 뒤늦은 후기
   알림을 보내지 않는다.
 - 개발계 dispatcher는 매분 실행하지만 이 job은 매시 00분·30분에 선택되므로 정상 상태의 영속화와 종료 시스템

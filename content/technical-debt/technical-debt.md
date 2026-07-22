@@ -186,7 +186,7 @@
 
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
-- 현상: API catalog v12와 N:N scenario v9 계약은 독립 lifecycle·채팅 이력 경계, 3인·4인 참여 분기와
+- 현상: API catalog v13과 N:N scenario v10 계약은 독립 lifecycle·채팅 이력 경계, 3인·4인 참여 분기와
   `meenseek` 발행 관리자 기준정보 검증을 포함하지만 공유 개발계 `qa-cms-20260716`은 generation 4·catalog v11
   `cms-all`이다. 기존 generation은 verifier, 단일 active namespace,
   transition·cron lease 0건, dispatcher와 API smoke를 통과했다([API #160](https://github.com/coupler-developer/coupler-api/pull/160)).
@@ -194,7 +194,7 @@
   권한별 session이 없으며 browser smoke가 표준 CI Gate에 포함되지 않는다. 다음 원자 generation cutover와 권한별
   인증 화면, 유지 기간 cron·외부 호출 0건 관측, 종료 시 최종 reset 증빙이 남아 있다.
 - 영향: 이후 공유 개발계 write가 예상하지 않은 실제 DB 서버를 코드에서 차단하지 못하고, 권한별 화면·필터와 유지 기간 동작, 종료 시 orphan·asset 0건을 실제 운영 증빙으로 확정하지 못했다.
-- 조치: catalog v12 전체 `cms-all` 다음 generation 원자 cutover → 실제 DB 서버 식별값 allowlist 결합 → route
+- 조치: catalog v13 전체 `cms-all` 다음 generation 원자 cutover → 실제 DB 서버 식별값 allowlist 결합 → route
   audience·권한별 session과 browser smoke 표준 CI Gate 반영 → 유지 기간 cron·외부 호출 관측 → 유지 종료 시
   reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate, 전체 catalog generation 장애 복구·rollback, 공유 개발계 current generation, 권한별 route 검증과 최종 reset 증빙 통과.
