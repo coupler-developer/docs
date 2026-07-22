@@ -175,6 +175,11 @@ flowchart LR
 개방 경계 marker를 복구해 다음 cron에서 재시도한다. 83은 행사 시작 +24시간 뒤 현재
 APPROVED이면서 후기가 없는 참가자에게만 발송하므로 LEFT·CANCELED는 제외한다.
 
+82의 FCM 수신자는 발신자를 제외하지만, 활성 화면 상태 동기화용 `group_meeting:message` WebSocket 이벤트는
+발신자의 다른 기기까지 포함한 현재 채팅 구성원에게 전달한다. foreground 표시와 WebSocket 연결 여부에 따른
+FCM 상태 갱신 보조 경로는 [푸시알림 운영 정책](../policy/push-notification-policy.md), 메시지 원본과 HTTP 복구는
+[채팅 시스템](chat-system.md)의 N:N 그룹미팅 채팅 절을 따른다.
+
 ## 발송 흐름
 
 ```mermaid
@@ -205,7 +210,8 @@ sequenceDiagram
 
 타입별 사용자 설정 매핑, FCM·`t_alarm` 생략 조건, foreground 처리와 상태 갱신 보조 경로 판정은
 [푸시알림 운영 정책](../policy/push-notification-policy.md)이 소유한다. 이 문서는 발송 구성요소와 데이터 흐름만
-설명한다. 큐레이터 채팅의 활성 상태 동기화 구조는 [채팅 시스템](chat-system.md)의 WebSocket 절을 따른다.
+설명한다. 큐레이터·N:N 그룹미팅 채팅의 활성 상태 동기화 구조는 [채팅 시스템](chat-system.md)의 WebSocket 절과
+N:N 그룹미팅 채팅 절을 따른다.
 
 ## 메시지 구조
 

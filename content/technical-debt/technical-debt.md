@@ -169,11 +169,13 @@
 ## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
 
 - 현상: 그룹미팅 소비 구현은 세 source main에 반영됐지만 실제 배포물의 exact version 일치 증빙, 대상 환경별
-  migration ledger·runtime, FCM, scheduler smoke와 운영 전환이 남아 있다.
+  migration ledger·runtime, FCM, `group_meeting:message` WebSocket, scheduler smoke와 운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
 - 조치: 세 source main의 latest stable exact version을 merge gate로 확인 → 대상 환경 migration ledger·schema 확인 →
-  API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
-- 완료: dev/prod Gate, 세 레포 exact version, 신규 발송 FCM `77, 78, 79, 81, 82, 83, 84, 85`의 runtime·저장 smoke, 타입 80의 Mobile 호환 재진입, 운영 scheduler 검증 통과.
+  API·Admin·Mobile runtime/FCM/WebSocket smoke → 운영 scheduler smoke 순으로 통합한다.
+- 완료: dev/prod Gate, 세 레포 exact version, 신규 발송 FCM `77, 78, 79, 81, 82, 83, 84, 85`의 runtime·저장
+  smoke, 인증된 현재 구성원의 `group_meeting:message` 수신과 foreground FCM 연결·단절 fallback smoke, 타입 80의
+  Mobile 호환 재진입, 운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
