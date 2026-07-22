@@ -398,7 +398,7 @@
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "responsibility": "모집·마감·확정·종료와 공개 행사 정보",
+      "responsibility": "모집·신청 접수·확정·종료와 공개 행사 정보",
       "classification": "민감",
       "lifecycle": "삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리"
     },
@@ -2229,7 +2229,7 @@
     {
       "id": "GROUP-MEETING-INV-008",
       "relatedEntityId": "group-meeting.event",
-      "statement": "Admin은 DRAFT·OPEN에서 행사 정보 수정 API의 모든 필드를 변경할 수 있다. CLOSED·CONFIRMED에서는 참가비·사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다",
+      "statement": "Admin은 DRAFT에서 모든 필드를, OPEN·CONFIRMED에서는 참가비·사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있다. OPEN에서 신청 접수 중일 때만 참가비·사진 공개도 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
@@ -2243,7 +2243,7 @@
     {
       "id": "GROUP-MEETING-INV-010",
       "relatedEntityId": "group-meeting.event",
-      "statement": "OPEN·CLOSED·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다",
+      "statement": "OPEN·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
