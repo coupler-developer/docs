@@ -199,19 +199,46 @@ test("ROUTE 실행 계약 필드 누락을 거부한다", () => {
   assert.match(validate({ agentsSource }).join("\n"), /ROUTE 실행 계약에 필수 값이 없습니다/);
 });
 
-test("기존 작업 연속성 누락을 거부한다", () => {
+test("리뷰 범위 상속 누락을 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "  같은 범위의 활성 PR을 병렬로 유지하지 않는다.\n",
-    "",
+    "짧은 후속 요청은 직전에 명시·합의한",
+    "짧은 후속 요청은 새 작업을 탐색한 뒤",
   );
 
-  assert.match(validate({ agentsSource }).join("\n"), /기존 작업 연속성에 필수 값이 없습니다/);
+  assert.match(validate({ agentsSource }).join("\n"), /작업 범위 계약이 다릅니다/);
 });
 
-test("기존 작업 연속성 뒤의 반대 조건 추가를 거부한다", () => {
+test("명시한 새 대상과 불명확한 새 지시를 구분한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "같은 범위의 활성 PR을 병렬로 유지하지 않는다.\n- read-only 탐색",
-    "같은 범위의 활성 PR을 병렬로 유지하지 않는다. 단, 매번 새 PR을 만든다.\n- read-only 탐색",
+    "새 지시만으로 대상을 확정할 수 없으면",
+    "새 지시와 충돌하면",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 범위 계약이 다릅니다/);
+});
+
+test("관련 SoT를 리뷰 대상으로 확장하는 조건을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "판정 근거로만 열람하고 리뷰 대상에\n  편입하지 않는다",
+    "판정 근거로 열람한 뒤 리뷰 대상에\n  편입한다",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 범위 계약이 다릅니다/);
+});
+
+test("불명확한 리뷰 범위를 기존 작업 탐색으로 추측하는 조건을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "범위 밖 branch/worktree/PR을 탐색하거나 추측하기 전에 사용자에게",
+    "범위 밖 branch/worktree/PR을 먼저 탐색해 추측한 뒤 사용자에게",
+  );
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 범위 계약이 다릅니다/);
+});
+
+test("기존 작업 후보 자동 전환을 거부한다", () => {
+  const agentsSource = baseAgentsSource.replace(
+    "적합해 보이는 후보가 있어도 자동으로 전환하지 않으며",
+    "적합해 보이는 후보가 있으면 자동으로 전환하며",
   );
 
   assert.match(validate({ agentsSource }).join("\n"), /작업 범위 계약이 다릅니다/);
@@ -458,7 +485,15 @@ test("작업 상태 머신 순서 변경을 거부한다", () => {
     .replace("8. `REVIEW`:", "8. `VERIFY`:")
     .replace("9. `VERIFY`:", "9. `REVIEW`:");
 
-  assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 순서는 BOOT -> CONTINUITY/);
+  assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 순서는 BOOT -> CLASSIFY/);
+});
+
+test("기존 작업 확인을 요청 분류보다 먼저 수행하는 순서를 거부한다", () => {
+  const agentsSource = baseAgentsSource
+    .replace("2. `CLASSIFY`:", "2. `CONTINUITY`:")
+    .replace("3. `CONTINUITY`:", "3. `CLASSIFY`:");
+
+  assert.match(validate({ agentsSource }).join("\n"), /작업 상태 머신 순서는 BOOT -> CLASSIFY/);
 });
 
 test("작업 상태의 허용 동작 약화를 거부한다", () => {
@@ -570,6 +605,15 @@ test("README bootstrap reviewer 승인 조건 반전을 거부한다", () => {
   const readmeSource = baseReadmeSource.replace(
     "사용자가 reviewer 개인 또는 팀을 별도로 명시해 승인하기 전에는",
     "사용자가 reviewer 개인 또는 팀을 별도로 명시해 승인하지 않아도",
+  );
+
+  assert.match(validate({ readmeSource }).join("\n"), /README workspace bootstrap 계약이 다릅니다/);
+});
+
+test("README bootstrap의 기존 작업 자동 전환을 거부한다", () => {
+  const readmeSource = baseReadmeSource.replace(
+    "기존 작업 후보가 있어도 자동으로 전환하지 않는다",
+    "기존 작업 후보가 있으면 자동으로 전환한다",
   );
 
   assert.match(validate({ readmeSource }).join("\n"), /README workspace bootstrap 계약이 다릅니다/);
