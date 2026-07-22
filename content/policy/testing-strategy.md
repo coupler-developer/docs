@@ -42,6 +42,20 @@
 - 중복 제거는 검증 범위·실패 차단력을 약화해서는 안 된다. 유지하는 겹침과 제거한 중복의 근거를
   PR/작업 보고에 남긴다.
 
+### 차단형 validator 안전성
+
+- 로컬 또는 CI 품질 게이트를 실패시키는 validator는 구조화된 입력이나 문법·어휘만으로 결정 가능한
+  불변식만 차단한다. 자유 문장의 의미를 추론해야 위반과 정상 입력을 구분할 수 있으면 탐지 범위를 좁히거나
+  schema·descriptor 같은 구조화된 SoT로 전환하고, 그 전까지는 리뷰 기준으로 판정한다.
+- 차단 규칙을 추가하거나 탐지 범위를 바꿀 때는 실제 위반 입력이 실패하는 fixture와 핵심 표현을 공유하는
+  가장 가까운 정상 입력이 통과하는 반대 조건 fixture를 함께 추가하거나 갱신한다. 줄바꿈·구분자·인접한 다른
+  식별자나 version처럼 판정 경계를 바꿀 수 있는 입력은 적용 가능할 때 이 fixture에 포함한다.
+- 알려진 오탐은 validator 결함이자 차단 Finding으로 취급한다. 수정 시 해당 입력의 통과 회귀 fixture와 같은
+  경계의 실제 위반 입력이 계속 실패하는 fixture를 함께 고정하고, 두 조건이 모두 통과하기 전에는 완료로
+  판정하지 않는다.
+- 탐지 규칙의 모호함을 숨기기 위한 상시 path·문구 allowlist나 inline ignore를 추가하지 않는다. 의도적인
+  비적용 범위는 소유 정책 또는 descriptor에 정의하고, 비적용 입력이 통과하는 fixture로 고정한다.
+
 ### 로컬 최종 후보 검증
 
 - `최종 후보`는 비교 baseline, 리뷰 범위의 파일 집합과 내용이 마지막 파일 변경 이후 동일한 상태다. 다중 레포
@@ -231,3 +245,4 @@
 - [API 조회·동작 설계 정책](api-operation-design-policy.md)
 - [코드 리뷰 정책](code-review-policy.md)
 - [DB Migration Gate 정책](db-migration-gate-policy.md)
+- [문서 거버넌스 정책](document-governance-policy.md)
