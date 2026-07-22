@@ -201,7 +201,8 @@ const REQUIRED_STATE_CONTRACTS = [
 
 const REQUIRED_STATE_EXIT_RULES = [
   "`REVIEW`, `VERIFY` 또는 `FINALIZE` 뒤 파일이 바뀌면 이전 리뷰·검증·최종 판정은 모두 만료된다. 새 최종 후보로 `REVIEW -> VERIFY -> FINALIZE`를 다시 수행한다.",
-  "Finding이 있으면 `원인 수정 -> 동일 범위 독립 재리뷰`를 반복한다. 열린 Finding이 0건이 되기 전에는 로컬 표준 통합 품질 게이트를 실행하지 않는다.",
+  "Finding이 있으면 원인을 1회 수정하고 동일 범위를 1회 독립 재리뷰한다. 재리뷰에도 열린 Finding이 남으면 최종 판정은 `Finding`으로 유지하고 추가 수정·재리뷰 없이 자동 실행을 `BLOCKED`로 종료해 보고한다.",
+  "열린 Finding이 0건이 되기 전에는 로컬 표준 통합 품질 게이트를 실행하지 않는다.",
   "검증 실패는 `No Findings`로 판정하지 않는다. 파일 수정이 필요하면 새 최종 후보로 돌아가고, 후보가 바뀌지 않은 환경 실패의 재시도는 [테스트/CI 전략](policy/testing-strategy.md)의 예외 기준을 따른다.",
   "요청 범위 밖 기존 부채는 근거와 함께 분리하고 완료를 위해 임의로 확장하지 않는다.",
 ];
@@ -533,7 +534,8 @@ export const validateAgentWorkflow = ({
     stateSection,
     [
       "이전 리뷰·검증·최종 판정은 모두 만료된다",
-      "원인 수정 -> 동일 범위 독립 재리뷰",
+      "재리뷰에도 열린 Finding이 남으면 최종",
+      "자동 실행을 `BLOCKED`로 종료해 보고한다",
       "열린 Finding이 0건이 되기 전에는 로컬 표준",
       "통합 품질 게이트를 실행하지 않는다",
       "검증 실패는 `No Findings`로 판정하지 않는다",
