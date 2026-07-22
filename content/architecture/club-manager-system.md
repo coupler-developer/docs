@@ -40,7 +40,7 @@ flowchart LR
 
 꼭 지킬 규칙:
 
-- 한 회원의 동일 배정 유형에는 현재 클럽매니저가 하나만 존재한다
+- 한 회원은 같은 클럽매니저에게 중복 배정되지 않고 전담(`CHARGE`)은 최대 하나이며 공유(`SHARE`)는 서로 다른 클럽매니저에게 복수 배정될 수 있다
 - 현재 상세 프로필은 변환 완료된 버전만 참조한다
 - 조각 순서와 개수는 상위 버전의 완성 상태와 일치해야 한다
 
@@ -62,7 +62,7 @@ flowchart LR
     | 출발 논리 ID | 관계 역할 | 관계 유형 | 도착 논리 ID | 카디널리티 | 소유·삭제 규칙 |
     | --- | --- | --- | --- | --- | --- |
     | `club-manager.assignment` | `manager` | references | `club-manager.manager` | N:1 | 담당 계정 비활성 뒤에도 과거 배정 근거는 보존 |
-    | `club-manager.assignment` | `member` | references | `member.member` | N:1 | 회원별 동일 배정 유형의 현재 관계는 하나로 제한 |
+    | `club-manager.assignment` | `member` | references | `member.member` | N:1 | 같은 회원·매니저 조합은 하나만 유지하고 전담 배정은 회원별 최대 하나로 제한 |
     | `club-manager.manager` | `detail-profile-versions` | owns | `club-manager.detail-profile-version` | 1:N | 현재 활성 버전은 삭제하지 않음 |
     | `club-manager.detail-profile-version` | `slices` | owns | `club-manager.detail-profile-slice` | 1:N | 버전 정리 시 조각과 파일을 함께 정리 |
 
@@ -70,7 +70,7 @@ flowchart LR
 
     | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
     | --- | --- | --- | --- |
-    | `CLUB-MANAGER-INV-001` | `club-manager.assignment` | 한 회원의 동일 배정 유형에는 현재 클럽매니저가 하나만 존재한다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
+    | `CLUB-MANAGER-INV-001` | `club-manager.assignment` | 한 회원은 같은 클럽매니저에게 중복 배정되지 않고 전담(`CHARGE`)은 최대 하나이며 공유(`SHARE`)는 서로 다른 클럽매니저에게 복수 배정될 수 있다 | [보안/접근통제 정책](../policy/security-access-control-policy.md) |
     | `CLUB-MANAGER-INV-002` | `club-manager.detail-profile-version` | 현재 상세 프로필은 변환 완료된 버전만 참조한다 | [업로드/미디어 시스템](upload-media-system.md) |
     | `CLUB-MANAGER-INV-003` | `club-manager.detail-profile-slice` | 조각 순서와 개수는 상위 버전의 완성 상태와 일치해야 한다 | [업로드/미디어 시스템](upload-media-system.md) |
 

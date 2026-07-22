@@ -1170,7 +1170,7 @@
       "kind": "references",
       "targetEntityId": "member.member",
       "cardinality": "N:1",
-      "lifecycleRule": "회원별 동일 배정 유형의 현재 관계는 하나로 제한",
+      "lifecycleRule": "같은 회원·매니저 조합은 하나만 유지하고 전담 배정은 회원별 최대 하나로 제한",
       "ownerDocument": "content/architecture/club-manager-system.md"
     },
     {
@@ -2131,7 +2131,7 @@
     {
       "id": "CLUB-MANAGER-INV-001",
       "relatedEntityId": "club-manager.assignment",
-      "statement": "한 회원의 동일 배정 유형에는 현재 클럽매니저가 하나만 존재한다",
+      "statement": "한 회원은 같은 클럽매니저에게 중복 배정되지 않고 전담(`CHARGE`)은 최대 하나이며 공유(`SHARE`)는 서로 다른 클럽매니저에게 복수 배정될 수 있다",
       "basis": "[보안/접근통제 정책](../policy/security-access-control-policy.md)",
       "ownerDocument": "content/architecture/club-manager-system.md"
     },
