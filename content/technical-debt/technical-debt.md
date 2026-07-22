@@ -11,6 +11,8 @@
 
 - 범위: `coupler-api`, `coupler-admin-web`, `coupler-mobile-app`
 - 판정: 최신 clean `main`, 최신 released 기록
+- 계약 버전: 기술부채에는 시점에 따라 바뀌는 API 계약 package의 concrete version을 적지 않는다. 현재 정렬은 세 레포
+  package manifest·lockfile로 판정하고, 특정 릴리스의 exact version과 기준 ref는 릴리스 기록에 보존한다.
 - 완료: 항목 삭제, 근거는 PR·릴리스 기록에 보존
 - 표기: `P1` 차단 위험, `P2` 유지보수 위험, `P3` 보류 가능; `S` 단일 레포, `M` 교차 검증, `L` 다중 레포·운영 검증
 
@@ -166,9 +168,8 @@
 
 ## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
 
-- 현상: 그룹미팅 소비 구현은 세 source main에 반영됐고 병합 후 최종 source main 계약은 API·Admin·Mobile 모두
-  stable contract `0.1.18` exact다. 실제 배포물의 exact version 일치 증빙, 대상 환경별 migration
-  ledger·runtime, FCM, scheduler smoke와 운영 전환이 남아 있다.
+- 현상: 그룹미팅 소비 구현은 세 source main에 반영됐지만 실제 배포물의 exact version 일치 증빙, 대상 환경별
+  migration ledger·runtime, FCM, scheduler smoke와 운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
 - 조치: 세 source main의 latest stable exact version을 merge gate로 확인 → 대상 환경 migration ledger·schema 확인 →
   API·Admin·Mobile runtime/FCM smoke → 운영 scheduler smoke 순으로 통합한다.
@@ -206,8 +207,8 @@
 
 - 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존
   Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과
-  전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source main에 반영됐고 병합 후 최종 source main 계약은
-  API·Admin·Mobile 모두 stable `0.1.18` exact다. 실제 배포 확인과 나머지 화면 감사가 남아 있다.
+  전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source main에 반영됐지만 실제 배포 확인과 나머지 화면 감사가
+  남아 있다.
 - 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
 - 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → 현재 코드 소비 경로 0건과 강제 업데이트/mandatory 근거 확인 후 legacy endpoint 제거.
 - 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 현재 코드 소비 0건·강제 업데이트/mandatory 증빙 및 제거.
