@@ -85,7 +85,7 @@
 
 1. Node 의존성 설치: `yarn install --frozen-lockfile`
 2. Python 의존성 설치: `python3 -m pip install -r requirements.txt`
-3. 문서 통합 검증: `yarn validate:docs`
+3. 문서 통합 검증: `yarn verify`
 
 - `yarn validate:docs-structure`는 메타데이터 형식, 역할-문서 종류 조합, 디렉터리 분류, 전환 추적 경계,
   독립 템플릿, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성을 검증한다.
@@ -105,7 +105,7 @@
 - 논리 데이터 모델의 상세 표를 바꿨다면 `yarn generate:logical-data-model`로 쉬운 그림과 catalog를 다시
   만든다.
 - `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
-- `yarn validate:docs`는 공통 정적 검증, Markdown lint, MkDocs strict build를 순서대로 실행한다.
+- `yarn verify`는 `yarn validate:docs`를 통해 공통 정적 검증, Markdown lint, MkDocs strict build를 순서대로 실행한다.
 
 ## 모바일 에뮬레이터 주의사항 (iOS)
 

@@ -201,7 +201,7 @@
 - 신규 릴리즈 기록은 `content/templates/release-record-template.md`를 사용한다. 태그 시점에 해당
   기록이 포함돼 있으면 Release Note의 1차 원본으로 사용하고, 이전 기준점 대비 git log는 보조 이력으로만
   사용한다.
-- docs tag push 전에는 Release Note preview, `yarn validate:docs`,
+- docs tag push 전에는 Release Note preview, `yarn verify`,
   [문서 안정성 평가](document-governance-policy.md)를 완료한다. Release와 site artifact는 tag push 뒤
   postcheck하며 사전 metadata hard gate로 사용하지 않는다.
 - 이미 생성된 Release Note와 릴리즈 기록은 사실 오류 정정 또는 증빙 보강 외에는 사후 재작성하지 않는다.
@@ -209,7 +209,7 @@
   처리하며 아래 조건을 모두 충족해야 한다.
     - 서비스 레포 tag는 변경하지 않는다.
     - 정정 범위는 docs Release 본문, docs site artifact, docs 릴리즈 기록으로 제한한다.
-    - 마지막 수정 이후 Release Note preview, `yarn validate:docs`, 문서 안정성 평가 `No Findings`를 통과한다.
+    - 마지막 수정 이후 Release Note preview, `yarn verify`, 문서 안정성 평가 `No Findings`를 통과한다.
     - GitHub Release 본문과 artifact 교체를 postcheck한다.
 - 실제 preview·tag·postcheck 명령은
   [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)의 `Docs 포함 시`를 따른다.

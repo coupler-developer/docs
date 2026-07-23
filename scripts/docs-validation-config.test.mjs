@@ -17,6 +17,18 @@ const deployWorkflow = fs.readFileSync(
   path.join(docsRoot, ".github", "workflows", "deploy-docs.yml"),
   "utf8",
 );
+const releaseWorkflow = fs.readFileSync(
+  path.join(docsRoot, ".github", "workflows", "release.yml"),
+  "utf8",
+);
+const workflowDirectory = path.join(docsRoot, ".github", "workflows");
+const allWorkflows = fs
+  .readdirSync(workflowDirectory)
+  .filter((fileName) => fileName.endsWith(".yml"))
+  .map((fileName) =>
+    fs.readFileSync(path.join(workflowDirectory, fileName), "utf8"),
+  )
+  .join("\n");
 const testingStrategy = fs.readFileSync(
   path.join(docsRoot, "content", "policy", "testing-strategy.md"),
   "utf8",
@@ -51,6 +63,7 @@ test("local validation and full CI use the same static gate runner", () => {
     packageJson.scripts["validate:docs"],
     "yarn validate:docs-static && yarn lint:md && yarn build:docs",
   );
+  assert.equal(packageJson.scripts.verify, "yarn validate:docs");
   assert.match(
     workflow,
     /- name: Validate full docs static gates\n\s+if: steps\.validation_mode\.outputs\.mode == 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: yarn validate:docs-static/,
@@ -58,11 +71,27 @@ test("local validation and full CI use the same static gate runner", () => {
   assert.match(deployWorkflow, /uses: actions\/checkout@v6\n\s+with:\n\s+fetch-depth: 0/);
   assert.match(
     deployWorkflow,
-    /- name: Validate docs\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.before \}\}\n\s+run: yarn validate:docs/,
+    /- name: Validate docs\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.before \}\}\n\s+run: yarn verify/,
   );
+  assert.match(releaseWorkflow, /- name: Validate docs\n\s+run: yarn verify/);
+  assert.match(workflow, /- name: Run markdownlint\n\s+run: yarn lint:md/);
+  assert.match(workflow, /- name: Build docs\n\s+run: yarn build:docs/);
   assert.match(
     testingStrategy,
     /문서 공통 정적 검증\(로컬·full CI\): `yarn validate:docs-static`/,
+  );
+});
+
+test("verification aliases cannot drift from CI", () => {
+  const forbiddenAliases = ["test:ci", "verify:ci", "ci:test", "ci:verify"];
+
+  for (const alias of forbiddenAliases) {
+    assert.equal(packageJson.scripts[alias], undefined);
+    assert.doesNotMatch(allWorkflows, new RegExp(alias.replace(":", "\\:")));
+  }
+  assert.match(
+    testingStrategy,
+    /개발자용 전체 검증 진입점은 `verify` 하나만 사용한다/,
   );
 });
 
