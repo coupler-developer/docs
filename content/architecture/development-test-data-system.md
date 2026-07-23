@@ -481,7 +481,8 @@ coverage entry는 다음 축을 가진다.
 - `coupler-api`의 현재 `tsconfig.json`은 `**/*.ts`를 포함하므로 `tools/dev-data`도 기본 `typecheck` 대상이다.
 - API `lint`와 `format`의 명시 경로에는 `tools`를 추가하고, dev-data test는 기존 `__tests__` Jest gate에 포함한다.
 - Admin의 route descriptor와 static coverage test는 `src` 아래에 두어 기존 typecheck·lint·format·Jest gate를 그대로 사용한다.
-- Admin `e2e`는 `tsconfig.e2e.json`과 Playwright config를 추가하고, 표준 `typecheck`, `lint`, `format`, `test:ci` 또는 별도 필수 `test:dev-data-ui`가 이를 모두 실행하게 한다.
+- Admin `e2e`는 `tsconfig.e2e.json`과 Playwright config를 추가하고, 표준 `verify`의 leaf 또는 별도 필수
+  `test:dev-data-ui`가 이를 모두 실행하게 한다.
 - API·Admin 중 필요한 repository가 없거나 catalog JSON 생성이 실패하면 workspace contract gate를 skip하지 않고 실패한다.
 - 구현 완료 근거에는 API typecheck·lint·format·Jest, Admin typecheck·lint·format·Jest·Playwright, workspace catalog exact-set 결과를 모두 남긴다.
 

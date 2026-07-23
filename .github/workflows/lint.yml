@@ -82,19 +82,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Run markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v16
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          globs: |
-            **/*.md
-            #node_modules
-            #site
+          node-version: "20"
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Install Node dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run markdownlint
+        run: yarn lint:md
 
   build-docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Install Node dependencies
+        run: yarn install --frozen-lockfile
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -107,4 +124,4 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: yarn build:docs

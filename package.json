@@ -34,6 +34,7 @@
     "lint:md": "markdownlint-cli2 --config .markdownlint.json \"**/*.md\" \"#node_modules\" \"#site\"",
     "test:logical-data-model": "node --test scripts/validate-logical-data-model.test.mjs",
     "validate:docs-static": "yarn validate:docs-structure && yarn validate:document-lifecycle && yarn validate:agent-workflow && yarn validate:logical-data-model && yarn validate:technical-debt && yarn validate:release-records && yarn validate:api-error-docs && yarn test:docs-structure && yarn test:document-lifecycle && yarn test:agent-workflow && yarn test:logical-data-model && yarn test:technical-debt && yarn test:release-preflight && yarn test:docs-validation-config",
-    "validate:docs": "yarn validate:docs-static && yarn lint:md && yarn build:docs"
+    "validate:docs": "yarn validate:docs-static && yarn lint:md && yarn build:docs",
+    "verify": "yarn validate:docs"
   }
 }

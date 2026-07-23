@@ -466,7 +466,7 @@ git ls-remote --tags origin "${TAG}" "${TAG}^{}"
 ```
 
 preview에서 Finding이 있으면 원격 tag를 push하지 않는다. 로컬 tag를 갱신한 뒤 Release Note preview,
-`yarn validate:docs`, 문서 안정성 평가를 다시 통과한다.
+`yarn verify`, 문서 안정성 평가를 다시 통과한다.
 
 tag push 뒤 GitHub Actions의 `Release Docs`, 동일 tag의 GitHub Release, Release 본문 릴리즈 기록 링크,
 `docs-site-vX.Y.Z.tar.gz` artifact를 확인한다.

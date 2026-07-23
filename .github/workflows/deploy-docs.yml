@@ -47,7 +47,7 @@ jobs:
       - name: Validate docs
         env:
           DOCUMENT_LIFECYCLE_BASE_REF: ${{ github.event.before }}
-        run: yarn validate:docs
+        run: yarn verify
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

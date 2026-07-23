@@ -62,7 +62,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Validate docs
-        run: yarn validate:docs
+        run: yarn verify
 
       - name: Package site artifact
         run: tar -czf "docs-site-${GITHUB_REF_NAME}.tar.gz" -C site .
