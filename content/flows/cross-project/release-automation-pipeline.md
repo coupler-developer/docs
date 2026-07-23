@@ -127,8 +127,9 @@
 
 1. 포함된 범위만 운영 반영한다.
 2. DB migration은 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 적용 Gate를 통과하고,
-   [배포/릴리즈 프로세스](../../policy/release-process.md)가 요구하는 SQL·ledger·postcheck·rollback 증빙을
-   해당 scope result에 남긴다.
+   [배포/릴리즈 프로세스](../../policy/release-process.md)가 요구하는 API catalog, 환경별 frontier·ordered batch,
+   signed attestation·rollback plan을 해당 scope result에 남긴다. targetRefs는
+   `target catalog − effectiveTrustedFrontier`, batches는 targetRefs의 exact partition이어야 한다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
    기준점, smoke와 rollback 증빙을 남긴다.
 4. DB expand/backfill과 service cutover/contract가 함께 있는 통합 배포는 `DB expand/backfill 준비 -> 사용자
@@ -137,6 +138,8 @@
    진입·종료 판정은
    [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)과
    [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)를 사용한다.
+5. DB attestation은 환경별 단일 `previousTransitionDigest` chain을 이어야 한다. 병렬 릴리즈가 같은 frontier를
+   기준으로 작성됐거나 trust epoch가 활성화되지 않았으면 뒤 단계로 진행하지 않는다.
 
 ### 7) Tag Gate
 

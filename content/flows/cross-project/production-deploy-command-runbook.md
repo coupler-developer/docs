@@ -128,6 +128,9 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 
 DB 변경은 이 문서의 명령어만으로 승인하지 않는다. [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 실행 검증 파이프라인을 통과한 SQL만 운영에 반영한다.
 
+저장소는 운영 DB write를 대신하는 범용 runner를 제공하지 않는다. 아래 명령은 승인된 접속·backup·변경관리
+절차 안에서 대상별로 실행하고, credential·host·DB identity를 저장소나 릴리즈 기록에 평문으로 넣지 않는다.
+
 운영 write 전에 read-only preflight를 남긴다. preflight는 `공통 식별값 + ledger + 변경 대상 객체/카운터` 3종이 모두 있어야 완료다.
 
 합의된 영구 migration 경로가 없는 서비스 레포에는 feature PR에서 새 migration 디렉터리를 만들지 않는다.
@@ -197,7 +200,17 @@ WHERE <변경 전 실패 조건>;
 - `schema_migrations` row
 - 변경 대상 객체 정의와 대상/위험 카운터
 - postcheck guard 결과
-- 비적용 Gate의 `Gate ID + N/A 사유 + 근거`
+- 적용 Gate별 immutable log artifact 경로와 SHA-256
+
+각 환경·batch의 확인이 끝나면 실행 결과를 `db-migration-attestation/v2` payload로 만들고 protected signer가
+Ed25519 서명한 JCS canonical bundle을
+`content/releases/evidence/db-migrations/<version>/<environment>/<batch>.attestation.json`에 둔다. bundle에는
+DB identity 원문이 아니라 digest만 넣고, release metadata에는 bundle 경로와 SHA-256만 기록한다. 비적용 Gate는
+required Gate 좌표의 여집합으로 validator가 계산하므로 사람이 N/A 결과를 추가하지 않는다.
+
+활성 trust epoch와 protected signer가 없거나, `previousTransitionDigest`가 현재 환경 chain과 다르거나,
+raw/effective frontier 전후 exact-set을 만들 수 없으면 `BLOCKED`다. private key를 저장소에 넣거나 임시 키로
+서명하거나 기존 bundle을 복사해 우회하지 않는다.
 
 ## API 포함 시
 

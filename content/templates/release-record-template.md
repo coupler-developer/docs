@@ -2,7 +2,7 @@
 
 ```release-metadata
 {
-  "schema": "release-metadata/v1",
+  "schema": "release-metadata/v2",
   "version": "vX.Y.Z",
   "status": "pending",
   "releaseScopes": [
@@ -82,7 +82,8 @@
 ## 작성 기준
 
 - `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
-- `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는 `release-metadata/v1`로 둔다.
+- `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는
+  `release-metadata/v2`로 둔다.
 - `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 `v2`, `v3`, `v4`처럼 올리지 않는다.
 - 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
 - `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
@@ -96,7 +97,82 @@
 - `coupler-api`를 `released`로 닫을 때는 `scopeResults.coupler-api.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-api.tag`를 concrete 값으로 채운다.
 - `coupler-admin-web`를 `released`로 닫을 때는 `scopeResults.coupler-admin-web.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-admin-web.tag`를 concrete 값으로 채운다.
 - `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`, `workflow`, `sourceRef`를 concrete 값으로 채운다.
-- `db-migration`을 `released`로 닫을 때는 `scopeResults.db-migration.evidence.sqlRefs`, `gateResults`, `preflightLog`, `ledger.dev`, `ledger.prod`, `postcheckLog`, `rollbackPlan`을 구조화해 채운다. SQL은 `coupler-api` PR에 포함된 repo-relative `.sql` 파일 경로와 SHA-256 checksum을 참조해야 한다.
+- `db-migration` evidence는 아래 v2 모양을 사용한다. 환경별 `targetRefs`는 API target catalog에서 해당 환경의
+  `effectiveTrustedFrontier`를 뺀 exact-set이고 `batches`는 그 순서 있는 exact partition이다. 적용 Gate의
+  여집합은 검증기가 N/A로 도출하므로 `gateResults`나 수동 N/A 사유 필드를 추가하지 않는다.
+- `pending`까지는 `attestation: null`로 둔다. `released`로 닫을 때는 각 환경·batch의 canonical signed bundle
+  경로와 SHA-256을 채우고 `rollbackPlan`을 concrete 값으로 바꾼다.
+
+```json
+{
+  "catalog": {
+    "repo": "coupler-api",
+    "sourceRef": "<40-character-commit>",
+    "path": "db/schema/schema-contract.json",
+    "sha256": "<64-character-sha256>"
+  },
+  "plans": {
+    "dev": {
+      "operation": "apply",
+      "targetRefs": [
+        {
+          "path": "db/migrations/<migration>.sql",
+          "checksumSha256": "<64-character-sha256>"
+        }
+      ],
+      "batches": [
+        {
+          "batchId": "expand-1",
+          "order": 1,
+          "stage": "expand",
+          "sqlRefs": [
+            {
+              "path": "db/migrations/<migration>.sql",
+              "checksumSha256": "<64-character-sha256>"
+            }
+          ],
+          "requiredGateIds": [
+            "DBM-GATE-000",
+            "DBM-GATE-010",
+            "DBM-GATE-100"
+          ],
+          "attestation": null
+        }
+      ]
+    },
+    "prod": {
+      "operation": "apply",
+      "targetRefs": [
+        {
+          "path": "db/migrations/<migration>.sql",
+          "checksumSha256": "<64-character-sha256>"
+        }
+      ],
+      "batches": [
+        {
+          "batchId": "expand-1",
+          "order": 1,
+          "stage": "expand",
+          "sqlRefs": [
+            {
+              "path": "db/migrations/<migration>.sql",
+              "checksumSha256": "<64-character-sha256>"
+            }
+          ],
+          "requiredGateIds": [
+            "DBM-GATE-000",
+            "DBM-GATE-010",
+            "DBM-GATE-100"
+          ],
+          "attestation": null
+        }
+      ]
+    }
+  },
+  "rollbackPlan": null
+}
+```
+
 - `mobile-store`를 `released`로 닫을 때는 `scopeResults.mobile-store.evidence.submission`, `approval`, `release`, `smoke`, `artifact`, `submittedMarkers`와 `versionMapping.coupler-mobile-app.releaseTag`를 concrete 값으로 채운다.
 - `mobile-nextpush`를 `released`로 닫을 때는 `scopeResults.mobile-nextpush.evidence.app`, `productionLabel`, `targetBinary`, `uploadedAt`, `rollout`, `mandatory`, `disabled`를 concrete 값으로 채운다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `extraRepoRefs`에 `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 중 canonical name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
