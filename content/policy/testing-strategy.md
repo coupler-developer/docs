@@ -205,6 +205,8 @@
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리즈 preflight·pending transition·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
+    DB migration v2의 JCS/signature, frontier transition, exact partition, N/A derivation 회귀 테스트를 이 runner에
+    포함한다. 같은 event/ref에서 별도 DB evidence 테스트 명령을 한 번 더 실행하지 않는다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증(로컬): `yarn validate:docs`
@@ -238,6 +240,8 @@
 
 - 운영 반영 전 최소 검증 순서는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 실행 검증 파이프라인을 따른다.
 - 상세 Gate/판정 기준은 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
+- CI는 API admission·local MariaDB replay와 docs evidence 계약만 검증한다. 실제 운영 DB 상태, credential,
+  topology, backup 복구 가능성을 정적 CI가 확인했다고 표현하지 않는다.
 
 ## 관련 문서
 

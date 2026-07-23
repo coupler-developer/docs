@@ -105,7 +105,9 @@
     - `coupler-api` 태그/커밋 또는 `N/A` 사유
     - `coupler-admin-web` 태그/커밋 또는 `N/A` 사유
 - 신규 릴리스 기록의 작성 계약은 `release-metadata` block 하나다. 자동화의 기계 판정 SoT는 여기서 한 번 계산한 derived model이며, `버전 매핑`과 Gate 섹션은 사람이 읽는 mirror다. 자동화가 본문 자유 문장을 포함 신호로 해석하지 않게 작성한다.
-- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v1`이다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 새 버전을 선언하지 않는다.
+- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v2`다. 종료된
+  v1 기록은 그대로 보존한다. v2 activation marker가 base branch에 없으면 새 DB migration 릴리즈를 시작하지
+  않는다.
 - `release-metadata`의 모든 하위 object는 작성 계약에 정의된 key만 허용한다. 새 nested key가 필요하면 descriptor 또는 cutover required path에 연결하고 unknown key fail-closed 테스트를 함께 갱신한다.
 - `release-metadata.releaseScopes`는 실제 릴리즈 surface의 단일 SoT이며 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
@@ -114,7 +116,17 @@
 - `docs` scope의 `released` 판정은 최종 릴리즈 기록이 병합 가능한 상태로 확정되고 `versionMapping.docs.tag`에 병합 후 생성할 docs tag가 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
-- `db-migration`을 `released`로 닫을 때는 `scopeResults.db-migration.evidence.sqlRefs`, `gateResults`, `preflightLog`, `ledger.dev`, `ledger.prod`, `postcheckLog`, `rollbackPlan`을 구조화해 채운다. SQL은 `coupler-api` PR에 포함된 repo-relative `.sql` 파일 경로와 SHA-256 checksum으로 참조해야 하며, 콘솔 수동 실행문이나 채팅에 붙인 SQL만으로는 완료 증빙이 아니다.
+- `db-migration` evidence는 target API catalog ref/checksum, 환경별 operation·targetRefs·ordered batches,
+  batch별 signed attestation과 rollback plan으로 구성한다. preflight는 `catalog − effectiveTrustedFrontier`와
+  batch exact partition, catalog의 exact `gateIds`를 검증한다. terminal 판정은 각 환경 전이 chain과
+  Ed25519 서명을 검증하며 콘솔 수동 실행문·채팅 SQL·수동 N/A 사유만으로는 완료 증빙이 아니다.
+- trust epoch activation과 새로 작성·변경·삭제한 terminal DB migration evidence는 같은 PR에 넣지 않는다.
+  terminal evidence는 PR base에 이미 활성화된 epoch만 사용하며, DB evidence가 그대로인 다른 scope의 사후
+  정정까지 차단하지 않는다.
+- v2 DB migration scope를 `released` 또는 `rolled_back`으로 닫기 전에는 같은 릴리즈 기록의 Git 이력에
+  `scopeResults.db-migration.status=pending`인 선행 snapshot이 있어야 한다. `in_progress`나 terminal 문서를
+  먼저 만든 뒤 사후에 terminal로 바꾸는 흐름은 pending 고정점을 대신하지 못한다. 릴리즈 기록 파일은
+  삭제할 수 없고 사실 정정은 기존 terminal 상태와 최초 pending target을 보존한다.
 - `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
 - 릴리즈 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
 - SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리즈 자동화 변경과 함께 기록한다.
@@ -125,7 +137,12 @@
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck와 필요 시 corrective reissue로 막는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
-- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와 `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR head를 읽고, docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함, metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점, DB migration SQL/checksum을 확인한다. `--pending-ref`가 없는 기존 흐름은 모든 포함 레포의 clean `main == origin/main`을 계속 요구한다.
+- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
+  `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
+  head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
+  metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다. DB migration은 고정된
+  API catalog commit에서 SQL/checksum·`gateIds`를 읽고 환경별 trusted frontier와 plan의 exact-set을 대조한다.
+  `--pending-ref`가 없는 기존 흐름은 모든 포함 레포의 clean `main == origin/main`을 계속 요구한다.
 - 장기·메이저 릴리즈도 열린 docs PR과 릴리즈 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙

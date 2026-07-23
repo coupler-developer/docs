@@ -16,6 +16,8 @@
   계약으로 고정한다.
 - 완성된 최종 후보의 Local 통합 검증은 한 번만 실행하고, 개발계·운영계의 서로 다른 DB 상태 전이는 순서대로
   증명한다.
+- docs 정적 검증은 실제 DB 상태를 안다고 주장하지 않는다. 승인된 실행이 만든 offline 검증 가능 서명
+  bundle과 환경별 전이 계보만 검증한다.
 
 ## 적용 범위
 
@@ -33,7 +35,8 @@
 | DB 설계 원칙 | [엔지니어링 가드레일](engineering-guardrails.md) | `DBM-GATE-000`에서 설계 리뷰 결과를 입력으로 사용 |
 | migration 단계·artifact·ledger·schema contract | 이 문서 | 최종 규칙 |
 | 물리 schema와 migration catalog | private 서비스 저장소의 생성 가능 contract | 이 정책을 구현하는 비공개 SoT |
-| 환경별 적용 완료 상태 | 각 DB의 migration ledger | 저장소 catalog와 대조하는 실행 SoT |
+| 환경별 실제 적용 상태 | 각 DB의 migration ledger와 대상 객체 | 승인된 실행 절차가 읽는 운영 SoT |
+| 릴리즈 판단용 환경별 상태 | 서명 bundle chain의 `effectiveTrustedFrontier` | 실제 DB를 대신하지 않고 승인된 증거 계보만 표현 |
 | 공개 논리 모델 taxonomy·매핑 | [논리 데이터 모델 정책](logical-data-model-policy.md) | 논리 영향 판정만 위임 |
 | 공개/비공개 DB 문서 경계·데이터 분류 | [문서 거버넌스 정책](document-governance-policy.md), [데이터 거버넌스 정책](data-governance-policy.md) | 공개 범위와 동기화 기준만 위임 |
 | Local 최종 후보의 통합 검증 | [테스트/CI 전략](testing-strategy.md) | 후보별 1회 원칙에 DB 전용 산출물을 합성 |
@@ -42,6 +45,8 @@
 
 - 저장소 catalog는 가능한 migration 집합, DB ledger는 해당 환경에서 완료된 집합이다. 둘은 서로 대체하지
   않는다.
+- `rawHistoricalFrontier`는 관측·복구된 이력을 보존하고 `effectiveTrustedFrontier`만 신규 적용 대상을
+  계산하는 데 사용한다. 두 값을 같다고 추정하거나 docs 검증 결과를 DB read 결과로 표현하지 않는다.
 - 공개 docs에 서비스 업무 스키마의 전체 DDL·컬럼 catalog를 복제하지 않는다.
 
 ## 분류 축
@@ -66,8 +71,8 @@
 | `DBM-GATE-400` | 단계 | Contract | 의존성과 관측 범위의 read/write 0건, 제거 후 postcheck 통과 | 의존성·관측 로그, postcheck |
 
 - 하나라도 실패하거나 적용 대상 Gate의 증빙이 없으면 즉시 중단한다.
-- 비적용 Gate는 `증빙과 판정` 절의 형식으로 한 번만 기록하며 더미 SQL이나 의미 없는 0건 결과로 대신하지
-  않는다.
+- 비적용 Gate는 해당 `(환경, operation, batch, Gate)` 좌표가 하나도 없을 때 적용 Gate의 여집합으로만
+  도출한다. 작성자가 N/A 사유·더미 SQL·의미 없는 0건 결과를 넣어 통과시킬 수 없다.
 
 ### Migration 단계
 
@@ -80,6 +85,24 @@
 
 전체 구성요소의 실제 순서는 릴리즈 자동화 파이프라인의 `Deploy Evidence Gate`를 따른다. DB-only 선반영은
 기존 runtime과 호환되는 Expand/Backfill에만 허용하고, Contract는 activation과 의존성 0건 확인 뒤 실행한다.
+
+PR admission은 migration 파일 전체에 한 분류를 추정하지 않고 실행 SQL 문장별로 영속 DDL의 필요 단계를
+결정한다. 한 파일의 모든 영속 DDL이 catalog에 선언한 정확히 한 단계와 일치해야 하며, 서로 다른 단계가
+필요한 문장을 한 migration에 섞으면 거부한다. 신규 table·view·index와 top-level clause가 모두 `ADD`인
+`ALTER TABLE`은 Expand/`DBM-GATE-100`, 제거·rename·truncate 등 파괴 DDL은
+Contract/`DBM-GATE-400`으로 고정한다.
+
+모든 migration artifact에는 실행 SQL 문장이 하나 이상 있어야 한다. `precheck`와 `postcheck`만 모든 문장이
+read-only일 수 있고, schema·data·cutover·contract artifact에는 실제 schema-write 또는 data-write 문장이
+하나 이상 있어야 한다. header·주석만 있거나 조회만 하는 단계 migration은 catalog·ledger·frontier를
+전진시키지 못한다.
+
+각 `CREATE VIEW` 문장은 다른 View 문장과 독립적으로 `VIEW` keyword 이전의 생성 option에서
+`SQL SECURITY INVOKER`를 명시하고 `DEFINER=`를 두지 않아야 한다. View 본문의 동일한 column·alias 이름은
+생성 option으로 판정하지 않는다. `CREATE OR REPLACE VIEW`는 신규 객체 추가로 간주하지 않으며, migration
+경로·checksum에 exact binding된 base-owned 구조화 리뷰가 `cutover`로 분류한 경우에만
+Cutover/`DBM-GATE-300`에서 허용한다. 따라서 같은 파일에 신규 additive DDL을 함께 넣을 수 없다. 자유 문장
+해석이나 운영 데이터 추론은 이 admission의 책임이 아니며 별도 설계·운영 리뷰에서 판정한다.
 
 ## Migration artifact 생명주기
 
@@ -113,7 +136,7 @@
 
 ### 1. PR admission과 개발계
 
-1. 변경을 단계와 `DBM-GATE-*`로 분류하고 migration, catalog, fixture, 연결 문서와 `N/A` 근거까지 모두
+1. 변경을 단계와 `DBM-GATE-*`로 분류하고 migration, catalog, 필요한 migration별 fixture와 연결 문서를
    작성한다. schema 변경이면 생성된 lock을 포함하고, 별도 baseline 교체 작업일 때만 새 baseline을 포함한다.
 2. 마지막 파일 변경 뒤 테스트/CI 전략의 `로컬 최종 후보 검증`을 적용한다. 전체 후보의 독립 리뷰에서 열린
    Finding 0건이 된 뒤 고정된 최종 후보의 표준 통합 품질 Gate를 한 번 실행한다.
@@ -127,21 +150,63 @@
 2. 각 운영 write batch 직전에 DB identity, ledger, 대상 객체·counter를 fresh read-only preflight로 확인한다.
 3. 릴리즈 자동화 파이프라인의 단계 순서에 따라 동일 SQL을 운영계에 적용한다.
 4. 각 파일의 선언된 완료 조건과 적용 Gate가 통과한 뒤에만 운영 완료 row를 기록한다.
-5. Gate별 SQL 경로, checksum, 로그, ledger row와 rollback 기준을 릴리즈 기록에 남긴다.
+5. Gate별 SQL 경로, checksum, 로그 artifact, ledger/DB identity digest와 rollback 기준을 서명 bundle로
+   고정하고 릴리즈 기록에는 bundle 경로와 checksum을 남긴다.
 
 운영 read-only preflight는 각 write batch 직전 한 번만 Gate 증빙으로 채택한다. 작성 중 확인한 운영 상태는
 설계 입력일 뿐 이 preflight를 대신하지 않는다. activation 경계로 write batch가 나뉘면 직전 DB 상태가
 달라지므로 각각 fresh preflight를 수행한다. Local 최종 후보 검증과 개발계·운영계 적용은 각각 정적
 계약·재생 결과와 서로 다른 DB 상태 전이를 증명하므로 중복이 아니다.
 
-### 3. Baseline 교체
+### 3. 릴리즈 증거 v2와 환경별 frontier
+
+- 신규·활성 릴리즈 기록은 `release-metadata/v2`를 사용한다. 종료된 v1 기록은 역사적 증거로 보존하고 v2
+  모양으로 재작성하지 않는다.
+- 각 환경의 적용 대상은 `target catalog − effectiveTrustedFrontier`이며 `apply`와
+  `frontier_adoption` plan의 `targetRefs`는 이 집합과 정확히 같아야 한다.
+- `batches`는 `targetRefs`의 순서 있는 exact partition이다. 누락·중복·추가 ref가 있으면 실패한다.
+- terminal batch마다 정확히 하나의 attestation이 필요하다. attestation payload의
+  `(environment, operation, batch, required Gate)` 결과가 exact-set이어야 하며 적용 Gate는 모두 `passed`다.
+- 각 환경은 sequence와 `previousTransitionDigest`로 연결된 하나의 전이 chain만 가진다. 같은 base frontier에서
+  병렬 작성한 두 릴리즈 중 뒤에 검증되는 하나는 chain 불일치로 실패한다.
+- `apply`·`frontier_adoption`은 batch ref를 raw/effective frontier에 정확히 추가한다.
+  `ledger_recovery`·`recovery_apply`는 이미 trusted인 ref만 대상으로 하고 effective frontier를 늘리지 않는다.
+- bundle은 `coupler/db-migration-attestation/v2` domain separation, NFC 문자열, safe integer와 RFC 8785/JCS
+  canonical JSON을 사용하고 Ed25519로 서명한다. 원문 checksum과 서명을 모두 검증한다.
+- 신뢰 키는 protected base의 proposal PR과 그 proposal을 참조하는 후속 epoch activation PR의 두 단계로만
+  활성화한다. epoch는 append-only이고 proposal commit은 activation base의 first-parent 계보에 있어야 한다.
+- 한 번 등장한 `keyId`와 Ed25519 public-key fingerprint는 이후 epoch에서 다시 사용할 수 없다. 환경 범위나
+  PEM 표현을 바꿔도 같은 signer를 재활성화한 것으로 보고 실패한다.
+- trust proposal/epoch의 `publicKeyPem`은 정확히 하나의 canonical Ed25519 SPKI `PUBLIC KEY` PEM block이어야
+  한다. PKCS#8 private key, public/private 다중 block, trailing data는 저장소 반입 단계에서 거부한다.
+- 서명 환경에서 해당 sequence 이전에 시작된 epoch 중 번호가 가장 높은 epoch만 선택한 뒤 그 epoch의
+  만료 범위를 검사한다. successor가 시작된 뒤 생긴 공백에는 낮은 epoch로 되돌아가지 않고 실패한다. 따라서
+  과거 epoch를 수정하지 않고 새 epoch를 추가해 키를 교체하며, 서명자가 이전 키를 다시 활성화할 수 없다.
+- trust epoch가 하나도 활성화되지 않은 상태에서는 terminal DB migration 증거가 안전하게 실패한다. 키를
+  임의 생성하거나 private key를 저장소에 넣어 우회하지 않는다.
+
+bootstrap과 activation은 별도 단계다. 정책·validator·bootstrap·marker를 설치하는 PR에는 새 migration이나
+v2 DB 릴리즈 기록을 넣지 않는다. marker가 base branch에 merge된 뒤 trust proposal/activation을 완료하고,
+그 다음 릴리즈부터 v2를 사용한다. activation marker는 자기 SHA를 포함하지 않고 versioned contract source,
+bootstrap, trust bootstrap의 경로·mode·blob checksum만 고정한다.
+
+### 4. Baseline 교체
 
 - 일반 feature와 분리한 변경으로 수행한다.
+- 운영 read-only 절차가 source main commit, TLS CA와 endpoint, DB identity, schema lock과 ledger digest를
+  고정한 capture authority를 먼저 별도 PR로 base에 병합한다. baseline 교체 PR은 그 base-owned authority를
+  exact하게 재현하며 authority와 baseline 교체를 같은 PR에 넣지 않는다.
+- capture authority PR은 지원된 read-only proposal 명령이 생성한 authority 파일 하나만 추가한다. source
+  main commit은 PR base에 이미 있고 현재 baseline source의 strict descendant여야 하며 authority는 7일 안에
+  만료된다. authority 수정·삭제·복수 추가 및 migration이나 도구 변경과 혼합을 거부한다.
+- baseline 교체가 authority를 소비하는 시점에도 만료를 다시 확인하며, 만료 뒤에는 digest가 같아도 새
+  authority proposal부터 다시 시작한다.
 - 운영 ledger와 catalog의 migration 이름·checksum exact-set, `target_env=prod`, DB identity가 모두 일치해야
   시작할 수 있다.
 - 운영 schema-only capture, source main commit, baseline lock과 current lock 동등성을 함께 검증한다.
 - 기존 catalog entry는 `includedInBaseline=true`, `replayInSchemaCheck=false`로만 전환하고 파일·checksum·kind는
   유지한다.
+- baseline source main commit은 strict descendant로만 전진하며 과거 source/authority 재사용을 거부한다.
 - 새 migration 추가와 baseline 교체를 같은 변경에 섞지 않으며, DB ledger row를 삭제하거나 압축하지 않는다.
 
 ## 실패와 복구
@@ -199,11 +264,17 @@ ledger 물리 DDL은 private schema contract, 운영 preflight·apply·rollback 
 ## Catalog와 schema lock
 
 - catalog는 migration 디렉터리의 SQL 파일과 exact-set이며 숫자 prefix 순서를 사용한다.
-- 각 entry는 `file`, `kind`, `schemaEffect`, `includedInBaseline`, `replayInSchemaCheck`, `sha256`를 기록한다.
+- v2 entry는 `file`, `kind`, header와 정확히 같은 `gateIds`, 그 Gate에서 도출한 `migrationStages`,
+  migration별 `verification`, 구조화된 `alterReview`, `schemaEffect`, `includedInBaseline`,
+  `replayInSchemaCheck`, `sha256`를 기록한다.
+- target catalog는 stage Gate(`100`~`400`) 유무와 관계없이 모든 migration entry를 포함한다. stage Gate가
+  하나도 없거나 둘 이상인 기존 artifact가 포함된 apply batch의 stage는 `legacy`이며, 해당 artifact도
+  frontier 차감·exact ordered partition·서명 attestation에서 생략할 수 없다.
 - Sealed 파일과 entry의 checksum·kind·schema 영향 판정은 immutable이다. baseline 교체는 편입·replay flag만
   정책에 정한 방식으로 바꿀 수 있다.
-- schema 영향 migration은 Local replay가 가능해야 하고 생성된 schema lock을 갱신한다. data-only migration은
-  schema lock을 바꾸지 않고 fixture와 `DBM-GATE-200`으로 검증한다.
+- 공유 DB write는 Local replay와 migration별 read-only check가 가능해야 한다. Backfill/Cutover만 결정적 대상
+  row를 만드는 setup fixture가 필수이고 Expand/Contract는 검증에 실제로 필요할 때만 setup을 둔다.
+  precheck/postcheck처럼 read-only인 artifact에는 replay fixture를 요구하지 않는다.
 - 신규·정의 변경 table/column의 의미는 DB native `COMMENT`에 두고 빈 값·문자 깨짐을 실패시킨다. schema
   lock과 baseline은 생성물이며 직접 편집하지 않는다.
 
@@ -211,9 +282,13 @@ ledger 물리 DDL은 private schema contract, 운영 preflight·apply·rollback 
 
 - 적용 Gate: `Gate ID + SQL 경로 + checksum + 로그 경로 + 환경별 ledger row`
 - 운영 preflight: `로그 경로 + DB identity + ledger + 대상 객체 정의/counter`
-- 비적용 Gate: `Gate ID + N/A 사유 + 근거 경로`
+- 비적용 Gate: required Gate 좌표의 여집합으로 자동 도출한 `Gate ID` 목록
 - 공개 논리 영향: 관계·소유권·분류·불변 조건·생명주기·외부 계약 변경이면 연결 docs, 물리 구현만 바뀌면
   `논리 문서 영향 없음` 근거
+- 저장소 상대 증빙 경로는 저장소 밖을 가리킬 수 없고, 경로의 중간 구성요소와 최종 파일 어디에도 symlink를
+  허용하지 않는다. 최종 대상은 선언 경로에 있는 regular file이어야 한다. 로컬에서 생성 후 커밋하는 정상
+  증빙까지 base-owned로 요구하지 않으며, base-owned 계약이 필요한 별도 artifact만 해당 Gate에서 Git ref와
+  mode를 추가 검증한다.
 
 `No Findings`는 적용 Gate, 환경별 완료 상태, catalog/lock, 공개 문서 영향과 비적용 근거가 모두 닫혔을 때만
 선언한다. `DBM-GATE-400`은 명시한 제거 대상만 판정하며 삭제 대상으로 지정하지 않은 객체를 제거하지 않는다.
@@ -222,7 +297,10 @@ ledger 물리 DDL은 private schema contract, 운영 preflight·apply·rollback 
 
 - DB 관련 경로의 표준 runner는 catalog exact-set·checksum·순서, baseline/lock canonical form, 기존 migration
   불변성을 확인하고, 빈 Local DB에 baseline과 `replayInSchemaCheck=true` migration을 replay해 schema lock과
-  비교한다. Backfill/Cutover/Contract는 합성 fixture로 확인한다.
+  migration별 assertion을 확인한다.
+- 저장소는 모든 운영 DB 엔진·권한·복구를 대신하는 범용 write runner를 제공하지 않는다. 실제 write,
+  credential, topology, backup/restore는 승인된 운영 절차의 책임이고 docs validator는 결과의 서명 증거만
+  확인한다.
 - 통합 runner에 포함된 contract check나 replay를 같은 event·ref·baseline에서 먼저 개별 실행하거나 별도
   workflow로 반복하지 않는다. 테스트/CI 전략이 허용한 표적 검증은 최종 통합 Gate의 대체 증빙이 아니다.
 - Local reset/replay 명령은 localhost DB와 명시적 reset flag가 모두 있을 때만 실행한다.
@@ -235,6 +313,8 @@ ledger 물리 DDL은 private schema contract, 운영 preflight·apply·rollback 
 - [ ] 실패/부분 적용을 가짜 완료 row나 기존 파일 수정으로 숨기지 않았는가?
 - [ ] 운영 read-only preflight를 각 write batch 직전 한 번 수행했는가?
 - [ ] 운영 반영 순서가 릴리즈 자동화 파이프라인의 activation·Contract 경계와 일치하는가?
+- [ ] `target catalog − effectiveTrustedFrontier`, batch partition, attestation 좌표가 exact-set인가?
+- [ ] 서명 epoch와 환경별 `previousTransitionDigest` chain이 이어지고 raw/effective frontier를 혼동하지 않았는가?
 - [ ] baseline 교체가 별도 변경이며 운영 ledger exact-set과 기존 row 보존을 확인했는가?
 - [ ] 같은 event·ref·baseline의 contract check를 반복하지 않았는가?
 
