@@ -34,7 +34,7 @@
   합친다.
 - baseline 전환 검증이 공통 runner의 validator와 같은 현재 상태 검증을 포함하면 별도 선행 실행을 추가하지
   않고 baseline을 공통 runner에 주입한다. 경량 경로처럼 공통 runner를 실행하지 않는 경우에만 전환 검증을
-  독립 실행한다.
+  실행한다.
 - 현재 산출물의 계약 검증과 validator 자체의 반대 조건·변이 회귀 테스트는 판정 대상이 다르므로 중복이
   아니다.
 - PR admission, main 배포 artifact, release tag artifact처럼 event·ref·산출물 또는 신뢰 경계가 달라진 뒤의
@@ -222,7 +222,7 @@
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
   다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 lifecycle 현재
-  상태와 전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle 전환을 독립 실행한다.
+  상태와 전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle 전환을 실행한다.
 - docs 레포: PR 병합 뒤 `push(main)`에서는 push 이전 SHA를 `DOCUMENT_LIFECYCLE_BASE_REF`로 주입한
   `yarn validate:docs` 한 번이 새 main의 Pages artifact를 검증한다. PR admission과 main 배포는 ref·산출물·
   신뢰 경계가 다르므로 단계별 검증이며, 같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다.
