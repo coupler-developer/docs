@@ -1,0 +1,7 @@
+{
+    "schema": "db-migration-evidence-trust/v2",
+    "algorithms": ["ed25519"],
+    "proposalDirectory": "content/policy/db-migration-trust-proposals",
+    "epochDirectory": "content/policy/db-migration-trust-epochs",
+    "epochs": []
+}

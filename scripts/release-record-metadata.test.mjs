@@ -464,6 +464,30 @@ describe("release metadata scope results", () => {
     assert.deepEqual(errors, []);
   });
 
+  it("uses the v2 DB plan shape without legacy all-Gate N/A fields", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "db-migration"],
+      statuses: { docs: "planned", "db-migration": "planned" },
+      status: "planned",
+    });
+    metadata.schema = "release-metadata/v2";
+    metadata.scopeResults["db-migration"].evidence = plannedDbMigrationEvidenceV2();
+
+    assert.deepEqual(validate(metadata), []);
+    metadata.scopeResults["db-migration"].evidence.catalog = null;
+    metadata.scopeResults["db-migration"].evidence.plans = {
+      dev: null,
+      prod: null,
+    };
+    assert.deepEqual(validate(metadata), []);
+    metadata.scopeResults["db-migration"].evidence.gateResults = [];
+    assert(
+      validate(metadata).some((error) =>
+        /scopeResults\.db-migration\.evidence has unknown key: gateResults/.test(error),
+      ),
+    );
+  });
+
   it("requires DB migration dev/prod ledger rows to match SQL refs", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
@@ -883,6 +907,41 @@ function releasedDbMigrationEvidence() {
     },
     postcheckLog: "prod postcheck guard returned No Findings",
     rollbackPlan: "restore RDS snapshot rds:release-v9.9.0 and revert SQL refs if postcheck fails",
+  };
+}
+
+function plannedDbMigrationEvidenceV2() {
+  const migrationRef = {
+    path: "db/migrations/99_expand_example.sql",
+    checksumSha256: checksum,
+  };
+  return {
+    catalog: {
+      repo: "coupler-api",
+      sourceRef: apiCommit,
+      path: "db/schema/schema-contract.json",
+      sha256: checksum,
+    },
+    plans: Object.fromEntries(
+      ["dev", "prod"].map((environment) => [
+        environment,
+        {
+          operation: "apply",
+          targetRefs: [migrationRef],
+          batches: [
+            {
+              batchId: "expand-1",
+              order: 1,
+              stage: "expand",
+              sqlRefs: [migrationRef],
+              requiredGateIds: ["DBM-GATE-000", "DBM-GATE-010", "DBM-GATE-100"],
+              attestation: null,
+            },
+          ],
+        },
+      ]),
+    ),
+    rollbackPlan: null,
   };
 }
 

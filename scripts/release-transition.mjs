@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { pendingTransitionFrozenPaths } from "./release-schema.mjs";
 
 export function validatePendingToReleasedTransition(
@@ -19,9 +20,21 @@ export function validatePendingToReleasedTransition(
     );
   }
 
+  errors.push(...validateFrozenReleaseTarget(pendingMetadata, releasedMetadata, context));
+
+  return errors;
+}
+
+export function validateFrozenReleaseTarget(
+  frozenMetadata,
+  candidateMetadata,
+  context,
+) {
+  const errors = [];
+
   for (const pathParts of pendingTransitionFrozenPaths) {
-    const before = getNestedValue(pendingMetadata, pathParts);
-    const after = getNestedValue(releasedMetadata, pathParts);
+    const before = getNestedValue(frozenMetadata, pathParts);
+    const after = getNestedValue(candidateMetadata, pathParts);
 
     if (valuesAreEqual(before, after)) {
       continue;
@@ -32,7 +45,43 @@ export function validatePendingToReleasedTransition(
     );
   }
 
+  const dbPlanPath = ["scopeResults", "db-migration", "evidence", "plans"];
+  const beforePlans = freezeDbMigrationPlans(getNestedValue(frozenMetadata, dbPlanPath));
+  const afterPlans = freezeDbMigrationPlans(getNestedValue(candidateMetadata, dbPlanPath));
+  if (!valuesAreEqual(beforePlans, afterPlans)) {
+    errors.push(
+      `${context}: frozen release target changed at ${dbPlanPath.join(".")} (${formatValue(beforePlans)} -> ${formatValue(afterPlans)})`,
+    );
+  }
+
   return errors;
+}
+
+function freezeDbMigrationPlans(plans) {
+  if (!plans || typeof plans !== "object" || Array.isArray(plans)) {
+    return plans;
+  }
+
+  return Object.fromEntries(
+    Object.entries(plans).map(([environment, plan]) => [
+      environment,
+      !plan || typeof plan !== "object" || Array.isArray(plan)
+        ? plan
+        : {
+            operation: plan.operation,
+            targetRefs: plan.targetRefs,
+            batches: Array.isArray(plan.batches)
+              ? plan.batches.map((batch) => {
+                  if (!batch || typeof batch !== "object" || Array.isArray(batch)) {
+                    return batch;
+                  }
+                  const { attestation: _executionEvidence, ...frozenBatch } = batch;
+                  return frozenBatch;
+                })
+              : plan.batches,
+          },
+    ]),
+  );
 }
 
 function getNestedValue(value, pathParts) {
@@ -50,7 +99,7 @@ function getNestedValue(value, pathParts) {
 }
 
 function valuesAreEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return isDeepStrictEqual(left, right);
 }
 
 function formatValue(value) {

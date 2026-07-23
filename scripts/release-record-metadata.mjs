@@ -1,4 +1,5 @@
 import {
+  allowedReleaseMetadataSchemas,
   allowedReleaseScopes,
   allowedApiContractCutoverStatuses,
   allowedDbMigrationGateResultStatuses,
@@ -28,6 +29,9 @@ import {
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
+import {
+  validateDbMigrationEvidenceShapeV2,
+} from "./db-migration-release-contract-v2.mjs";
 
 export {
   findReleasePlaceholderSignals,
@@ -68,8 +72,10 @@ export function validateReleaseMetadata(metadata, context, expectedVersion, erro
     return;
   }
 
-  if (metadata.schema !== releaseMetadataSchema) {
-    errors.push(`${context}: release-metadata schema must be ${releaseMetadataSchema}`);
+  if (!allowedReleaseMetadataSchemas.has(metadata.schema)) {
+    errors.push(
+      `${context}: release-metadata schema must be one of ${[...allowedReleaseMetadataSchemas].join(", ")}`,
+    );
   }
 
   validateTopLevelKeys(metadata, context, errors);
@@ -264,9 +270,27 @@ function validateScopeResult(metadata, scopeName, result, context, errors) {
   if (!result.evidence || typeof result.evidence !== "object" || Array.isArray(result.evidence)) {
     errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence must be a JSON object`);
   } else {
-    validateScopeEvidenceKeys(scopeName, result.evidence, context, errors);
-    validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
-    validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
+    validateScopeEvidenceKeys(metadata, scopeName, result.evidence, context, errors);
+    if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
+      errors.push(
+        ...validateDbMigrationEvidenceShapeV2({
+          evidence: result.evidence,
+          context: `${context}: release-metadata scopeResults.db-migration.evidence`,
+          terminal: ["released", "rolled_back"].includes(result.status),
+          requirePlan:
+            result.status !== "planned" &&
+            result.status !== "superseded",
+        }),
+      );
+    } else {
+      validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
+      validateEvidenceValueShape(
+        result.evidence,
+        ["scopeResults", scopeName, "evidence"],
+        context,
+        errors,
+      );
+    }
   }
 
   if (result.status === "superseded") {
@@ -310,8 +334,8 @@ function validateScopeResultKeys(scopeName, result, context, errors) {
   }
 }
 
-function validateScopeEvidenceKeys(scopeName, evidence, context, errors) {
-  const expectedKeys = getExpectedScopeEvidenceKeys(scopeName);
+function validateScopeEvidenceKeys(metadata, scopeName, evidence, context, errors) {
+  const expectedKeys = getExpectedScopeEvidenceKeys(metadata, scopeName);
   for (const key of expectedKeys) {
     if (!Object.hasOwn(evidence, key)) {
       errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence is missing ${key}`);
@@ -392,7 +416,10 @@ function validateEvidenceShapeValue({
   }
 }
 
-function getExpectedScopeEvidenceKeys(scopeName) {
+function getExpectedScopeEvidenceKeys(metadata, scopeName) {
+  if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
+    return new Set(["catalog", "plans", "rollbackPlan"]);
+  }
   const descriptor = releaseScopeDescriptors[scopeName];
   const expectedKeys = new Set();
   for (const evidence of [
@@ -800,6 +827,9 @@ function validateScopeRepoRefEvidence(metadata, context, scopeName, errors) {
 }
 
 function validateReleasedScopeEvidence(metadata, context, scopeName, errors) {
+  if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
+    return;
+  }
   const descriptor = releaseScopeDescriptors[scopeName];
   for (const evidence of descriptor?.releasedEvidence ?? []) {
     validateScopeEvidenceValue(metadata, context, scopeName, evidence, errors);
