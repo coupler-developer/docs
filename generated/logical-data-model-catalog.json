@@ -398,7 +398,7 @@
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "responsibility": "모집·신청 접수·확정·종료와 공개 행사 정보",
+      "responsibility": "공개·신청 접수·확정·종료와 공개 행사 정보",
       "classification": "민감",
       "lifecycle": "삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리"
     },
