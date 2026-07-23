@@ -1,0 +1,20 @@
+{
+    "schema": "db-migration-gate-activation/v2",
+    "manifest": [
+        {
+            "path": "content/policy/db-migration-frontier-bootstrap-v2.json",
+            "mode": "100644",
+            "sha256": "e074c401a91f39c3a3fa94de97693930c5039dbd24e13f69cdbbd541080d31c1"
+        },
+        {
+            "path": "content/policy/db-migration-trust-bootstrap-v2.json",
+            "mode": "100644",
+            "sha256": "dfcb630a3fa4bb7997ed30cb776c5a5d2c5a88b75e234a7a2c4442462bc206a4"
+        },
+        {
+            "path": "scripts/db-migration-release-contract-v2.mjs",
+            "mode": "100644",
+            "sha256": "d4b0f856376bc626114c76a44f8fd0a300eebd568e3bffc803369912f186a9f7"
+        }
+    ]
+}

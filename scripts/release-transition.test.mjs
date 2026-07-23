@@ -57,7 +57,74 @@ describe("pending to released transition", () => {
       ],
     );
   });
+
+  it("freezes the DB catalog and plan while allowing terminal attestations", () => {
+    const pending = pendingMetadata();
+    pending.scopeResults["db-migration"] = plannedDbMigrationScope();
+    const released = structuredClone(pending);
+    released.status = "released";
+    released.scopeResults["db-migration"].status = "released";
+    released.scopeResults["db-migration"].evidence.plans.dev.batches[0].attestation = {
+      path: "content/releases/evidence/db-migrations/v9.9.0/dev/legacy-1.attestation.json",
+      sha256: "d".repeat(64),
+    };
+    released.scopeResults["db-migration"].evidence.rollbackPlan = "restore snapshot";
+    released.scopeResults["db-migration"].evidence.catalog = Object.fromEntries(
+      Object.entries(released.scopeResults["db-migration"].evidence.catalog).reverse(),
+    );
+    released.scopeResults["db-migration"].evidence.plans = Object.fromEntries(
+      Object.entries(released.scopeResults["db-migration"].evidence.plans).reverse(),
+    );
+    released.scopeResults["db-migration"].evidence.plans.dev.batches[0] = Object.fromEntries(
+      Object.entries(
+        released.scopeResults["db-migration"].evidence.plans.dev.batches[0],
+      ).reverse(),
+    );
+
+    assert.deepEqual(validatePendingToReleasedTransition(pending, released, "v9.9.0"), []);
+
+    released.scopeResults["db-migration"].evidence.catalog.sha256 = "e".repeat(64);
+    released.scopeResults["db-migration"].evidence.plans.dev.batches[0].sqlRefs[0].checksumSha256 =
+      "f".repeat(64);
+    const errors = validatePendingToReleasedTransition(pending, released, "v9.9.0");
+    assert(errors.some((error) => /db-migration\.evidence\.catalog/.test(error)));
+    assert(errors.some((error) => /db-migration\.evidence\.plans/.test(error)));
+  });
 });
+
+function plannedDbMigrationScope() {
+  const migrationRef = {
+    path: "db/migrations/79_precheck_example.sql",
+    checksumSha256: "9".repeat(64),
+  };
+  const plan = {
+    operation: "apply",
+    targetRefs: [migrationRef],
+    batches: [
+      {
+        batchId: "legacy-1",
+        order: 1,
+        stage: "legacy",
+        sqlRefs: [migrationRef],
+        requiredGateIds: ["DBM-GATE-000", "DBM-GATE-010"],
+        attestation: null,
+      },
+    ],
+  };
+  return {
+    status: "pending",
+    evidence: {
+      catalog: {
+        repo: "coupler-api",
+        sourceRef: "a".repeat(40),
+        path: "db/schema/schema-contract.json",
+        sha256: "b".repeat(64),
+      },
+      plans: { dev: plan, prod: structuredClone(plan) },
+      rollbackPlan: null,
+    },
+  };
+}
 
 function pendingMetadata() {
   return {

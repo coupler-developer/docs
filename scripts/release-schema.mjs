@@ -1,4 +1,9 @@
-export const releaseMetadataSchema = "release-metadata/v1";
+export const releaseMetadataSchema = "release-metadata/v2";
+export const legacyReleaseMetadataSchema = "release-metadata/v1";
+export const allowedReleaseMetadataSchemas = new Set([
+  legacyReleaseMetadataSchema,
+  releaseMetadataSchema,
+]);
 
 export const releaseMetadataTopLevelKeys = new Set([
   "schema",
@@ -529,6 +534,7 @@ export const pendingTransitionFrozenPaths = [
   ["apiContractCutover", "comparisonRefs", "coupler-api"],
   ["apiContractCutover", "comparisonRefs", "coupler-admin-web"],
   ["apiContractCutover", "comparisonRefs", "coupler-mobile-app"],
+  ["scopeResults", "db-migration", "evidence", "catalog"],
 ];
 
 export function isEmptyRefValue(value) {

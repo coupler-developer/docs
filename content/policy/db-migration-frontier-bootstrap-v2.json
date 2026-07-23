@@ -1,0 +1,86 @@
+{
+    "schema": "db-migration-frontier-bootstrap/v2",
+    "cutoffApiCommit": "648d113edf4c96be15e2a1f91c672568c33d6698",
+    "environments": {
+        "dev": {
+            "rawHistoricalFrontier": [
+                {
+                    "path": "db/migrations/75_expand_admin_manager_nickname.sql",
+                    "checksumSha256": "3a5de2e383ed07e4443e0d5a608746214d32628d6cfa8ceb9238b8dccbb1e381"
+                },
+                {
+                    "path": "db/migrations/76_postcheck_admin_manager_nickname.sql",
+                    "checksumSha256": "1a9804a0ec03df89ced0b18713d56e21edff6dbc3e7c4a2c5e5183f25b292a49"
+                }
+            ],
+            "effectiveTrustedFrontier": [
+                {
+                    "path": "db/migrations/75_expand_admin_manager_nickname.sql",
+                    "checksumSha256": "3a5de2e383ed07e4443e0d5a608746214d32628d6cfa8ceb9238b8dccbb1e381"
+                },
+                {
+                    "path": "db/migrations/76_postcheck_admin_manager_nickname.sql",
+                    "checksumSha256": "1a9804a0ec03df89ced0b18713d56e21edff6dbc3e7c4a2c5e5183f25b292a49"
+                }
+            ]
+        },
+        "prod": {
+            "rawHistoricalFrontier": [
+                {
+                    "path": "db/migrations/75_expand_admin_manager_nickname.sql",
+                    "checksumSha256": "3a5de2e383ed07e4443e0d5a608746214d32628d6cfa8ceb9238b8dccbb1e381"
+                },
+                {
+                    "path": "db/migrations/76_postcheck_admin_manager_nickname.sql",
+                    "checksumSha256": "1a9804a0ec03df89ced0b18713d56e21edff6dbc3e7c4a2c5e5183f25b292a49"
+                },
+                {
+                    "path": "db/migrations/77_backfill_incomplete_profile_snapshot_2122.sql",
+                    "checksumSha256": "1fb12e844ec0261d983ea2c0a3684a43ed7d72e3ca18ed6d8cf255e7e35b2e95"
+                },
+                {
+                    "path": "db/migrations/78_postcheck_incomplete_profile_snapshot_2122.sql",
+                    "checksumSha256": "fe1d441f47f5762e729116992d15a5736a13b9514dd4319978df653549af08e8"
+                }
+            ],
+            "effectiveTrustedFrontier": [
+                {
+                    "path": "db/migrations/75_expand_admin_manager_nickname.sql",
+                    "checksumSha256": "3a5de2e383ed07e4443e0d5a608746214d32628d6cfa8ceb9238b8dccbb1e381"
+                },
+                {
+                    "path": "db/migrations/76_postcheck_admin_manager_nickname.sql",
+                    "checksumSha256": "1a9804a0ec03df89ced0b18713d56e21edff6dbc3e7c4a2c5e5183f25b292a49"
+                },
+                {
+                    "path": "db/migrations/77_backfill_incomplete_profile_snapshot_2122.sql",
+                    "checksumSha256": "1fb12e844ec0261d983ea2c0a3684a43ed7d72e3ca18ed6d8cf255e7e35b2e95"
+                },
+                {
+                    "path": "db/migrations/78_postcheck_incomplete_profile_snapshot_2122.sql",
+                    "checksumSha256": "fe1d441f47f5762e729116992d15a5736a13b9514dd4319978df653549af08e8"
+                }
+            ]
+        }
+    },
+    "provenance": [
+        {
+            "environment": "dev",
+            "source": "content/releases/v2.2.5.md",
+            "acceptedRefs": [
+                "db/migrations/75_expand_admin_manager_nickname.sql",
+                "db/migrations/76_postcheck_admin_manager_nickname.sql"
+            ]
+        },
+        {
+            "environment": "prod",
+            "source": "coupler-api baseline capture at d627e1d0fd78c4fe1660ad355c248c940a2dbc32",
+            "acceptedRefs": [
+                "db/migrations/75_expand_admin_manager_nickname.sql",
+                "db/migrations/76_postcheck_admin_manager_nickname.sql",
+                "db/migrations/77_backfill_incomplete_profile_snapshot_2122.sql",
+                "db/migrations/78_postcheck_incomplete_profile_snapshot_2122.sql"
+            ]
+        }
+    ]
+}

@@ -27,6 +27,13 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
+import {
+  dbMigrationGateActivationPath,
+  dbMigrationTrustEpochDirectory,
+  validateDbMigrationGateActivation,
+  validateDbMigrationReleaseHistory,
+} from "./db-migration-release-contract-v2.mjs";
+import { readRegularRepoFile } from "./regular-repo-file.mjs";
 
 const docsRoot = process.cwd();
 const releasesRoot = path.join(docsRoot, "content", "releases");
@@ -61,13 +68,15 @@ const legacyRecordsWithoutReleaseMetadata = new Set([
 ]);
 
 const errors = [];
+const releaseHistoryRecords = [];
 
 if (fs.existsSync(releasesRoot)) {
-  for (const entry of fs.readdirSync(releasesRoot, { withFileTypes: true })) {
-    if (!entry.isFile() || !/^v\d+\.\d+\.\d+\.md$/.test(entry.name)) {
-      continue;
-    }
-
+  const releaseEntries = fs.readdirSync(releasesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /^v\d+\.\d+\.\d+\.md$/.test(entry.name))
+    .sort((left, right) =>
+      left.name.localeCompare(right.name, undefined, { numeric: true }),
+    );
+  for (const entry of releaseEntries) {
     const tag = entry.name.replace(/\.md$/, "");
     const relativePath = path.join("content", "releases", entry.name);
     const absolutePath = path.join(releasesRoot, entry.name);
@@ -75,6 +84,9 @@ if (fs.existsSync(releasesRoot)) {
     validateReleaseRecord(relativePath, source, tag, errors);
   }
 }
+
+validateCurrentDbMigrationActivation(errors);
+validateDbMigrationHistory(errors);
 
 if (errors.length > 0) {
   for (const error of errors) {
@@ -87,6 +99,9 @@ console.log("릴리스 기록 검증 통과");
 
 function validateReleaseRecord(relativePath, source, tag, errors) {
   const metadata = readReleaseMetadata(relativePath, source, tag, errors);
+  if (metadata) {
+    releaseHistoryRecords.push({ path: relativePath, metadata });
+  }
   const releaseModel = metadata ? createReleaseRecordModel(metadata) : null;
 
   for (const sectionTitle of requiredSections) {
@@ -134,6 +149,117 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
   validateListSection(relativePath, source, "검증 근거", /^- /, errors);
   validateApiContractCutoverGate(relativePath, source, releaseStatus, metadata, errors);
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
+}
+
+function validateDbMigrationHistory(errors) {
+  const bootstrapPath = path.join(
+    docsRoot,
+    "content",
+    "policy",
+    "db-migration-frontier-bootstrap-v2.json",
+  );
+  const trustBootstrapPath = path.join(
+    docsRoot,
+    "content",
+    "policy",
+    "db-migration-trust-bootstrap-v2.json",
+  );
+  if (!fs.existsSync(bootstrapPath) || !fs.existsSync(trustBootstrapPath)) {
+    errors.push("DB migration v2 bootstrap files are missing");
+    return;
+  }
+  const bootstrap = readJsonForDbMigration(bootstrapPath, errors);
+  const trustRegistry = readJsonForDbMigration(trustBootstrapPath, errors);
+  if (!bootstrap || !trustRegistry) {
+    return;
+  }
+  const epochRoot = path.join(docsRoot, dbMigrationTrustEpochDirectory);
+  if (fs.existsSync(epochRoot)) {
+    const allEpochEntries = fs
+      .readdirSync(epochRoot, { withFileTypes: true })
+      .filter((entry) => entry.name.endsWith(".json"));
+    for (const entry of allEpochEntries) {
+      if (!entry.isFile()) {
+        errors.push(
+          `${path.join(dbMigrationTrustEpochDirectory, entry.name)}: trust epoch must be a regular file`,
+        );
+      }
+    }
+    const epochEntries = allEpochEntries
+      .filter((entry) => entry.isFile())
+      .sort((left, right) =>
+        left.name.localeCompare(right.name, undefined, {
+          numeric: true,
+        }),
+      );
+    trustRegistry.epochs = epochEntries
+      .map((entry) => readJsonForDbMigration(path.join(epochRoot, entry.name), errors))
+      .filter(Boolean);
+  }
+  const history = validateDbMigrationReleaseHistory({
+    records: releaseHistoryRecords,
+    bootstrap,
+    trustRegistry,
+    readEvidence: (relativePath) => {
+      return readRegularRepoFile(docsRoot, relativePath);
+    },
+  });
+  errors.push(...history.errors);
+}
+
+function readJsonForDbMigration(filePath, errors) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (error) {
+    errors.push(`${path.relative(docsRoot, filePath)}: invalid JSON: ${error.message}`);
+    return null;
+  }
+}
+
+function validateCurrentDbMigrationActivation(errors) {
+  const markerPath = path.join(docsRoot, dbMigrationGateActivationPath);
+  if (!fs.existsSync(markerPath)) {
+    errors.push(`DB migration v2 activation marker is missing: ${dbMigrationGateActivationPath}`);
+    return;
+  }
+  const markerMode = readWorktreeMode(markerPath);
+  if (markerMode !== "100644") {
+    errors.push(
+      `${dbMigrationGateActivationPath} must be a regular 100644 file (got ${markerMode ?? "missing"})`,
+    );
+    return;
+  }
+  const source = fs.readFileSync(markerPath, "utf8");
+  errors.push(
+    ...validateDbMigrationGateActivation({
+      source,
+      markerMode,
+      readFile: (relativePath) => readRegularRepoFile(docsRoot, relativePath),
+      readMode: readRepoMode,
+    }),
+  );
+}
+
+function readWorktreeMode(absolutePath) {
+  try {
+    const stats = fs.lstatSync(absolutePath);
+    if (stats.isSymbolicLink()) {
+      return "120000";
+    }
+    if (!stats.isFile()) {
+      return null;
+    }
+    return stats.mode & 0o111 ? "100755" : "100644";
+  } catch {
+    return null;
+  }
+}
+
+function readRepoMode(relativePath) {
+  const absolutePath = path.resolve(docsRoot, relativePath);
+  return absolutePath.startsWith(`${docsRoot}${path.sep}`)
+    ? readWorktreeMode(absolutePath)
+    : null;
 }
 
 function readReleaseMetadata(relativePath, source, tag, errors) {

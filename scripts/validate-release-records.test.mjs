@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const testFilePath = fileURLToPath(import.meta.url);
 const scriptsRoot = path.dirname(testFilePath);
+const docsRoot = path.resolve(scriptsRoot, "..");
 const validateScript = path.join(scriptsRoot, "validate-release-records.mjs");
 const releaseRecordTemplate = path.resolve(
   scriptsRoot,
@@ -28,6 +29,16 @@ let tempRoot;
 
 beforeEach(() => {
   tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
+  for (const relativePath of [
+    "content/policy/db-migration-frontier-bootstrap-v2.json",
+    "content/policy/db-migration-gate-activation-v2.json",
+    "content/policy/db-migration-trust-bootstrap-v2.json",
+    "scripts/db-migration-release-contract-v2.mjs",
+  ]) {
+    const targetPath = path.join(tempRoot, relativePath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(path.join(docsRoot, relativePath), targetPath);
+  }
 });
 
 afterEach(() => {
