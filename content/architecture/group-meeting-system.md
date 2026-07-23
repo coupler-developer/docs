@@ -183,6 +183,10 @@ flowchart LR
 | -1 | CANCELED | 행사 취소 |
 | -2 | DELETED | 공개 전 삭제 |
 
+Admin에서 `POST /admin/group-meetings/{event_id}/confirm`을 실행하는 버튼의 노출명은 `모집 마감`이다.
+이는 신청 접수 여부만 변경하는 동작이 아니라 CONFIRMED 전이이며, 상태·감사 이력의 노출명은 `모임 확정`을
+유지한다.
+
 최초 공개는 `DRAFT -> OPEN`이며 ready 상세 이미지가 필요하다. 이후 활성 운영 상태는
 `OPEN <-> CONFIRMED`로 전환할 수 있다. DRAFT는 DELETED, OPEN·CONFIRMED는 CANCELED로 종료할 수 있고,
 채팅이 초기화된 활성 상태는 행사 시작 +24시간에
