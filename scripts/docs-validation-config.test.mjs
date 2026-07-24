@@ -255,7 +255,7 @@ test("Core and high-risk route descriptors come from the lifecycle registry", ()
 test("lightweight release validation remains separate from the full runner", () => {
   assert.match(
     workflow,
-    /- name: Validate release records \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+run: node scripts\/validate-release-records\.mjs/,
+    /- name: Validate release records \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: node scripts\/validate-release-records\.mjs/,
   );
   assert.match(
     workflow,
@@ -269,10 +269,8 @@ test("lightweight release validation remains separate from the full runner", () 
     testingStrategy,
     /문서 민감 인프라 식별자 검증\(로컬·경량 CI\): `yarn validate:docs-sensitive`/,
   );
-  assert.match(
-    workflow,
-    /- name: Validate release PR transition\n\s+if: github\.event_name == 'pull_request'/,
-  );
+  assert.match(workflow, /types: \[opened, synchronize, reopened\]/);
+  assert.doesNotMatch(workflow, /ready_for_review|converted_to_draft|--draft/);
 });
 
 test("lint and build jobs start independently from docs structure validation", () => {

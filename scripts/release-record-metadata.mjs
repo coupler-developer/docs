@@ -1,13 +1,10 @@
 import {
-  allowedReleaseMetadataSchemas,
   allowedReleaseScopes,
   allowedApiContractCutoverStatuses,
-  allowedDbMigrationGateResultStatuses,
   allowedReleaseStatuses,
   apiContractCutoverRequiredPaths,
   commitShaPattern,
   completedReleaseStatus,
-  dbMigrationGateIds,
   findReleasePlaceholderSignals,
   getNestedValue,
   getRequiredRepoRefsForReleaseScopes,
@@ -25,13 +22,12 @@ import {
   releaseMetadataRequiredTopLevelKeys,
   releaseMetadataTopLevelKeys,
   semverTagPattern,
-  sha256Pattern,
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
 import {
-  validateDbMigrationEvidenceShapeV2,
-} from "./db-migration-release-contract-v2.mjs";
+  validateMaintenanceDbMigrationEvidence,
+} from "./db-migration-maintenance-artifacts.mjs";
 
 export {
   findReleasePlaceholderSignals,
@@ -66,16 +62,20 @@ export function hasReleaseMetadataBlock(source) {
   return /^```release-metadata\s*\n[\s\S]*?\n```$/m.test(source);
 }
 
-export function validateReleaseMetadata(metadata, context, expectedVersion, errors) {
+export function validateReleaseMetadata(
+  metadata,
+  context,
+  expectedVersion,
+  errors,
+  { readArtifact } = {},
+) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
     return;
   }
 
-  if (!allowedReleaseMetadataSchemas.has(metadata.schema)) {
-    errors.push(
-      `${context}: release-metadata schema must be one of ${[...allowedReleaseMetadataSchemas].join(", ")}`,
-    );
+  if (metadata.schema !== releaseMetadataSchema) {
+    errors.push(`${context}: release-metadata schema must be ${releaseMetadataSchema}`);
   }
 
   validateTopLevelKeys(metadata, context, errors);
@@ -95,7 +95,7 @@ export function validateReleaseMetadata(metadata, context, expectedVersion, erro
 
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
-  validateScopeResults(metadata, context, errors);
+  validateScopeResults(metadata, context, errors, { readArtifact });
   validateVersionMapping(metadata.versionMapping, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
@@ -219,7 +219,7 @@ function validateExtraRepoRefs(metadata, context, errors) {
   });
 }
 
-function validateScopeResults(metadata, context, errors) {
+function validateScopeResults(metadata, context, errors, { readArtifact }) {
   const scopeResults = metadata.scopeResults;
   const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
 
@@ -240,11 +240,25 @@ function validateScopeResults(metadata, context, errors) {
       errors.push(`${context}: release-metadata scopeResults has scope not listed in releaseScopes: ${scopeName}`);
     }
 
-    validateScopeResult(metadata, scopeName, scopeResults[scopeName], context, errors);
+    validateScopeResult(
+      metadata,
+      scopeName,
+      scopeResults[scopeName],
+      context,
+      errors,
+      { readArtifact },
+    );
   }
 }
 
-function validateScopeResult(metadata, scopeName, result, context, errors) {
+function validateScopeResult(
+  metadata,
+  scopeName,
+  result,
+  context,
+  errors,
+  { readArtifact },
+) {
   const descriptor = releaseScopeDescriptors[scopeName];
   if (!descriptor) {
     return;
@@ -269,28 +283,26 @@ function validateScopeResult(metadata, scopeName, result, context, errors) {
 
   if (!result.evidence || typeof result.evidence !== "object" || Array.isArray(result.evidence)) {
     errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence must be a JSON object`);
-  } else {
-    validateScopeEvidenceKeys(metadata, scopeName, result.evidence, context, errors);
-    if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
-      errors.push(
-        ...validateDbMigrationEvidenceShapeV2({
-          evidence: result.evidence,
-          context: `${context}: release-metadata scopeResults.db-migration.evidence`,
-          terminal: ["released", "rolled_back"].includes(result.status),
-          requirePlan:
-            result.status !== "planned" &&
-            result.status !== "superseded",
-        }),
-      );
-    } else {
-      validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
-      validateEvidenceValueShape(
-        result.evidence,
-        ["scopeResults", scopeName, "evidence"],
-        context,
-        errors,
-      );
-    }
+  } else if (scopeName !== "db-migration") {
+    validateScopeEvidenceKeys(scopeName, result.evidence, context, errors);
+    validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
+    validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
+  }
+
+  if (scopeName === "db-migration" && result.evidence) {
+    const terminal = result.status === "released" || result.status === "rolled_back";
+    const requirePlan =
+      terminal || result.status === "pending" || result.status === "in_progress";
+    errors.push(
+      ...validateMaintenanceDbMigrationEvidence({
+        evidence: result.evidence,
+        version: metadata.version,
+        terminal,
+        requirePlan,
+        readArtifact,
+        context: `${context}: release-metadata scopeResults.db-migration.evidence`,
+      }),
+    );
   }
 
   if (result.status === "superseded") {
@@ -334,8 +346,8 @@ function validateScopeResultKeys(scopeName, result, context, errors) {
   }
 }
 
-function validateScopeEvidenceKeys(metadata, scopeName, evidence, context, errors) {
-  const expectedKeys = getExpectedScopeEvidenceKeys(metadata, scopeName);
+function validateScopeEvidenceKeys(scopeName, evidence, context, errors) {
+  const expectedKeys = getExpectedScopeEvidenceKeys(scopeName);
   for (const key of expectedKeys) {
     if (!Object.hasOwn(evidence, key)) {
       errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence is missing ${key}`);
@@ -401,25 +413,9 @@ function validateEvidenceShapeValue({
     return;
   }
 
-  if (valueType === "dbMigrationSqlRefs") {
-    validateDbMigrationSqlRefsShape(value, context, fieldPath, errors);
-    return;
-  }
-
-  if (valueType === "dbMigrationGateResults") {
-    validateDbMigrationGateResultsShape(value, context, fieldPath, errors);
-    return;
-  }
-
-  if (valueType === "dbMigrationLedger") {
-    validateDbMigrationLedgerShape(value, context, fieldPath, errors);
-  }
 }
 
-function getExpectedScopeEvidenceKeys(metadata, scopeName) {
-  if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
-    return new Set(["catalog", "plans", "rollbackPlan"]);
-  }
+function getExpectedScopeEvidenceKeys(scopeName) {
   const descriptor = releaseScopeDescriptors[scopeName];
   const expectedKeys = new Set();
   for (const evidence of [
@@ -827,16 +823,9 @@ function validateScopeRepoRefEvidence(metadata, context, scopeName, errors) {
 }
 
 function validateReleasedScopeEvidence(metadata, context, scopeName, errors) {
-  if (metadata.schema === releaseMetadataSchema && scopeName === "db-migration") {
-    return;
-  }
   const descriptor = releaseScopeDescriptors[scopeName];
   for (const evidence of descriptor?.releasedEvidence ?? []) {
     validateScopeEvidenceValue(metadata, context, scopeName, evidence, errors);
-  }
-
-  if (scopeName === "db-migration") {
-    validateDbMigrationLedgerMatchesSqlRefs(metadata, context, scopeName, errors);
   }
 }
 
@@ -891,15 +880,6 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
     }
   } else if (evidence.valueType === "submittedMarkers") {
     validateSubmittedMarkers(value, context, scopeName, fieldPath, errors);
-    return;
-  } else if (evidence.valueType === "dbMigrationSqlRefs") {
-    validateDbMigrationSqlRefs(value, context, scopeName, fieldPath, errors);
-    return;
-  } else if (evidence.valueType === "dbMigrationGateResults") {
-    validateDbMigrationGateResults(value, context, scopeName, fieldPath, errors);
-    return;
-  } else if (evidence.valueType === "dbMigrationLedger") {
-    validateDbMigrationLedger(value, context, scopeName, fieldPath, errors);
     return;
   } else if (evidence.valueType === "concreteEvidence") {
     validateConcreteEvidenceValue({ value, context, scopeName, fieldPath, errors });
@@ -966,106 +946,6 @@ function validateSubmittedMarkersShape(value, context, fieldPath, errors) {
   }
 }
 
-function validateDbMigrationSqlRefsShape(value, context, fieldPath, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${context}: release-metadata ${fieldPath} must be an array`);
-    return;
-  }
-
-  for (const [index, sqlRef] of value.entries()) {
-    const sqlRefPath = `${fieldPath}.${index}`;
-    if (!sqlRef || typeof sqlRef !== "object" || Array.isArray(sqlRef)) {
-      errors.push(`${context}: release-metadata ${sqlRefPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: sqlRef,
-      allowedKeys: ["repo", "path", "checksumSha256", "gateIds"],
-      context,
-      fieldPath: sqlRefPath,
-      errors,
-    });
-  }
-}
-
-function validateDbMigrationGateResultsShape(value, context, fieldPath, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${context}: release-metadata ${fieldPath} must be an array`);
-    return;
-  }
-
-  for (const [index, gateResult] of value.entries()) {
-    const gateResultPath = `${fieldPath}.${index}`;
-    if (!gateResult || typeof gateResult !== "object" || Array.isArray(gateResult)) {
-      errors.push(`${context}: release-metadata ${gateResultPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: gateResult,
-      allowedKeys: ["gateId", "status", "log", "reason"],
-      context,
-      fieldPath: gateResultPath,
-      errors,
-    });
-  }
-}
-
-function validateDbMigrationLedgerShape(value, context, fieldPath, errors) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    errors.push(`${context}: release-metadata ${fieldPath} must be a JSON object`);
-    return;
-  }
-
-  validateExactObjectKeys({
-    value,
-    allowedKeys: ["dev", "prod"],
-    context,
-    fieldPath,
-    errors,
-  });
-
-  validateDbMigrationLedgerEnvironmentShape(value.dev, context, `${fieldPath}.dev`, errors);
-  validateDbMigrationLedgerEnvironmentShape(value.prod, context, `${fieldPath}.prod`, errors);
-}
-
-function validateDbMigrationLedgerEnvironmentShape(value, context, fieldPath, errors) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    errors.push(`${context}: release-metadata ${fieldPath} must be a JSON object`);
-    return;
-  }
-
-  validateExactObjectKeys({
-    value,
-    allowedKeys: ["databaseIdentity", "log", "rows"],
-    context,
-    fieldPath,
-    errors,
-  });
-
-  if (!Array.isArray(value.rows)) {
-    errors.push(`${context}: release-metadata ${fieldPath}.rows must be an array`);
-    return;
-  }
-
-  for (const [index, row] of value.rows.entries()) {
-    const rowPath = `${fieldPath}.rows.${index}`;
-    if (!row || typeof row !== "object" || Array.isArray(row)) {
-      errors.push(`${context}: release-metadata ${rowPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: row,
-      allowedKeys: ["migrationName", "targetEnv", "checksumSha256", "appliedAt"],
-      context,
-      fieldPath: rowPath,
-      errors,
-    });
-  }
-}
-
 function validateSubmittedMarkers(value, context, scopeName, fieldPath, errors) {
   if (!Array.isArray(value)) {
     errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an array`);
@@ -1110,298 +990,6 @@ function validateSubmittedMarkers(value, context, scopeName, fieldPath, errors) 
       fieldPath: `${markerPath}.deletedEvidence`,
       errors,
     });
-  }
-}
-
-function validateDbMigrationSqlRefs(value, context, scopeName, fieldPath, errors) {
-  if (!Array.isArray(value) || value.length === 0) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath} must list SQL files`);
-    return;
-  }
-
-  const allowedSqlRefRepos = new Set(releaseScopeDescriptors[scopeName]?.requiredRepoRefs ?? []);
-  for (const [index, sqlRef] of value.entries()) {
-    const sqlRefPath = `${fieldPath}.${index}`;
-    if (!sqlRef || typeof sqlRef !== "object" || Array.isArray(sqlRef)) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: sqlRef,
-      allowedKeys: ["repo", "path", "checksumSha256", "gateIds"],
-      context,
-      fieldPath: sqlRefPath,
-      errors,
-    });
-
-    if (!knownRepoNames.includes(sqlRef.repo)) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.repo must be a known repo`);
-    } else if (allowedSqlRefRepos.size > 0 && !allowedSqlRefRepos.has(sqlRef.repo)) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.repo must be one of ${[...allowedSqlRefRepos].join(", ")}`);
-    }
-
-    if (!isRepoRelativeSqlPath(sqlRef.path)) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.path must be a repo-relative .sql file path`);
-    }
-
-    if (typeof sqlRef.checksumSha256 !== "string" || !sha256Pattern.test(sqlRef.checksumSha256)) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.checksumSha256 must be a SHA-256 checksum`);
-    }
-
-    if (!Array.isArray(sqlRef.gateIds) || sqlRef.gateIds.length === 0) {
-      errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.gateIds must list DBM Gate IDs`);
-    } else {
-      for (const gateId of sqlRef.gateIds) {
-        if (!dbMigrationGateIds.includes(gateId)) {
-          errors.push(`${context}: ${scopeName} evidence ${sqlRefPath}.gateIds has unknown DBM Gate ID: ${gateId}`);
-        }
-      }
-    }
-  }
-}
-
-function isRepoRelativeSqlPath(value) {
-  if (!isNonEmptyString(value) || !/\.sql$/i.test(value)) {
-    return false;
-  }
-
-  if (
-    value.startsWith("/") ||
-    value.includes("\\") ||
-    /^[a-z][a-z0-9+.-]*:/i.test(value)
-  ) {
-    return false;
-  }
-
-  return value
-    .split("/")
-    .every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
-}
-
-function validateDbMigrationGateResults(value, context, scopeName, fieldPath, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an array`);
-    return;
-  }
-
-  const seenGateIds = new Set();
-  for (const [index, gateResult] of value.entries()) {
-    const gateResultPath = `${fieldPath}.${index}`;
-    if (!gateResult || typeof gateResult !== "object" || Array.isArray(gateResult)) {
-      errors.push(`${context}: ${scopeName} evidence ${gateResultPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: gateResult,
-      allowedKeys: ["gateId", "status", "log", "reason"],
-      context,
-      fieldPath: gateResultPath,
-      errors,
-    });
-
-    if (!dbMigrationGateIds.includes(gateResult.gateId)) {
-      errors.push(`${context}: ${scopeName} evidence ${gateResultPath}.gateId is not an allowed DBM Gate ID`);
-    } else if (seenGateIds.has(gateResult.gateId)) {
-      errors.push(`${context}: ${scopeName} evidence ${fieldPath} has duplicate Gate ID: ${gateResult.gateId}`);
-    } else {
-      seenGateIds.add(gateResult.gateId);
-    }
-
-    if (!allowedDbMigrationGateResultStatuses.has(gateResult.status)) {
-      errors.push(`${context}: ${scopeName} evidence ${gateResultPath}.status is not allowed: ${gateResult.status}`);
-    }
-
-    validateConcreteEvidenceValue({
-      value: gateResult.log,
-      context,
-      scopeName,
-      fieldPath: `${gateResultPath}.log`,
-      errors,
-    });
-
-    if (gateResult.status === "not_applicable") {
-      validateConcreteEvidenceValue({
-        value: gateResult.reason,
-        context,
-        scopeName,
-        fieldPath: `${gateResultPath}.reason`,
-        errors,
-      });
-    } else if (gateResult.reason !== null) {
-      errors.push(`${context}: ${scopeName} evidence ${gateResultPath}.reason must be null when status is passed`);
-    }
-  }
-
-  for (const gateId of dbMigrationGateIds) {
-    if (!seenGateIds.has(gateId)) {
-      errors.push(`${context}: ${scopeName} evidence ${fieldPath} must include ${gateId}`);
-    }
-  }
-}
-
-function validateDbMigrationLedger(value, context, scopeName, fieldPath, errors) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an object`);
-    return;
-  }
-
-  validateExactObjectKeys({
-    value,
-    allowedKeys: ["dev", "prod"],
-    context,
-    fieldPath,
-    errors,
-  });
-
-  validateDbMigrationLedgerEnvironment(value.dev, "dev", context, scopeName, `${fieldPath}.dev`, errors);
-  validateDbMigrationLedgerEnvironment(value.prod, "prod", context, scopeName, `${fieldPath}.prod`, errors);
-}
-
-function validateDbMigrationLedgerEnvironment(value, targetEnv, context, scopeName, fieldPath, errors) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an object`);
-    return;
-  }
-
-  validateExactObjectKeys({
-    value,
-    allowedKeys: ["databaseIdentity", "log", "rows"],
-    context,
-    fieldPath,
-    errors,
-  });
-
-  validateConcreteEvidenceValue({
-    value: value.databaseIdentity,
-    context,
-    scopeName,
-    fieldPath: `${fieldPath}.databaseIdentity`,
-    errors,
-  });
-
-  validateConcreteEvidenceValue({
-    value: value.log,
-    context,
-    scopeName,
-    fieldPath: `${fieldPath}.log`,
-    errors,
-  });
-
-  if (!Array.isArray(value.rows) || value.rows.length === 0) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath}.rows must list schema_migrations rows`);
-    return;
-  }
-
-  for (const [index, row] of value.rows.entries()) {
-    const rowPath = `${fieldPath}.rows.${index}`;
-    if (!row || typeof row !== "object" || Array.isArray(row)) {
-      errors.push(`${context}: ${scopeName} evidence ${rowPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: row,
-      allowedKeys: ["migrationName", "targetEnv", "checksumSha256", "appliedAt"],
-      context,
-      fieldPath: rowPath,
-      errors,
-    });
-
-    if (!isNonEmptyString(row.migrationName) || !/\.sql$/i.test(row.migrationName)) {
-      errors.push(`${context}: ${scopeName} evidence ${rowPath}.migrationName must be a SQL file name`);
-    }
-
-    if (row.targetEnv !== targetEnv) {
-      errors.push(`${context}: ${scopeName} evidence ${rowPath}.targetEnv must be ${targetEnv}`);
-    }
-
-    if (typeof row.checksumSha256 !== "string" || !sha256Pattern.test(row.checksumSha256)) {
-      errors.push(`${context}: ${scopeName} evidence ${rowPath}.checksumSha256 must be a SHA-256 checksum`);
-    }
-
-    validateConcreteEvidenceValue({
-      value: row.appliedAt,
-      context,
-      scopeName,
-      fieldPath: `${rowPath}.appliedAt`,
-      errors,
-    });
-  }
-}
-
-function validateDbMigrationLedgerMatchesSqlRefs(metadata, context, scopeName, errors) {
-  const evidence = metadata
-    ?.scopeResults
-    ?.["db-migration"]
-    ?.evidence;
-  const sqlRefs = Array.isArray(evidence?.sqlRefs) ? evidence.sqlRefs : [];
-  const ledger = evidence?.ledger;
-
-  if (!ledger || typeof ledger !== "object" || Array.isArray(ledger)) {
-    return;
-  }
-
-  for (const sqlRef of sqlRefs) {
-    if (
-      !sqlRef ||
-      typeof sqlRef.path !== "string" ||
-      typeof sqlRef.checksumSha256 !== "string" ||
-      !sha256Pattern.test(sqlRef.checksumSha256)
-    ) {
-      continue;
-    }
-
-    const migrationName = sqlRef.path.split("/").at(-1);
-    const checksumSha256 = sqlRef.checksumSha256.toLowerCase();
-    for (const targetEnv of ["dev", "prod"]) {
-      validateDbMigrationLedgerRowsMatchSqlRef({
-        rows: ledger[targetEnv]?.rows,
-        migrationName,
-        checksumSha256,
-        context,
-        scopeName,
-        fieldPath: `scopeResults.db-migration.evidence.ledger.${targetEnv}.rows`,
-        targetEnv,
-        errors,
-      });
-    }
-  }
-}
-
-function validateDbMigrationLedgerRowsMatchSqlRef({
-  rows,
-  migrationName,
-  checksumSha256,
-  context,
-  scopeName,
-  fieldPath,
-  targetEnv,
-  errors,
-}) {
-  if (!Array.isArray(rows)) {
-    return;
-  }
-
-  const matchingRows = rows.filter((row) => row?.migrationName === migrationName);
-  if (matchingRows.length === 0) {
-    errors.push(
-      `${context}: ${scopeName} evidence ${fieldPath} must include ${migrationName} for ${targetEnv}`,
-    );
-    return;
-  }
-
-  if (
-    !matchingRows.some(
-      (row) =>
-        typeof row.checksumSha256 === "string" &&
-        row.checksumSha256.toLowerCase() === checksumSha256,
-    )
-  ) {
-    errors.push(
-      `${context}: ${scopeName} evidence ${fieldPath} checksum for ${migrationName} must match sqlRefs checksum`,
-    );
   }
 }
 

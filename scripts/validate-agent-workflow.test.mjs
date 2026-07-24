@@ -573,7 +573,7 @@ test("단계별 기준 재고정 누락을 거부한다", () => {
 
 test("단계별 기준 재고정 내용 약화를 거부한다", () => {
   const agentsSource = baseAgentsSource.replace(
-    "deploy 전: release 정책, 적용 runbook, DB 변경 시 DB Migration Gate",
+    "deploy 전: release 정책, 적용 runbook, DB 변경 시 DB Migration 유지보수 정책",
     "deploy 전: 필요 시 확인",
   );
 

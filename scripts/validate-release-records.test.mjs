@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,7 +9,6 @@ import { fileURLToPath } from "node:url";
 
 const testFilePath = fileURLToPath(import.meta.url);
 const scriptsRoot = path.dirname(testFilePath);
-const docsRoot = path.resolve(scriptsRoot, "..");
 const validateScript = path.join(scriptsRoot, "validate-release-records.mjs");
 const releaseRecordTemplate = path.resolve(
   scriptsRoot,
@@ -29,16 +29,6 @@ let tempRoot;
 
 beforeEach(() => {
   tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
-  for (const relativePath of [
-    "content/policy/db-migration-frontier-bootstrap-v2.json",
-    "content/policy/db-migration-gate-activation-v2.json",
-    "content/policy/db-migration-trust-bootstrap-v2.json",
-    "scripts/db-migration-release-contract-v2.mjs",
-  ]) {
-    const targetPath = path.join(tempRoot, relativePath);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.copyFileSync(path.join(docsRoot, relativePath), targetPath);
-  }
 });
 
 afterEach(() => {
@@ -46,6 +36,51 @@ afterEach(() => {
 });
 
 describe("validate release records metadata sync", () => {
+  it("binds a new DB migration record to exact working-tree artifact bytes", () => {
+    const evidence = writeMaintenancePlans();
+    writeReleaseRecord({
+      releaseStatus: "pending",
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      metadataReleaseScopes: ["docs", "db-migration"],
+      metadataScopeResults: {
+        docs: {
+          status: "pending",
+          summary: "docs pending",
+          evidence: {},
+        },
+        "db-migration": {
+          status: "pending",
+          summary: "DB maintenance pending",
+          evidence,
+        },
+      },
+      scopeTargetLine: "`docs`, `coupler-api`",
+      pendingScopeLine: "개발계와 운영계 maintenance 실행",
+      verificationNote: "DB plan artifact SHA-256 fixed before execution",
+    });
+
+    const valid = runValidator();
+    assert.equal(valid.status, 0, valid.stdout + valid.stderr);
+
+    fs.writeFileSync(
+      path.join(
+        tempRoot,
+        "content",
+        "releases",
+        "evidence",
+        "db-migrations",
+        "v9.9.0",
+        "prod",
+        "plan.json",
+      ),
+      "changed bytes\n",
+    );
+    const changed = runValidator();
+    assert.notEqual(changed.status, 0);
+    assert.match(changed.stderr, /sha256 does not match artifact bytes/);
+  });
+
   it("keeps API cutover Gate out of the base release record template", () => {
     const template = fs.readFileSync(releaseRecordTemplate, "utf8");
     const cutoverTemplate = fs.readFileSync(apiContractCutoverGateTemplate, "utf8");
@@ -256,11 +291,188 @@ describe("validate release records metadata sync", () => {
   });
 });
 
-function runValidator() {
-  return spawnSync(process.execPath, [validateScript], {
+describe("published release record immutability", () => {
+  it("does not parse or revalidate an unchanged release record already present at base", () => {
+    initGitRepository();
+    writeOpaqueRelease("v1.0.0.md", "historical bytes are intentionally opaque\n");
+    commitAll("published release");
+    const baseRef = git(["rev-parse", "HEAD"]);
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("rejects editing a release record already present at base", () => {
+    initGitRepository();
+    writeOpaqueRelease("v1.0.0.md", "historical bytes\n");
+    commitAll("published release");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeOpaqueRelease("v1.0.0.md", "rewritten historical bytes\n");
+
+    const result = runValidator(baseRef);
+
+    assertImmutableReleaseFailure(result);
+  });
+
+  it("rejects deleting or renaming a release record already present at base", () => {
+    for (const operation of ["delete", "rename"]) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
+      initGitRepository();
+      writeOpaqueRelease("v1.0.0.md", "historical bytes\n");
+      commitAll("published release");
+      const baseRef = git(["rev-parse", "HEAD"]);
+      const originalPath = path.join(tempRoot, "content", "releases", "v1.0.0.md");
+      if (operation === "delete") {
+        fs.rmSync(originalPath);
+      } else {
+        fs.renameSync(
+          originalPath,
+          path.join(tempRoot, "content", "releases", "v1.0.1.md"),
+        );
+      }
+
+      assertImmutableReleaseFailure(runValidator(baseRef));
+    }
+  });
+
+  it("ignores intermediate edit history when the final tree matches the published bytes", () => {
+    initGitRepository();
+    const original = "historical bytes\n";
+    writeOpaqueRelease("v1.0.0.md", original);
+    commitAll("published release");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeOpaqueRelease("v1.0.0.md", "intermediate rewrite\n");
+    commitAll("intermediate rewrite");
+    writeOpaqueRelease("v1.0.0.md", original);
+    commitAll("restore published bytes");
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("rejects changing, deleting, or renaming DB migration evidence for a published release", () => {
+    for (const operation of ["change", "delete", "rename"]) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
+      initGitRepository();
+      writeOpaqueRelease("v1.0.0.md", "historical bytes stay opaque\n");
+      const evidencePath = writeOpaqueDbMigrationEvidence(
+        "v1.0.0",
+        "dev",
+        "plan.json",
+        "opaque plan bytes\n",
+      );
+      commitAll("published release and DB evidence");
+      const baseRef = git(["rev-parse", "HEAD"]);
+
+      if (operation === "change") {
+        fs.writeFileSync(evidencePath, "rewritten plan bytes\n");
+      } else if (operation === "delete") {
+        fs.rmSync(evidencePath);
+      } else {
+        fs.renameSync(evidencePath, path.join(path.dirname(evidencePath), "renamed-plan.json"));
+      }
+
+      const result = runValidator(baseRef);
+      assert.notEqual(result.status, 0);
+      assert.match(
+        result.stderr,
+        /DB migration evidence for a release already present in the base ref is final and immutable/,
+      );
+      assert.doesNotMatch(result.stderr, /release-metadata block is required/);
+    }
+  });
+
+  it("rejects adding DB migration evidence after its release record is published", () => {
+    initGitRepository();
+    writeOpaqueRelease("v1.0.0.md", "historical bytes stay opaque\n");
+    commitAll("published release");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeOpaqueDbMigrationEvidence(
+      "v1.0.0",
+      "prod",
+      "execution.jsonl",
+      "late evidence bytes\n",
+    );
+    commitAll("late evidence addition");
+
+    const result = runValidator(baseRef);
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /DB migration evidence for a release already present in the base ref is final and immutable/,
+    );
+    assert.doesNotMatch(result.stderr, /release-metadata block is required/);
+  });
+});
+
+function runValidator(baseRef = null) {
+  const args = [validateScript];
+  if (baseRef) {
+    args.push("--base-ref", baseRef);
+  }
+  return spawnSync(process.execPath, args, {
     cwd: tempRoot,
     encoding: "utf8",
   });
+}
+
+function initGitRepository() {
+  git(["init"]);
+  git(["checkout", "-B", "main"]);
+  git(["config", "user.email", "release-records@example.invalid"]);
+  git(["config", "user.name", "Release Records Test"]);
+}
+
+function writeOpaqueRelease(fileName, source) {
+  const releasesRoot = path.join(tempRoot, "content", "releases");
+  fs.mkdirSync(releasesRoot, { recursive: true });
+  fs.writeFileSync(path.join(releasesRoot, fileName), source);
+}
+
+function writeOpaqueDbMigrationEvidence(
+  version,
+  environment,
+  fileName,
+  source,
+) {
+  const evidenceRoot = path.join(
+    tempRoot,
+    "content",
+    "releases",
+    "evidence",
+    "db-migrations",
+    version,
+    environment,
+  );
+  fs.mkdirSync(evidenceRoot, { recursive: true });
+  const evidencePath = path.join(evidenceRoot, fileName);
+  fs.writeFileSync(evidencePath, source);
+  return evidencePath;
+}
+
+function commitAll(message) {
+  git(["add", "."]);
+  git(["commit", "-m", message]);
+}
+
+function git(args) {
+  return execFileSync("git", args, {
+    cwd: tempRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+function assertImmutableReleaseFailure(result) {
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /a release record already present in the base ref is final and immutable/,
+  );
 }
 
 function writeReleaseRecord({
@@ -337,7 +549,9 @@ function releaseRecordSource({
       },
       "coupler-api": {
         tag: null,
-        commit: effectiveReleaseScopes.includes("contracts-package")
+        commit: effectiveReleaseScopes.some((scope) =>
+          ["contracts-package", "db-migration"].includes(scope),
+        )
           ? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           : null,
       },
@@ -388,7 +602,9 @@ function releaseRecordSource({
     "## 버전 매핑",
     "",
     "- `docs`: 기록 버전 `v9.9.0`, 태그 `" + (releaseStatus === "released" ? "v9.9.0" : "미생성") + "`, 커밋 `" + markdownDocsCommit + "`",
-    effectiveReleaseScopes.includes("contracts-package")
+    effectiveReleaseScopes.some((scope) =>
+      ["contracts-package", "db-migration"].includes(scope),
+    )
       ? "- `coupler-api`: 태그 `N/A`, 커밋 `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`"
       : "- `coupler-api`: `N/A` (이번 릴리스 제외)",
     "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
@@ -569,4 +785,39 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
   }
 
   return {};
+}
+
+function writeMaintenancePlans() {
+  const version = "v9.9.0";
+  const root = path.join(
+    tempRoot,
+    "content",
+    "releases",
+    "evidence",
+    "db-migrations",
+    version,
+  );
+  const devPlan = Buffer.from('{"environment":"dev"}\n');
+  const prodPlan = Buffer.from('{"environment":"prod"}\n');
+  fs.mkdirSync(path.join(root, "dev"), { recursive: true });
+  fs.mkdirSync(path.join(root, "prod"), { recursive: true });
+  fs.writeFileSync(path.join(root, "dev", "plan.json"), devPlan);
+  fs.writeFileSync(path.join(root, "prod", "plan.json"), prodPlan);
+  return {
+    schema: "db-migration-maintenance-evidence/v1",
+    dev: {
+      plan: {
+        path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
+        sha256: createHash("sha256").update(devPlan).digest("hex"),
+      },
+      execution: null,
+    },
+    prod: {
+      plan: {
+        path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
+        sha256: createHash("sha256").update(prodPlan).digest("hex"),
+      },
+      execution: null,
+    },
+  };
 }

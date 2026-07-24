@@ -1,9 +1,4 @@
-export const releaseMetadataSchema = "release-metadata/v2";
-export const legacyReleaseMetadataSchema = "release-metadata/v1";
-export const allowedReleaseMetadataSchemas = new Set([
-  legacyReleaseMetadataSchema,
-  releaseMetadataSchema,
-]);
+export const releaseMetadataSchema = "release-metadata/v1";
 
 export const releaseMetadataTopLevelKeys = new Set([
   "schema",
@@ -81,45 +76,8 @@ export const allowedReleaseScopes = new Set(releaseScopes);
 export const releaseScopeDescriptors = {
   "db-migration": {
     requiredRepoRefs: ["coupler-api"],
-    releasedEvidence: [
-      {
-        label: "DB migration SQL refs",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "sqlRefs"],
-        valueType: "dbMigrationSqlRefs",
-      },
-      {
-        label: "DB migration Gate results",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "gateResults"],
-        valueType: "dbMigrationGateResults",
-      },
-      {
-        label: "DB migration preflight log",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "preflightLog"],
-        valueType: "concreteEvidence",
-      },
-      {
-        label: "DB migration ledger",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "ledger"],
-        valueType: "dbMigrationLedger",
-      },
-      {
-        label: "DB migration postcheck log",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "postcheckLog"],
-        valueType: "concreteEvidence",
-      },
-      {
-        label: "DB migration rollback plan",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "rollbackPlan"],
-        valueType: "concreteEvidence",
-      },
-    ],
-    rollbackEvidence: [
-      {
-        label: "DB migration rollback plan",
-        metadataPath: ["scopeResults", "db-migration", "evidence", "rollbackPlan"],
-        valueType: "concreteEvidence",
-      },
-    ],
+    releasedEvidence: [],
+    rollbackEvidence: [],
   },
   "contracts-package": {
     requiredRepoRefs: ["coupler-api"],
@@ -312,19 +270,6 @@ export const terminalScopeResultStatuses = new Set([
   "rolled_back",
   "superseded",
 ]);
-export const dbMigrationGateIds = [
-  "DBM-GATE-000",
-  "DBM-GATE-010",
-  "DBM-GATE-100",
-  "DBM-GATE-200",
-  "DBM-GATE-300",
-  "DBM-GATE-400",
-];
-export const allowedDbMigrationGateResultStatuses = new Set([
-  "passed",
-  "not_applicable",
-]);
-
 export const apiContractCutoverStatuses = [
   "pending",
   "ready",
@@ -522,20 +467,6 @@ export const apiContractCutoverValueFields = [
 export const apiContractCutoverRequiredPaths = apiContractCutoverValueFields.map(
   ({ metadataPath }) => metadataPath,
 );
-
-export const pendingTransitionFrozenPaths = [
-  ["version"],
-  ["releaseScopes"],
-  ["extraRepoRefs"],
-  ["versionMapping", "coupler-api", "commit"],
-  ["versionMapping", "coupler-admin-web", "commit"],
-  ["versionMapping", "coupler-mobile-app", "commit"],
-  ["versionMapping", "coupler-mobile-app", "store"],
-  ["apiContractCutover", "comparisonRefs", "coupler-api"],
-  ["apiContractCutover", "comparisonRefs", "coupler-admin-web"],
-  ["apiContractCutover", "comparisonRefs", "coupler-mobile-app"],
-  ["scopeResults", "db-migration", "evidence", "catalog"],
-];
 
 export function isEmptyRefValue(value) {
   return value == null || (typeof value === "string" && emptyRefValues.has(value));

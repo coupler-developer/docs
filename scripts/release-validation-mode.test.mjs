@@ -49,6 +49,22 @@ describe("release validation mode", () => {
     assert.equal(result.stdout.trim(), "full");
   });
 
+  it("uses full validation without parsing a release record already present at base", () => {
+    writeRecord("released");
+    commitAll("published release");
+    const base = git(["rev-parse", "HEAD"]);
+    fs.writeFileSync(
+      path.join(repoRoot, "content", "releases", "v9.9.0.md"),
+      "# opaque historical bytes\n",
+    );
+    commitAll("attempt historical edit");
+
+    const result = runClassifier(base);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), "full");
+  });
+
   it("uses full validation when policy or automation files change with pending metadata", () => {
     const base = git(["rev-parse", "HEAD"]);
     writeRecord("pending");
