@@ -57,18 +57,13 @@ jobs:
 
       - name: Validate release records (lightweight)
         if: steps.validation_mode.outputs.mode != 'full'
+        env:
+          DOCUMENT_LIFECYCLE_BASE_REF: ${{ github.event.pull_request.base.sha }}
         run: node scripts/validate-release-records.mjs
 
       - name: Validate sensitive docs (lightweight)
         if: steps.validation_mode.outputs.mode != 'full'
         run: yarn validate:docs-sensitive
-
-      - name: Validate release PR transition
-        if: github.event_name == 'pull_request'
-        run: node scripts/validate-release-pr-transition.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA"
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Validate full docs static gates
         if: steps.validation_mode.outputs.mode == 'full'

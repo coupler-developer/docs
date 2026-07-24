@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -11,7 +10,6 @@ import {
 import { createReleaseRecordModel } from "./release-record-model.mjs";
 import {
   allowedReleaseStatuses,
-  releaseMetadataSchema,
   repoRefPolicyDescriptors,
   repoNameAliases,
   terminalReleaseStatuses,
@@ -26,13 +24,6 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
-import {
-  dbMigrationTrustEpochDirectory,
-  sha256Hex,
-  validateDbMigrationPlanAgainstCatalog,
-  validateDbMigrationReleaseHistory,
-} from "./db-migration-release-contract-v2.mjs";
-import { readRegularRepoFile } from "./regular-repo-file.mjs";
 
 const docsRoot = process.cwd();
 const errors = [];
@@ -46,7 +37,12 @@ const version = args.version ?? null;
 if (!version) {
   errors.push("--version is required for release preflight");
 }
-const releaseRecord = version
+if (version && !args.pendingRef) {
+  errors.push(
+    "--pending-ref is required; release preflight only reads an unpublished PR record, never a record already merged to main",
+  );
+}
+const releaseRecord = version && args.pendingRef
   ? readReleaseRecord(version, errors, args.pendingRef)
   : null;
 if (args.pendingRef && releaseRecord?.status !== "pending") {
@@ -65,6 +61,7 @@ const repoStates = releaseRecord
     .filter((repo) => preflightRepoNames.has(repo.name))
     .map((repo) => inspectRepo(repo, errors, {
       pendingRef: repo.name === "docs" ? args.pendingRef : null,
+      originMainAlreadyFetched: repo.name === "docs",
     }))
   : [];
 
@@ -364,7 +361,8 @@ function inspectRepo(repo, errors, options = {}) {
     return state;
   }
 
-  const fetchedOriginMain = fetchOriginMain(repo.root);
+  const fetchedOriginMain =
+    options.originMainAlreadyFetched || fetchOriginMain(repo.root);
   state.branch = git(repo.root, ["branch", "--show-current"]);
   state.head = git(repo.root, ["rev-parse", "--short=12", "HEAD"]);
   const status = git(repo.root, ["status", "--porcelain"]);
@@ -488,25 +486,33 @@ function fetchOriginBranch(repoRoot, branch) {
   }
 }
 
-function readReleaseRecord(version, errors, pendingRef = null) {
-  const relativeReleaseRecordPath = path.join("content", "releases", `${version}.md`);
-  const releaseRecordPath = path.join(docsRoot, relativeReleaseRecordPath);
+function readReleaseRecord(version, errors, pendingRef) {
+  const relativeReleaseRecordPath = path.posix.join("content", "releases", `${version}.md`);
 
-  if (!pendingRef && !fs.existsSync(releaseRecordPath)) {
-    errors.push(`release record is missing: content/releases/${version}.md`);
+  if (!fetchOriginMain(docsRoot)) {
+    errors.push(
+      "docs: failed to fetch origin/main before release record classification; the record was not read",
+    );
+    return null;
+  }
+
+  if (
+    ["origin/main"].some((ref) =>
+      gitObjectExists(docsRoot, `${ref}:${relativeReleaseRecordPath}`),
+    )
+  ) {
+    errors.push(
+      `release record is already published and opaque; preflight does not parse or revalidate it: ${relativeReleaseRecordPath}`,
+    );
     return null;
   }
 
   let source;
   try {
-    source = pendingRef
-      ? git(docsRoot, ["show", `${pendingRef}:${relativeReleaseRecordPath}`])
-      : fs.readFileSync(releaseRecordPath, "utf8");
+    source = git(docsRoot, ["show", `${pendingRef}:${relativeReleaseRecordPath}`]);
   } catch {
     errors.push(
-      pendingRef
-        ? `release record is missing from --pending-ref ${pendingRef}: content/releases/${version}.md`
-        : `release record is missing: content/releases/${version}.md`,
+      `release record is missing from --pending-ref ${pendingRef}: content/releases/${version}.md`,
     );
     return null;
   }
@@ -519,7 +525,10 @@ function readReleaseRecord(version, errors, pendingRef = null) {
   const metadataStatus = metadata?.status ?? null;
 
   if (metadata) {
-    validateReleaseMetadata(metadata, version, version, errors);
+    validateReleaseMetadata(metadata, version, version, errors, {
+      readArtifact: (relativePath) =>
+        readPendingReleaseArtifact(pendingRef, relativePath),
+    });
   }
 
   if (!statusSection.includes(`- 목표 버전: \`${version}\``)) {
@@ -549,6 +558,44 @@ function readReleaseRecord(version, errors, pendingRef = null) {
     versionMapping,
     status: metadataStatus ?? status,
   };
+}
+
+function readPendingReleaseArtifact(pendingRef, relativePath) {
+  if (
+    typeof relativePath !== "string" ||
+    path.isAbsolute(relativePath) ||
+    relativePath.includes("\\") ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    !relativePath.startsWith("content/releases/evidence/db-migrations/")
+  ) {
+    return null;
+  }
+  let treeEntry;
+  try {
+    treeEntry = git(docsRoot, [
+      "ls-tree",
+      pendingRef,
+      "--",
+      relativePath,
+    ]);
+  } catch {
+    return null;
+  }
+  const [metadata, listedPath] = treeEntry.split("\t");
+  if (
+    listedPath !== relativePath ||
+    !/^100(?:644|755) blob [0-9a-f]{40}$/u.test(metadata)
+  ) {
+    return null;
+  }
+  try {
+    return execFileSync("git", ["show", `${pendingRef}:${relativePath}`], {
+      cwd: docsRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch {
+    return null;
+  }
 }
 
 function inspectReleaseRecord(releaseRecord, repoStates, errors) {
@@ -588,7 +635,6 @@ function inspectReleaseRecord(releaseRecord, repoStates, errors) {
     );
   }
 
-  validateDbMigrationSqlFiles(releaseRecord, repoStates, errors);
 }
 
 function validateScopeFields(version, scopeFields, releaseModel, errors) {
@@ -707,226 +753,6 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
   }
 }
 
-function validateDbMigrationSqlFiles(releaseRecord, repoStates, errors) {
-  if (releaseRecord.metadata?.schema === releaseMetadataSchema) {
-    validateDbMigrationV2Preflight(releaseRecord, repoStates, errors);
-    return;
-  }
-  const sqlRefs = releaseRecord.metadata
-    ?.scopeResults
-    ?.["db-migration"]
-    ?.evidence
-    ?.sqlRefs;
-
-  if (!Array.isArray(sqlRefs) || sqlRefs.length === 0) {
-    return;
-  }
-
-  const repoStateByName = new Map(repoStates.map((state) => [state.name, state]));
-  for (const [index, sqlRef] of sqlRefs.entries()) {
-    if (!sqlRef || typeof sqlRef !== "object") {
-      continue;
-    }
-
-    const repoState = repoStateByName.get(sqlRef.repo);
-    const fieldPath = `scopeResults.db-migration.evidence.sqlRefs.${index}`;
-    if (!repoState) {
-      errors.push(`${releaseRecord.version}: DB migration SQL ref repo is not included in preflight repos: ${sqlRef.repo}`);
-      continue;
-    }
-
-    if (
-      typeof sqlRef.path !== "string" ||
-      typeof sqlRef.checksumSha256 !== "string" ||
-      !repoState.exists
-    ) {
-      continue;
-    }
-
-    const sqlPath = path.resolve(repoState.root, sqlRef.path);
-    const relativePath = path.relative(repoState.root, sqlPath);
-    if (
-      relativePath === ".." ||
-      relativePath.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relativePath)
-    ) {
-      errors.push(`${releaseRecord.version}: DB migration SQL ref ${fieldPath}.path escapes repo root`);
-      continue;
-    }
-
-    if (!fs.existsSync(sqlPath) || !fs.statSync(sqlPath).isFile()) {
-      errors.push(`${releaseRecord.version}: DB migration SQL file is missing: ${sqlRef.repo}/${sqlRef.path}`);
-      continue;
-    }
-
-    const checksum = createHash("sha256")
-      .update(fs.readFileSync(sqlPath))
-      .digest("hex");
-    if (checksum !== sqlRef.checksumSha256.toLowerCase()) {
-      errors.push(`${releaseRecord.version}: DB migration SQL checksum mismatch for ${sqlRef.repo}/${sqlRef.path}`);
-    }
-  }
-}
-
-function validateDbMigrationV2Preflight(releaseRecord, repoStates, errors) {
-  const evidence = releaseRecord.metadata?.scopeResults?.["db-migration"]?.evidence;
-  if (!evidence) {
-    return;
-  }
-  const apiState = repoStates.find((state) => state.name === "coupler-api");
-  if (!apiState?.exists) {
-    errors.push(`${releaseRecord.version}: coupler-api is required for DB migration v2 preflight`);
-    return;
-  }
-  const catalog = evidence.catalog;
-  if (!catalog || typeof catalog.sourceRef !== "string" || typeof catalog.path !== "string") {
-    return;
-  }
-  const mappingCommit = releaseRecord.metadata?.versionMapping?.["coupler-api"]?.commit;
-  if (mappingCommit !== catalog.sourceRef) {
-    errors.push(
-      `${releaseRecord.version}: DB migration catalog sourceRef must equal coupler-api versionMapping.commit`,
-    );
-  }
-  let catalogSource;
-  try {
-    catalogSource = gitRaw(apiState.root, ["show", `${catalog.sourceRef}:${catalog.path}`]);
-  } catch {
-    errors.push(
-      `${releaseRecord.version}: cannot read DB migration catalog at ${catalog.sourceRef}:${catalog.path}`,
-    );
-    return;
-  }
-  if (sha256Hex(catalogSource) !== catalog.sha256) {
-    errors.push(`${releaseRecord.version}: DB migration catalog checksum mismatch`);
-  }
-  let catalogValue;
-  try {
-    catalogValue = JSON.parse(catalogSource);
-  } catch (error) {
-    errors.push(`${releaseRecord.version}: DB migration catalog is invalid JSON: ${error.message}`);
-    return;
-  }
-  if (catalogValue.version !== 2 || !Array.isArray(catalogValue.migrations)) {
-    errors.push(`${releaseRecord.version}: DB migration catalog must use schema contract v2`);
-    return;
-  }
-  const frontier = loadTrustedDbMigrationFrontierBeforeRelease(releaseRecord.version, errors);
-  errors.push(
-    ...validateDbMigrationPlanAgainstCatalog({
-      evidence,
-      catalogMigrations: catalogValue.migrations,
-      effectiveTrustedFrontier: Object.fromEntries(
-        Object.entries(frontier).map(([environment, state]) => [
-          environment,
-          state.effectiveTrustedFrontier,
-        ]),
-      ),
-      context: `${releaseRecord.version}: scopeResults.db-migration.evidence`,
-    }),
-  );
-
-  for (const [environment, plan] of Object.entries(evidence.plans ?? {})) {
-    for (const [batchIndex, batch] of (plan.batches ?? []).entries()) {
-      for (const [refIndex, sqlRef] of (batch.sqlRefs ?? []).entries()) {
-        let source;
-        try {
-          source = gitRaw(apiState.root, ["show", `${catalog.sourceRef}:${sqlRef.path}`]);
-        } catch {
-          errors.push(
-            `${releaseRecord.version}: DB migration SQL is missing at catalog sourceRef: ${sqlRef.path}`,
-          );
-          continue;
-        }
-        if (sha256Hex(source) !== sqlRef.checksumSha256) {
-          errors.push(
-            `${releaseRecord.version}: DB migration SQL checksum mismatch at plans.${environment}.batches.${batchIndex}.sqlRefs.${refIndex}`,
-          );
-        }
-      }
-    }
-  }
-}
-
-function loadTrustedDbMigrationFrontierBeforeRelease(excludedVersion, errors) {
-  const bootstrap = readJsonFile(
-    path.join(docsRoot, "content", "policy", "db-migration-frontier-bootstrap-v2.json"),
-    errors,
-  );
-  const trustRegistry = readJsonFile(
-    path.join(docsRoot, "content", "policy", "db-migration-trust-bootstrap-v2.json"),
-    errors,
-  );
-  if (!bootstrap || !trustRegistry) {
-    return {};
-  }
-  const epochRoot = path.join(docsRoot, dbMigrationTrustEpochDirectory);
-  if (fs.existsSync(epochRoot)) {
-    const allEpochEntries = fs
-      .readdirSync(epochRoot, { withFileTypes: true })
-      .filter((entry) => entry.name.endsWith(".json"));
-    for (const entry of allEpochEntries) {
-      if (!entry.isFile()) {
-        errors.push(
-          `${path.join(dbMigrationTrustEpochDirectory, entry.name)}: trust epoch must be a regular file`,
-        );
-      }
-    }
-    trustRegistry.epochs = allEpochEntries
-      .filter((entry) => entry.isFile())
-      .sort((left, right) =>
-        left.name.localeCompare(right.name, undefined, {
-          numeric: true,
-        }),
-      )
-      .map((entry) => readJsonFile(path.join(epochRoot, entry.name), errors))
-      .filter(Boolean);
-  }
-  const releaseRoot = path.join(docsRoot, "content", "releases");
-  const records = fs
-    .readdirSync(releaseRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^v\d+\.\d+\.\d+\.md$/u.test(entry.name))
-    .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }))
-    .flatMap((entry) => {
-      const version = entry.name.slice(0, -3);
-      if (
-        version.localeCompare(excludedVersion, undefined, { numeric: true }) >= 0
-      ) {
-        return [];
-      }
-      const parseErrors = [];
-      const source = fs.readFileSync(path.join(releaseRoot, entry.name), "utf8");
-      const metadata = parseReleaseMetadataBlock(source, entry.name, parseErrors);
-      errors.push(...parseErrors);
-      return metadata ? [{ path: `content/releases/${entry.name}`, metadata }] : [];
-    });
-  const history = validateDbMigrationReleaseHistory({
-    records,
-    bootstrap,
-    trustRegistry,
-    readEvidence: (relativePath) => readRegularRepoFile(docsRoot, relativePath),
-  });
-  errors.push(...history.errors);
-  return history.states;
-}
-
-function readJsonFile(filePath, errors) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch (error) {
-    errors.push(`${path.relative(docsRoot, filePath)}: ${error.message}`);
-    return null;
-  }
-}
-
-function gitRaw(repoRoot, args) {
-  return execFileSync("git", args, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-}
-
 function requiresOriginTag(policy, releaseStatus) {
   return policy.tagOriginRequirement === "always" ||
     (policy.tagOriginRequirement === "terminal" &&
@@ -1043,6 +869,15 @@ function git(repoRoot, args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function gitObjectExists(repoRoot, objectName) {
+  try {
+    git(repoRoot, ["cat-file", "-e", objectName]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function printReport({

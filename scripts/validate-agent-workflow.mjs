@@ -239,7 +239,7 @@ const REQUIRED_REANCHOR_CONTRACTS = [
   { phase: "push·PR 전", requirement: "코드 리뷰 정책의 Push 전 자체 리뷰 Gate" },
   {
     phase: "deploy 전",
-    requirement: "release 정책, 적용 runbook, DB 변경 시 DB Migration Gate",
+    requirement: "release 정책, 적용 runbook, DB 변경 시 DB Migration 유지보수 정책",
   },
   {
     phase: "컨텍스트 유실, 새 세션, 독립 에이전트 위임",

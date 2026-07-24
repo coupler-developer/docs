@@ -80,6 +80,10 @@ function resolveValidationMode(baseRef, headRef) {
   }
 
   for (const releasePath of changedPaths) {
+    if (gitObjectExists(`${baseRef}:${releasePath}`)) {
+      return "full";
+    }
+
     let source;
     try {
       source = git(["show", `${headRef}:${releasePath}`]);
@@ -107,4 +111,13 @@ function git(args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function gitObjectExists(objectName) {
+  try {
+    git(["cat-file", "-e", objectName]);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -1,8 +1,8 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
   findReleasePlaceholderSignals,
-  hasReleaseMetadataBlock,
   knownRepoNames,
   parseReleaseMetadataBlock,
   validateReleaseMetadata,
@@ -27,16 +27,12 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
-import {
-  dbMigrationGateActivationPath,
-  dbMigrationTrustEpochDirectory,
-  validateDbMigrationGateActivation,
-  validateDbMigrationReleaseHistory,
-} from "./db-migration-release-contract-v2.mjs";
-import { readRegularRepoFile } from "./regular-repo-file.mjs";
 
 const docsRoot = process.cwd();
 const releasesRoot = path.join(docsRoot, "content", "releases");
+const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
+const dbMigrationEvidencePattern =
+  /^content\/releases\/evidence\/db-migrations\/(v\d+\.\d+\.\d+)\//;
 const requiredSections = [
   "목적",
   "범위",
@@ -53,40 +49,34 @@ const forbiddenPatterns = [
   /추후 작성/,
   /이 문서가 포함된/,
 ];
-// Published release records remain immutable unless factual evidence changes.
-const legacyRecordsWithoutVersionMapping = new Set([
-  path.join("content", "releases", "v2.0.0.md"),
-  path.join("content", "releases", "v2.1.0.md"),
-  path.join("content", "releases", "v2.2.0.md"),
-  path.join("content", "releases", "v2.2.1.md"),
-  path.join("content", "releases", "v2.2.2.md"),
-  path.join("content", "releases", "v2.2.3.md"),
-  path.join("content", "releases", "v2.2.4.md"),
-]);
-const legacyRecordsWithoutReleaseMetadata = new Set([
-  ...legacyRecordsWithoutVersionMapping,
-]);
-
 const errors = [];
-const releaseHistoryRecords = [];
+let baseRef = null;
+try {
+  baseRef = resolveBaseRef(process.argv.slice(2));
+} catch (error) {
+  errors.push(error.message);
+}
+
+if (baseRef) {
+  validatePublishedReleaseImmutability(baseRef, errors);
+}
 
 if (fs.existsSync(releasesRoot)) {
-  const releaseEntries = fs.readdirSync(releasesRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^v\d+\.\d+\.\d+\.md$/.test(entry.name))
-    .sort((left, right) =>
-      left.name.localeCompare(right.name, undefined, { numeric: true }),
-    );
-  for (const entry of releaseEntries) {
+  for (const entry of fs.readdirSync(releasesRoot, { withFileTypes: true })) {
+    if (!entry.isFile() || !/^v\d+\.\d+\.\d+\.md$/.test(entry.name)) {
+      continue;
+    }
+
     const tag = entry.name.replace(/\.md$/, "");
-    const relativePath = path.join("content", "releases", entry.name);
+    const relativePath = path.posix.join("content", "releases", entry.name);
+    if (baseRef && gitObjectExists(`${baseRef}:${relativePath}`)) {
+      continue;
+    }
     const absolutePath = path.join(releasesRoot, entry.name);
     const source = fs.readFileSync(absolutePath, "utf8");
     validateReleaseRecord(relativePath, source, tag, errors);
   }
 }
-
-validateCurrentDbMigrationActivation(errors);
-validateDbMigrationHistory(errors);
 
 if (errors.length > 0) {
   for (const error of errors) {
@@ -99,9 +89,6 @@ console.log("릴리스 기록 검증 통과");
 
 function validateReleaseRecord(relativePath, source, tag, errors) {
   const metadata = readReleaseMetadata(relativePath, source, tag, errors);
-  if (metadata) {
-    releaseHistoryRecords.push({ path: relativePath, metadata });
-  }
   const releaseModel = metadata ? createReleaseRecordModel(metadata) : null;
 
   for (const sectionTitle of requiredSections) {
@@ -151,129 +138,40 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
 }
 
-function validateDbMigrationHistory(errors) {
-  const bootstrapPath = path.join(
-    docsRoot,
-    "content",
-    "policy",
-    "db-migration-frontier-bootstrap-v2.json",
-  );
-  const trustBootstrapPath = path.join(
-    docsRoot,
-    "content",
-    "policy",
-    "db-migration-trust-bootstrap-v2.json",
-  );
-  if (!fs.existsSync(bootstrapPath) || !fs.existsSync(trustBootstrapPath)) {
-    errors.push("DB migration v2 bootstrap files are missing");
-    return;
-  }
-  const bootstrap = readJsonForDbMigration(bootstrapPath, errors);
-  const trustRegistry = readJsonForDbMigration(trustBootstrapPath, errors);
-  if (!bootstrap || !trustRegistry) {
-    return;
-  }
-  const epochRoot = path.join(docsRoot, dbMigrationTrustEpochDirectory);
-  if (fs.existsSync(epochRoot)) {
-    const allEpochEntries = fs
-      .readdirSync(epochRoot, { withFileTypes: true })
-      .filter((entry) => entry.name.endsWith(".json"));
-    for (const entry of allEpochEntries) {
-      if (!entry.isFile()) {
-        errors.push(
-          `${path.join(dbMigrationTrustEpochDirectory, entry.name)}: trust epoch must be a regular file`,
-        );
-      }
-    }
-    const epochEntries = allEpochEntries
-      .filter((entry) => entry.isFile())
-      .sort((left, right) =>
-        left.name.localeCompare(right.name, undefined, {
-          numeric: true,
-        }),
-      );
-    trustRegistry.epochs = epochEntries
-      .map((entry) => readJsonForDbMigration(path.join(epochRoot, entry.name), errors))
-      .filter(Boolean);
-  }
-  const history = validateDbMigrationReleaseHistory({
-    records: releaseHistoryRecords,
-    bootstrap,
-    trustRegistry,
-    readEvidence: (relativePath) => {
-      return readRegularRepoFile(docsRoot, relativePath);
-    },
-  });
-  errors.push(...history.errors);
-}
-
-function readJsonForDbMigration(filePath, errors) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch (error) {
-    errors.push(`${path.relative(docsRoot, filePath)}: invalid JSON: ${error.message}`);
-    return null;
-  }
-}
-
-function validateCurrentDbMigrationActivation(errors) {
-  const markerPath = path.join(docsRoot, dbMigrationGateActivationPath);
-  if (!fs.existsSync(markerPath)) {
-    errors.push(`DB migration v2 activation marker is missing: ${dbMigrationGateActivationPath}`);
-    return;
-  }
-  const markerMode = readWorktreeMode(markerPath);
-  if (markerMode !== "100644") {
-    errors.push(
-      `${dbMigrationGateActivationPath} must be a regular 100644 file (got ${markerMode ?? "missing"})`,
-    );
-    return;
-  }
-  const source = fs.readFileSync(markerPath, "utf8");
-  errors.push(
-    ...validateDbMigrationGateActivation({
-      source,
-      markerMode,
-      readFile: (relativePath) => readRegularRepoFile(docsRoot, relativePath),
-      readMode: readRepoMode,
-    }),
-  );
-}
-
-function readWorktreeMode(absolutePath) {
-  try {
-    const stats = fs.lstatSync(absolutePath);
-    if (stats.isSymbolicLink()) {
-      return "120000";
-    }
-    if (!stats.isFile()) {
-      return null;
-    }
-    return stats.mode & 0o111 ? "100755" : "100644";
-  } catch {
-    return null;
-  }
-}
-
-function readRepoMode(relativePath) {
-  const absolutePath = path.resolve(docsRoot, relativePath);
-  return absolutePath.startsWith(`${docsRoot}${path.sep}`)
-    ? readWorktreeMode(absolutePath)
-    : null;
-}
-
 function readReleaseMetadata(relativePath, source, tag, errors) {
-  const requiresMetadata = !legacyRecordsWithoutReleaseMetadata.has(relativePath);
-  if (!requiresMetadata && !hasReleaseMetadataBlock(source)) {
-    return null;
-  }
-
   const metadata = parseReleaseMetadataBlock(source, relativePath, errors);
   if (metadata) {
-    validateReleaseMetadata(metadata, relativePath, tag, errors);
+    validateReleaseMetadata(metadata, relativePath, tag, errors, {
+      readArtifact: readWorkingTreeReleaseArtifact,
+    });
   }
 
   return metadata;
+}
+
+function readWorkingTreeReleaseArtifact(relativePath) {
+  if (
+    typeof relativePath !== "string" ||
+    path.isAbsolute(relativePath) ||
+    relativePath.includes("\\") ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    !relativePath.startsWith("content/releases/evidence/db-migrations/")
+  ) {
+    return null;
+  }
+  const absolutePath = path.resolve(docsRoot, relativePath);
+  const docsPrefix = `${path.resolve(docsRoot)}${path.sep}`;
+  if (!absolutePath.startsWith(docsPrefix)) {
+    return null;
+  }
+  try {
+    if (!fs.lstatSync(absolutePath).isFile()) {
+      return null;
+    }
+    return fs.readFileSync(absolutePath);
+  } catch {
+    return null;
+  }
 }
 
 function validateScopeMetadataSync(relativePath, source, releaseModel, errors) {
@@ -364,10 +262,6 @@ function validateApiContractCutoverGate(relativePath, source, releaseStatus, met
 
 function validateVersionMappingSectionIfRequired(relativePath, source, metadata, errors) {
   const section = extractSection(source, "버전 매핑");
-  if (!section.trim() && legacyRecordsWithoutVersionMapping.has(relativePath)) {
-    return;
-  }
-
   if (!section.trim()) {
     errors.push(`${relativePath}: 필수 섹션이 없거나 비어 있습니다: 버전 매핑`);
     return;
@@ -541,4 +435,115 @@ function validateListSection(relativePath, source, sectionTitle, itemPattern, er
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveBaseRef(argv) {
+  let explicitBaseRef = null;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--base-ref") {
+      explicitBaseRef = argv[index + 1];
+      if (!explicitBaseRef || explicitBaseRef.startsWith("--")) {
+        throw new Error("--base-ref requires a value");
+      }
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("--base-ref=")) {
+      explicitBaseRef = argument.slice("--base-ref=".length);
+      continue;
+    }
+    throw new Error(`Unknown argument: ${argument}`);
+  }
+
+  const requestedBaseRef =
+    explicitBaseRef ||
+    process.env.DOCUMENT_LIFECYCLE_BASE_REF?.trim() ||
+    null;
+  if (requestedBaseRef) {
+    if (!gitCommitExists(requestedBaseRef)) {
+      throw new Error(`release record base ref is not a commit: ${requestedBaseRef}`);
+    }
+    return requestedBaseRef;
+  }
+
+  for (const candidate of ["origin/main", "main"]) {
+    if (!gitCommitExists(candidate)) {
+      continue;
+    }
+    if (!gitCommitExists("HEAD")) {
+      return candidate;
+    }
+    return git(["merge-base", "HEAD", candidate]) || candidate;
+  }
+
+  return null;
+}
+
+function validatePublishedReleaseImmutability(baseRef, validationErrors) {
+  const changedPaths = git([
+    "diff",
+    "--name-only",
+    "--no-renames",
+    baseRef,
+    "--",
+    "content/releases",
+  ]).split("\n").filter(Boolean);
+
+  for (const releasePath of changedPaths) {
+    if (
+      releaseRecordPattern.test(releasePath) &&
+      gitObjectExists(`${baseRef}:${releasePath}`)
+    ) {
+      validationErrors.push(
+        `${releasePath}: a release record already present in the base ref is final and immutable; it cannot be modified, deleted, renamed, or replaced`,
+      );
+    }
+    const evidenceMatch = releasePath.match(dbMigrationEvidencePattern);
+    if (!evidenceMatch) {
+      continue;
+    }
+    const publishedRecordPath = `content/releases/${evidenceMatch[1]}.md`;
+    if (
+      gitObjectExists(`${baseRef}:${releasePath}`) ||
+      gitObjectExists(`${baseRef}:${publishedRecordPath}`)
+    ) {
+      validationErrors.push(
+        `${releasePath}: DB migration evidence for a release already present in the base ref is final and immutable; it cannot be added, modified, deleted, renamed, or replaced`,
+      );
+    }
+  }
+}
+
+function gitCommitExists(ref) {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", `${ref}^{commit}`], {
+      cwd: docsRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function gitObjectExists(objectName) {
+  try {
+    execFileSync("git", ["cat-file", "-e", objectName], {
+      cwd: docsRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function git(args) {
+  return execFileSync("git", args, {
+    cwd: docsRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 }

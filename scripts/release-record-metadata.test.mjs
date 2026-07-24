@@ -343,6 +343,9 @@ describe("release metadata scope results", () => {
 
   it("rejects false-pass fixtures across every scope terminal evidence descriptor", () => {
     for (const [scopeName, descriptor] of Object.entries(releaseScopeDescriptors)) {
+      if (scopeName === "db-migration") {
+        continue;
+      }
       for (const evidence of descriptor.releasedEvidence ?? []) {
         assertTerminalEvidencePathRejectsFixtures(scopeName, "released", evidence.metadataPath);
       }
@@ -387,7 +390,6 @@ describe("release metadata scope results", () => {
         "coupler-admin-web",
         "mobile-store",
         "mobile-nextpush",
-        "db-migration",
       ],
       statuses: {
         docs: "released",
@@ -396,7 +398,6 @@ describe("release metadata scope results", () => {
         "coupler-admin-web": "released",
         "mobile-store": "released",
         "mobile-nextpush": "released",
-        "db-migration": "released",
       },
       apiContractCutover: releasedApiContractCutover(),
     });
@@ -417,7 +418,7 @@ describe("release metadata scope results", () => {
     }
   });
 
-  it("requires DB migration released evidence to include SQL refs", () => {
+  it("allows new maintenance DB migration records with the exact four artifact references", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -425,91 +426,70 @@ describe("release metadata scope results", () => {
         "db-migration": "released",
       },
     });
-    metadata.scopeResults["db-migration"].evidence.sqlRefs = [];
-
-    const errors = validate(metadata);
-
-    assert(errors.some((error) => /sqlRefs must list SQL files/.test(error)));
-  });
-
-  it("requires DB migration Gate results to cover every DBM Gate", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: {
-        docs: "released",
-        "db-migration": "released",
-      },
-    });
-    metadata.scopeResults["db-migration"].evidence.gateResults =
-      metadata.scopeResults["db-migration"].evidence.gateResults.filter(
-        ({ gateId }) => gateId !== "DBM-GATE-400",
-      );
-
-    const errors = validate(metadata);
-
-    assert(errors.some((error) => /gateResults must include DBM-GATE-400/.test(error)));
-  });
-
-  it("allows released DB migration metadata with SQL refs, Gate results, and dev/prod ledger", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: {
-        docs: "released",
-        "db-migration": "released",
-      },
-    });
-
-    const errors = validate(metadata);
-
-    assert.deepEqual(errors, []);
-  });
-
-  it("uses the v2 DB plan shape without legacy all-Gate N/A fields", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: { docs: "planned", "db-migration": "planned" },
-      status: "planned",
-    });
-    metadata.schema = "release-metadata/v2";
-    metadata.scopeResults["db-migration"].evidence = plannedDbMigrationEvidenceV2();
-
     assert.deepEqual(validate(metadata), []);
-    metadata.scopeResults["db-migration"].evidence.catalog = null;
-    metadata.scopeResults["db-migration"].evidence.plans = {
-      dev: null,
-      prod: null,
+  });
+
+  it("rejects DB migration artifact aliases, extra evidence, and byte digest mismatch", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "db-migration"],
+      statuses: {
+        docs: "released",
+        "db-migration": "released",
+      },
+    });
+    metadata.scopeResults["db-migration"].evidence.dev.plan.path =
+      `content/releases/evidence/db-migrations/${version}/dev/../dev/plan.json`;
+    metadata.scopeResults["db-migration"].evidence.prod.extra = {
+      path: "extra",
+      sha256: checksum,
     };
-    assert.deepEqual(validate(metadata), []);
-    metadata.scopeResults["db-migration"].evidence.gateResults = [];
+
+    const validationErrors = validate(metadata, {
+      readArtifact: () => Buffer.from("different bytes\n"),
+    });
     assert(
-      validate(metadata).some((error) =>
-        /scopeResults\.db-migration\.evidence has unknown key: gateResults/.test(error),
+      validationErrors.some((error) => /dev\.plan\.path must be/.test(error)),
+    );
+    assert(
+      validationErrors.some((error) => /prod has unknown key: extra/.test(error)),
+    );
+    assert(
+      validationErrors.some((error) => /sha256 does not match artifact bytes/.test(error)),
+    );
+  });
+
+  it("requires plans from pending onward and all four artifacts at terminal status", () => {
+    const pendingMetadata = buildMetadata({
+      scopes: ["docs", "db-migration"],
+      statuses: {
+        docs: "pending",
+        "db-migration": "pending",
+      },
+      status: "pending",
+    });
+    pendingMetadata.scopeResults["db-migration"].evidence.dev.plan = null;
+    assert(
+      validate(pendingMetadata).some((error) =>
+        /dev\.plan must be an artifact reference/.test(error),
+      ),
+    );
+
+    const releasedMetadata = buildMetadata({
+      scopes: ["docs", "db-migration"],
+      statuses: {
+        docs: "released",
+        "db-migration": "released",
+      },
+    });
+    releasedMetadata.scopeResults["db-migration"].evidence.prod.execution = null;
+    assert(
+      validate(releasedMetadata).some((error) =>
+        /prod\.execution must be an artifact reference/.test(error),
       ),
     );
   });
 
-  it("requires DB migration dev/prod ledger rows to match SQL refs", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: {
-        docs: "released",
-        "db-migration": "released",
-      },
-    });
-    metadata.scopeResults["db-migration"].evidence.ledger.dev.rows[0].migrationName = "different.sql";
-    metadata.scopeResults["db-migration"].evidence.ledger.prod.rows[0].checksumSha256 = "e".repeat(64);
-
-    const errors = validate(metadata);
-
-    assert(
-      errors.some((error) => /ledger\.dev\.rows must include 99_expand_example\.sql/.test(error)),
-    );
-    assert(
-      errors.some((error) => /ledger\.prod\.rows checksum for 99_expand_example\.sql must match sqlRefs checksum/.test(error)),
-    );
-  });
-
-  it("derives coupler-api preflight repo for DB migration SQL PR evidence", () => {
+  it("derives coupler-api preflight repo for maintenance DB migration evidence", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -519,40 +499,7 @@ describe("release metadata scope results", () => {
     });
 
     const model = createReleaseRecordModel(metadata);
-
     assert.deepEqual([...model.preflightRepoNames], ["docs", "coupler-api"]);
-  });
-
-  it("requires DB migration SQL refs to point to coupler-api repo-relative SQL paths", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: {
-        docs: "released",
-        "db-migration": "released",
-      },
-    });
-    metadata.scopeResults["db-migration"].evidence.sqlRefs[0].repo = "docs";
-    metadata.scopeResults["db-migration"].evidence.sqlRefs[0].path = "/tmp/manual.sql";
-
-    const errors = validate(metadata);
-
-    assert(errors.some((error) => /sqlRefs\.0\.repo must be one of coupler-api/.test(error)));
-    assert(errors.some((error) => /sqlRefs\.0\.path must be a repo-relative \.sql file path/.test(error)));
-  });
-
-  it("requires DB migration SQL refs to use allowed DBM Gate IDs", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration"],
-      statuses: {
-        docs: "released",
-        "db-migration": "released",
-      },
-    });
-    metadata.scopeResults["db-migration"].evidence.sqlRefs[0].gateIds.push("DBM-GATE-999");
-
-    const errors = validate(metadata);
-
-    assert(errors.some((error) => /gateIds has unknown DBM Gate ID: DBM-GATE-999/.test(error)));
   });
 
   it("requires released Mobile Store submitted marker evidence and deletion evidence", () => {
@@ -633,9 +580,15 @@ describe("release metadata scope results", () => {
   });
 });
 
-function validate(metadata) {
+function validate(metadata, options) {
   const errors = [];
-  validateReleaseMetadata(metadata, "content/releases/v9.9.0.md", version, errors);
+  validateReleaseMetadata(
+    metadata,
+    "content/releases/v9.9.0.md",
+    version,
+    errors,
+    options,
+  );
 
   return errors;
 }
@@ -862,110 +815,33 @@ function evidenceFor(scopeName, status) {
 
 function plannedDbMigrationEvidence() {
   return {
-    sqlRefs: [],
-    gateResults: [],
-    preflightLog: null,
-    ledger: {
-      dev: {
-        databaseIdentity: null,
-        log: null,
-        rows: [],
-      },
-      prod: {
-        databaseIdentity: null,
-        log: null,
-        rows: [],
-      },
-    },
-    postcheckLog: null,
-    rollbackPlan: null,
+    schema: "db-migration-maintenance-evidence/v1",
+    dev: maintenanceEnvironmentEvidence("dev", false),
+    prod: maintenanceEnvironmentEvidence("prod", false),
   };
 }
 
 function releasedDbMigrationEvidence() {
   return {
-    sqlRefs: [
-      {
-        repo: "coupler-api",
-        path: "db/migrations/99_expand_example.sql",
-        checksumSha256: checksum,
-        gateIds: ["DBM-GATE-000", "DBM-GATE-010", "DBM-GATE-100"],
-      },
-    ],
-    gateResults: [
-      gateResult("DBM-GATE-000", "passed"),
-      gateResult("DBM-GATE-010", "passed"),
-      gateResult("DBM-GATE-100", "passed"),
-      gateResult("DBM-GATE-200", "not_applicable", "No backfill target for this schema-only migration"),
-      gateResult("DBM-GATE-300", "not_applicable", "No read/write cutover in this migration"),
-      gateResult("DBM-GATE-400", "not_applicable", "No legacy object removal in this migration"),
-    ],
-    preflightLog: "prod read-only preflight log: db identity, ledger, target table counters",
-    ledger: {
-      dev: ledgerEvidence("dev"),
-      prod: ledgerEvidence("prod"),
-    },
-    postcheckLog: "prod postcheck guard returned No Findings",
-    rollbackPlan: "restore RDS snapshot rds:release-v9.9.0 and revert SQL refs if postcheck fails",
+    schema: "db-migration-maintenance-evidence/v1",
+    dev: maintenanceEnvironmentEvidence("dev", true),
+    prod: maintenanceEnvironmentEvidence("prod", true),
   };
 }
 
-function plannedDbMigrationEvidenceV2() {
-  const migrationRef = {
-    path: "db/migrations/99_expand_example.sql",
-    checksumSha256: checksum,
-  };
+function maintenanceEnvironmentEvidence(environment, terminal) {
+  const root = `content/releases/evidence/db-migrations/${version}/${environment}`;
   return {
-    catalog: {
-      repo: "coupler-api",
-      sourceRef: apiCommit,
-      path: "db/schema/schema-contract.json",
+    plan: {
+      path: `${root}/plan.json`,
       sha256: checksum,
     },
-    plans: Object.fromEntries(
-      ["dev", "prod"].map((environment) => [
-        environment,
-        {
-          operation: "apply",
-          targetRefs: [migrationRef],
-          batches: [
-            {
-              batchId: "expand-1",
-              order: 1,
-              stage: "expand",
-              sqlRefs: [migrationRef],
-              requiredGateIds: ["DBM-GATE-000", "DBM-GATE-010", "DBM-GATE-100"],
-              attestation: null,
-            },
-          ],
-        },
-      ]),
-    ),
-    rollbackPlan: null,
-  };
-}
-
-function gateResult(gateId, status, reason = null) {
-  return {
-    gateId,
-    status,
-    log: `${gateId} ${status} log path /logs/${gateId}.log`,
-    reason,
-  };
-}
-
-function ledgerEvidence(targetEnv) {
-  return {
-    databaseIdentity: `${targetEnv} database coupler @@server_id 123`,
-    log: `${targetEnv} schema_migrations query log path`,
-    rows: [
-      {
-        migrationName: "99_expand_example.sql",
-        targetEnv,
-        checksumSha256: checksum,
-        appliedAt: "2026-07-09 10:00 KST",
-      },
-    ],
+    execution: terminal
+      ? {
+          path: `${root}/execution.jsonl`,
+          sha256: checksum,
+        }
+      : null,
   };
 }
 
