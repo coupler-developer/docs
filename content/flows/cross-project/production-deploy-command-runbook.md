@@ -301,26 +301,22 @@ nextpush whoami
 ```
 
 현재 NextPush OTA 배포는 `Production` label만 사용한다.
-현재 레포의 운영 스크립트는 app과 platform을 positional argument로 넘기고, mandatory와 target binary
-`2.2.1`을 명시한다. 실행 전 Store의 운영 binary가 `2.2.1`인지 확인하며 대상 버전이 바뀌면 스크립트와
-릴리즈 기록을 같은 변경 단위에서 갱신한다.
+현재 레포의 운영 스크립트는 app과 platform을 positional argument로 넘기고, mandatory와 target binary를
+명시한다. target binary의 실행 SoT는 Mobile `package.json`의 플랫폼별 Production script다. 실행 전
+script의 `-t`가 Store의 운영 binary와 일치하는지 확인하며 대상 버전이 바뀌면 script와 릴리즈 기록을 같은
+변경 단위에서 갱신한다.
 
 ```bash
 cd coupler-mobile-app
 
-# 레포 스크립트 사용: Android/iOS 모두 Production mandatory, target 2.2.1
+# 배포할 플랫폼의 Production script 하나만 실행
 yarn codepush-and-prod
 yarn codepush-ios-prod
 ```
 
-다른 target binary version을 명시해야 하는 배포는 레포 스크립트를 먼저 갱신·리뷰하거나 아래 형식을 직접
-사용한다. 같은 플랫폼에 대해 스크립트와 직접 명령을 둘 다 실행하지 않는다.
-
-```bash
-cd coupler-mobile-app
-nextpush release-react bluedotstudio.official-gmail.com/coupler android -d Production -m -t <binary-version>
-nextpush release-react bluedotstudio.official-gmail.com/coupler-ios ios -d Production -m -t <binary-version>
-```
+Production script는 NextPush 실행 전에 API contracts의 manifest·lockfile·설치 version exact match를
+검사하며 불일치하면 실패한다. 다른 target binary가 필요하면 직접 `nextpush release-react`를 실행하지 않고
+Mobile `package.json`의 해당 script를 먼저 갱신·리뷰한다.
 
 배포 후 NextPush 이력을 확인한다.
 
