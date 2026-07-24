@@ -417,6 +417,7 @@ function runValidator(baseRef = null) {
   return spawnSync(process.execPath, args, {
     cwd: tempRoot,
     encoding: "utf8",
+    env: { ...process.env, DOCUMENT_LIFECYCLE_BASE_REF: "" },
   });
 }
 
