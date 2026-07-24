@@ -208,7 +208,7 @@
 - 문서 변경 후: 문서 거버넌스 정책과 적용 템플릿
 - commit 전: 코드 리뷰, Git 브랜치, 커밋 정책
 - push·PR 전: 코드 리뷰 정책의 Push 전 자체 리뷰 Gate
-- deploy 전: release 정책, 적용 runbook, DB 변경 시 DB Migration Gate
+- deploy 전: release 정책, 적용 runbook, DB 변경 시 DB Migration 유지보수 정책
 - 컨텍스트 유실, 새 세션, 독립 에이전트 위임: Core 4 전체 재열람
 
 ### 작업별 필수 완료 증빙
@@ -265,7 +265,7 @@
 - [Git 동기화/Rebase 실행 정책](policy/git-sync-rebase-policy.md) - pull/rebase 기준 및 최신화 검증 규칙
 - [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
 - [배포 태그 정책](policy/release-tag-policy.md) - 릴리즈 태그와 스토어 제출 마커 태그 기준
-- [배포/릴리즈 프로세스](policy/release-process.md) - 배포 범위, 릴리즈 기록 상태·metadata·완료/정정 조건
+- [배포/릴리즈 프로세스](policy/release-process.md) - 배포 범위, 릴리즈 기록 상태·metadata·완료·불변 조건
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [API 공통 응답 계약 정책](policy/api-response-contract-policy.md) - API/Admin/Mobile 공통 JSON 응답 envelope 기준
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 실패 ErrorData 및 taxonomy 기준
@@ -282,7 +282,7 @@
 - [테스트용 개발 데이터 정책](policy/development-test-data-policy.md) - 개발계 합성 데이터 생성/검증/reset 기준
 - [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명과 신규 N:N 그룹미팅 식별자 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
-- [DB Migration Gate 정책](policy/db-migration-gate-policy.md) - DBM-GATE 인덱스/판정 규칙
+- [DB Migration 유지보수 정책](policy/db-migration-gate-policy.md) - 중지·drain·plan·ledger·복구 규칙
 - [논리 데이터 모델 정책](policy/logical-data-model-policy.md) - 공개 논리 모델 taxonomy와 private 매핑
 - [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍

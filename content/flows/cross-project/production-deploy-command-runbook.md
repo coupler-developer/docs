@@ -22,7 +22,7 @@
 
 - [배포/릴리즈 프로세스](../../policy/release-process.md)
 - [배포 태그 정책](../../policy/release-tag-policy.md)
-- [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
 - [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)
 - [테스트/CI 전략](../../policy/testing-strategy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
@@ -41,12 +41,12 @@
 
 | 범위 | 포함 조건 | 단일 기준 |
 | --- | --- | --- |
-| `DB migration` | 스키마, 데이터, view, 읽기 기준 변경이 운영 DB에 필요함 | [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md) |
+| `DB migration` | 스키마, 데이터, view, 읽기 기준 변경이 운영 DB에 필요함 | [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md) |
 | `coupler-api` | API 코드 또는 서버 런타임 설정 변경을 운영 EC2에 반영함 | 이 문서의 API 절차 |
 | `coupler-admin-web` | Admin 화면 변경을 운영 정적 산출물로 반영함 | [Admin 운영 배포 런북](admin-web-production-deploy-flow.md) |
 | `Mobile Store` | native binary 또는 스토어 제출이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 | `Mobile NextPush` | JS-only OTA 배포가 필요함 | 이 문서의 NextPush 절차 |
-| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포와 정정 규칙 |
+| `docs` | 문서 변경을 GitHub Pages로 배포함 | [배포/릴리즈 프로세스](../../policy/release-process.md)의 Docs 배포와 불변 규칙 |
 | `Tag/Release Record` | 운영 반영 기준점 기록이 필요함 | [배포/릴리즈 프로세스](../../policy/release-process.md) |
 
 ## 공통 사전 확인
@@ -56,7 +56,7 @@
 릴리즈 전체 gate 판정은 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)을 먼저 따른다.
 이 문서는 preflight 실패 원인 확인, 실제 배포 명령, 운영 확인, 롤백 명령을 제공한다.
 
-표준 단일 PR 흐름은 docs 작업 브랜치에 `pending` 커밋을 push하고 Draft PR을 연 뒤 실행한다.
+표준 단일 PR 흐름은 docs 작업 브랜치의 원격 기준점을 열린 PR에 push한 뒤 실행한다.
 
 ```bash
 cd docs
@@ -65,8 +65,7 @@ PENDING_REF="$(git rev-parse HEAD)"
 
 test "$(git rev-parse @{upstream})" = "${PENDING_REF}"
 test "$(gh pr view "${PR_NUMBER}" --json headRefOid --jq .headRefOid)" = "${PENDING_REF}"
-test "$(gh pr view "${PR_NUMBER}" --json isDraft --jq .isDraft)" = "true"
-gh pr view "${PR_NUMBER}" --json state,isDraft,headRefOid,statusCheckRollup,url
+gh pr view "${PR_NUMBER}" --json state,headRefOid,statusCheckRollup,url
 
 yarn release:preflight \
   --version vX.Y.Z \
@@ -77,11 +76,11 @@ yarn release:preflight \
 선택 인자와 허용값은 실행 시점의 `yarn release:preflight --help`를 단일 명령 기준으로 확인한다.
 
 - `PENDING_REF`는 축약 SHA가 아닌 40자 commit SHA를 사용한다.
-- 명령이 `PASS`한 원격 Draft PR 기준점만 운영 배포 입력으로 사용한다. branch·metadata·service repo 판정은
+- 명령이 `PASS`한 원격 PR 기준점만 운영 배포 입력으로 사용한다. branch·metadata·service repo 판정은
   [배포/릴리즈 프로세스](../../policy/release-process.md)와 공통 schema/derived model을 따른다.
-- 최종 전체 CI와 리뷰 완료 전까지 PR은 Draft로 유지한다.
 
-`--pending-ref` 없는 기존 main preflight는 과거 terminal 기록 postcheck 또는 corrective reissue 호환용이다. 신규 릴리즈의 배포 시작 기준으로 사용하지 않는다.
+`main`에 이미 병합된 과거 릴리스 기록은 preflight 입력으로 사용하지 않는다. 과거 파일은 파싱·재검증하지
+않고 base와 현재 최종 트리의 경로·blob 불변성만 확인한다.
 
 ```bash
 cd docs
@@ -126,91 +125,61 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 
 ## DB Migration 포함 시
 
-DB 변경은 이 문서의 명령어만으로 승인하지 않는다. [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 실행 검증 파이프라인을 통과한 SQL만 운영에 반영한다.
+DB migration은 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의 절차만 사용한다.
+서비스가 쓰기를 계속하는 상태에서는 실행하지 않는다.
 
-저장소는 운영 DB write를 대신하는 범용 runner를 제공하지 않는다. 아래 명령은 승인된 접속·backup·변경관리
-절차 안에서 대상별로 실행하고, credential·host·DB identity를 저장소나 릴리즈 기록에 평문으로 넣지 않는다.
+### 1. Writer inventory와 중지
 
-운영 write 전에 read-only preflight를 남긴다. preflight는 `공통 식별값 + ledger + 변경 대상 객체/카운터` 3종이 모두 있어야 완료다.
+환경별로 아래 writer의 실제 owner, 중지 명령과 확인 명령을 정한다. 항목이 없으면 `없음`의 근거를
+`execution.jsonl`에 기록하며 임의로 생략하지 않는다.
 
-합의된 영구 migration 경로가 없는 서비스 레포에는 feature PR에서 새 migration 디렉터리를 만들지 않는다.
-수동 SQL artifact와 배포 순서는 DB Migration Gate 정책의 `Migration artifact 생명주기`, `Migration 단계`,
-`실행 검증 파이프라인`을 따른다.
+| Writer | 중지 확인 |
+| --- | --- |
+| API HTTP write | API 프로세스 중지와 health/write endpoint 차단 |
+| Admin write | Admin backend 또는 write route 차단 |
+| WebSocket | socket server/consumer 중지 |
+| cron scheduler | scheduler 중지 |
+| background worker | queue consumer/worker 중지 |
+| direct SQL | 운영 작업자와 자동화 계정의 write 금지 |
 
-공통 preflight:
+모든 writer를 중지할 수 없으면 `BLOCKED`로 종료한다.
 
-```sql
-SELECT
-  DATABASE() AS database_name,
-  @@hostname AS server_hostname,
-  @@server_id AS server_id,
-  @@version AS server_version,
-  CURRENT_USER() AS db_execution_user;
+### 2. Drain과 backup
 
-SELECT
-  migration_name,
-  migration_type,
-  target_env,
-  checksum_sha256,
-  database_name,
-  server_hostname,
-  server_id,
-  server_version,
-  applied_by,
-  applied_at
-FROM schema_migrations
-WHERE migration_name IN (
-  '<이번 배치 SQL 파일명 1>',
-  '<이번 배치 SQL 파일명 2>'
-)
-ORDER BY id;
-```
+DB identity와 TLS를 예상값과 대조하고, application writer session과 활성 transaction이 0건인지 fresh
+query로 확인한다. 실행기 자신의 연결만 제외할 수 있다. 복원 가능한 snapshot/backup ref와 digest도 함께
+고정한다.
 
-변경별 대상 객체/카운터 preflight:
+Credential, host와 DB identity 원문은 릴리스 기록에 평문으로 넣지 않는다. 실행 기록에는 필요한 digest만
+남긴다.
 
-```sql
--- 대상 테이블/뷰/인덱스/컬럼 정의 확인
-SHOW CREATE TABLE <target_table>;
-SHOW CREATE VIEW <target_view>;
-SHOW INDEX FROM <target_table>;
+### 3. Plan과 실행
 
--- 변경 대상 row 수 확인
-SELECT COUNT(*) AS target_rows
-FROM <target_table>
-WHERE <이번 변경의 대상 조건>;
+API 저장소의 maintenance executor로 환경별 `plan.json`을 생성한다. Plan은 catalog 전체를
+`completedRefs + pendingRefs`로 exact partition하고 pending 순서를 고정해야 한다.
 
--- 변경 전 깨져 있으면 안 되는 상태 확인
-SELECT COUNT(*) AS unsafe_rows
-FROM <target_table>
-WHERE <변경 전 실패 조건>;
+Exclusive DB lock을 획득한 뒤 identity, drain, ledger prefix, catalog와 SQL checksum을 다시 확인한다. 각
+pending file은 precondition, SQL, postcondition, ledger 순서로 실행한다. 실패·중단 또는 부분 적용을 완료
+ledger로 기록하지 않는다.
 
--- cutover/backfill/drop이 있으면 Gate별 guard 쿼리를 추가한다.
-```
+개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다.
 
-변경 대상 객체가 테이블이 아니거나 SQL 예시와 맞지 않으면 동일 목적의 read-only 조회로 대체하고, `Gate ID + 조회 SQL + 결과 로그 경로`를 남긴다.
+### 4. 재기동과 산출물
 
-운영 반영 후에는 선언된 완료 조건과 적용 Gate를 충족한 SQL만 `schema_migrations`에 기록한다. 실패·중단·
-부분 적용은 즉시 ledger에 넣지 않고 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의
-`실패와 복구`를 따른다.
+전체 postcheck와 catalog/ledger 완료를 확인한 뒤 서비스를 재기동하고 smoke를 수행한다. 유지보수 상태는
+smoke 통과 뒤 해제한다.
 
-최종 확인에 최소 아래를 남긴다.
+환경별 산출물은 다음 두 개뿐이다.
 
-- 운영 DB 식별값
-- 적용 SQL 파일명과 SHA-256 checksum
-- `schema_migrations` row
-- 변경 대상 객체 정의와 대상/위험 카운터
-- postcheck guard 결과
-- 적용 Gate별 immutable log artifact 경로와 SHA-256
+- `content/releases/evidence/db-migrations/<version>/<environment>/plan.json`
+- `content/releases/evidence/db-migrations/<version>/<environment>/execution.jsonl`
 
-각 환경·batch의 확인이 끝나면 실행 결과를 `db-migration-attestation/v2` payload로 만들고 protected signer가
-Ed25519 서명한 JCS canonical bundle을
-`content/releases/evidence/db-migrations/<version>/<environment>/<batch>.attestation.json`에 둔다. bundle에는
-DB identity 원문이 아니라 digest만 넣고, release metadata에는 bundle 경로와 SHA-256만 기록한다. 비적용 Gate는
-required Gate 좌표의 여집합으로 validator가 계산하므로 사람이 N/A 결과를 추가하지 않는다.
+릴리스 metadata에는 네 파일의 경로와 실제 bytes SHA-256만 기록한다. 별도 Gate 로그, 서명 bundle,
+trust/frontier 파일을 만들지 않는다.
 
-활성 trust epoch와 protected signer가 없거나, `previousTransitionDigest`가 현재 환경 chain과 다르거나,
-raw/effective frontier 전후 exact-set을 만들 수 없으면 `BLOCKED`다. private key를 저장소에 넣거나 임시 키로
-서명하거나 기존 bundle을 복사해 우회하지 않는다.
+SQL 성공 후 ledger 기록만 실패한 경우에는 DB identity, checksum과 postcondition을 다시 확인한 뒤
+ledger-only repair를 수행한다. Side effect가 일부만 적용됐거나 완료 조건이 불명확하면 같은 SQL을 재실행하지
+않고 새 번호 recovery migration으로 복구한다.
 
 ## API 포함 시
 
@@ -247,7 +216,7 @@ pm2 logs coupler-api --lines 100 --nostream
 배포 전 `t_concierge`의 nullable sender/idempotency expand와 schema postcheck가 통과했는지 확인한다. 매칭
 채팅이 포함되면 `90_expand_match_chat_idempotency.sql`과 `91_postcheck_match_chat_idempotency.sql` ledger 각
 1건, `t_match_chat.client_message_id` exact column, `uq_t_match_chat_member_client(member, client_message_id)`
-unique index, `chk_t_match_chat_message_identity` exact check clause, invalid identity 0건을 DB Migration Gate로
+unique index, `chk_t_match_chat_message_identity` exact check clause, invalid identity 0건을 DB migration postcheck로
 확인한다. 한 항목이라도 없거나 migration 91 postcheck가 실패하면 `BLOCKED`이며
 API·Admin·Mobile을 배포하지 않는다.
 
@@ -434,14 +403,14 @@ git -C "${REPO}" ls-remote --tags origin "${TAG}" "${TAG}^{}"
 ```
 
 서비스 태그 명령이 끝나면 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)의 Final Record Gate로
-돌아간다. 기록 상태 전이, Ready/병합, docs tag 순서는 그 flow가 소유한다.
+돌아간다. 최종 기록 검증, 병합, docs tag 순서는 그 flow가 소유한다.
 
 NextPush-only 모바일 배포, 스토어 심사 중인 빌드, 모바일 릴리즈 태그 생성 기준은 [배포 태그 정책](../../policy/release-tag-policy.md)을 따른다.
 
 ## Docs 포함 시
 
-문서 배포와 정정 허용 조건은 [배포/릴리즈 프로세스](../../policy/release-process.md)의
-`Docs 배포와 정정 규칙`을 따른다. 아래는 해당 Gate가 허용된 뒤 실행할 명령이다.
+문서 배포와 과거 기록 불변 조건은 [배포/릴리즈 프로세스](../../policy/release-process.md)의
+`Docs 배포와 불변 규칙`을 따른다. 아래는 해당 Gate가 허용된 뒤 실행할 명령이다.
 
 ```bash
 cd docs
@@ -479,8 +448,8 @@ tag push 뒤 GitHub Actions의 `Release Docs`, 동일 tag의 GitHub Release, Rel
 
 docs tag/GitHub Release를 만드는 경우에는 이 문서의 `Tag/Release Record` 범위에도 포함한다. 이때 `release.yml` 결과, GitHub Release 링크, `docs-site-vX.Y.Z.tar.gz` 첨부 여부를 함께 남긴다.
 
-docs GitHub Release를 정정 재발행해야 하는 경우에는 정책의 `docs-only corrective reissue` 조건을 먼저
-충족한다. 이 경우 서비스 레포 tag는 재발행 대상이 아니며, docs Release 본문과 artifact 교체만 확인한다.
+docs GitHub Release에 실패나 사실 오류가 생기면 기존 릴리즈 기록과 tag를 변경하지 않고 이슈·장애 기록에서
+추적한다. 실제 새 배포가 없으면 정정용 docs 버전을 만들지 않는다.
 
 ## 검증 기록
 
@@ -509,7 +478,7 @@ curl -I https://cms.ritzy.fourhundred.co.kr
   유지하지만, 현재 배포에 누락 필드 수용이나 구형 목록 endpoint를 새로 추가하지 않는다.
 - Admin 외부 응답이 실패하면 `sudo nginx -t`, 내부 `curl -I http://127.0.0.1:8000`, 백업 산출물 존재 여부를 먼저 확인한다.
 - DB 반영이 실패하거나 중단되면 같은 SQL을 즉시 재실행하지 않는다. 실제 DB 상태와 ledger를 확인한 뒤
-  [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 `실패와 복구`를 따른다.
+  [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의 `Ledger와 실패 복구`를 따른다.
 - NextPush 배포를 되돌려야 하면 최신 이전 릴리즈 또는 지정 label로 rollback한다.
 
 ```bash
@@ -524,13 +493,13 @@ nextpush rollback bluedotstudio.official-gmail.com/coupler-ios Production --targ
 
 - 이 문서를 policy 대신 사용하지 않는다.
 - 배포 범위에 포함되지 않은 DB/API/Admin/Mobile 작업을 관성적으로 실행하지 않는다.
-- 운영 DB write 작업을 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md) 통과 없이 실행하지 않는다.
+- 운영 DB write 작업을 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md) 통과 없이 실행하지 않는다.
 - `coupler-admin-web`를 PM2 프로세스 앱처럼 운영하지 않는다.
 - NextPush-only 배포에서 native version을 이유 없이 올리거나 기존 버전 태그를 다른 커밋에 재사용하지 않는다.
 
 ## 관련 문서
 
 - [배포/릴리즈 프로세스](../../policy/release-process.md)
-- [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
 - [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)
 - [레포지토리 요약](../../architecture/repo-overview.md)

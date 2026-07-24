@@ -20,7 +20,7 @@
 
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
 - 로그 처리 기준: [로그 정책](log-policy.md)
-- DB 변경 검증 기준: [DB Migration Gate 정책](db-migration-gate-policy.md)
+- DB 변경 검증 기준: [DB Migration 유지보수 정책](db-migration-gate-policy.md)
 - 릴리즈/롤백 기준: [배포/릴리즈 프로세스](release-process.md)
 
 ## 필수 규칙
@@ -120,10 +120,10 @@
     - 로그 마스킹 검증 결과
     - 삭제/정정/복구 절차 영향 범위
 - 운영 원문 `dump`를 로컬에 반입한 경우 아래를 추가로 남긴다.
-    - 반입 목적과 적용한 DBM Gate ID
+    - 반입 목적과 적용한 migration plan/checksum
     - 반입 시각, 삭제 완료 시각
     - 저장 위치와 접근 통제 방식
-- DB 구조 변경은 `DBM-GATE-*` 결과와 함께 기록한다.
+- DB 구조 변경은 환경별 plan과 execution 결과로 기록한다.
 
 ## 체크리스트
 
@@ -138,7 +138,7 @@
 
 - [로그 정책](log-policy.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
-- [DB Migration Gate 정책](db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](db-migration-gate-policy.md)
 - [논리 데이터 모델 정책](logical-data-model-policy.md)
 - [배포/릴리즈 프로세스](release-process.md)
 - [테스트용 개발 데이터 정책](development-test-data-policy.md)

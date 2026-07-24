@@ -9,7 +9,7 @@
 
 ## 목적
 
-- 배포 범위, 릴리즈 기록 상태·metadata·증빙 계약과 완료/정정 조건을 고정한다.
+- 배포 범위, 릴리즈 기록 상태·metadata·증빙 계약과 완료·불변 조건을 고정한다.
 - Gate 실행 순서는 [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md), 실제 명령과
   rollback은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)에 위임한다.
 - 태그 이름/시점/증빙 기준은 [배포 태그 정책](release-tag-policy.md)에 위임한다.
@@ -56,7 +56,7 @@
 - 운영 배포는 항상 모든 구성요소를 포함하지 않는다.
 - 배포 시작 시 포함 범위를 먼저 고정한다: `DB migration`, `contracts package`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`.
 - 선택되지 않은 범위는 `N/A` 사유와 근거를 릴리즈 기록에 남긴다.
-- DB 변경이 포함되면 [DB Migration Gate 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
+- DB 변경이 포함되면 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 해당 범위의 단일 기준으로 따른다.
 - `coupler-admin-web`가 포함되면 [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md)을 상세 실행 기준으로 따른다.
 - 릴리즈 자동화 gate 순서는 [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)을 따르되, 충돌 시 이 문서와 각 policy를 우선한다.
 - 명령어가 필요한 배포 작업은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 사용하되, 충돌 시 이 문서와 각 policy를 우선한다.
@@ -97,7 +97,11 @@
 - `docs` `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
 - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
 - `docs` 버전은 릴리스 기록 번호로 사용하고, 서비스 레포의 실제 배포 버전은 `버전 매핑`으로 별도 고정한다.
-- 이미 `released` 또는 `superseded` 상태로 배포된 릴리스 실행 기록은 새 형식 적용만을 목적으로 사후 구조 변경하지 않는다.
+- 신규 릴리스 기록은 실제 새 배포 범위를 기록한 최종본으로 한 번 병합한다. `main`에 이미 존재하는 릴리스
+  기록은 상태와 무관하게 파일 전체가 불투명한 최종본이며 이후 수정·삭제·이름 변경·대체하지 않는다.
+- 병합된 DB migration 릴리스의 `content/releases/evidence/db-migrations/<version>/` 파일도 같은 최종본에
+  포함된다. 내용을 현재 계약으로 다시 읽지 않고, 기존 파일의 변경·삭제·이름 변경·대체와 해당 버전 경로의
+  사후 추가를 모두 금지한다.
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
 - `버전 매핑`에는 아래 기준점을 함께 기록한다.
     - `docs` 기록 버전/태그
@@ -105,9 +109,7 @@
     - `coupler-api` 태그/커밋 또는 `N/A` 사유
     - `coupler-admin-web` 태그/커밋 또는 `N/A` 사유
 - 신규 릴리스 기록의 작성 계약은 `release-metadata` block 하나다. 자동화의 기계 판정 SoT는 여기서 한 번 계산한 derived model이며, `버전 매핑`과 Gate 섹션은 사람이 읽는 mirror다. 자동화가 본문 자유 문장을 포함 신호로 해석하지 않게 작성한다.
-- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v2`다. 종료된
-  v1 기록은 그대로 보존한다. v2 activation marker가 base branch에 없으면 새 DB migration 릴리즈를 시작하지
-  않는다.
+- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v1`다.
 - `release-metadata`의 모든 하위 object는 작성 계약에 정의된 key만 허용한다. 새 nested key가 필요하면 descriptor 또는 cutover required path에 연결하고 unknown key fail-closed 테스트를 함께 갱신한다.
 - `release-metadata.releaseScopes`는 실제 릴리즈 surface의 단일 SoT이며 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
@@ -116,17 +118,12 @@
 - `docs` scope의 `released` 판정은 최종 릴리즈 기록이 병합 가능한 상태로 확정되고 `versionMapping.docs.tag`에 병합 후 생성할 docs tag가 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
-- `db-migration` evidence는 target API catalog ref/checksum, 환경별 operation·targetRefs·ordered batches,
-  batch별 signed attestation과 rollback plan으로 구성한다. preflight는 `catalog − effectiveTrustedFrontier`와
-  batch exact partition, catalog의 exact `gateIds`를 검증한다. terminal 판정은 각 환경 전이 chain과
-  Ed25519 서명을 검증하며 콘솔 수동 실행문·채팅 SQL·수동 N/A 사유만으로는 완료 증빙이 아니다.
-- trust epoch activation과 새로 작성·변경·삭제한 terminal DB migration evidence는 같은 PR에 넣지 않는다.
-  terminal evidence는 PR base에 이미 활성화된 epoch만 사용하며, DB evidence가 그대로인 다른 scope의 사후
-  정정까지 차단하지 않는다.
-- v2 DB migration scope를 `released` 또는 `rolled_back`으로 닫기 전에는 같은 릴리즈 기록의 Git 이력에
-  `scopeResults.db-migration.status=pending`인 선행 snapshot이 있어야 한다. `in_progress`나 terminal 문서를
-  먼저 만든 뒤 사후에 terminal로 바꾸는 흐름은 pending 고정점을 대신하지 못한다. 릴리즈 기록 파일은
-  삭제할 수 없고 사실 정정은 기존 terminal 상태와 최초 pending target을 보존한다.
+- 신규 `db-migration` evidence는 개발계·운영계의 `plan.json`과 `execution.jsonl` 두 파일씩만 참조한다.
+  `pending`에서 두 plan과 SHA-256을 고정하고 개발계 완료 뒤 운영계를 실행한다. terminal 상태에서는 네 파일의
+  실제 bytes checksum과 DB ledger 완료가 일치해야 한다.
+- Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 exact
+  artifact 경로·bytes SHA-256만 묶는다. 과거 기록과 DB artifact는 schema·상태·증빙을 읽지 않고 경로·blob
+  불변성만 확인한다.
 - `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
 - 릴리즈 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
 - SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리즈 자동화 변경과 함께 기록한다.
@@ -134,15 +131,15 @@
 - API contract cutover 포함 여부는 `release-metadata.apiContractCutover`가 `null`인지 object인지로만 판정한다. API 계약 변경이 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않으며, `검증 근거`에 `N/A - <사유>`만 남긴다. API 계약 변경이 있으면 `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package 줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
 - `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
 - 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`pending`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
-- 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck와 필요 시 corrective reissue로 막는다.
+- 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck한다. 실패나 사실 오류는 기존 기록을 바꾸지 않고 이슈·장애 기록에서 추적한다. 실제 새 배포가 없으면 정정용 릴리스 기록을 만들지 않는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
 - 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
   `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
   head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
-  metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다. DB migration은 고정된
-  API catalog commit에서 SQL/checksum·`gateIds`를 읽고 환경별 trusted frontier와 plan의 exact-set을 대조한다.
-  `--pending-ref`가 없는 기존 흐름은 모든 포함 레포의 clean `main == origin/main`을 계속 요구한다.
+  metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다. `--pending-ref`가
+  없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration scope는
+  canonical executor가 만든 dev/prod plan과 동일 pending ref의 exact artifact SHA-256을 확인한다.
 - 장기·메이저 릴리즈도 열린 docs PR과 릴리즈 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙
@@ -161,17 +158,22 @@
 - `rolled_back`: 운영 반영 후 문제로 해당 릴리즈 기준점에서 되돌린 상태
 - `superseded`: 일부 대기 범위를 완료하지 않은 채 후속 릴리즈가 동일 또는 상위 범위를 대체해, 더 이상 해당 릴리즈를 완료 대상으로 추적하지 않는 상태
 - `superseded`로 닫을 때는 대체한 후속 릴리즈, 완료하지 않은 범위, 태그 생성 여부, 후속 추적 불필요 사유를 릴리즈 기록에 남긴다.
-- `released`, `rolled_back`, `superseded`로 닫힌 기록을 `planned`, `pending`, `in_progress`로 되돌리지 않는다. 사실 정정은 terminal 상태를 유지하고, 후속 배포는 새 버전의 릴리즈 기록으로 시작한다.
+- `released`, `rolled_back`, `superseded`로 닫힌 기록을 `planned`, `pending`, `in_progress`로 되돌리지 않는다.
+  `main` 병합 뒤 기록은 내용과 상태를 재판정하지 않는다. 실제 후속 배포 또는 rollback 배포를 실행하면 그
+  실행의 새 기록을 만들고, 단순 사실 정정은 이슈·장애 기록에서만 추적한다.
 
 ## 운영 상태 전이 기준
 
-- 일반적인 연속 운영 배포는 하나의 docs PR에서 `pending` 커밋과 `released` 커밋만 사용하고 마지막에 한 번 병합한다. `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안을 공유할 때만 선택적으로 사용한다.
-- `pending`은 배포 scope, 서비스 commit SHA, Store version/build, API contract comparison ref, 검증 시나리오, rollback 기준이 고정되어 운영 배포를 시작할 수 있는 상태다. `pending` 이후 이 고정 기준이 바뀌면 같은 실행으로 계속하지 않고 새 `pending` 기준점부터 다시 검증한다.
+- `pending`은 배포 scope, 서비스 commit SHA, Store version/build, API contract comparison ref, 검증
+  시나리오, rollback 기준이 고정되어 운영 배포를 시작할 수 있는 상태다. 자동 검증은 PR 내부 커밋의 상태
+  순서나 과거 snapshot을 검사하지 않고 현재 최종본만 검증한다.
 - `in_progress`는 일부 범위가 이미 끝났지만 외부 승인이나 후속 범위가 남아 단일 실행에서 바로 `released`로 전환할 수 없는 장기 릴리스에 사용한다.
 - Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
 - Store 승인, 운영 출시, 기본 smoke, 모바일 릴리즈 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
 - 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
-- `docs` GitHub Release와 site artifact는 docs tag push 이후 생성되므로, 매 릴리즈마다 artifact URL을 릴리즈 기록에 되채우기 위해 재발행하지 않는다. Release workflow 실패, Release 본문 누락, artifact 누락, 사실 오류 정정이 있을 때만 `docs-only corrective reissue`를 사용한다.
+- `docs` GitHub Release와 site artifact는 docs tag push 이후 생성되므로 artifact URL을 병합된 릴리즈 기록에
+  되채우지 않는다. Release workflow 실패, Release 본문·artifact 누락 또는 사실 오류도 기존 기록을 수정하지
+  않는다. 이슈·장애 기록에서 추적하며, 실제 새 배포가 없으면 정정용 docs 버전을 만들지 않는다.
 - 이 상태 계약을 실제 Gate 순서에 적용하는 절차는
   [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)을 따른다.
 
@@ -189,13 +191,13 @@
 | DB/API/Admin/Mobile/docs/tag 명령과 rollback | [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md) |
 | Admin 정적 artifact 배포 | [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md) |
 | API 계약 최종 snapshot 배포·승인 예외 cutover | [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md) |
-| DB expand/backfill/cutover/contract Gate | [DB Migration Gate 정책](db-migration-gate-policy.md) |
+| DB migration 유지보수 실행 | [DB Migration 유지보수 정책](db-migration-gate-policy.md) |
 | 계약 package 생성·발행·소비 | [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md) |
 
 - 이 정책에는 위 문서의 Gate 순서나 실행 명령을 복제하지 않는다. 실행 문서가 이 정책의 상태·metadata·완료
   계약과 다르면 이 정책과 공통 schema/derived model을 먼저 정렬한다.
 
-## Docs 배포와 정정 규칙
+## Docs 배포와 불변 규칙
 
 - `docs` `main` push는 문서 사이트 배포, `v*.*.*` tag push는 Docs GitHub Release 생성의 기준점이다.
 - 신규 릴리즈 기록은 `content/templates/release-record-template.md`를 사용한다. 태그 시점에 해당
@@ -204,13 +206,12 @@
 - docs tag push 전에는 Release Note preview, `yarn verify`,
   [문서 안정성 평가](document-governance-policy.md)를 완료한다. Release와 site artifact는 tag push 뒤
   postcheck하며 사전 metadata hard gate로 사용하지 않는다.
-- 이미 생성된 Release Note와 릴리즈 기록은 사실 오류 정정 또는 증빙 보강 외에는 사후 재작성하지 않는다.
-- Release workflow 실패, Release 본문·artifact 누락 또는 사실 오류 정정은 `docs-only corrective reissue`로
-  처리하며 아래 조건을 모두 충족해야 한다.
-    - 서비스 레포 tag는 변경하지 않는다.
-    - 정정 범위는 docs Release 본문, docs site artifact, docs 릴리즈 기록으로 제한한다.
-    - 마지막 수정 이후 Release Note preview, `yarn verify`, 문서 안정성 평가 `No Findings`를 통과한다.
-    - GitHub Release 본문과 artifact 교체를 postcheck한다.
+- `main`에 병합된 릴리즈 기록과 이미 발행한 Release Note는 해당 버전의 최종본이다. 사유와 범위에 관계없이
+  기존 릴리즈 기록 파일을 수정·삭제·이름 변경·대체하지 않는다.
+- Release workflow 실패, Release 본문·artifact 누락, 사실 오류, 증빙 보강, rollback 또는 대체가 필요하면
+  기존 버전은 그대로 두고 새 docs 버전의 릴리즈 기록을 만든다. 새 기록은 원래 버전과 후속 사유를 참조하고,
+  Release Note preview, `yarn verify`, 문서 안정성 평가 `No Findings`, 새 tag/Release/artifact postcheck를
+  모두 통과해야 한다.
 - 실제 preview·tag·postcheck 명령은
   [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)의 `Docs 포함 시`를 따른다.
 
@@ -222,7 +223,7 @@
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [배포 태그 정책](release-tag-policy.md), Gate 순서는 릴리즈 자동화 파이프라인, 명령과
       rollback은 운영 배포 명령어 런북을 단일 기준으로 사용하는가?
-- [ ] docs Release 정정이면 `docs-only corrective reissue`의 범위·검증·postcheck 조건을 모두 충족하는가?
+- [ ] `main`에 존재하는 릴리즈 기록이 변경·삭제·이름 변경·대체·재검증되지 않았고, 정정만을 위한 새 버전도 만들지 않았는가?
 
 ## 관련 문서
 

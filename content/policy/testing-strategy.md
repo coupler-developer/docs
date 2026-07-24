@@ -36,7 +36,7 @@
   `verify`의 정확한 구성, 전체 leaf coverage, 금지 별칭 부재를 함께 고정해야 한다.
 - 테스트 파일 확장자와 계약 의존성 형식처럼 로컬에서 판정 가능한 규칙은 `test` 또는 `verify`에 포함하고,
   workflow inline 전용 검사로 중복 소유하지 않는다.
-- DB migration 실제 재생, PR base/head 전환, Draft 상태, release native visual처럼 외부 서비스나 event 문맥이
+- DB migration 실제 재생, PR base/current-tree 비교, release native visual처럼 외부 서비스나 event 문맥이
   필요한 검사는 CI-context 예외다. 예외는 로컬 통과만으로 확인했다고 보고하지 않는다.
 
 ### 검증 중복 판정
@@ -124,7 +124,7 @@
 | 권한/보안 | 권한별 허용/거부 검증 |
 | 결제 | 중복 결제, 환불, 키 지급/회수 검증 |
 | 푸시 | 발송, 스킵, 중복 방지, 저장 결과 검증 |
-| DB | [DB Migration Gate 정책](db-migration-gate-policy.md)의 적용 Gate 검증 |
+| DB | [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 catalog/fixture 검증 |
 | 배포 | 배포 후 핵심 응답, 로그, 롤백 기준 검증 |
 | 네이티브/모바일 릴리즈 | 실기기 또는 배포 리허설 검증 |
 | 다중 레포 변경 | 각 레포 품질 게이트와 교차 계약 검증 |
@@ -216,16 +216,15 @@
 - 기술부채 인벤토리 검증 테스트(로컬): `yarn test:technical-debt`
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
-- 릴리즈 preflight·pending transition·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
-    DB migration v2의 JCS/signature, frontier transition, exact partition, N/A derivation 회귀 테스트를 이 runner에
-    포함한다. 같은 event/ref에서 별도 DB evidence 테스트 명령을 한 번 더 실행하지 않는다.
+- 릴리즈 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
+    DB migration maintenance artifact의 고정 경로, 실제 bytes SHA-256, 환경별 plan/execution 두 파일 제한과
+    과거 릴리스 파일의 최종 트리 불변성 테스트를 이 runner에 포함한다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증 leaf(로컬): `yarn validate:docs`
 - 문서 표준 통합 검증(로컬): `yarn verify`
 - 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
-- 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`,
-  `node scripts/validate-release-pr-transition.mjs`
+- 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`
 - 문서 lint(CI): 로컬과 같은 `yarn lint:md`
 - 문서 build(CI): Python 의존성 설치 후 로컬과 같은 `yarn build:docs`
 
@@ -242,17 +241,17 @@
 - docs 레포: release tag workflow의 `yarn verify`는 tag ref에서 패키징할 site artifact를 다시 생성·검증하는
   release Gate이며 PR·main 배포 검증과 산출물이 다르다.
 - docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면
-  `docs-structure`에서 민감 인프라 식별자, metadata, PR transition을 경량 검증한다. `released`/terminal 기록,
+  `docs-structure`에서 민감 인프라 식별자, 신규 metadata와 과거 기록 불변성을 경량 검증한다. `released`/terminal 기록,
   일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
 - docs 레포: `markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다.
   full mode의 공통 정적 검증 목록은 계속 `yarn validate:docs-static` 한 곳에서만 소유한다.
-- docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 경량 검증을 통과한 `pending`은 배포 시작 gate이고, 최종 병합 gate는 `released` 커밋의 전체 docs 검증이다.
-- docs 레포: `Docs Validation`은 `opened`, `synchronize`, `reopened`만 구독한다. 따라서 `released` 전체 검증 뒤 Draft PR을 Ready로 전환하는 동작만으로 같은 CI를 다시 실행하지 않는다.
+- docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 자동 검증은 PR
+  내부 커밋의 상태 전이 이력을 검사하지 않고 base와 현재 최종 트리만 비교한다.
 
 ## DB 마이그레이션 검증 (공통)
 
-- 운영 반영 전 최소 검증 순서는 [DB Migration Gate 정책](db-migration-gate-policy.md)의 실행 검증 파이프라인을 따른다.
-- 상세 Gate/판정 기준은 [DB Migration Gate 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
+- 운영 반영 전 최소 검증 순서는 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 표준 절차를 따른다.
+- 상세 판정 기준은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
 - CI는 API admission·local MariaDB replay와 docs evidence 계약만 검증한다. 실제 운영 DB 상태, credential,
   topology, backup 복구 가능성을 정적 CI가 확인했다고 표현하지 않는다.
 
@@ -261,5 +260,5 @@
 - [엔지니어링 가드레일](engineering-guardrails.md)
 - [API 조회·동작 설계 정책](api-operation-design-policy.md)
 - [코드 리뷰 정책](code-review-policy.md)
-- [DB Migration Gate 정책](db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](db-migration-gate-policy.md)
 - [문서 거버넌스 정책](document-governance-policy.md)
