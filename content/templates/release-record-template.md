@@ -2,7 +2,7 @@
 
 ```release-metadata
 {
-  "schema": "release-metadata/v2",
+  "schema": "release-metadata/v1",
   "version": "vX.Y.Z",
   "status": "pending",
   "releaseScopes": [
@@ -83,7 +83,7 @@
 
 - `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
 - `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는
-  `release-metadata/v2`로 둔다.
+  `release-metadata/v1`로 둔다.
 - `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 `v2`, `v3`, `v4`처럼 올리지 않는다.
 - 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
 - `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
@@ -97,79 +97,30 @@
 - `coupler-api`를 `released`로 닫을 때는 `scopeResults.coupler-api.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-api.tag`를 concrete 값으로 채운다.
 - `coupler-admin-web`를 `released`로 닫을 때는 `scopeResults.coupler-admin-web.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-admin-web.tag`를 concrete 값으로 채운다.
 - `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`, `workflow`, `sourceRef`를 concrete 값으로 채운다.
-- `db-migration` evidence는 아래 v2 모양을 사용한다. 환경별 `targetRefs`는 API target catalog에서 해당 환경의
-  `effectiveTrustedFrontier`를 뺀 exact-set이고 `batches`는 그 순서 있는 exact partition이다. 적용 Gate의
-  여집합은 검증기가 N/A로 도출하므로 `gateResults`나 수동 N/A 사유 필드를 추가하지 않는다.
-- `pending`까지는 `attestation: null`로 둔다. `released`로 닫을 때는 각 환경·batch의 canonical signed bundle
-  경로와 SHA-256을 채우고 `rollbackPlan`을 concrete 값으로 바꾼다.
+- 신규 `db-migration` evidence는 아래 maintenance 형식만 사용한다. 환경별 산출물은 실행기가 만든
+  `plan.json`과 `execution.jsonl` 두 개뿐이다.
+- `pending`에서는 dev/prod plan을 모두 고정하고 execution은 `null`로 둔다. 개발계 완료 뒤 운영계를
+  실행하고, `released` 또는 `rolled_back`으로 닫을 때는 두 환경의 execution 경로와 실제 파일 SHA-256을
+  채운다.
+- 과거 릴리스 기록은 불투명한 최종본이므로 열어 고치거나 현재 DB evidence 계약으로 재검증하지 않는다.
 
 ```json
 {
-  "catalog": {
-    "repo": "coupler-api",
-    "sourceRef": "<40-character-commit>",
-    "path": "db/schema/schema-contract.json",
-    "sha256": "<64-character-sha256>"
-  },
-  "plans": {
-    "dev": {
-      "operation": "apply",
-      "targetRefs": [
-        {
-          "path": "db/migrations/<migration>.sql",
-          "checksumSha256": "<64-character-sha256>"
-        }
-      ],
-      "batches": [
-        {
-          "batchId": "expand-1",
-          "order": 1,
-          "stage": "expand",
-          "sqlRefs": [
-            {
-              "path": "db/migrations/<migration>.sql",
-              "checksumSha256": "<64-character-sha256>"
-            }
-          ],
-          "requiredGateIds": [
-            "DBM-GATE-000",
-            "DBM-GATE-010",
-            "DBM-GATE-100"
-          ],
-          "attestation": null
-        }
-      ]
+  "schema": "db-migration-maintenance-evidence/v1",
+  "dev": {
+    "plan": {
+      "path": "content/releases/evidence/db-migrations/vX.Y.Z/dev/plan.json",
+      "sha256": "<64-character-sha256>"
     },
-    "prod": {
-      "operation": "apply",
-      "targetRefs": [
-        {
-          "path": "db/migrations/<migration>.sql",
-          "checksumSha256": "<64-character-sha256>"
-        }
-      ],
-      "batches": [
-        {
-          "batchId": "expand-1",
-          "order": 1,
-          "stage": "expand",
-          "sqlRefs": [
-            {
-              "path": "db/migrations/<migration>.sql",
-              "checksumSha256": "<64-character-sha256>"
-            }
-          ],
-          "requiredGateIds": [
-            "DBM-GATE-000",
-            "DBM-GATE-010",
-            "DBM-GATE-100"
-          ],
-          "attestation": null
-        }
-      ]
-    }
+    "execution": null
   },
-  "rollbackPlan": null
+  "prod": {
+    "plan": {
+      "path": "content/releases/evidence/db-migrations/vX.Y.Z/prod/plan.json",
+      "sha256": "<64-character-sha256>"
+    },
+    "execution": null
+  }
 }
 ```
 
@@ -195,10 +146,15 @@
 - 후속 릴리스가 대기 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
 - 전체 `released` 상태에는 `대기 범위` 값을 비우거나 `N/A`로 적는다.
 - `planned`/`pending`/`in_progress` 상태에서는 아직 확인 전인 값에 `pending`, `미생성` 같은 placeholder를 쓸 수 있다.
-- 일반 릴리즈는 이 템플릿을 채운 `pending` 첫 커밋을 Draft PR에 push하고, `yarn release:preflight --pending-ref <40자 pending commit SHA>`를 통과한 뒤 PR을 병합하지 않은 채 배포한다.
-- 운영 반영, smoke, 서비스 태그가 끝나면 같은 PR의 두 번째 커밋에서 `released`로 전환한다. 이때 `releaseScopes`, `extraRepoRefs`, 서비스 commit SHA, Mobile Store version/build, API contract comparison ref는 `pending` 커밋과 같아야 한다.
+- 운영 배포 전에 원격 기준점에서 `yarn release:preflight --pending-ref <40자 commit SHA>`를 실행한다.
+  자동 검증은 PR 내부의 상태 커밋 순서나 과거 snapshot을 판정 근거로 사용하지 않는다.
+- 릴리즈 기록은 최종본으로 한 번만 `main`에 병합한다. `main`에 존재하는 기록은 불투명한 역사 기록으로서
+  수정·삭제·이름 변경·대체할 수 없고 내용도 현재 계약으로 재검증하지 않는다. 오탈자·잘못된 증빙·실패·
+  rollback 설명만을 고치기 위한 새 릴리스 기록도 만들지 않는다. 새 기록은 실제 새 배포 또는 DB migration
+  실행이 있을 때만 작성한다.
+- 병합된 DB migration 기록이 참조하는 같은 버전의 evidence 파일도 최종본이다. 기존 파일을 바꾸거나
+  삭제·이름 변경·대체하지 않고 해당 버전 evidence 경로에 파일을 사후 추가하지 않는다.
 - `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안 공유가 필요한 경우에만 선택적으로 사용하며 배포 시작 기준이 아니다.
-- `released` 전체 CI와 리뷰가 끝날 때까지 PR을 Draft로 유지하고, Ready 전환 뒤 한 번만 병합한다.
 - `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
 - `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
 - `버전 매핑` 섹션은 사람이 읽는 mirror다. 자동화 기준은 `release-metadata.versionMapping`이며, 둘이 서로 다른 기준점을 가리키지 않게 같이 갱신한다.

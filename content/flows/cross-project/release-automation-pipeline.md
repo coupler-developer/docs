@@ -17,7 +17,7 @@
 
 - 시작 조건: 릴리즈 목표 버전, 배포 포함 범위, 대상 레포, 검증 시나리오 초안이 정해진 상태
 - 종료 조건: 포함 범위별 운영 반영, 검증, 태그, 릴리즈 기록 또는 대기 범위가 문서화된 상태
-- 제외 범위: 운영 DB write, EC2 배포 실행, Mobile Store 제출, NextPush 배포, Git tag push, GitHub Release 본문 수동 정정 실행
+- 제외 범위: 운영 DB write, EC2 배포 실행, Mobile Store 제출, NextPush 배포, Git tag push
 
 ## 상위 규범 문서
 
@@ -26,7 +26,7 @@
 - [테스트/CI 전략](../../policy/testing-strategy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - [문서 거버넌스 정책](../../policy/document-governance-policy.md)
-- [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
 
 ## 액터
 
@@ -49,15 +49,16 @@
 
 ## 운영 상태 전이
 
-릴리즈 기록은 한 번만 쓰고 끝나는 문서가 아니라 운영 상태를 따라가는 기록이다.
-단, 모든 릴리즈를 불필요하게 재발행하지 않도록 pre-tag 조건과 post-tag 확인을 분리한다.
+릴리즈 기록은 열린 PR 안에서 운영 상태를 따라가고 terminal 최종본으로 한 번만 병합한다. 병합 뒤에는
+파일 전체가 불변이다.
 
-1. 열린 docs Draft PR과 릴리즈 기록에서 배포 기준점을 고정한다.
+1. 열린 docs PR과 릴리즈 기록에서 배포 기준점을 고정한다.
 2. 원격 기준점·기록 계약·품질 Gate를 통과한 뒤 포함 범위만 실행한다.
 3. 외부 승인이나 장기 대기가 생기면 같은 기록을 [릴리즈 상태 규칙](../../policy/release-process.md)의 실제
    단계로 갱신하고, 완료 범위와 대기 범위를 함께 남긴다.
 4. 포함 범위의 운영 검증과 서비스 태그가 끝나면 같은 PR에서 최종 기록을 검증하고 한 번만 병합한다.
-5. 병합된 docs 기준점의 태그·Release·artifact는 postcheck하고, 실패 시 정책의 정정 절차를 적용한다.
+5. 병합된 docs 기준점의 태그·Release·artifact는 postcheck한다. 실패나 사실 오류는 이슈·장애 기록에서
+   추적하고, 실제 새 배포가 없으면 정정용 릴리스 기록을 만들지 않는다.
 
 ## 릴리즈 계약과 자동화 책임 경계
 
@@ -87,7 +88,7 @@
 
 1. `content/templates/release-record-template.md`로 해당 버전 기록을 만든다.
 2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채운다.
-3. 배포 시작 기준점은 원격 Draft PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
+3. 배포 시작 기준점은 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
    반영한다.
 4. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
 
@@ -126,20 +127,13 @@
 ### 6) Deploy Evidence Gate
 
 1. 포함된 범위만 운영 반영한다.
-2. DB migration은 [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)의 적용 Gate를 통과하고,
-   [배포/릴리즈 프로세스](../../policy/release-process.md)가 요구하는 API catalog, 환경별 frontier·ordered batch,
-   signed attestation·rollback plan을 해당 scope result에 남긴다. targetRefs는
-   `target catalog − effectiveTrustedFrontier`, batches는 targetRefs의 exact partition이어야 한다.
+2. DB migration은 모든 writer를 중지한 유지보수 구간에서만 실행한다. 개발계와 운영계 순서로
+   [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)을 적용하고 환경별 `plan.json`,
+   `execution.jsonl`만 scope result에 남긴다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
    기준점, smoke와 rollback 증빙을 남긴다.
-4. DB expand/backfill과 service cutover/contract가 함께 있는 통합 배포는 `DB expand/backfill 준비 -> 사용자
-   요청 activation barrier -> API/Admin + Mobile 강제 업데이트/mandatory 적용 -> smoke -> barrier 해제 ->
-   의존성 0건 확인 -> DB contract` 순서로 실행한다. 각 단계의
-   진입·종료 판정은
-   [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)과
-   [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)를 사용한다.
-5. DB attestation은 환경별 단일 `previousTransitionDigest` chain을 이어야 한다. 병렬 릴리즈가 같은 frontier를
-   기준으로 작성됐거나 trust epoch가 활성화되지 않았으면 뒤 단계로 진행하지 않는다.
+4. DB 변경과 서비스 배포가 함께 있으면 `writer 중지 -> drain/backup -> DB migration -> 전체 postcheck ->
+   서비스 재기동 -> smoke -> 유지보수 해제` 순서로 실행한다. 모든 writer를 중지할 수 없으면 배포를 중단한다.
 
 ### 7) Tag Gate
 
@@ -153,16 +147,15 @@
 1. `docs` tag push 전 Release Note preview를 생성한다.
 2. 릴리즈 기록 연결, 사람이 읽는 mirror와 검증 근거를 확인한다.
 3. 상태 정책이 tag 생성을 허용하지 않으면 같은 PR의 기록만 갱신하고 Final Record Gate를 보류한다.
-4. tag push 뒤 Release와 site artifact를 postcheck한다. 실패 또는 사실 오류가 있으면 정책의
-   `docs-only corrective reissue`를 적용한다.
+4. tag push 뒤 Release와 site artifact를 postcheck한다. 실패 또는 사실 오류가 있으면 기존 기록을 건드리지
+   않고 이슈·장애 기록에서 후속 처리한다. 실제 새 배포가 없으면 정정용 docs 버전을 만들지 않는다.
 
 ### 9) Final Record Gate
 
 1. 릴리즈 기록에 실제 태그/SHA, 운영 반영 시각, 검증 결과, 롤백 기준을 반영한다.
 2. 미완료·대기·대체 범위가 있으면 상태 정책에 맞는 값과 근거를 남긴다.
-3. transition validator로 기준점 불변성과 역전이 금지를 확인한다. 실패하면 해당 실행을 중단하고 정책이
-   요구하는 새 기준점부터 다시 시작한다.
-4. 마지막 수정 이후 전체 `yarn verify`와 리뷰를 통과한 기록만 Ready로 전환해 한 번 병합한다.
+3. 릴리스 기록 validator로 base에 존재한 과거 파일의 경로·blob 불변성과 신규 현재 기록만 확인한다.
+4. 마지막 수정 이후 전체 `yarn verify`와 리뷰를 통과한 기록을 한 번 병합한다.
 5. 병합된 docs 기준점에 허용된 태그를 생성하고 Release workflow와 artifact를 postcheck한다.
 
 ## 자동화 범위
@@ -188,7 +181,8 @@
 - Store 심사가 지연되면 제출 artifact와 최종 계약 snapshot만 유지하고 운영 `min_version`, API/Admin activation과
   Mobile 릴리즈 태그를 보류한다. 사용자 명시 승인 없는 호환 배포를 추가하지 않는다.
 - NextPush-only 배포면 native version, Store upload, 모바일 릴리즈 태그를 자동 변경하지 않는다.
-- docs Release Note 정정만 필요한 경우 [배포/릴리즈 프로세스](../../policy/release-process.md)의 docs-only corrective reissue 조건을 따른다.
+- docs Release Note 후속 사항은 기존 기록을 수정하거나 정정용 새 버전으로 만들지 않고 이슈·장애 기록에서
+  추적한다. 실제 새 배포가 있을 때만 그 실행의 새 릴리스 기록을 만든다.
 
 ## 비포함 / 금지
 
