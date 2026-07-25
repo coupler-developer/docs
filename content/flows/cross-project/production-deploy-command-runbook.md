@@ -56,7 +56,9 @@
 릴리즈 전체 gate 판정은 [릴리즈 자동화 파이프라인](release-automation-pipeline.md)을 먼저 따른다.
 이 문서는 preflight 실패 원인 확인, 실제 배포 명령, 운영 확인, 롤백 명령을 제공한다.
 
-표준 단일 PR 흐름은 docs 작업 브랜치의 원격 기준점을 열린 PR에 push한 뒤 실행한다.
+표준 단일 PR 흐름은 docs 작업 브랜치의 원격 기준점을 열린 PR에 push한 뒤 실행한다. 미병합
+`pending | in_progress` 기록만 허용하며, 증빙 추가로 PR head가 바뀌면 다음 운영성 실행 전에 새 head로
+다시 실행한다.
 
 ```bash
 cd docs
@@ -152,7 +154,9 @@ Credential, host와 DB identity 원문은 릴리스 기록에 평문으로 넣�
 
 ### 3. Plan과 실행
 
-API 저장소의 maintenance executor로 환경별 `plan.json`을 생성한다. Plan은 catalog 전체를
+API 저장소의 maintenance executor로 먼저 개발계 `plan.json`을 생성한다. 최초 릴리스 기록에는 dev plan만
+고정하고 dev execution과 prod plan/execution은 `null`로 둔 채 같은 PR head의 preflight를 통과한다.
+Plan은 catalog 전체를
 `appliedRefs + recoveredRefs[].ref + baselineRefs + supersededRefs[].ref + pendingRefs`로 exact
 partition하고 pending 순서를 고정해야 한다. `adjudicableLedgerGapRefs`는 pending의 exact subset이며
 각 gap ref를 실제 후행 ledger evidence ref에 결속해야 한다. Plan은 catalog뿐 아니라 sealed
@@ -205,8 +209,10 @@ pnpm db:migration:maintenance -- repair-ledger \
 
 개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다. 운영 plan은 개발계 plan과
 execution의 bytes SHA를 함께 참조하고, execution을 해당 개발계 plan의 환경별 partition과
-`planSha256`으로 검증한 뒤 catalog/runtime-contract SHA가 같은지 확인한다. 운영 maintenance 명령은
-live DB에 진입할 때마다 이 pair를 다시 검증한다.
+`planSha256`으로 검증한 뒤 catalog/runtime-contract SHA가 같은지 확인한다. dev execution과 생성된 prod
+plan을 릴리스 기록의 연속된 artifact prefix로 추가해 같은 미병합 PR에 push하고, 변경된 40자 head의
+preflight를 다시 통과한 뒤에만 운영 maintenance로 진입한다. 운영 maintenance 명령은 live DB에 진입할
+때마다 이 pair를 다시 검증한다.
 
 ### 4. 재기동과 산출물
 
@@ -227,8 +233,9 @@ compatibility-config SHA가 active mixture와 일치하는 running inventory까�
 - `content/releases/evidence/db-migrations/<version>/<environment>/plan.json`
 - `content/releases/evidence/db-migrations/<version>/<environment>/execution.jsonl`
 
-릴리스 metadata에는 네 파일의 경로와 실제 bytes SHA-256만 기록한다. 별도 Gate 로그, 서명 bundle,
-trust/frontier 파일을 만들지 않는다.
+릴리스 metadata에는 `dev plan → dev execution → prod plan → prod execution` 순서로 도달한 파일의 경로와
+실제 bytes SHA-256을 기록하고, 아직 도달하지 않은 후속 파일은 `null`로 둔다. terminal에서는 네 파일을
+모두 기록한다. 별도 Gate 로그, 서명 bundle, trust/frontier 파일을 만들지 않는다.
 
 SQL 성공 후 ledger 기록만 실패한 경우에는 DB identity, checksum과 postcondition을 다시 확인한 뒤
 ledger-only repair를 수행한다. `started` 뒤 outcome event가 끊겼으면 같은 SQL을 재실행하지 않고 fresh

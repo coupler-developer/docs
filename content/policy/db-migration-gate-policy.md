@@ -264,8 +264,12 @@ backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PI
 - 운영계: `content/releases/evidence/db-migrations/<version>/prod/plan.json`,
   `execution.jsonl`
 
-릴리스 metadata에는 네 파일의 repo-relative path와 실제 bytes SHA-256만 기록한다. `pending`에서는 두 plan을
-고정하고 execution은 비워 둔다. `released` 또는 `rolled_back`에서는 네 파일이 모두 존재해야 한다.
+릴리스 metadata의 증빙은 `dev plan → dev execution → prod plan → prod execution` 순서의 연속된
+prefix만 허용하고, 존재하는 파일의 repo-relative path와 실제 bytes SHA-256을 기록한다. 최초 `pending`은
+dev plan만 고정할 수 있다. 개발계 execution을 완료한 뒤에만 그 dev plan/execution bytes SHA를 참조하는
+prod plan을 생성·추가하고, 변경된 미병합 PR head에서 preflight를 다시 통과한 뒤 운영계를 실행한다.
+`pending`과 `in_progress`에서는 아직 도달하지 않은 후속 artifact를 `null`로 두며, `released` 또는
+`rolled_back`에서는 네 파일이 모두 존재해야 한다.
 
 `main`에 이미 병합된 모든 릴리스 기록은 불투명한 역사적 최종본이다. DB evidence의 schema·상태·내용을
 파싱하거나 현재 계약으로 재검증하지 않고, 파일 전체의 경로·blob 불변성만 확인한다.
@@ -283,6 +287,8 @@ execution을 정확히 묶는 역할만 한다.
       supersededRefs[].ref + pendingRefs`로 exact partition하고 adjudicable gap은 pending subset인가?
 - [ ] 이전·현재·필요한 혼합 runtime, 변경 경계, 상태 표면, 허용 phase와 복구 전략이 plan에 선언됐는가?
 - [ ] 같은 catalog/runtime-contract SHA의 개발계 완료 뒤 운영계를 실행했는가?
+- [ ] 릴리스 증빙이 dev plan부터 연속된 prefix이고 prod plan 추가 뒤 변경된 PR head의 preflight를 다시
+      통과했는가?
 - [ ] sealed gap은 후행 ledger evidence와 live postcondition으로 별도 판정·ledger-only repair했고,
       나머지 pending ref는 순서대로 postcondition과 ledger를 완료했는가?
 - [ ] FENCED final-DB smoke가 최초 재개·복구 target 조합과 모든 상태 표면 residual 0을 증명했는가?

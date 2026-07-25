@@ -127,8 +127,10 @@
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
 - 신규 `db-migration` evidence는 개발계·운영계의 `plan.json`과 `execution.jsonl` 두 파일씩만 참조한다.
-  `pending`에서 두 plan과 SHA-256을 고정하고 개발계 완료 뒤 운영계를 실행한다. terminal 상태에서는 네 파일의
-  실제 bytes checksum과 DB ledger 완료가 일치해야 한다.
+  증빙은 `dev plan → dev execution → prod plan → prod execution`의 연속된 prefix만 허용한다.
+  최초 `pending`에서는 dev plan과 SHA-256만 고정하고, 개발계 완료 뒤 dev execution에 결속된 prod plan을
+  같은 미병합 PR에 추가한다. 변경된 PR head의 preflight를 다시 통과한 뒤 운영계를 실행하며, terminal
+  상태에서는 네 파일의 실제 bytes checksum과 DB ledger 완료가 일치해야 한다.
 - Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 exact
   artifact 경로·bytes SHA-256만 묶는다. 과거 기록과 DB artifact는 schema·상태·증빙을 읽지 않고 경로·blob
   불변성만 확인한다.
@@ -161,16 +163,22 @@
   조합·phase·상태 표면·복구를 소유하고 Docs는 artifact 경로와 bytes SHA-256만 묶는다. 공개 API도
   깨질 때만 API Gate를 함께 채운다.
 - `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
-- 릴리즈 자동화 hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다. `planned`/`pending`/`in_progress`의 준비 중 placeholder, `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 hard gate로 막지 않는다.
+- terminal evidence hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다.
+  `planned`/`pending`/`in_progress`의 아직 도달하지 않은 후속 artifact와 준비 중 placeholder,
+  `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 완료 증빙으로 요구하지 않는다.
+  단, 이미 존재하는 구조화 artifact의 closed shape·환경 순서·bytes SHA와 미병합 PR preflight 기준점은
+  다음 운영성 실행의 admission invariant로 fail-closed 검증한다.
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck한다. 실패나 사실 오류는 기존 기록을 바꾸지 않고 이슈·장애 기록에서 추적한다. 실제 새 배포가 없으면 정정용 릴리스 기록을 만들지 않는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
 - 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
   `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
   head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
-  metadata `pending`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다. `--pending-ref`가
-  없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration scope는
-  canonical executor가 만든 dev/prod plan과 동일 pending ref의 exact artifact SHA-256을 확인한다.
+  metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
+  `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB
+  migration scope는 canonical executor가 단계별로 만든 연속된 artifact prefix와 같은 PR head의 exact
+  SHA-256을 확인한다. dev execution 또는 prod plan을 추가해 PR head가 바뀌면 다음 환경 실행 전에
+  preflight를 다시 통과해야 한다.
 - 장기·메이저 릴리즈도 열린 docs PR과 릴리즈 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙
@@ -199,6 +207,9 @@
   시나리오, rollback 기준이 고정되어 운영 배포를 시작할 수 있는 상태다. 자동 검증은 PR 내부 커밋의 상태
   순서나 과거 snapshot을 검사하지 않고 현재 최종본만 검증한다.
 - `in_progress`는 일부 범위가 이미 끝났지만 외부 승인이나 후속 범위가 남아 단일 실행에서 바로 `released`로 전환할 수 없는 장기 릴리스에 사용한다.
+- DB migration scope는 최초 dev plan을 `pending`에 고정하고 개발계 실행을 시작한 뒤 `in_progress`로
+  진행할 수 있다. dev execution 뒤 생성한 prod plan이 같은 PR head에 결속되고 preflight가 다시 통과하기
+  전에는 운영 DB 실행으로 넘어가지 않는다.
 - Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
 - Store 승인, 운영 출시, 기본 smoke, 모바일 릴리즈 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
 - 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
@@ -251,6 +262,8 @@
 - [ ] 포함·제외 scope와 `N/A` 근거가 release metadata와 사람이 읽는 mirror에서 일치하는가?
 - [ ] 전체 상태가 scope 결과에서 파생된 상태와 일치하고, 허용되지 않은 역전이나 기준점 변경이 없는가?
 - [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
+- [ ] DB migration 증빙이 환경 순서의 연속된 prefix이고 변경된 PR head마다 다음 환경 실행 전 preflight를
+      다시 통과했는가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [배포 태그 정책](release-tag-policy.md), Gate 순서는 릴리즈 자동화 파이프라인, 명령과
       rollback은 운영 배포 명령어 런북을 단일 기준으로 사용하는가?

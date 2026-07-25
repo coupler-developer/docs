@@ -97,8 +97,11 @@
 1. [운영 배포 명령어 런북](production-deploy-command-runbook.md)의 공통 사전 확인에서 local preflight를
    실행한다.
 2. preflight는 정책과 공통 schema/derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
-3. `PASS` 결과와 실행 로그를 릴리즈 기록에 남긴다. 실패하면 원인을 수정하고 다시 실행한다.
-4. preflight는 원격 최신성 확인을 위한 fetch/tag 조회만 수행하며 배포성 side effect를 실행하지 않는다.
+3. 미병합 `pending | in_progress` 기록만 입력으로 사용하고 `PASS` 결과와 실행 로그를 릴리즈 기록에 남긴다.
+   실패하면 원인을 수정하고 다시 실행한다.
+4. DB migration에서 dev execution 또는 prod plan을 추가해 PR head가 바뀌면 다음 환경 실행 전에 새 head로
+   이 Gate를 다시 통과한다.
+5. preflight는 원격 최신성 확인을 위한 fetch/tag 조회만 수행하며 배포성 side effect를 실행하지 않는다.
 
 ### 3) Clean Main Gate
 
@@ -134,7 +137,9 @@
 ### 6) Deploy Evidence Gate
 
 1. 포함된 범위만 운영 반영한다.
-2. DB migration은 모든 writer를 중지한 유지보수 구간에서만 실행한다. 개발계와 운영계 순서로
+2. DB migration은 모든 writer를 중지한 유지보수 구간에서만 실행한다. 최초 dev plan을 같은 PR에 고정하고
+   preflight를 통과한 뒤 개발계를 실행한다. 완료된 dev plan/execution에 결속된 prod plan을 생성해 같은
+   미병합 PR에 추가하고, 새 head의 preflight를 다시 통과한 뒤 운영계를 실행한다.
    [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)을 적용하고 환경별 `plan.json`,
    `execution.jsonl`만 scope result에 남긴다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
