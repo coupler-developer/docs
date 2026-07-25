@@ -153,13 +153,17 @@ Credential, host와 DB identity 원문은 릴리스 기록에 평문으로 넣�
 ### 3. Plan과 실행
 
 API 저장소의 maintenance executor로 환경별 `plan.json`을 생성한다. Plan은 catalog 전체를
-`appliedRefs + recoveredRefs[].ref + pendingRefs`로 exact partition하고 pending 순서를 고정해야 한다.
+`appliedRefs + recoveredRefs[].ref + baselineRefs + supersededRefs[].ref + pendingRefs`로 exact
+partition하고 pending 순서를 고정해야 한다. `adjudicableLedgerGapRefs`는 pending의 exact subset이며
+각 gap ref를 실제 후행 ledger evidence ref에 결속해야 한다. Plan은 catalog뿐 아니라 sealed
+`ledger-compatibility.json`의 path와 checksum도 고정한다.
 이전·현재·실제 혼합 runtime set의 unit/source ref/compatibility-config SHA/역할, 변경된
 read/write/state 경계, 시작·최종
 physical schema SHA-256과 허용 조합, DB·queue·외부효과 표면과 복구 전략도 immutable runtime contract로
 포함한다.
 
-Exclusive DB lock을 획득한 뒤 identity, drain, ledger prefix, catalog와 SQL checksum을 다시 확인한다.
+Exclusive DB lock을 획득한 뒤 identity, drain, sealed ledger partition, catalog와 SQL checksum을 다시
+확인한다.
 lock을 보유한 채 실제 시작 runtime mixture와 schema fingerprint를 담은 `FENCED` event를 파일과 부모
 디렉터리에 `fsync`한다. 각 pending file은 `migration-started` 뒤 checksum-bound SQL 내부의 fail-closed
 precondition, target mutation, 별도 live postcondition, ledger 순서로 실행한다. precondition은 target
@@ -168,6 +172,36 @@ mutation 전에 실패하는 leading query 또는 stored routine guard다. lock 
 outcome event에 귀속한다. 실패·중단 또는 부분 적용을 완료 ledger로 기록하지 않는다.
 모든 execution event의 environment와 `planSha256`이 현재 plan과 정확히 일치해야 하며 다른 plan의 완료
 execution을 fast path나 재진입 근거로 사용하지 않는다.
+
+Plan에 `adjudicableLedgerGapRefs`가 있으면 `apply`로 해당 SQL을 실행하지 않는다. 같은 writer
+inventory·identity·drain·exclusive lock·backup 조건에서 `adjudicate-ledger-gap`을 먼저 실행해 sealed gap,
+후행 ledger evidence와 checksum-bound live postcondition을 확인한다. 성공 event가 기록된 뒤
+`repair-ledger`로 SQL 없이 ledger만 복구하고, fresh plan/live partition에서 gap이 사라진 것을 확인한
+뒤 일반 `apply`를 계속한다. 실행 시작 기록이 있는 불명확 outcome은 기존 `adjudicate-outcome`을 사용하며
+두 판정 경로를 서로 대체하지 않는다.
+
+```bash
+pnpm db:migration:maintenance -- adjudicate-ledger-gap \
+  --environment <dev|prod> \
+  --plan <plan.json> \
+  --execution <execution.jsonl> \
+  --migration db/migrations/<sealed-gap-file>.sql \
+  --writer-inventory <writer-inventory.json> \
+  --runtime-mixture <plan-start-mixture-id> \
+  --backup-ref <backup-id> \
+  --backup-sha256 <backup-manifest-sha256> \
+  --result-ref <ledger-gap-adjudication-result-id>
+
+pnpm db:migration:maintenance -- repair-ledger \
+  --environment <dev|prod> \
+  --plan <plan.json> \
+  --execution <execution.jsonl> \
+  --migration db/migrations/<sealed-gap-file>.sql \
+  --writer-inventory <writer-inventory.json> \
+  --runtime-mixture <plan-start-mixture-id> \
+  --backup-ref <backup-id> \
+  --backup-sha256 <backup-manifest-sha256>
+```
 
 개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다. 운영 plan은 개발계 plan과
 execution의 bytes SHA를 함께 참조하고, execution을 해당 개발계 plan의 환경별 partition과
@@ -200,7 +234,9 @@ SQL 성공 후 ledger 기록만 실패한 경우에는 DB identity, checksum과 
 ledger-only repair를 수행한다. `started` 뒤 outcome event가 끊겼으면 같은 SQL을 재실행하지 않고 fresh
 ledger/postcondition으로 adjudicate한 event를 먼저 남긴다. 성공·ledger 없음만 repair하고 실패면 실패
 plan+execution의 hash, DB identity와 target을 결속한 새 번호 recovery migration/immutable plan/execution으로
-복구한다. 재개 뒤 복구는 producer를 다시 fence·drain하고 종료 watermark를 고정한 `RECOVERING`에서만
+복구한다. 실행 시작 기록이 없는 과거 gap은 sealed manifest·plan의 exact 항목일 때만
+`adjudicate-ledger-gap → repair-ledger`를 사용하며 일반 SQL 재실행이나 가짜 success row로 닫지 않는다.
+재개 뒤 복구는 producer를 다시 fence·drain하고 종료 watermark를 고정한 `RECOVERING`에서만
 수행하며 `complete-recovery` 뒤 target과 fresh 시작 watermark를 새 `RESUMED` event로 기록한 후 writer를
 열고 완료한다. `begin-recovery`와 `complete-recovery`가 각각 live ledger의 최종 migration 상태를
 재확인하지 못하면 복구 작업을 진행하지 않는다.
