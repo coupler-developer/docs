@@ -254,9 +254,10 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
   `sourceRef`는 `versionMapping.coupler-api.commit`과 같은 40자 SHA만 쓴다.
 - 신규 `db-migration` evidence는 아래 maintenance 형식만 사용한다. 환경별 산출물은 실행기가 만든
   `plan.json`과 `execution.jsonl` 두 개뿐이다.
-- `pending`에서는 dev/prod plan을 모두 고정하고 execution은 `null`로 둔다. 개발계 완료 뒤 운영계를
-  실행하고, `released` 또는 `rolled_back`으로 닫을 때는 두 환경의 execution 경로와 실제 파일 SHA-256을
-  채운다.
+- 증빙은 `dev plan → dev execution → prod plan → prod execution` 순서의 연속된 prefix로 채운다.
+  최초 `pending`에서는 dev plan만 고정하고 나머지는 `null`로 둔다. 개발계 완료 뒤 dev execution과 그것을
+  참조해 생성한 prod plan을 추가하고, 변경된 미병합 PR head에서 preflight를 다시 통과한 뒤 운영계를
+  실행한다. `released` 또는 `rolled_back`으로 닫을 때는 네 파일의 경로와 실제 SHA-256을 모두 채운다.
 - 과거 릴리스 기록은 불투명한 최종본이므로 열어 고치거나 현재 DB evidence 계약으로 재검증하지 않는다.
 
 ```json
@@ -270,10 +271,7 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
     "execution": null
   },
   "prod": {
-    "plan": {
-      "path": "content/releases/evidence/db-migrations/vX.Y.Z/prod/plan.json",
-      "sha256": "<64-character-sha256>"
-    },
+    "plan": null,
     "execution": null
   }
 }
@@ -307,8 +305,10 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
 - 후속 릴리스가 대기 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
 - 전체 `released` 상태에는 `대기 범위` 값을 비우거나 `N/A`로 적는다.
 - `planned`/`pending`/`in_progress` 상태에서는 아직 확인 전인 값에 `pending`, `미생성` 같은 placeholder를 쓸 수 있다.
-- 운영 배포 전에 원격 기준점에서 `yarn release:preflight --pending-ref <40자 commit SHA>`를 실행한다.
-  자동 검증은 PR 내부의 상태 커밋 순서나 과거 snapshot을 판정 근거로 사용하지 않는다.
+- 각 환경의 운영성 실행 전에 원격 기준점에서
+  `yarn release:preflight --pending-ref <40자 commit SHA>`를 실행한다. dev execution이나 prod plan을
+  추가해 PR head가 바뀌면 새 40자 SHA로 다시 실행한다. 자동 검증은 PR 내부의 상태 커밋 순서나 과거
+  snapshot을 판정 근거로 사용하지 않는다.
 - 릴리즈 기록은 최종본으로 한 번만 `main`에 병합한다. `main`에 존재하는 기록은 불투명한 역사 기록으로서
   수정·삭제·이름 변경·대체할 수 없고 내용도 현재 계약으로 재검증하지 않는다. 오탈자·잘못된 증빙·실패·
   rollback 설명만을 고치기 위한 새 릴리스 기록도 만들지 않는다. 새 기록은 실제 새 배포 또는 DB migration
