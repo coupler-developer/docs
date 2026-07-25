@@ -1,0 +1,310 @@
+{
+  "schema": "db-migration-maintenance-plan/v3",
+  "environment": "dev",
+  "createdAt": "2026-07-25T06:46:15.866Z",
+  "apiSourceRef": "908ebc04cc89c9ff7812f269484e51eda4a3e1a9",
+  "databaseIdentitySha256": "ab5eef61dcbd1b89477fe3542fe384923cebfc90f98821a6dec5fc5d6c0de317",
+  "catalog": {
+    "path": "db/schema/schema-contract.json",
+    "sha256": "77d2d55ffbad3f57432211343fc7cb5dd6d95bb19f9e8d59fd1b216c338aa963"
+  },
+  "ledgerCompatibility": {
+    "path": "db/schema/ledger-compatibility.json",
+    "sha256": "b3f7b274bb82ff3a0d18541eec0e3c46a66395fb59ea902606fc1e1ab9346fe9"
+  },
+  "appliedRefs": [
+    {
+      "file": "db/migrations/75_expand_admin_manager_nickname.sql",
+      "kind": "schema",
+      "sha256": "3a5de2e383ed07e4443e0d5a608746214d32628d6cfa8ceb9238b8dccbb1e381"
+    },
+    {
+      "file": "db/migrations/76_postcheck_admin_manager_nickname.sql",
+      "kind": "postcheck",
+      "sha256": "1a9804a0ec03df89ced0b18713d56e21edff6dbc3e7c4a2c5e5183f25b292a49"
+    },
+    {
+      "file": "db/migrations/79_precheck_lounge_deletion_status.sql",
+      "kind": "precheck",
+      "sha256": "971275681a4c342e8d0020ed745106b0e7c6853d57fa2ca0ada94a0eb701bc25"
+    },
+    {
+      "file": "db/migrations/80_expand_lounge_deletion_status.sql",
+      "kind": "schema",
+      "sha256": "db58e26a3282ef3f0e7bb24c745a1570e17946a295103aa0a4749da34963a096"
+    },
+    {
+      "file": "db/migrations/81_postcheck_lounge_deletion_status.sql",
+      "kind": "postcheck",
+      "sha256": "41875996013f86ca2b162117632d32d8e18f4474220e49815888462994025232"
+    },
+    {
+      "file": "db/migrations/82_expand_lounge_deletion_history.sql",
+      "kind": "schema",
+      "sha256": "b5203835d92c2fce878b857591b0259bc742d60019032344bfe29cfed47e42af"
+    },
+    {
+      "file": "db/migrations/83_precheck_group_meeting.sql",
+      "kind": "precheck",
+      "sha256": "bd410ba517227c519da01b178c1920e1f84c3b74f25d4ffdfbeb7f0e425f480c"
+    },
+    {
+      "file": "db/migrations/84_expand_group_meeting.sql",
+      "kind": "schema",
+      "sha256": "9992c9382a8714ce92ff83cad402875551601d4b70cbf31d9219e279fa280550"
+    },
+    {
+      "file": "db/migrations/85_postcheck_group_meeting.sql",
+      "kind": "postcheck",
+      "sha256": "e0c598a99b30e1de0c1e654d493262a6ebfcd2a1ba55912a8953bcf7aaab90d7"
+    },
+    {
+      "file": "db/migrations/86_reconcile_group_meeting_system_message_contract.sql",
+      "kind": "schema",
+      "sha256": "982b0bacb017a0e96571d40014b00abddd72a1d6c3d27f77fd45a314aa87ce71"
+    },
+    {
+      "file": "db/migrations/87_expand_match_reservation_manager.sql",
+      "kind": "schema",
+      "sha256": "306630335a71fd6b29d952dfd23174acb34a00fac8b71825cf30f413ae74b348"
+    },
+    {
+      "file": "db/migrations/88_expand_admin_moderation_actor_audit.sql",
+      "kind": "schema",
+      "sha256": "bf83c8dd30bd7c6c7e77c7b7d905aa8fe9fc503a8f1281abea2e9dfc1d130a0b"
+    },
+    {
+      "file": "db/migrations/89_expand_concierge_message_idempotency.sql",
+      "kind": "schema",
+      "sha256": "e647b886e938ab43104a9e2892fee7fb60d4e4d758a12aa6c6d7e0343f841a34"
+    },
+    {
+      "file": "db/migrations/90_expand_match_chat_idempotency.sql",
+      "kind": "schema",
+      "sha256": "6f6d0fd25ecd57715e9b6f633046b1876bf9e3e032dee3a9cbf88cf0f3914f2b"
+    },
+    {
+      "file": "db/migrations/92_expand_group_meeting_independent_lifecycle.sql",
+      "kind": "schema",
+      "sha256": "e09b8c09c3282ddf86c6279c8bfb8978d77c3e913c49122248f4d20d51f05d75"
+    },
+    {
+      "file": "db/migrations/94_postcheck_group_meeting_independent_lifecycle_cross_engine.sql",
+      "kind": "postcheck",
+      "sha256": "91a207dc12888ea6c19a6f2f94fbbb06d286adf7eec354de6f4af27b67a83a56"
+    },
+    {
+      "file": "db/migrations/95_contract_group_meeting_event_status.sql",
+      "kind": "contract",
+      "sha256": "f395c8283a4414d042d1b5235bca4e77cacc57dac76596030b20d8461b5158db"
+    },
+    {
+      "file": "db/migrations/96_expand_group_meeting_chat_open_recipient_marker.sql",
+      "kind": "schema",
+      "sha256": "3d64d1022baab4eaf6693976336e4482c15ba697aafc8e2a71a9f898909b86a2"
+    },
+    {
+      "file": "db/migrations/97_backfill_group_meeting_chat_open_recipient_marker.sql",
+      "kind": "data",
+      "sha256": "15614b6c6dee4b80e6cbb27f8a400def5cb4c8e6e5a5b32b2e281799dfef96b4"
+    }
+  ],
+  "recoveredRefs": [],
+  "baselineRefs": [
+    {
+      "file": "db/migrations/77_backfill_incomplete_profile_snapshot_2122.sql",
+      "kind": "data",
+      "sha256": "1fb12e844ec0261d983ea2c0a3684a43ed7d72e3ca18ed6d8cf255e7e35b2e95"
+    },
+    {
+      "file": "db/migrations/78_postcheck_incomplete_profile_snapshot_2122.sql",
+      "kind": "postcheck",
+      "sha256": "fe1d441f47f5762e729116992d15a5736a13b9514dd4319978df653549af08e8"
+    }
+  ],
+  "supersededRefs": [
+    {
+      "ref": {
+        "file": "db/migrations/93_postcheck_group_meeting_independent_lifecycle.sql",
+        "kind": "postcheck",
+        "sha256": "36c4281a78b45a8cfd777ab14f794ef5d223bfdde284e105d8ae2257cdaa3321"
+      },
+      "supersedingRef": {
+        "file": "db/migrations/94_postcheck_group_meeting_independent_lifecycle_cross_engine.sql",
+        "kind": "postcheck",
+        "sha256": "91a207dc12888ea6c19a6f2f94fbbb06d286adf7eec354de6f4af27b67a83a56"
+      }
+    }
+  ],
+  "adjudicableLedgerGapRefs": [
+    {
+      "ref": {
+        "file": "db/migrations/91_postcheck_match_chat_idempotency.sql",
+        "kind": "postcheck",
+        "sha256": "f48e588a829fe42a6fb7f1fbf5cc06fea7edeae73af25f78d1c455405ad0e13b"
+      },
+      "evidenceRef": {
+        "file": "db/migrations/92_expand_group_meeting_independent_lifecycle.sql",
+        "kind": "schema",
+        "sha256": "e09b8c09c3282ddf86c6279c8bfb8978d77c3e913c49122248f4d20d51f05d75"
+      }
+    }
+  ],
+  "pendingRefs": [
+    {
+      "file": "db/migrations/91_postcheck_match_chat_idempotency.sql",
+      "kind": "postcheck",
+      "sha256": "f48e588a829fe42a6fb7f1fbf5cc06fea7edeae73af25f78d1c455405ad0e13b"
+    }
+  ],
+  "devPlan": null,
+  "devExecution": null,
+  "failedPlan": null,
+  "failedExecution": null,
+  "runtimeContract": {
+    "schema": "db-migration-runtime-contract/v1",
+    "runtimeSets": [
+      {
+        "id": "dev-previous",
+        "release": "previous",
+        "units": [
+          {
+            "id": "dev-previous-api",
+            "kind": "api",
+            "sourceRef": "67444420d23105b22f2bd37b53f284e67f5e814c",
+            "compatibilityConfigSha256": "2828cf50e0c52e9063f6b6735b7444d188de39a90fa30c46f70bc0bb193380b4",
+            "roles": [
+              "db-reader",
+              "db-writer",
+              "queue-consumer",
+              "side-effect-producer"
+            ]
+          },
+          {
+            "id": "dev-previous-cron",
+            "kind": "cron",
+            "sourceRef": "67444420d23105b22f2bd37b53f284e67f5e814c",
+            "compatibilityConfigSha256": "2828cf50e0c52e9063f6b6735b7444d188de39a90fa30c46f70bc0bb193380b4",
+            "roles": [
+              "db-reader",
+              "db-writer",
+              "side-effect-producer"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "dev-next",
+        "release": "next",
+        "units": [
+          {
+            "id": "dev-next-api",
+            "kind": "api",
+            "sourceRef": "908ebc04cc89c9ff7812f269484e51eda4a3e1a9",
+            "compatibilityConfigSha256": "2828cf50e0c52e9063f6b6735b7444d188de39a90fa30c46f70bc0bb193380b4",
+            "roles": [
+              "db-reader",
+              "db-writer",
+              "queue-consumer",
+              "side-effect-producer"
+            ]
+          },
+          {
+            "id": "dev-next-cron",
+            "kind": "cron",
+            "sourceRef": "908ebc04cc89c9ff7812f269484e51eda4a3e1a9",
+            "compatibilityConfigSha256": "2828cf50e0c52e9063f6b6735b7444d188de39a90fa30c46f70bc0bb193380b4",
+            "roles": [
+              "db-reader",
+              "db-writer",
+              "side-effect-producer"
+            ]
+          }
+        ]
+      }
+    ],
+    "changedBoundaries": [
+      {
+        "id": "migration-ledger-consistency",
+        "kind": "state",
+        "runtimeUnitIds": [
+          "dev-previous-api",
+          "dev-previous-cron",
+          "dev-next-api",
+          "dev-next-cron"
+        ]
+      }
+    ],
+    "mixtures": [
+      {
+        "id": "dev-previous-start",
+        "runtimeSetId": "dev-previous",
+        "schemaState": "plan-start",
+        "schemaFingerprintSha256": "7735917a5a164022fd58ab49d1e4c23dcf605f767adf178c980f74f0d55fd654",
+        "allowedPhases": [
+          "FENCED"
+        ],
+        "boundaryResults": [
+          {
+            "boundaryId": "migration-ledger-consistency",
+            "result": "supported",
+            "legacyStateEvidence": "2026-07-25 dev live migration 91 postcondition passed while the sealed later ledger evidence remained applied",
+            "newRuntimeStateEvidence": "API 908ebc0 adds the canonical ledger-gap adjudication path without changing application runtime behavior or the physical schema"
+          }
+        ]
+      },
+      {
+        "id": "dev-next-final",
+        "runtimeSetId": "dev-next",
+        "schemaState": "plan-final",
+        "schemaFingerprintSha256": "7735917a5a164022fd58ab49d1e4c23dcf605f767adf178c980f74f0d55fd654",
+        "allowedPhases": [
+          "FENCED",
+          "RESUMED",
+          "RECOVERING"
+        ],
+        "boundaryResults": [
+          {
+            "boundaryId": "migration-ledger-consistency",
+            "result": "supported",
+            "legacyStateEvidence": "migration 91 changes are already present and the repair executes no migration SQL",
+            "newRuntimeStateEvidence": "the final ledger is verified against the unchanged physical schema before the next runtime is resumed"
+          }
+        ]
+      }
+    ],
+    "stateSurfaces": [
+      {
+        "id": "database",
+        "kind": "database"
+      },
+      {
+        "id": "development-cron",
+        "kind": "queue"
+      },
+      {
+        "id": "external-delivery",
+        "kind": "external-effect"
+      }
+    ],
+    "fencedSmoke": {
+      "mode": "read-only",
+      "procedureRef": "v2.3.0-dev-final-ledger-schema-and-api-readonly-smoke"
+    },
+    "recoveryStrategies": [
+      {
+        "kind": "pre-resume-restore",
+        "procedureRef": "v2.3.0-dev-fenced-logical-backup-restore",
+        "restoreEvidence": "the execution-bound full logical dump and SHA-256 are produced after writer drain and before ledger repair",
+        "rpo": "zero accepted writes while the runtime is fenced",
+        "rto": "restore the execution-bound logical dump before runtime resume",
+        "followupPlanRequired": true
+      },
+      {
+        "kind": "forward-fix-migration",
+        "procedureRef": "append-only forward fix after a fresh fenced plan",
+        "followupPlanRequired": true
+      }
+    ]
+  }
+}
