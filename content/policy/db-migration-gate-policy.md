@@ -34,6 +34,7 @@ marker, Gate별 N/A 표는 신규 migration 계약이 아니다.
 | 책임 | 단일 SoT |
 | --- | --- |
 | 실행 가능한 migration과 checksum | API 저장소의 append-only migration catalog |
+| 과거 ledger 호환성 | API 저장소의 sealed `ledger-compatibility.json` |
 | 물리 schema 기준 | `baseline.sql`, `baseline.lock.json`, `schema.lock.json` |
 | migration별 검증 | 해당 migration의 setup/check fixture와 SQL 자체의 pre/postcondition |
 | 환경별 적용 완료 | 각 DB의 `schema_migrations` ledger |
@@ -93,9 +94,10 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 3. 모든 writer와 queue/external-effect producer가 중지됐고 그 증빙이 있다.
 4. application writer session과 활성 transaction이 0건이다.
 5. 복원 가능한 backup 또는 snapshot의 식별자와 digest가 준비돼 있다.
-6. catalog 전체가 `appliedRefs + recoveredRefs[].ref + pendingRefs`로 정확히 분할되고, recovery migration
-   자체는 `appliedRefs` 또는 `pendingRefs`에 포함되며, pending은 catalog
-   순서를 유지한다.
+6. catalog 전체가 `appliedRefs + recoveredRefs[].ref + baselineRefs + supersededRefs[].ref +
+   pendingRefs`로 정확히 분할되고, recovery migration 자체는 `appliedRefs` 또는 `pendingRefs`에
+   포함되며, pending은 catalog 순서를 유지한다. `adjudicableLedgerGapRefs[].ref`는
+   `pendingRefs`의 exact subset이어야 한다.
 7. plan의 catalog와 SQL checksum이 배포 ref의 실제 bytes와 일치한다.
 8. 운영 plan 생성과 실제 운영 maintenance 명령 진입 때마다 참조한 개발계 plan/execution의 bytes SHA,
    execution `planSha256`, 환경별 history, catalog/runtime-contract SHA를 다시 검증한다.
@@ -105,23 +107,27 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 1. runtime 계약과 writer inventory를 고정하고 API, Admin, WebSocket, cron, worker, direct SQL writer와
    queue/external-effect producer를 모두 중지한다.
 2. DB identity, TLS, session/transaction drain과 backup을 확인한다.
-3. exclusive DB lock을 획득하고 identity, drain, ledger prefix, plan과 SQL checksum을 다시 확인한다.
+3. exclusive DB lock을 획득하고 identity, drain, sealed ledger partition, plan과 SQL checksum을 다시
+   확인한다.
 4. lock을 보유한 채 시작 runtime set·schema fingerprint를 포함한 `FENCED` event를 실행 파일과 부모
    디렉터리에 `fsync`한다.
-5. plan 순서대로 `migration-started`를 기록한 뒤 checksum-bound SQL 내부의 fail-closed precondition,
+5. plan에 `adjudicableLedgerGapRefs`가 있으면 일반 `apply` 전에 후행 evidence ref와 별도 live
+   postcondition을 `adjudicate-ledger-gap`으로 판정하고 SQL 실행 없이 `repair-ledger`로 ledger를
+   복구한다. 판정·복구도 같은 identity, drain, lock, backup, writer inventory 조건을 사용한다.
+6. 나머지 plan 순서대로 `migration-started`를 기록한 뒤 checksum-bound SQL 내부의 fail-closed precondition,
    target mutation, 별도 live postcondition, ledger 기록을 수행한다. precondition은 target mutation 전에
    실패하는 leading query 또는 stored routine 내부 guard다. lock 안에서 migration/postcondition을 한 번
    읽어 checksum을 확인한 그 bytes만 실행하고, 별도 수기 결과가 아니라
    `migration-sql-succeeded | migration-failed` 인과에 포함한다.
-6. 전체 postcheck와 catalog/ledger 완료 상태를 확인하고 lock을 해제한다.
-7. 최초 재개 조합과 같은 execution에서 사용할 모든 복구 target의 plan-final smoke를 writer가 닫힌
+7. 전체 postcheck와 catalog/ledger 완료 상태를 확인하고 lock을 해제한다.
+8. 최초 재개 조합과 같은 execution에서 사용할 모든 복구 target의 plan-final smoke를 writer가 닫힌
    `FENCED`에서 수행한다. read-only, transaction rollback 또는 isolated synthetic만 허용하며 plan의
    procedure ref, 별도 result ref, DB·queue·외부효과 모든 표면의 residual 0을 정확히 증명한다.
-8. 현재 완전 릴리즈+최종 DB 조합, 상태 표면별 시작 watermark와 `RESUMED` event를 durable하게 기록한
+9. 현재 완전 릴리즈+최종 DB 조합, 상태 표면별 시작 watermark와 `RESUMED` event를 durable하게 기록한
    뒤에만 production writer와 effect producer를 연다.
-9. 재시작한 모든 runtime unit의 source ref와 compatibility-config SHA를 실제 관측한 running inventory가
+10. 재시작한 모든 runtime unit의 source ref와 compatibility-config SHA를 실제 관측한 running inventory가
    active mixture와 정확히 일치하고 smoke가 통과한 뒤에만 서비스를 완료한다.
-10. 재개 뒤 복구가 필요하면 writer/effect producer를 다시 fence·drain하고 종료 watermark를 기록한
+11. 재개 뒤 복구가 필요하면 writer/effect producer를 다시 fence·drain하고 종료 watermark를 기록한
    `RECOVERING`으로 들어간다. 사전 smoke한 target에 선언된 전략과 증빙으로 상태를 복구하고, target
    mixture와 fresh 시작 watermark를 새 `RESUMED` event로 durable하게 기록한 뒤 runtime을 열어 서비스를
    완료한다.
@@ -134,9 +140,14 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 
 `plan.json`은 실행 전에 생성하는 immutable 입력이다.
 
-- 환경, DB identity digest, API source ref, catalog path와 checksum을 포함한다.
-- catalog의 모든 entry를 `appliedRefs`, `recoveredRefs[].ref`, `pendingRefs` 중 하나에 정확히 한 번씩
-  포함한다. `recoveredRefs[].recoveryRef`는 적용된 recovery ref와 원본 ref의 관계를 결속한다.
+- 환경, DB identity digest, API source ref, catalog와 ledger compatibility artifact의 path/checksum을
+  포함한다.
+- catalog의 모든 entry를 `appliedRefs`, `recoveredRefs[].ref`, `baselineRefs`,
+  `supersededRefs[].ref`, `pendingRefs` 중 하나에 정확히 한 번씩 포함한다.
+  `recoveredRefs[].recoveryRef`는 적용된 recovery ref와 원본 ref의 관계를,
+  `supersededRefs[].supersedingRef`는 대체 ref를 결속한다.
+- `adjudicableLedgerGapRefs`는 `pendingRefs`의 exact subset이며, 각 항목은 gap ref와 실제 후행 ledger
+  evidence ref를 결속한다.
 - 각 ref는 migration 경로, kind와 SQL SHA-256을 포함한다.
 - `pendingRefs`는 catalog 순서를 유지하며 임의 subset을 허용하지 않는다.
 - 실행 중 ledger는 `pendingRefs`의 연속된 prefix로만 전진할 수 있다.
@@ -159,7 +170,8 @@ transition 파일을 만들지 않는다.
 - exclusive lock 획득과 해제
 - plan/catalog checksum
 - 파일별 `migration-started`, `migration-sql-succeeded`, `migration-ledger-succeeded`,
-  `migration-failed`의 `sql-or-postcondition | ledger` phase, `migration-outcome-adjudicated`
+  `migration-failed`의 `sql-or-postcondition | ledger` phase, `migration-outcome-adjudicated`,
+  `migration-ledger-gap-adjudicated`
 - 동일 ref의 성공은 `migration-started → migration-sql-succeeded → migration-ledger-succeeded`
   인과 순서로만 인정하며, 모든 `pendingRefs`가 이 execution에서 해결되기 전에는
   `database-completed`를 기록하지 않는다.
@@ -192,8 +204,8 @@ execution에 추가하지 않는다. 성공한 action 뒤 DB가 해제 성공을
 `schema_migrations`는 성공 시도 로그가 아니라 선언된 완료 조건을 만족한 migration의 append-only
 완료 이력이다.
 
-- 같은 이름과 checksum row가 있으면 SQL을 재적용하지 않는다.
-- 같은 이름에 다른 checksum이 있으면 즉시 중단한다.
+- 같은 이름과 canonical checksum 또는 sealed exact alias row가 있으면 SQL을 재적용하지 않는다.
+- 같은 이름에 다른 checksum이 있으면 sealed 환경별 exact alias가 아닌 한 즉시 중단한다.
 - SQL 또는 postcondition이 실패하면 ledger row를 만들지 않는다.
 - SQL 성공 후 ledger 기록만 실패하면 DB identity, SQL checksum과 postcondition을 확인한 뒤
   ledger-only repair를 수행할 수 있다.
@@ -201,6 +213,11 @@ execution에 추가하지 않는다. 성공한 action 뒤 DB가 해제 성공을
   identity·drain·ledger·고정 postcondition과 별도 incident/result ref로 outcome을 adjudicate한다.
   postcondition 성공·ledger 없음이면 ledger-only repair, 실패면 append-only recovery migration의 새
   plan/execution으로 이동한다.
+- 실행 시작 기록이 없는 과거 ledger gap은 `migration-outcome-adjudicated`로 위장하지 않는다. Sealed
+  compatibility manifest와 immutable plan이 gap ref·후행 evidence ref를 exact하게 선언하고, live
+  ledger에서 evidence ref가 적용 상태이며 별도 postcondition이 성공한 경우에만
+  `migration-ledger-gap-adjudicated`를 기록한다. 이 event 뒤에는 SQL 없이 ledger-only repair만 허용한다.
+  일반 `apply`는 판정·복구되지 않은 adjudicable gap SQL을 실행하지 않는다.
 - side effect가 일부만 적용됐거나 완료 조건이 불명확하면 같은 파일을 재실행하지 않고 새 번호의 recovery
   migration을 추가한다.
 - `skipped`, 가짜 성공 row, checksum 변경으로 실패를 닫지 않는다.
@@ -229,6 +246,14 @@ backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PI
 - Baseline 교체는 신규 migration과 분리한다. 운영 ledger와 catalog exact-set, DB identity,
   schema-only capture와 base-owned capture authority를 모두 확인한다.
 - Baseline 교체 뒤에도 기존 SQL과 ledger row를 삭제하지 않는다.
+- Catalog 이전 과거 ledger는 환경별 전체 row count와 canonical SHA-256 fingerprint가 sealed
+  compatibility manifest와 정확히 일치할 때만 허용한다.
+- 과거 runner의 kind·환경명·checksum 차이는 환경·migration별 exact tuple로만 허용한다. 비슷한 값,
+  wildcard, 환경 공통 alias는 허용하지 않는다.
+- baseline 포함 migration의 ledger 생략과 대체된 migration은 별도 resolved 상태로 분류하며 정상
+  `appliedRefs`로 위장하지 않는다.
+- Compatibility manifest의 기존 prefix identity와 기존 alias·supersession·gap 항목은 수정·삭제하지
+  않는다. 새 사실을 추가해야 하면 실제 DB 판정 근거와 회귀 테스트를 같은 변경에 포함한다.
 
 ## 릴리스 기록
 
@@ -254,10 +279,12 @@ execution을 정확히 묶는 역할만 한다.
 
 - [ ] 모든 writer/effect producer의 owner, 실제 runtime ref/config와 중지 또는 부재 근거가 확인됐는가?
 - [ ] DB identity·TLS, session/transaction 0건과 backup이 fresh evidence에 있는가?
-- [ ] Plan이 catalog 전체를 `appliedRefs + recoveredRefs[].ref + pendingRefs`로 exact partition하는가?
+- [ ] Plan이 catalog 전체를 `appliedRefs + recoveredRefs[].ref + baselineRefs +
+      supersededRefs[].ref + pendingRefs`로 exact partition하고 adjudicable gap은 pending subset인가?
 - [ ] 이전·현재·필요한 혼합 runtime, 변경 경계, 상태 표면, 허용 phase와 복구 전략이 plan에 선언됐는가?
 - [ ] 같은 catalog/runtime-contract SHA의 개발계 완료 뒤 운영계를 실행했는가?
-- [ ] 모든 pending ref가 순서대로 postcondition과 ledger를 완료했는가?
+- [ ] sealed gap은 후행 ledger evidence와 live postcondition으로 별도 판정·ledger-only repair했고,
+      나머지 pending ref는 순서대로 postcondition과 ledger를 완료했는가?
 - [ ] FENCED final-DB smoke가 최초 재개·복구 target 조합과 모든 상태 표면 residual 0을 증명했는가?
 - [ ] RESUMED marker와 시작 watermark가 production write/effect보다 먼저 durable하게 기록됐는가?
 - [ ] 복구했다면 target의 새 RESUMED marker와 fresh 시작 watermark 뒤에 runtime을 열었는가?
