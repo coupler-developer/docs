@@ -153,6 +153,10 @@
   previous-release 복구는 inventory의 모든 consumer-interface에 대한 이전 API 성공 rollback case
   exact-set을 요구한다. `apiContractCutover`는 이 case ID를 참조하는 activation/client rollback만
   소유하며 activation에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다.
+- contracts-package `sourceRef`는 stable package를 실제 발행한 workflow source를 보존한다. 그 ref와
+  `versionMapping.coupler-api.commit`이 다르면 `packages/contracts`의 양쪽 git tree SHA를
+  `sourceTree.publishedSourceTree`와 `sourceTree.releaseSourceTree`에 기록하고 정확히 같아야 한다.
+  이후 `main`이 전진했다는 이유로 실제 publish source나 API release source를 바꾸지 않는다.
 - 심사용 Store native bundle과 출시 시 같은 target binary에 적용할 NextPush가 서로 다른 API 환경을
   가리키면 기존 Store, 현재 Store native, 현재 NextPush consumer의 artifact/case evidence에
   `production | development` 대상을 각각 명시한다. 개발 API를 본 Store case는 심사·QA 근거일 뿐 운영
@@ -179,6 +183,10 @@
   migration scope는 canonical executor가 단계별로 만든 연속된 artifact prefix와 같은 PR head의 exact
   SHA-256을 확인한다. dev execution 또는 prod plan을 추가해 PR head가 바뀌면 다음 환경 실행 전에
   preflight를 다시 통과해야 한다.
+- 서비스 버전 매핑은 원격 annotated 태그가 확정되기 전에는 해당 레포의 현재 `origin/main`과 정확히
+  일치해야 한다. 배포·검증 뒤 원격 annotated 태그와 commit이 같은 기준점으로 고정되면 그 태그가 불변
+  릴리스 기준이 되며, 후속 작업으로 `main`이 전진해도 이미 배포된 commit을 새 `main`으로 바꾸지 않는다.
+  태그가 없거나 원격에서 확인되지 않거나 tag/commit이 다르면 과거 commit을 릴리스 기준으로 허용하지 않는다.
 - 장기·메이저 릴리즈도 열린 docs PR과 릴리즈 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙

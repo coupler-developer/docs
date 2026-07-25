@@ -445,6 +445,11 @@ function validateEvidenceShapeValue({
     return;
   }
 
+  if (valueType === "contractsSourceTree") {
+    validateContractsSourceTreeShape(value, context, fieldPath, errors);
+    return;
+  }
+
   if (valueType === "submittedMarkers") {
     validateSubmittedMarkersShape(value, context, fieldPath, errors);
     return;
@@ -854,15 +859,6 @@ function validateApiPublicContractEvidence(
       publicContract.contractRefs.current !== publishedPackage
     ) {
       errors.push(`${context}: release-metadata ${fieldPath}.contractRefs.current must exactly match the published contracts package`);
-    }
-    const packageSourceRef =
-      metadata.scopeResults?.["contracts-package"]?.evidence?.sourceRef;
-    if (
-      terminal &&
-      releaseScopes.includes("contracts-package") &&
-      packageSourceRef !== publicContract.apiRefs?.current
-    ) {
-      errors.push(`${context}: release-metadata contracts-package sourceRef must exactly match ${fieldPath}.apiRefs.current`);
     }
   }
 
@@ -1630,6 +1626,11 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
     return;
   }
 
+  if (evidence.valueType === "contractsSourceTree") {
+    validateContractsSourceTreeEvidence(value, context, scopeName, fieldPath, errors);
+    return;
+  }
+
   if (evidence.valueType === "mobileStore") {
     if (typeof value !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(value)) {
       errors.push(
@@ -1657,6 +1658,55 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
   if (valueHasReleasePlaceholderSignal(value)) {
     errors.push(
       `${context}: ${scopeName} evidence ${fieldPath} must not be pending or placeholder evidence`,
+    );
+  }
+}
+
+function validateContractsSourceTreeShape(value, context, fieldPath, errors) {
+  if (value === null) {
+    return;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push(`${context}: release-metadata ${fieldPath} must be an object or null`);
+    return;
+  }
+  validateExactObjectKeys({
+    value,
+    allowedKeys: ["path", "publishedSourceTree", "releaseSourceTree"],
+    context,
+    fieldPath,
+    errors,
+  });
+  if (value.path !== "packages/contracts") {
+    errors.push(`${context}: release-metadata ${fieldPath}.path must equal packages/contracts`);
+  }
+  for (const key of ["publishedSourceTree", "releaseSourceTree"]) {
+    if (!isFullCommitSha(value[key])) {
+      errors.push(`${context}: release-metadata ${fieldPath}.${key} must be a full 40-character git tree SHA`);
+    }
+  }
+}
+
+function validateContractsSourceTreeEvidence(
+  value,
+  context,
+  scopeName,
+  fieldPath,
+  errors,
+) {
+  validateContractsSourceTreeShape(value, context, fieldPath, errors);
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !isFullCommitSha(value.publishedSourceTree) ||
+    !isFullCommitSha(value.releaseSourceTree)
+  ) {
+    return;
+  }
+  if (value.publishedSourceTree !== value.releaseSourceTree) {
+    errors.push(
+      `${context}: terminal ${scopeName} evidence ${fieldPath} must prove identical published and release contracts trees`,
     );
   }
 }

@@ -35,6 +35,7 @@ const serviceRepoRefPolicy = {
   tagMustBeAncestorOfOriginMain: true,
   commitMustBeAncestorOfOriginMain: true,
   refMustEqualCurrentOriginMain: true,
+  annotatedOriginTagFreezesHistoricalRef: true,
 };
 
 export const repoRefPolicyDescriptors = {
@@ -49,6 +50,7 @@ export const repoRefPolicyDescriptors = {
     tagMustBeAncestorOfOriginMain: true,
     commitMustBeAncestorOfOriginMain: false,
     refMustEqualCurrentOriginMain: false,
+    annotatedOriginTagFreezesHistoricalRef: false,
   },
   "coupler-api": serviceRepoRefPolicy,
   "coupler-admin-web": serviceRepoRefPolicy,
@@ -96,6 +98,11 @@ export const releaseScopeDescriptors = {
         label: "contracts package source ref",
         metadataPath: ["scopeResults", "contracts-package", "evidence", "sourceRef"],
         valueType: "commitSha",
+      },
+      {
+        label: "contracts package source tree",
+        metadataPath: ["scopeResults", "contracts-package", "evidence", "sourceTree"],
+        valueType: "contractsSourceTree",
       },
     ],
   },

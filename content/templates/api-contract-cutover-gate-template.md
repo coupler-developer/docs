@@ -7,8 +7,9 @@ API/Admin/Mobile 공개 API 계약 변경 중 `API cutover: Yes`일 때만
 client rollback만 소유하며 DB backup/restore를 소유하지 않는다.
 Exact `publicContract` consumer/artifact/case와 `runtimeRecovery` JSON shape는
 [릴리스 실행 기록 템플릿](release-record-template.md)의 예시를 그대로 따른다.
-Terminal cutover는 contracts-package scope가 `released`이고 package `sourceRef`가 current API 40자 SHA와
-같을 때만 기록한다. `released` cutover는 API scope `released`, `rollback` cutover는 API scope
+Terminal cutover는 contracts-package scope가 `released`이고 package `sourceRef`가 current API 40자
+SHA와 같거나, 두 ref의 `packages/contracts` git tree SHA가 같다는 `sourceTree` 증빙이 있을 때만
+기록한다. `released` cutover는 API scope `released`, `rollback` cutover는 API scope
 `rolled_back`과 정확히 대응한다.
 Activation case IDs에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다. Client rollback case IDs는
 이전 소비자가 현재 API에서 성공하는 rollback case만 참조한다. 이전 API/runtime 복구 case는
