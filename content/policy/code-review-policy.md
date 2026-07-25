@@ -80,14 +80,18 @@
 - 검증 방법: 테스트/검증 스크립트/로그/수동 시나리오
 - 상태 분류: 없음/회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백
 - N/A 사유: 회귀 영향이 없다고 판단한 근거
-- API 계약 변경/Cutover: 단일 최종 계약 배포 여부, Store 출시 activation 강제 업데이트 또는 NextPush mandatory 방식,
-  신규/기존 호환 경로 여부, 호환이 있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈·검증 근거
-- API 계약 판정 범위: `동시 배포 계약 묶음` / `운영 legacy cutover` / `N/A`
-- 동시 배포 계약 묶음: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면, 요청·응답 wire 계약 정렬 결과
+- API 계약 판정: `API cutover: No | Yes | N/A`와 근거
+- 소비자/API 증빙: Store/OTA/Admin release-scoped inventory와 REST·WebSocket·bootstrap·version
+  consumer-interface case
+- DB runtime 증빙: 이전·현재·실제 혼합 runtime unit/ref/config, 시작·최종 DB 조합, 변경 경계,
+  FENCED/RESUMED/RECOVERING과 상태 표면·복구 결과 또는 `N/A` 근거
+- API 계약 판정 범위: `하위 호환 변경` / `contract cutover` / `운영 legacy cutover` / `N/A`
+- 현재 source 정렬: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면,
+  요청·응답 wire 계약 정렬 결과
 - 다중 레포 문서 최종 상태: 관련 PR 전체 병합 후 source main version·기능 상태, 선행 PR과 merge order,
   브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과
-- 운영 증빙 적용 여부: legacy 호환 경로를 실제 제거하는 변경인지와 Store 출시 activation 강제 업데이트 또는 NextPush
-  mandatory, 현재 코드 소비 경로 0건, 릴리즈 기록 적용/N/A 근거
+- 운영 증빙 적용 여부: legacy 경로를 실제 제거하는 변경인지, 결정론적 요청 차단·release-scoped
+  consumer case·릴리즈 기록 적용/N/A 근거
 
 ## 문서 동기화
 
@@ -136,9 +140,11 @@
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
 - [ ] 외부 의존성을 추가·대체하면 [에이전트 운영 규칙](../AGENTS.md)의 `권한 집합`에 따른 명시적 승인 기록과 [엔지니어링 가드레일](engineering-guardrails.md)의 `외부 의존성 변경 사전 검토` 근거를 확인
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
-- [ ] API 계약 변경이면 단일 최종 계약과 강제 업데이트/mandatory 방식을 기록하고, 호환 경로 추가/수정/사용이
-  있으면 작업 요청자의 명시적 승인, 제거 조건, 목표 시점, 추적 이슈, 검증 근거를 기록
-- [ ] API 계약 리뷰가 `동시 배포 계약 묶음`인지 `운영 legacy cutover`인지 먼저 고정하고, 동시 배포 묶음에는 운영 증빙을 요구하지 않으며 legacy 경로 제거에는 운영 Gate를 생략하지 않았는지 확인
+- [ ] API/DB 변경이면 API 소비자 inventory/case와 DB runtime/schema 조합·상태 표면을 기록하고,
+  API `Yes`이면 activation·old-readable bootstrap/upgrade·client rollback, DB migration이면
+  FENCED/RESUMED/RECOVERING·post-resume state/effect 복구를 기록
+- [ ] API 계약 리뷰가 `하위 호환 변경`, `contract cutover`, `운영 legacy cutover`, `N/A` 중 어디인지 먼저
+  고정하고 source 정렬을 운영 구버전 차단 증빙으로 오인하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 다중 레포 최종 상태 문서가 관련 PR 전체 병합 후에도 사실이고, branch-local version·`main 병합 대기`를
   `as-is` 문서나 기술부채의 최종 상태로 남기지 않았으며 선행 PR과 merge order가 기록됐는지 확인
@@ -289,9 +295,11 @@
 - 현재 diff가 읽거나 수정하지 않는 기존 불일치는 [엔지니어링 가드레일](engineering-guardrails.md)의
   `회귀 안전성 게이트`에 따라 `기존 부채`로 분류한다. 직접 수정·재사용·확산한 경로는 현재 변경의
   Finding으로 판정한다.
-- 동시 배포 계약 묶음과 운영 legacy cutover는 [엔지니어링 가드레일](engineering-guardrails.md)의 기술 이행
-  유형과 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
-  적용한다. 리뷰 범위의 `No Findings`를 전체 운영 cutover 완료로 확대 해석하지 않는다.
+- 하위 호환 변경, contract cutover와 운영 legacy cutover는
+  [엔지니어링 가드레일](engineering-guardrails.md)의 기술 이행 유형과
+  [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
+  적용한다. 현재 source 정렬이나 리뷰 범위의 `No Findings`를 운영 구버전 차단 또는 전체 cutover 완료로
+  확대 해석하지 않는다.
 
 ### 런타임 설정 리뷰 기준
 
@@ -325,8 +333,9 @@
 - [ ] 기능 회귀 가능성이 있는 변경은 [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 분류/검증됐는가?
 - [ ] DB/API 런타임 설정 변경 시 `coupler-api` 재배포/재시작 필요 여부와 post-deploy 확인 항목을 기록했는가?
 - [ ] React Native `StyleSheet.create`에 신규 style key를 추가한 경우 `lowerCamelCase`로 작성했는가?
-- [ ] API 계약 변경이면 단일 최종 계약과 강제 업데이트/mandatory 방식이 남았고, 호환 경로 추가/수정/사용이
-  있으면 작업 요청자의 명시적 승인과 제거 조건·목표 시점·추적 이슈가 PR/릴리즈 기록에 남았는가?
+- [ ] API/DB 변경이면 `API cutover`와 release-scoped consumer case, DB의 실제 runtime/schema 조합이
+  기록됐고, API `Yes`에는 activation/client rollback이, DB migration에는 durable phase와 무손실
+  복구 경로가 있는가?
 - [ ] 다중 레포 계약 묶음의 문서가 개별 브랜치의 리뷰 시점이 아니라 관련 PR 전체 병합 후 source main 상태를
   설명하고, 문서 PR이 선행 consumer PR 이후에 merge되도록 의존 순서가 기록됐는가?
 - [ ] 기존 정책 불일치를 회귀로 오판하지 않고, 이번 변경이 새로 만들거나 확산한 문제인지 근거로 구분했는가?
@@ -338,15 +347,17 @@
 ### 리뷰 전제
 
 - 기술 이행 전제는 [엔지니어링 가드레일](engineering-guardrails.md)의 `기술 이행 유형`에서 먼저 고정한다.
-- 이 프로젝트의 기본 전제는 Store 심사 승인과 출시 가능 상태 확인 뒤 activation window에서
-  `version_code`·`min_version` 갱신으로 이전 build를 `force_update=2`로 차단하고, NextPush도 같은 장벽 안에서
-  Android·iOS `Production` mandatory로 이전 bundle을 교체하는 `동시 배포 계약 묶음`이다.
-- API/Admin과 Mobile 교체가 모두 끝나기 전에 혼합 계약 사용자 요청이 통과하면 Finding이다. activation
-  barrier를 보장할 수 없으면 fallback을 요구하지 않고 배포 차단으로 판정한다.
-- 설치된 구버전의 존재나 일반적인 공존 가능성만으로 `호환 배포`를 제안하거나 Finding으로 요구하지 않는다.
-  호환 배포는 작업 요청자의 명시적 승인 근거가 있을 때만 판정한다.
-- 승인된 운영 legacy를 제거할 때는 강제 업데이트/mandatory와 현재 코드 소비 경로 0건을 확인하며, 24시간
-  traffic 관찰은 작업 요청자가 별도로 요구하지 않는 한 Gate로 추가하지 않는다.
+- API 변경의 기본 전제는 release-scoped 지원 이전 소비자가 현재 API+최종 DB에서 성공하는
+  `하위 호환 변경`이다. Store 출시와 NextPush는 별도 모바일 활성화 범위다. DB 변경은 실제 이전·현재·혼합
+  runtime과 최종 DB 조합을 plan에 선언한다.
+- API `No`와 DB의 허용 runtime/schema 조합은 consumer-interface case와 실행 증빙으로 증명한다.
+  강제 업데이트, mandatory, 현재 source 정렬 또는 버전을 구분할 수 없는 traffic 0건으로 대신하지 않는다.
+- API `Yes`이면 혼합 계약 요청을 서버·proxy·유지보수 상태에서 결정론적으로 차단할 수 있어야
+  한다. 앱 팝업만으로 차단을 주장하면 Finding이다.
+- DB migration이면 writer/effect producer 중지, backup, FENCED final-DB smoke, durable RESUMED와
+  post-resume state/effect 복구가 있어야 한다.
+- 운영 legacy 제거는 source 검색이 아니라 release-scoped 소비자 inventory/case와 실제 요청 차단으로
+  확인한다. 장시간 traffic 관찰은 완료 Gate로 사용하지 않는다.
 
 ## 작성자 가이드
 

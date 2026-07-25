@@ -306,8 +306,8 @@ Mobile은 신청·승인·확정 취소·행사 취소 알림 77~79·81과 신�
 함께 발송한다. 이 보충 알림은 새 승인자만 대상으로 하며 같은 경계의 기존 구성원에게 다시 발송하지 않는다.
 Admin 승인과 cron은 채팅 구성원별로 처리한 개방 경계를 공동 중복 방지 기준으로 사용하므로, 즉발 처리된 새
 승인자는 다음 cron 대상에서 제외된다. 행사 단위 개방 marker는 cron batch 요약이며 수신자 판정 기준이 아니다.
-소비자 cutover와 운영 증빙은
-[기술 부채 인벤토리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서
+소비자 정렬과 운영 증빙은
+[기술 부채 인벤토리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 정렬 및 출시 통합 미완료`에서
 추적한다.
 
 활성 채팅 화면의 새 `USER` 메시지는 기존 회원 WebSocket의 `group_meeting:message`로 동기화한다. 이벤트는
@@ -363,7 +363,7 @@ unread 절을 따른다.
 - API·Admin·Mobile은 published latest stable contracts package를 exact pin하고 동일 DTO를 직접 소비한다.
   소비자별 정렬 미완료 조건, PR 병합과 운영 전환 현황은
   [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-  `그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다. 현재 version 정렬은 세 레포 package
+  `그룹미팅 소비자 정렬 및 출시 통합 미완료`에서 추적한다. 현재 version 정렬은 세 레포 package
   manifest·lockfile로 판정하고 concrete version과 기준 ref는 릴리스 기록에 둔다. 이 문서에는 별도 normalize,
   ID fallback, local wire DTO를 추가하지 않는 목표 구조만 유지한다.
 
@@ -427,8 +427,8 @@ schema 검증, runtime smoke를 모두 통과해야 한다. 환경별 실행 증
 group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과 운영 전환 조건을 모두 충족한 뒤에만
 `as-is`로 승격한다.
 
-남은 소비자 cutover와 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`그룹미팅 소비자 cutover 및 출시 통합 미완료`에서 추적한다.
+남은 소비자 정렬과 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`그룹미팅 소비자 정렬 및 출시 통합 미완료`에서 추적한다.
 
 ## 관련 문서
 

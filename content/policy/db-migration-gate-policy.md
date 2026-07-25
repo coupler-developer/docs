@@ -16,6 +16,10 @@ WebSocket, cron, worker, direct SQL writer를 모두 멈춘 유지보수 구간�
 이 정책은 운영자가 실제로 확인해야 하는 안전 조건만 남긴다. 서명, trust epoch, frontier, activation
 marker, Gate별 N/A 표는 신규 migration 계약이 아니다.
 
+유지보수 중단은 SQL 실행 안전을 위한 것이며 API 계약 cutover와 같은 뜻이 아니다. DB 변경은 전역
+`Compatible/Cutover` 라벨로 단순화하지 않고, 계획에 선언한 실제 runtime·schema 조합과 상태 표면을
+실행기가 검증한 뒤에만 서비스를 재개한다.
+
 ## 적용 범위
 
 - DDL, backfill, read/write 기준 변경, 객체 제거
@@ -45,28 +49,83 @@ catalog entry와 ledger row를 보존한다.
 0으로 만들 수 없으면 실행하지 않는다. 무중단·online migration이 필요하면 이 절차에 예외를 추가하지 않고
 별도 설계와 승인을 진행한다.
 
+## Runtime 계약
+
+모든 migration은 구현 전에 `db-migration-runtime-contract/v1`을 만들고 immutable plan에 포함한다.
+이 계약이 DB runtime 안전성의 단일 SoT다.
+
+- 이전·현재·실제로 노출할 혼합 runtime set과 각 unit의 ID, kind, source ref,
+  compatibility-config SHA, DB reader/writer,
+  queue consumer, side-effect producer 역할
+- 변경된 read/write/state 경계와 각 runtime/schema 조합의 legacy/new-state 검증 결과
+- 시작 DB와 최종 DB의 canonical physical schema SHA-256, 실제로 허용할 runtime 조합 및
+  `FENCED | RESUMED | RECOVERING` 허용 phase
+- DB, queue, 외부효과의 상태 표면
+- FENCED smoke 방식: read-only, transaction rollback, isolated synthetic 중 하나
+- 재개 전 restore, append-only recovery migration, 이전 완전 릴리즈+최종 DB, forward fix,
+  lossless reconciliation 중 실제 준비한 복구 전략과 검증 procedure ref
+
+`RESUMED` 조합은 모든 변경 경계가 성공해야 하며, 현재 완전 릴리즈+최종 DB 조합은 정확히 하나여야 한다.
+이 현재 조합은 재개 뒤 복구의 active source가 될 수 있도록 `FENCED | RESUMED | RECOVERING`을 모두
+허용해야 한다.
+`mixed` runtime set은 durable `RESUMED` 조합으로 허용하지 않는다. 순차 재기동 중 mixed runtime이 생길 수
+있다면 writer/effect producer를 계속 fence한 `FENCED | RECOVERING` 안에서만 전환하고, 그 보장이 없으면
+재개를 차단한다.
+이전 완전 릴리즈+최종 DB rollback을 선언하려면 해당 runtime의 모든 queue consumer와 side-effect producer에
+cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연결한다. SQL이 update·backfill·delete·DDL
+중 무엇인지, 현재 source 소비가 0건인지, Store 강제 업데이트나 NextPush mandatory 여부는 이 증빙을
+대체하지 않는다.
+
+복구 plan은 accepted write, state postcondition, queue/effect producer, ledger와 sink 검증 procedure ref를
+고정한다. execution은 같은 procedure ref와 별도의 실제 result ref를 남겨 계획과 결과를 결속한다. plan의
+설명 문자열을 runtime 결과로 복사한 값은 증빙이 아니다.
+
 ## 실행 전 조건
 
 다음 조건을 모두 fresh read로 확인한다.
 
 1. 대상 환경과 DB identity가 예상값과 일치하고 TLS 검증이 활성화돼 있다.
-2. API HTTP write, Admin write, WebSocket, cron, worker, direct SQL의 owner와 중지 명령이
-   `execution.jsonl`에 기록돼 있다.
-3. application writer session과 활성 transaction이 0건이다.
-4. 복원 가능한 backup 또는 snapshot의 식별자와 digest가 준비돼 있다.
-5. catalog 전체가 `completedRefs + pendingRefs`로 정확히 분할되고, pending은 catalog 순서를 유지한다.
-6. plan의 catalog와 SQL checksum이 배포 ref의 실제 bytes와 일치한다.
-7. 개발계 execution이 완료되지 않았다면 운영계를 시작하지 않는다.
+2. API HTTP write, Admin write, WebSocket, cron, worker, direct SQL을 모두 분류한 `writer-inventory/v2`가
+   있고, 존재하는 unit은 runtime 계약의 source ref/compatibility-config SHA와 정확히 일치한다.
+   compatibility-config SHA는 환경별 secret·host·URL이 아니라 DB/API 계약에 영향을 주는 feature flag,
+   serializer mode, 활성 worker/producer 역할만 정규화해 계산한다. 없는 category도 owner,
+   부재 근거와 검증을 기록한다.
+3. 모든 writer와 queue/external-effect producer가 중지됐고 그 증빙이 있다.
+4. application writer session과 활성 transaction이 0건이다.
+5. 복원 가능한 backup 또는 snapshot의 식별자와 digest가 준비돼 있다.
+6. catalog 전체가 `appliedRefs + recoveredRefs[].ref + pendingRefs`로 정확히 분할되고, recovery migration
+   자체는 `appliedRefs` 또는 `pendingRefs`에 포함되며, pending은 catalog
+   순서를 유지한다.
+7. plan의 catalog와 SQL checksum이 배포 ref의 실제 bytes와 일치한다.
+8. 운영 plan 생성과 실제 운영 maintenance 명령 진입 때마다 참조한 개발계 plan/execution의 bytes SHA,
+   execution `planSha256`, 환경별 history, catalog/runtime-contract SHA를 다시 검증한다.
 
 ## 표준 절차
 
-1. API, Admin, WebSocket, cron, worker와 direct SQL writer를 모두 중지한다.
+1. runtime 계약과 writer inventory를 고정하고 API, Admin, WebSocket, cron, worker, direct SQL writer와
+   queue/external-effect producer를 모두 중지한다.
 2. DB identity, TLS, session/transaction drain과 backup을 확인한다.
-3. catalog와 ledger 차이로 환경별 `plan.json`을 생성한다.
-4. exclusive DB lock을 획득하고 identity, ledger prefix, plan과 SQL checksum을 다시 확인한다.
-5. plan 순서대로 파일별 precondition, SQL 적용, postcondition, ledger 기록을 수행한다.
-6. 전체 postcheck와 catalog/ledger 완료 상태를 확인한다.
-7. 서비스를 재기동하고 smoke를 완료한 뒤 유지보수 상태를 해제한다.
+3. exclusive DB lock을 획득하고 identity, drain, ledger prefix, plan과 SQL checksum을 다시 확인한다.
+4. lock을 보유한 채 시작 runtime set·schema fingerprint를 포함한 `FENCED` event를 실행 파일과 부모
+   디렉터리에 `fsync`한다.
+5. plan 순서대로 `migration-started`를 기록한 뒤 checksum-bound SQL 내부의 fail-closed precondition,
+   target mutation, 별도 live postcondition, ledger 기록을 수행한다. precondition은 target mutation 전에
+   실패하는 leading query 또는 stored routine 내부 guard다. lock 안에서 migration/postcondition을 한 번
+   읽어 checksum을 확인한 그 bytes만 실행하고, 별도 수기 결과가 아니라
+   `migration-sql-succeeded | migration-failed` 인과에 포함한다.
+6. 전체 postcheck와 catalog/ledger 완료 상태를 확인하고 lock을 해제한다.
+7. 최초 재개 조합과 같은 execution에서 사용할 모든 복구 target의 plan-final smoke를 writer가 닫힌
+   `FENCED`에서 수행한다. read-only, transaction rollback 또는 isolated synthetic만 허용하며 plan의
+   procedure ref, 별도 result ref, DB·queue·외부효과 모든 표면의 residual 0을 정확히 증명한다.
+8. 현재 완전 릴리즈+최종 DB 조합, 상태 표면별 시작 watermark와 `RESUMED` event를 durable하게 기록한
+   뒤에만 production writer와 effect producer를 연다.
+9. 재시작한 모든 runtime unit의 source ref와 compatibility-config SHA를 실제 관측한 running inventory가
+   active mixture와 정확히 일치하고 smoke가 통과한 뒤에만 서비스를 완료한다.
+10. 재개 뒤 복구가 필요하면 writer/effect producer를 다시 fence·drain하고 종료 watermark를 기록한
+   `RECOVERING`으로 들어간다. 사전 smoke한 target에 선언된 전략과 증빙으로 상태를 복구하고, target
+   mixture와 fresh 시작 watermark를 새 `RESUMED` event로 durable하게 기록한 뒤 runtime을 열어 서비스를
+   완료한다.
+   `RECOVERING` 진입과 복구 완료 event는 각각 fresh live ledger가 최종 migration 상태일 때만 기록한다.
 
 서비스 중지 확인과 DB drain은 서로 대체하지 않는다. 프로세스를 중지했어도 DB session 또는 transaction이
 남아 있으면 실행을 차단한다.
@@ -76,11 +135,15 @@ catalog entry와 ledger row를 보존한다.
 `plan.json`은 실행 전에 생성하는 immutable 입력이다.
 
 - 환경, DB identity digest, API source ref, catalog path와 checksum을 포함한다.
-- catalog의 모든 entry를 `completedRefs`와 `pendingRefs`로 정확히 한 번씩 포함한다.
+- catalog의 모든 entry를 `appliedRefs`, `recoveredRefs[].ref`, `pendingRefs` 중 하나에 정확히 한 번씩
+  포함한다. `recoveredRefs[].recoveryRef`는 적용된 recovery ref와 원본 ref의 관계를 결속한다.
 - 각 ref는 migration 경로, kind와 SQL SHA-256을 포함한다.
 - `pendingRefs`는 catalog 순서를 유지하며 임의 subset을 허용하지 않는다.
 - 실행 중 ledger는 `pendingRefs`의 연속된 prefix로만 전진할 수 있다.
-- 개발계와 운영계는 각각 plan을 만들지만 운영계 plan은 완료된 개발계 execution을 선행조건으로 참조한다.
+- runtime 계약을 값으로 포함하며, 실제 다음 API runtime 중 하나는 plan의 API source ref와 일치한다.
+- 개발계와 운영계는 각각 plan을 만들지만 운영계 plan은 같은 catalog/runtime-contract SHA의 완료된 개발계
+  plan과 execution의 실제 bytes SHA를 함께 선행조건으로 참조한다. 개발계 execution은 운영 plan이 아니라
+  참조한 개발계 plan의 환경별 partition과 `planSha256`으로 검증한다.
 
 ## Execution 계약
 
@@ -90,17 +153,39 @@ transition 파일을 만들지 않는다.
 필수 내용은 다음과 같다.
 
 - DB identity와 TLS 확인
-- writer inventory, owner, 중지 명령과 drain 관측
+- exact runtime mixture와 writer inventory, owner, source ref/compatibility-config SHA,
+  중지·부재·drain 관측
 - backup 또는 snapshot ref와 digest
 - exclusive lock 획득과 해제
 - plan/catalog checksum
-- 파일별 `started`, `sql_succeeded`, `ledger_succeeded`, `failed_sql`, `failed_ledger`
-- 파일별 precondition, postcondition, SQL checksum과 ledger 결과
-- 전체 postcheck, 재기동, smoke와 rollback ref
+- 파일별 `migration-started`, `migration-sql-succeeded`, `migration-ledger-succeeded`,
+  `migration-failed`의 `sql-or-postcondition | ledger` phase, `migration-outcome-adjudicated`
+- 동일 ref의 성공은 `migration-started → migration-sql-succeeded → migration-ledger-succeeded`
+  인과 순서로만 인정하며, 모든 `pendingRefs`가 이 execution에서 해결되기 전에는
+  `database-completed`를 기록하지 않는다.
+- 모든 event의 environment와 `planSha256`은 현재 plan과 정확히 일치해야 한다. 같은 partition/runtime을
+  가진 다른 plan의 execution도 완료 근거로 재사용하지 않는다.
+- 파일별 checksum-bound SQL 내부 precondition·target mutation과 별도 live postcondition의 통합
+  SQL outcome, ledger 결과
+- durable `FENCED`, DB가 해제 성공을 확인한 최종 `database-completed` 뒤의 `lock-released`, plan-final
+  조합별 zero-residual smoke, `RESUMED`와 상태 표면별 watermark
+- 필요 시 fresh fence의 `RECOVERING`, 복구 대상 runtime mixture, 수락 write·queue·외부효과 보존 근거
+- 전체 postcheck, 재기동, smoke와 runtime-contract digest
 
 JSONL은 exact schema와 허용된 상태 순서를 사용한다. 각 행을 임의로 재정렬하거나 unknown field를 추가할 수
-없다. 파일 전체 SHA-256은 릴리스 기록에 고정한다. 실행 재개 판단은 JSONL만 신뢰하지 않고 현재 DB ledger,
-DB identity와 migration postcondition을 다시 조회한다.
+없다. execution별 process lock을 잡고 기존 bytes와 새 event를 임시 파일에 끝까지 쓴 다음 file `fsync`,
+atomic rename, parent directory `fsync`로 교체한다. newline/framing이 깨진 canonical 파일이나 이미 잡힌
+lock은 덮어쓰지 않는다. stale lock은 기록된 owner process가 종료됐고 다른 writer가 없음을 확인한 뒤에만
+제거한다. 파일 전체 SHA-256은 릴리스 기록에 고정한다. 실행 재개 판단은 JSONL만 신뢰하지 않고 현재 DB
+ledger, DB identity와 migration postcondition을 다시 조회한다.
+atomic rename 뒤 file/parent durability 확인만 실패해 transition 또는 adjudication event가 canonical
+파일에 남은 경우, 동일 입력 재진입은 event를 중복 추가하지 않고 다시 `fsync`해 commit point를 확정한다.
+`database-completed` 뒤 lifecycle event가 이미 존재하는 execution에 `apply`를 재호출하면 새
+`lock-released`를 추가하지 않는다. `database-completed` 직후 lock 해제 event만 유실된 경우에만 그
+event를 보강한다.
+Lifecycle action의 검증이나 event 기록이 실패하면 DB lock은 해제하되 새 `lock-released` evidence를
+execution에 추가하지 않는다. 성공한 action 뒤 DB가 해제 성공을 확인한 event만 다음 phase의 인과
+근거로 인정한다.
 
 ## Ledger와 실패 복구
 
@@ -112,11 +197,26 @@ DB identity와 migration postcondition을 다시 조회한다.
 - SQL 또는 postcondition이 실패하면 ledger row를 만들지 않는다.
 - SQL 성공 후 ledger 기록만 실패하면 DB identity, SQL checksum과 postcondition을 확인한 뒤
   ledger-only repair를 수행할 수 있다.
+- `started` 뒤 outcome event append가 끊겨 실행 결과가 불명확하면 같은 SQL을 재실행하지 않는다. fresh
+  identity·drain·ledger·고정 postcondition과 별도 incident/result ref로 outcome을 adjudicate한다.
+  postcondition 성공·ledger 없음이면 ledger-only repair, 실패면 append-only recovery migration의 새
+  plan/execution으로 이동한다.
 - side effect가 일부만 적용됐거나 완료 조건이 불명확하면 같은 파일을 재실행하지 않고 새 번호의 recovery
   migration을 추가한다.
 - `skipped`, 가짜 성공 row, checksum 변경으로 실패를 닫지 않는다.
 
-Recovery 뒤 원래 migration과 recovery migration의 완료 조건과 ledger를 모두 확인한다.
+Recovery plan은 원래 실패 plan과 execution의 bytes SHA, execution plan hash, 환경, DB identity, 실패
+target ref를 결속한다. 실패 plan의 catalog refs는 현재 catalog의 immutable prefix여야 하며 그 뒤에는 해당
+target을 가리키는 단 하나의 append-only recovery migration만 허용한다. Recovery 뒤 원래 migration과
+recovery migration의 완료 조건과 ledger를 모두 확인한다.
+append-only recovery migration과 forward-fix migration은 기존 plan/execution에 덧붙이지 않고 새 immutable
+plan/execution으로 수행한다. `RESUMED` 전 restore도 실패 execution을 성공으로 바꾸지 않는다. 복원 뒤
+live schema/ledger를 다시 읽어 새 plan/execution으로 정상 시작 상태와 후속 작업을 검증한다.
+
+`RESUMED` 전에는 writer/effect producer가 계속 닫혀 있다는 fresh evidence가 있을 때만 plan에 선언한
+backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PITR만으로 rollback하지 않는다.
+그 뒤 수락한 모든 write와 queue/external effect를 보존·재생·보상하고 sink에서 검증할 수 있어야 하며,
+그렇지 않으면 이전 release rollback 대신 forward fix 또는 통제된 lossless reconciliation을 사용한다.
 
 ## Baseline과 schema contract
 
@@ -152,12 +252,17 @@ execution을 정확히 묶는 역할만 한다.
 
 ## 완료 조건
 
-- [ ] 모든 writer의 owner와 중지 명령이 확인됐는가?
+- [ ] 모든 writer/effect producer의 owner, 실제 runtime ref/config와 중지 또는 부재 근거가 확인됐는가?
 - [ ] DB identity·TLS, session/transaction 0건과 backup이 fresh evidence에 있는가?
-- [ ] Plan이 catalog 전체를 completed/pending exact partition하는가?
-- [ ] 개발계 완료 뒤 운영계를 실행했는가?
+- [ ] Plan이 catalog 전체를 `appliedRefs + recoveredRefs[].ref + pendingRefs`로 exact partition하는가?
+- [ ] 이전·현재·필요한 혼합 runtime, 변경 경계, 상태 표면, 허용 phase와 복구 전략이 plan에 선언됐는가?
+- [ ] 같은 catalog/runtime-contract SHA의 개발계 완료 뒤 운영계를 실행했는가?
 - [ ] 모든 pending ref가 순서대로 postcondition과 ledger를 완료했는가?
-- [ ] 전체 postcheck, 재기동과 smoke가 완료됐는가?
+- [ ] FENCED final-DB smoke가 최초 재개·복구 target 조합과 모든 상태 표면 residual 0을 증명했는가?
+- [ ] RESUMED marker와 시작 watermark가 production write/effect보다 먼저 durable하게 기록됐는가?
+- [ ] 복구했다면 target의 새 RESUMED marker와 fresh 시작 watermark 뒤에 runtime을 열었는가?
+- [ ] post-resume rollback을 허용했다면 수락 write·queue·외부효과의 무손실 보존 증빙이 있는가?
+- [ ] 전체 postcheck, 재기동과 현재 완전 릴리즈 smoke가 완료됐는가?
 - [ ] 환경별 산출물이 plan과 execution 두 개뿐인가?
 
 ## 연결 문서

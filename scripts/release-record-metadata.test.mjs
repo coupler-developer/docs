@@ -141,7 +141,22 @@ describe("release metadata scope results", () => {
     assert(errors.some((error) => /released coupler-api scope requires coupler-api release tag/.test(error)));
   });
 
-  it("allows a released service scope with a concrete service tag while excluded repos stay empty", () => {
+  it("allows a released API with its released contract package while excluded consumers stay empty", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+
+    const errors = validate(metadata);
+
+    assert.deepEqual(errors, []);
+  });
+
+  it("requires a released contracts package for every terminal API scope", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "coupler-api"],
       statuses: {
@@ -150,9 +165,11 @@ describe("release metadata scope results", () => {
       },
     });
 
-    const errors = validate(metadata);
-
-    assert.deepEqual(errors, []);
+    assert(
+      validate(metadata).some((error) =>
+        /terminal coupler-api public contract requires a released contracts-package scope/.test(error),
+      ),
+    );
   });
 
   it("allows superseded scopes to keep incomplete evidence without completion exceptions", () => {
@@ -193,10 +210,11 @@ describe("release metadata scope results", () => {
 
   it("requires released contracts package evidence from scopeResults", () => {
     const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package"],
+      scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
         docs: "released",
         "contracts-package": "released",
+        "coupler-api": "released",
       },
     });
     metadata.scopeResults["contracts-package"].evidence.publishedPackage = null;
@@ -222,26 +240,27 @@ describe("release metadata scope results", () => {
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /scopeResults\.contracts-package\.evidence\.publishedPackage must include/.test(error)),
+      errors.some((error) => /scopeResults\.contracts-package\.evidence\.publishedPackage must equal/.test(error)),
     );
   });
 
-  it("rejects released cutover N/A evidence and non-SHA comparison refs", () => {
+  it("rejects released cutover N/A evidence and non-SHA API refs", () => {
     const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package"],
+      scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
         docs: "released",
         "contracts-package": "released",
+        "coupler-api": "released",
       },
       apiContractCutover: releasedApiContractCutover(),
     });
-    metadata.apiContractCutover.comparisonRefs["coupler-api"] = "main";
+    metadata.scopeResults["coupler-api"].evidence.publicContract.apiRefs.current = "main";
     metadata.apiContractCutover.contractArtifactSync.command = "N/A - no command";
 
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /apiContractCutover\.comparisonRefs\.coupler-api must be a commit SHA/.test(error)),
+      errors.some((error) => /publicContract\.apiRefs\.current must be a commit SHA/.test(error)),
     );
     assert(
       errors.some((error) => /apiContractCutover\.contractArtifactSync\.command must be concrete evidence, not an N\/A reason/.test(error)),
@@ -250,35 +269,37 @@ describe("release metadata scope results", () => {
 
   it("requires released cutover concrete evidence before the whole release is terminal", () => {
     const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package"],
+      scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
         docs: "planned",
         "contracts-package": "released",
+        "coupler-api": "released",
       },
       apiContractCutover: releasedApiContractCutover(),
     });
-    metadata.apiContractCutover.nPlusOneDeployment.evidence = "N/A - no store evidence";
+    metadata.apiContractCutover.activation.barrierEvidence = "N/A - no barrier evidence";
 
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /apiContractCutover\.nPlusOneDeployment\.evidence must be concrete evidence, not an N\/A reason/.test(error)),
+      errors.some((error) => /apiContractCutover\.activation\.barrierEvidence must be concrete evidence, not an N\/A reason/.test(error)),
     );
   });
 
   it("rejects false-pass fixtures across every released cutover field", () => {
     for (const pathParts of apiContractCutoverRequiredPaths) {
       const fieldPath = pathParts.join(".");
-      const fixtures = pathParts[0] === "apiContractCutover" && pathParts[1] === "comparisonRefs"
-        ? ["main", "pending"]
+      const fixtures = pathParts.at(-1) === "caseIds"
+        ? [[], ["pending"]]
         : ["N/A - fixture should not satisfy terminal evidence", "pending"];
 
       for (const fixtureValue of fixtures) {
         const metadata = buildMetadata({
-          scopes: ["docs", "contracts-package"],
+          scopes: ["docs", "contracts-package", "coupler-api"],
           statuses: {
             docs: "released",
             "contracts-package": "released",
+            "coupler-api": "released",
           },
           apiContractCutover: releasedApiContractCutover(),
         });
@@ -298,16 +319,17 @@ describe("release metadata scope results", () => {
   it("rejects false-pass fixtures across every rollback cutover field", () => {
     for (const pathParts of apiContractCutoverRequiredPaths) {
       const fieldPath = pathParts.join(".");
-      const fixtures = pathParts[0] === "apiContractCutover" && pathParts[1] === "comparisonRefs"
-        ? ["main", "pending"]
+      const fixtures = pathParts.at(-1) === "caseIds"
+        ? [[], ["pending"]]
         : ["N/A - fixture should not satisfy terminal evidence", "pending"];
 
       for (const fixtureValue of fixtures) {
         const metadata = buildMetadata({
-          scopes: ["docs", "contracts-package"],
+          scopes: ["docs", "contracts-package", "coupler-api"],
           statuses: {
             docs: "released",
             "contracts-package": "rolled_back",
+            "coupler-api": "rolled_back",
           },
           apiContractCutover: rollbackApiContractCutover(),
         });
@@ -324,12 +346,13 @@ describe("release metadata scope results", () => {
     }
   });
 
-  it("requires rolled_back release metadata to use rollback cutover status", () => {
+  it("requires rolled_back API scope to use rollback cutover status", () => {
     const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package"],
+      scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
         docs: "released",
         "contracts-package": "rolled_back",
+        "coupler-api": "rolled_back",
       },
       apiContractCutover: releasedApiContractCutover(),
     });
@@ -337,7 +360,479 @@ describe("release metadata scope results", () => {
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /rolled_back metadata apiContractCutover\.status must be rollback/.test(error)),
+      errors.some((error) => /rolled_back coupler-api scope requires apiContractCutover\.status rollback/.test(error)),
+    );
+  });
+
+  it("requires every supported previous consumer interface to succeed when API cutover is No", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract.cases.find(
+      ({ id }) => id === "previous-store-rest-current-api",
+    ).expected = "deterministic-rejection";
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /publicContract\.cases requires success for previous-store:rest/.test(error),
+      ),
+    );
+  });
+
+  it("keeps previous mobile bootstrap and version readable during API cutover", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract.cases.find(
+      ({ id }) => id === "previous-store-bootstrap-current-api",
+    ).expected = "deterministic-rejection";
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /old-readable bootstrap\/version success for previous-store:bootstrap/.test(error),
+      ),
+    );
+  });
+
+  it("requires API cutover to identify at least one incompatible previous-consumer request", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    for (const contractCase of metadata.scopeResults["coupler-api"].evidence.publicContract.cases) {
+      contractCase.expected = "success";
+    }
+
+    assert(
+      validate(metadata).some((error) =>
+        /API cutover requires a deterministic previous-consumer rejection case/.test(error),
+      ),
+    );
+  });
+
+  it("requires API cutover activation evidence to include the selected previous-consumer rejection", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.apiContractCutover.activation.caseIds = [
+      "previous-store-bootstrap-current-api",
+    ];
+
+    assert(
+      validate(metadata).some((error) =>
+        /activation\.caseIds must include a deterministic previous-consumer rejection/.test(error),
+      ),
+    );
+  });
+
+  it("allows rollout and activation cases for one interface but restricts client rollback ownership", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    const publicContract =
+      metadata.scopeResults["coupler-api"].evidence.publicContract;
+    publicContract.cases.push({
+      id: "previous-store-rest-current-api-rollout",
+      consumerId: "previous-store",
+      interface: "rest",
+      apiGeneration: "current",
+      exposure: "rollout",
+      expected: "success",
+      evidence: "previous Store REST succeeded before activation",
+    });
+    assert.deepEqual(validate(metadata), []);
+
+    publicContract.cases.push({
+      id: "current-store-rest-current-api-rollback",
+      consumerId: "current-store",
+      interface: "rest",
+      apiGeneration: "current",
+      exposure: "rollback",
+      expected: "success",
+      evidence: "current Store REST rollback probe",
+    });
+    metadata.apiContractCutover.rollback.caseIds = [
+      "current-store-rest-current-api-rollback",
+    ];
+    assert(
+      validate(metadata).some((error) =>
+        /rollback\.caseIds must reference successful previous-consumer\/current-API/.test(error),
+      ),
+    );
+  });
+
+  it("rejects malformed contract arrays without throwing the validator", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract.consumers[0].interfaces = {};
+    metadata.apiContractCutover.activation.caseIds = {};
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /publicContract\.consumers\.0\.interfaces must be an array/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /apiContractCutover\.activation\.caseIds must be an array/.test(error),
+      ),
+    );
+
+    const malformedScopes = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    malformedScopes.releaseScopes = {};
+    assert.doesNotThrow(() => validate(malformedScopes));
+    assert(
+      validate(malformedScopes).some((error) =>
+        /releaseScopes must be an array/.test(error),
+      ),
+    );
+  });
+
+  it("binds terminal API, contract, consumer artifact, and interface refs to their SoT", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    const publicContract =
+      metadata.scopeResults["coupler-api"].evidence.publicContract;
+
+    publicContract.apiRefs.current = "e".repeat(40);
+    publicContract.apiRefs.previous = "d".repeat(7);
+    publicContract.contractRefs.previous = "old-contract";
+    publicContract.consumers.find(
+      ({ id }) => id === "current-store",
+    ).contractRef = "@coupler-developer/coupler-api-contracts@9.8.0";
+    publicContract.consumers.find(
+      ({ id }) => id === "previous-store",
+    ).interfaces = ["rest", "bootstrap", "version"];
+    publicContract.consumers.find(
+      ({ id }) => id === "current-admin",
+    ).artifact.artifactRef = "e".repeat(40);
+    publicContract.consumers.find(
+      ({ id }) => id === "current-store",
+    ).artifact.mappingRef = "pending";
+    publicContract.consumers.find(
+      ({ id }) => id === "previous-nextpush",
+    ).artifact.ios.label = "N/A";
+    publicContract.consumers.find(
+      ({ id }) => id === "current-nextpush",
+    ).absenceEvidence = "pending";
+    publicContract.consumers.find(
+      ({ id }) => id === "previous-admin",
+    ).artifact.artifactRef = "b".repeat(7);
+    metadata.scopeResults["contracts-package"].evidence.sourceRef =
+      `coupler-api ${apiCommit}`;
+    metadata.scopeResults["contracts-package"].evidence.publishedPackage =
+      "workflow output @coupler-developer/coupler-api-contracts@9.9.0 passed";
+
+    const errors = validate(metadata);
+    assert(
+      errors.some((error) =>
+        /apiRefs\.current must exactly match versionMapping\.coupler-api\.commit/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /apiRefs\.previous must be a commit SHA/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /contractRefs\.previous must be a canonical contracts package\/version/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /consumers\.1\.contractRef must match publicContract\.contractRefs\.current/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /consumers\.0\.interfaces must exactly cover/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /consumers\.5\.artifact\.artifactRef must match versionMapping\.coupler-admin-web\.commit/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /contracts-package evidence .*sourceRef must be a full 40-character commit SHA/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /publishedPackage must equal @coupler-developer\/coupler-api-contracts@x\.y\.z/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /artifact\.mappingRef must be concrete evidence/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /artifact\.ios\.label must be concrete evidence/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /absenceEvidence must be concrete evidence/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /admin-build full commit SHA artifactRef/.test(error),
+      ),
+    );
+  });
+
+  it("requires terminal current Store and Admin mappings instead of skipping null bindings", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.versionMapping["coupler-mobile-app"].store = null;
+    metadata.versionMapping["coupler-admin-web"].commit = null;
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /current mobile-store consumer requires versionMapping\.coupler-mobile-app\.store/.test(
+          error,
+        ),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /current admin consumer requires versionMapping\.coupler-admin-web\.commit/.test(
+          error,
+        ),
+      ),
+    );
+  });
+
+  it("requires exactly one consumer for each surface and generation", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "coupler-api": "released",
+      },
+    });
+    const consumers =
+      metadata.scopeResults["coupler-api"].evidence.publicContract.consumers;
+    consumers.push({
+      ...structuredClone(consumers.find(({ id }) => id === "current-store")),
+      id: "duplicate-current-store",
+    });
+
+    assert(
+      validate(metadata).some((error) =>
+        /must contain exactly one mobile-store:current/.test(error),
+      ),
+    );
+  });
+
+  it("allows previous-release runtime recovery only with exact successful previous-API rollback coverage", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    const apiEvidence = metadata.scopeResults["coupler-api"].evidence;
+    apiEvidence.runtimeRecovery = {
+      strategy: "previous-release",
+      stateSafety: {
+        source: "application-evidence",
+        persistedState: "previous runtime reads every accepted current row",
+        queuedState: "cursor and in-flight work are replayable by the previous runtime",
+        externalEffects: "idempotency and sink reconciliation passed",
+      },
+      previousReleaseCaseIds: ["previous-api-rollback"],
+    };
+
+    assert(
+      validate(metadata).some((error) =>
+        /requires exact successful previous-API rollback coverage/.test(error),
+      ),
+    );
+
+    const rollbackCases = apiEvidence.publicContract.consumers
+      .filter(({ state }) => state === "present")
+      .flatMap((consumer) =>
+      consumer.interfaces.map((interfaceName) => ({
+        id: `${consumer.id}-${interfaceName}-previous-api-rollback`,
+        consumerId: consumer.id,
+        interface: interfaceName,
+        apiGeneration: "previous",
+        exposure: "rollback",
+        expected: "success",
+        evidence: `${consumer.id} ${interfaceName} succeeded against the previous API and final persisted state`,
+      })),
+      );
+    apiEvidence.publicContract.cases.push(...rollbackCases);
+    apiEvidence.runtimeRecovery.previousReleaseCaseIds = rollbackCases.map(
+      (contractCase) => contractCase.id,
+    );
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("requires DB-backed runtime recovery evidence to reference an included DB migration scope", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.stateSafety = {
+      source: "db-maintenance-execution",
+      scope: "db-migration",
+    };
+
+    assert(
+      validate(metadata).some((error) =>
+        /stateSafety must reference an included db-migration scope/.test(error),
+      ),
+    );
+  });
+
+  it("does not accept a pending DB execution as terminal API recovery evidence", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "db-migration", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "db-migration": "pending",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.stateSafety = {
+      source: "db-maintenance-execution",
+      scope: "db-migration",
+    };
+
+    assert(
+      validate(metadata).some((error) =>
+        /requires terminal dev\/prod DB maintenance executions/.test(error),
+      ),
+    );
+  });
+
+  it("binds cutover terminal state to the API scope, not an unrelated rollback", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "rolled_back",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    assert(
+      !validate(metadata).some((error) =>
+        /coupler-api scope requires apiContractCutover\.status rollback/.test(error),
+      ),
+    );
+
+    metadata.apiContractCutover = rollbackApiContractCutover();
+    assert(
+      validate(metadata).some((error) =>
+        /rollback requires scopeResults\.coupler-api\.status rolled_back/.test(error),
+      ),
+    );
+
+    const pendingApi = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "pending",
+        "contracts-package": "released",
+        "coupler-api": "pending",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    assert(
+      validate(pendingApi).some((error) =>
+        /status released requires scopeResults\.coupler-api\.status released/.test(error),
+      ),
+    );
+
+    const pendingPackage = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "pending",
+        "contracts-package": "pending",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    assert(
+      validate(pendingPackage).some((error) =>
+        /terminal apiContractCutover requires scopeResults\.contracts-package\.status released/.test(error),
+      ),
     );
   });
 
@@ -566,6 +1061,50 @@ describe("release metadata scope results", () => {
     assert(errors.some((error) => /scopeResults\.coupler-api\.rollbackReason/.test(error)));
   });
 
+  it("requires concrete fallback rollback evidence when a scope has no rollback descriptor", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "rolled_back",
+      },
+    });
+    metadata.scopeResults["contracts-package"].rollbackEvidence = "pending";
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /scopeResults\.contracts-package\.rollbackEvidence/.test(error),
+      ),
+    );
+  });
+
+  it("rejects preview contracts packages as terminal stable evidence", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["contracts-package"].evidence.publishedPackage =
+      "@coupler-developer/coupler-api-contracts@9.9.0-pr.42";
+    metadata.scopeResults["coupler-api"].evidence.publicContract.contractRefs.current =
+      "@coupler-developer/coupler-api-contracts@9.9.0-pr.42";
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) =>
+        /publishedPackage must equal @coupler-developer\/coupler-api-contracts@x\.y\.z/.test(
+          error,
+        ),
+      ),
+    );
+  });
+
   it("derives release status from scope results", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "coupler-api", "coupler-admin-web"],
@@ -577,6 +1116,24 @@ describe("release metadata scope results", () => {
     });
 
     assert.equal(deriveReleaseStatusFromScopeResults(metadata), "in_progress");
+  });
+
+  it("keeps a partially rolled back release active until every remaining scope is terminal", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "coupler-api"],
+      statuses: {
+        docs: "pending",
+        "coupler-api": "rolled_back",
+      },
+      status: "rolled_back",
+    });
+
+    assert.equal(deriveReleaseStatusFromScopeResults(metadata), "in_progress");
+    assert(
+      validate(metadata).some((error) =>
+        /status must match scopeResults derived status: in_progress/.test(error),
+      ),
+    );
   });
 });
 
@@ -667,7 +1224,7 @@ function buildMetadata({
   apiContractCutover = null,
 }) {
   const metadata = {
-    schema: "release-metadata/v1",
+    schema: "release-metadata/v2",
     version,
     status: status ?? deriveStatus(scopes, statuses),
     releaseScopes: scopes,
@@ -679,6 +1236,22 @@ function buildMetadata({
     apiContractCutover,
   };
 
+  if (metadata.scopeResults["coupler-api"]?.evidence?.publicContract) {
+    const apiStatus = metadata.scopeResults["coupler-api"].status;
+    metadata.scopeResults["coupler-api"].evidence.publicContract =
+      apiPublicContractEvidence(Boolean(apiContractCutover), {
+        previousApi: apiStatus === "rolled_back",
+        currentNextPush:
+          metadata.versionMapping["coupler-mobile-app"].nextPush !== null,
+      });
+    if (apiStatus === "rolled_back") {
+      metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.previousReleaseCaseIds =
+        metadata.scopeResults["coupler-api"].evidence.publicContract.cases
+          .filter(({ apiGeneration }) => apiGeneration === "previous")
+          .map(({ id }) => id);
+    }
+  }
+
   return metadata;
 }
 
@@ -688,12 +1261,17 @@ function deriveStatus(scopes, statuses) {
     return "planned";
   }
 
-  if (values.some((status) => status === "rolled_back")) {
-    return "rolled_back";
-  }
-
   if (values.every((status) => status === "released")) {
     return "released";
+  }
+
+  if (
+    values.some((status) => status === "rolled_back") &&
+    values.every((status) =>
+      ["released", "rolled_back", "superseded"].includes(status),
+    )
+  ) {
+    return "rolled_back";
   }
 
   if (
@@ -714,16 +1292,20 @@ function versionMappingFor(statuses) {
     },
     "coupler-api": {
       tag: statuses["coupler-api"] === "released" ? version : null,
-      commit: statuses["coupler-api"] === "released" ? null : apiCommit,
+      commit: apiCommit,
     },
     "coupler-admin-web": {
       tag: statuses["coupler-admin-web"] === "released" ? version : null,
-      commit: statuses["coupler-admin-web"] === "released" ? null : adminCommit,
+      commit: adminCommit,
     },
     "coupler-mobile-app": {
-      store: statuses["mobile-store"] === "released" ? "9.9.0 (900)" : "pending",
+      store:
+        ["released", "rolled_back"].includes(statuses["coupler-api"]) ||
+        statuses["mobile-store"] === "released"
+          ? "9.9.0 (900)"
+          : null,
       releaseTag: statuses["mobile-store"] === "released" ? version : null,
-      commit: statuses["mobile-store"] === "released" ? null : mobileCommit,
+      commit: mobileCommit,
       nextPush: statuses["mobile-nextpush"] === "released" ? "Production v99 target 9.9.0 (900)" : null,
     },
   };
@@ -738,6 +1320,13 @@ function scopeResult(scopeName, status) {
 
   if (status === "rolled_back") {
     result.rollbackReason = `${scopeName} rolled back after production issue`;
+    if (
+      ["contracts-package", "mobile-store", "mobile-nextpush", "docs"].includes(
+        scopeName,
+      )
+    ) {
+      result.rollbackEvidence = `${scopeName} rollback action completed and verified`;
+    }
   }
 
   return result;
@@ -756,15 +1345,35 @@ function evidenceFor(scopeName, status) {
         ? "@coupler-developer/coupler-api-contracts@9.9.0"
         : "pending",
       workflow: concrete ? "Release Contracts workflow https://example.invalid/actions/2" : "pending",
-      sourceRef: concrete ? "coupler-api v9.9.0" : "pending",
+      sourceRef: concrete ? apiCommit : "pending",
     };
   }
 
   if (scopeName === "coupler-api") {
+    const publicContract = concrete
+      ? apiPublicContractEvidence(false, { previousApi: status === "rolled_back" })
+      : null;
     return {
       deployment: concrete ? "coupler-api production deployed at 2026-07-09 10:00 KST" : "pending",
       smoke: concrete ? "GET /health and envelope smoke passed" : "pending",
-      rollback: concrete ? "rollback to coupler-api v9.8.0" : "pending",
+      publicContract,
+      runtimeRecovery: concrete
+        ? {
+            strategy: status === "rolled_back" ? "previous-release" : "forward-fix",
+            stateSafety: {
+              source: "application-evidence",
+              persistedState: "final DB remains readable by the forward-fix candidate",
+              queuedState: "queue cursor and in-flight ownership remain on the current runtime",
+              externalEffects: "idempotency ledger and sink verification passed",
+            },
+            previousReleaseCaseIds:
+              status === "rolled_back"
+                ? publicContract.cases
+                    .filter(({ apiGeneration }) => apiGeneration === "previous")
+                    .map(({ id }) => id)
+                : [],
+          }
+        : null,
     };
   }
 
@@ -848,34 +1457,29 @@ function maintenanceEnvironmentEvidence(environment, terminal) {
 function releasedApiContractCutover() {
   return {
     status: "released",
-    comparisonRefs: {
-      "coupler-api": apiCommit,
-      "coupler-mobile-app": mobileCommit,
-      "coupler-admin-web": adminCommit,
-    },
     contractArtifactSync: {
       command: "pnpm check:contracts",
       result: "contracts package exact match",
       consumerPath: "Mobile/Admin package dependency",
     },
-    nPlusOneDeployment: {
-      target: "Store 9.9.0 (900)",
+    activation: {
+      caseIds: [
+        "previous-store-rest-current-api",
+        "previous-store-bootstrap-current-api",
+      ],
       appliedAt: "2026-07-09 11:00 KST",
-      evidence: "Store console release evidence",
-    },
-    legacyTrafficBlock: {
-      previousVersionBuild: "9.8.0 (899)",
-      forceUpdateConfig: "Admin version screen",
-      versionCodeCheck: "GET /app/auth/getSettingList -> force_update: 2",
-    },
-    adminVerification: {
-      versionSettingsSave: "Admin version save smoke passed",
-      operatorActionSmoke: "Admin operator action smoke passed",
+      barrierEvidence:
+        "Proxy barrier rejected incompatible product requests and reopened after current smoke",
+      bootstrapUpgradeEvidence:
+        "Previous mobile bootstrap/version responses remained parseable and directed upgrade",
     },
     rollback: {
-      previousRefs: "api/admin/mobile v9.8.0 refs",
-      dbBackupRestore: "DB migration not included",
-      cautions: "Do not disable force update before rollback",
+      caseIds: [
+        "previous-store-version-current-api",
+        "previous-nextpush-version-current-api",
+      ],
+      barrierEvidence: "Client rollback cases passed behind the request barrier",
+      cautions: "Do not reopen incompatible product requests before rollback smoke",
     },
   };
 }
@@ -884,5 +1488,173 @@ function rollbackApiContractCutover() {
   return {
     ...releasedApiContractCutover(),
     status: "rollback",
+  };
+}
+
+function apiPublicContractEvidence(
+  cutover,
+  { previousApi = false, currentNextPush = false } = {},
+) {
+  const consumers = [
+    {
+      state: "present",
+      id: "previous-store",
+      surface: "mobile-store",
+      generation: "previous",
+      artifact: {
+        kind: "store-builds",
+        mappingRef: "9.8.0 (899)",
+        iosVersionBuild: "9.8.0 (899)",
+        androidVersionBuild: "9.8.0 (899)",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    {
+      state: "present",
+      id: "current-store",
+      surface: "mobile-store",
+      generation: "current",
+      artifact: {
+        kind: "store-builds",
+        mappingRef: "9.9.0 (900)",
+        iosVersionBuild: "9.9.0 (900)",
+        androidVersionBuild: "9.9.0 (900)",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    {
+      state: "present",
+      id: "previous-nextpush",
+      surface: "mobile-nextpush",
+      generation: "previous",
+      artifact: {
+        kind: "nextpush-deployment",
+        mappingRef: "Production v98 target 9.8.0 (899)",
+        ios: {
+          app: "coupler-ios",
+          deployment: "Production",
+          label: "v98",
+          cohort: "100%",
+          targetBinary: "9.8.0 (899)",
+        },
+        android: {
+          app: "coupler-android",
+          deployment: "Production",
+          label: "v98",
+          cohort: "100%",
+          targetBinary: "9.8.0 (899)",
+        },
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    currentNextPush
+      ? {
+          state: "present",
+          id: "current-nextpush",
+          surface: "mobile-nextpush",
+          generation: "current",
+          artifact: {
+            kind: "nextpush-deployment",
+            mappingRef: "Production v99 target 9.9.0 (900)",
+            ios: {
+              app: "coupler-ios",
+              deployment: "Production",
+              label: "v99",
+              cohort: "100%",
+              targetBinary: "9.9.0 (900)",
+            },
+            android: {
+              app: "coupler-android",
+              deployment: "Production",
+              label: "v99",
+              cohort: "100%",
+              targetBinary: "9.9.0 (900)",
+            },
+          },
+          contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
+          interfaces: ["rest", "websocket", "bootstrap", "version"],
+        }
+      : {
+          state: "absent",
+          id: "current-nextpush",
+          surface: "mobile-nextpush",
+          generation: "current",
+          owner: "mobile release owner",
+          absenceEvidence: "No current-generation Production NextPush deployment exists",
+        },
+    {
+      state: "present",
+      id: "previous-admin",
+      surface: "admin",
+      generation: "previous",
+      artifact: { kind: "admin-build", artifactRef: adminCommit },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket"],
+    },
+    {
+      state: "present",
+      id: "current-admin",
+      surface: "admin",
+      generation: "current",
+      artifact: { kind: "admin-build", artifactRef: adminCommit },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
+      interfaces: ["rest", "websocket"],
+    },
+  ];
+  const cases = consumers.filter(({ state }) => state === "present").flatMap((consumer) =>
+    consumer.interfaces.map((interfaceName) => {
+      const previous = consumer.generation === "previous";
+      const oldReadable = interfaceName === "bootstrap" || interfaceName === "version";
+      let exposure = "post-activation";
+      if (previous && interfaceName === "version") {
+        exposure = "rollback";
+      } else if (previous) {
+        exposure = "activation";
+      }
+      return {
+        id: `${consumer.id}-${interfaceName}-current-api`,
+        consumerId: consumer.id,
+        interface: interfaceName,
+        apiGeneration: "current",
+        exposure,
+        expected:
+          cutover && previous && !oldReadable
+            ? "deterministic-rejection"
+            : "success",
+        evidence: `${consumer.id} ${interfaceName} current API contract fixture passed`,
+      };
+    }),
+  );
+  if (previousApi) {
+    cases.push(
+      ...consumers
+        .filter(({ state }) => state === "present")
+        .flatMap((consumer) =>
+          consumer.interfaces.map((interfaceName) => ({
+            id: `${consumer.id}-${interfaceName}-previous-api`,
+            consumerId: consumer.id,
+            interface: interfaceName,
+            apiGeneration: "previous",
+            exposure: "rollback",
+            expected: "success",
+            evidence: `${consumer.id} ${interfaceName} previous API rollback fixture passed`,
+          })),
+        ),
+    );
+  }
+  return {
+    apiRefs: {
+      previous: "d".repeat(40),
+      current: apiCommit,
+    },
+    contractRefs: {
+      previous: "@coupler-developer/coupler-api-contracts@9.8.0",
+      current: "@coupler-developer/coupler-api-contracts@9.9.0",
+    },
+    consumers,
+    cases,
   };
 }

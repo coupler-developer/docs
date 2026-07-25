@@ -83,11 +83,6 @@ yarn release:preflight \
 않고 base와 현재 최종 트리의 경로·blob 불변성만 확인한다.
 
 ```bash
-cd docs
-yarn release:preflight --version vX.Y.Z --workspace-root ..
-```
-
-```bash
 git -C coupler-api status --short --branch
 git -C coupler-admin-web status --short --branch
 git -C coupler-mobile-app status --short --branch
@@ -130,19 +125,21 @@ DB migration은 [DB Migration 유지보수 정책](../../policy/db-migration-gat
 
 ### 1. Writer inventory와 중지
 
-환경별로 아래 writer의 실제 owner, 중지 명령과 확인 명령을 정한다. 항목이 없으면 `없음`의 근거를
-`execution.jsonl`에 기록하며 임의로 생략하지 않는다.
+환경별로 아래 writer/effect producer의 실제 runtime unit, source ref/compatibility-config SHA, owner,
+중지 명령과 확인 명령을 `writer-inventory/v2`에 정한다. 항목이 없으면 owner·부재 근거와 검증을 기록하며
+임의로
+생략하지 않는다.
 
 | Writer | 중지 확인 |
 | --- | --- |
 | API HTTP write | API 프로세스 중지와 health/write endpoint 차단 |
 | Admin write | Admin backend 또는 write route 차단 |
-| WebSocket | socket server/consumer 중지 |
+| WebSocket | socket server/consumer 중지와 in-flight 확인 |
 | cron scheduler | scheduler 중지 |
-| background worker | queue consumer/worker 중지 |
+| background worker | queue consumer/worker, cursor/in-flight와 외부효과 producer 중지 |
 | direct SQL | 운영 작업자와 자동화 계정의 write 금지 |
 
-모든 writer를 중지할 수 없으면 `BLOCKED`로 종료한다.
+모든 writer와 queue/external-effect producer를 중지할 수 없으면 `BLOCKED`로 종료한다.
 
 ### 2. Drain과 backup
 
@@ -156,18 +153,40 @@ Credential, host와 DB identity 원문은 릴리스 기록에 평문으로 넣�
 ### 3. Plan과 실행
 
 API 저장소의 maintenance executor로 환경별 `plan.json`을 생성한다. Plan은 catalog 전체를
-`completedRefs + pendingRefs`로 exact partition하고 pending 순서를 고정해야 한다.
+`appliedRefs + recoveredRefs[].ref + pendingRefs`로 exact partition하고 pending 순서를 고정해야 한다.
+이전·현재·실제 혼합 runtime set의 unit/source ref/compatibility-config SHA/역할, 변경된
+read/write/state 경계, 시작·최종
+physical schema SHA-256과 허용 조합, DB·queue·외부효과 표면과 복구 전략도 immutable runtime contract로
+포함한다.
 
-Exclusive DB lock을 획득한 뒤 identity, drain, ledger prefix, catalog와 SQL checksum을 다시 확인한다. 각
-pending file은 precondition, SQL, postcondition, ledger 순서로 실행한다. 실패·중단 또는 부분 적용을 완료
-ledger로 기록하지 않는다.
+Exclusive DB lock을 획득한 뒤 identity, drain, ledger prefix, catalog와 SQL checksum을 다시 확인한다.
+lock을 보유한 채 실제 시작 runtime mixture와 schema fingerprint를 담은 `FENCED` event를 파일과 부모
+디렉터리에 `fsync`한다. 각 pending file은 `migration-started` 뒤 checksum-bound SQL 내부의 fail-closed
+precondition, target mutation, 별도 live postcondition, ledger 순서로 실행한다. precondition은 target
+mutation 전에 실패하는 leading query 또는 stored routine guard다. lock 안에서 migration/postcondition
+파일을 한 번 읽어 checksum을 확인한 같은 bytes만 실행하고 성공·실패는 별도 수기 artifact가 아니라 SQL
+outcome event에 귀속한다. 실패·중단 또는 부분 적용을 완료 ledger로 기록하지 않는다.
+모든 execution event의 environment와 `planSha256`이 현재 plan과 정확히 일치해야 하며 다른 plan의 완료
+execution을 fast path나 재진입 근거로 사용하지 않는다.
 
-개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다.
+개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다. 운영 plan은 개발계 plan과
+execution의 bytes SHA를 함께 참조하고, execution을 해당 개발계 plan의 환경별 partition과
+`planSha256`으로 검증한 뒤 catalog/runtime-contract SHA가 같은지 확인한다. 운영 maintenance 명령은
+live DB에 진입할 때마다 이 pair를 다시 검증한다.
 
 ### 4. 재기동과 산출물
 
-전체 postcheck와 catalog/ledger 완료를 확인한 뒤 서비스를 재기동하고 smoke를 수행한다. 유지보수 상태는
-smoke 통과 뒤 해제한다.
+전체 postcheck와 catalog/ledger 완료, lock 해제 뒤 writer가 닫힌 FENCED에서 최초 재개 조합과 같은
+execution에서 쓸 모든 복구 target 조합을 smoke한다. read-only, transaction rollback, isolated synthetic
+중 계획한 procedure와 별도 result ref를 사용하고 DB·queue·외부효과 모든 표면의 residual 0을 증명한다.
+
+현재 완전 릴리즈+최종 DB 조합과 표면별 시작 watermark를 담은 `RESUMED` event를 durable하게 기록한 뒤에만
+writer/effect producer를 열고 운영 smoke를 수행한다. 재시작한 모든 unit의 실제 source ref와
+compatibility-config SHA가 active mixture와 일치하는 running inventory까지 확인해야 서비스를 완료할 수
+있다. 재개 뒤 이전 릴리즈로 돌아갈 수 있다고 기록하려면 그 final-DB 조합을 FENCED에서 미리 smoke하고,
+재개 뒤 수락한 write와 queue cursor/in-flight/idempotency/외부효과의 무손실 보존 근거가 있어야 한다.
+없으면 snapshot/PITR rollback 대신 forward fix 또는 통제된 lossless reconciliation을 사용한다. API 계약도
+깨질 때만 별도 `apiContractCutover` 장벽을 함께 적용한다.
 
 환경별 산출물은 다음 두 개뿐이다.
 
@@ -178,8 +197,13 @@ smoke 통과 뒤 해제한다.
 trust/frontier 파일을 만들지 않는다.
 
 SQL 성공 후 ledger 기록만 실패한 경우에는 DB identity, checksum과 postcondition을 다시 확인한 뒤
-ledger-only repair를 수행한다. Side effect가 일부만 적용됐거나 완료 조건이 불명확하면 같은 SQL을 재실행하지
-않고 새 번호 recovery migration으로 복구한다.
+ledger-only repair를 수행한다. `started` 뒤 outcome event가 끊겼으면 같은 SQL을 재실행하지 않고 fresh
+ledger/postcondition으로 adjudicate한 event를 먼저 남긴다. 성공·ledger 없음만 repair하고 실패면 실패
+plan+execution의 hash, DB identity와 target을 결속한 새 번호 recovery migration/immutable plan/execution으로
+복구한다. 재개 뒤 복구는 producer를 다시 fence·drain하고 종료 watermark를 고정한 `RECOVERING`에서만
+수행하며 `complete-recovery` 뒤 target과 fresh 시작 watermark를 새 `RESUMED` event로 기록한 후 writer를
+열고 완료한다. `begin-recovery`와 `complete-recovery`가 각각 live ledger의 최종 migration 상태를
+재확인하지 못하면 복구 작업을 진행하지 않는다.
 
 ## API 포함 시
 
@@ -224,6 +248,10 @@ contracts published latest와 API source, Admin·Mobile dependency·lockfile의 
 API, Admin, Android·iOS NextPush는 큐레이터·매칭 최종 계약의 단일 배포 단위로 반영하며 일부만 활성 상태로 남겨
 완료 처리하지 않는다. `client_message_id` 누락 수용이나 구형 목록 endpoint는 배포 안전장치로 두지 않는다.
 native 변경이 없으면 이 단계 자체는 Store 재심사 사유가 아니다.
+이 문단의 큐레이터·매칭 legacy endpoint 제거는 `API cutover: Yes` 범위다.
+이 source 정렬은 이미 설치된 이전 Mobile 계약의 차단 또는 API/DB 호환 증빙이 아니다. 해당 배포의
+release-scoped 소비자 case와 `API cutover`, DB runtime/schema 조합은
+[엔지니어링 가드레일](../../policy/engineering-guardrails.md)에 따라 별도로 확인한다.
 동일 멱등 키 재전송, 다른 payload 충돌, 필수 키 형식 거부와 부수효과 단일 발행은 배포 전 API 자동화
 테스트로 검증하며 운영 smoke에서 인위적으로 재현하지 않는다.
 
@@ -339,11 +367,14 @@ xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version
 ```
 
-API 계약 변경이 포함되면 심사 제출 시 운영 `min_version`을 바꾸지 않는다. 심사 승인과 새 build의 출시 가능
-상태를 확인한 뒤 사용자 요청이 차단된 activation window에서 API/Admin 반영, Store 출시와 Android·iOS 각각의
-`version_code`·`min_version` 갱신을 연속 실행한다. 실제 이전 build의 bootstrap 응답이 `force_update=2`, 새
-build가 `force_update=0`인지 두 플랫폼에서 확인하고 smoke를 통과한 뒤에만 장벽을 해제한다. 장벽 시작·종료,
-설정 변경 시각과 검증 결과를 릴리즈 기록에 남기며, 이 장벽을 보장할 수 없으면 배포하지 않는다.
+API/DB 변경이 포함되면 심사 제출 시 운영 `min_version`을 바꾸지 않고 release-scoped 소비자 case와
+`API cutover`, DB runtime/schema 조합을 각각 판정한다. API `No`이면 지원 이전 운영 앱과 새 API+최종 DB
+smoke를 유지한 채 일반 출시한다. API `Yes`이면
+심사 승인과 새 build의 출시 가능 상태를 확인한 뒤 서버 측 요청 차단이 포함된 activation window에서
+API/Admin과 Store를 전환한다. DB migration도 포함되면 별도 FENCED/RESUMED maintenance 순서를 결합한다.
+강제 업데이트를 적용해도 장벽 중 이전 build의 bootstrap/version/upgrade 응답은 이해 가능해야 하고,
+호환 불가능한 product request의 결정론적 거부와 적용 후 smoke를 확인한다. 앱 팝업만으로 장벽을
+보장했다고 판정하지 않는다.
 
 스토어 심사 제출 직후에는 운영 출시 완료 전 기준점을 잃지 않도록 [배포 태그 정책](../../policy/release-tag-policy.md)에 따라 제출 마커 태그를 만든다.
 
@@ -470,8 +501,8 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 - 채팅 WSS 연결만 실패하면 외부 proxy Upgrade 전달, `/realtime/admin`·`/realtime/member` 경로, JWT 인증
   로그, PM2 프로세스 수를 확인한다. HTTP polling을 임시 fallback으로 추가해 완료 처리하지 않는다.
 - 큐레이터 또는 매칭 실시간 채팅 배포 뒤 문제가 생기면 API, Admin 정적 artifact, Android·iOS NextPush를 같은
-  직전 검증 기준점으로 함께 rollback한다. nullable expand DB 스키마는 과거 행 보존과 rollback 호환을 위해
-  유지하지만, 현재 배포에 누락 필드 수용이나 구형 목록 endpoint를 새로 추가하지 않는다.
+  직전 검증 기준점으로 함께 rollback한다. nullable expand DB 스키마는 직전 API runtime의 migrated DB
+  호환이 검증된 경우에 유지하며, 현재 배포에 누락 필드 추측이나 구형 목록 endpoint를 새로 추가하지 않는다.
 - Admin 외부 응답이 실패하면 `sudo nginx -t`, 내부 `curl -I http://127.0.0.1:8000`, 백업 산출물 존재 여부를 먼저 확인한다.
 - DB 반영이 실패하거나 중단되면 같은 SQL을 즉시 재실행하지 않는다. 실제 DB 상태와 ledger를 확인한 뒤
   [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의 `Ledger와 실패 복구`를 따른다.

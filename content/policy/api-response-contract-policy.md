@@ -69,9 +69,10 @@ API/Admin/Mobile이 JSON API 성공/실패를 같은 envelope 기준으로 판�
 - Package `response` entrypoint의 public runtime allowlist는 `isApiEnvelope` 하나다. Admin/Mobile facade는 로직 없는 `isEnvelope` 연결 하나만 허용하며 다른 envelope validator나 branch helper를 추가하지 않는다.
 - Swagger/OpenAPI success schema가 없거나 느슨하면 generated success data type은 `unknown` 또는 loose object가 될 수 있다. generated artifact만으로 전체 success DTO 완성 증거로 해석하지 않는다.
 - CI와 문서 검증은 현재 공통 응답 구조의 금지 조건과 참조 정합성을 확인한다. 과거 legacy helper 이름이나 임시 구현명 자체를 검증 기준으로 삼지 않는다.
-- 호환 경로는 작업 요청자가 서로 다른 계약의 공존을 명시 승인한 예외에만 별도 호환 배포 작업으로 분리한다.
-  설치된 구버전의 존재나 Store 심사 지연 가능성을 승인으로 추정하지 않으며, 승인되지 않은 호환 경로는
-  강제 업데이트/mandatory가 포함된 단일 최종 계약에서 제거한다.
+- 공통 envelope 변경의 하위 호환과 cutover 판정은
+  [엔지니어링 가드레일](engineering-guardrails.md)의 `API 계약과 runtime-state 안전성의 독립 판정`을
+  따른다. 제거 예정 dual parser·legacy envelope branch가 필요하면 `API cutover: Yes`이며, Store
+  강제 업데이트나 NextPush mandatory만으로 이전 계약 요청 차단을 증명하지 않는다.
 
 ## 체크리스트
 

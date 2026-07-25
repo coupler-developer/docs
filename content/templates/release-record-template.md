@@ -2,7 +2,7 @@
 
 ```release-metadata
 {
-  "schema": "release-metadata/v1",
+  "schema": "release-metadata/v2",
   "version": "vX.Y.Z",
   "status": "pending",
   "releaseScopes": [
@@ -73,8 +73,8 @@
 ## 버전 매핑
 
 - `docs`: 기록 버전 `vX.Y.Z`, 태그 `vX.Y.Z 또는 N/A`, 커밋 `pending 또는 N/A`
-- `coupler-api`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
-- `coupler-admin-web`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`
+- `coupler-api`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha`
+- `coupler-admin-web`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha`
 - `coupler-mobile-app`: Store `version (build) 또는 N/A`, 릴리스 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`, NextPush `label 또는 N/A`
 - `coupler-mobile-app` 제출 마커 태그:
 - 제출 마커 증빙 이관/삭제:
@@ -83,7 +83,7 @@
 
 - `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
 - `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는
-  `release-metadata/v1`로 둔다.
+  `release-metadata/v2`로 둔다.
 - `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 `v2`, `v3`, `v4`처럼 올리지 않는다.
 - 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
 - `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
@@ -91,12 +91,167 @@
 - repo 검증 범위는 사람이 직접 쓰지 않고 `releaseScopes` descriptor에서 파생한다.
 - `scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. 각 key는 `releaseScopes`와 정확히 일치해야 하며, scope별 `status`는 `planned`, `pending`, `in_progress`, `released`, `rolled_back`, `superseded` 중 하나다.
 - 문서 전체 `status`는 `scopeResults`에서 파생되는 상태와 일치해야 한다. 선행 완료 scope가 `released`이고 나머지가 `pending`이면 전체 상태는 `pending`, 장기 실행에서 일부 scope가 진행 중이면 `in_progress`, 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 `superseded`다.
+- 전체 `rolled_back`은 하나 이상의 scope가 실제 `rolled_back`이고 나머지 scope가 모두
+  `released | rolled_back | superseded`일 때만 쓴다. 준비·대기·진행 scope가 남아 있으면 전체 상태는
+  `in_progress`다.
 - `docs` scope의 `released`는 최종 기록이 병합 가능한 상태이고 병합 후 생성할 docs tag가 `versionMapping.docs.tag`에 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 postcheck로 확인한다.
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `coupler-api`, `coupler-admin-web`, `mobile-store`, `docs` scope에서 파생한다. `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 대체 릴리스, 완료하지 않은 범위, 태그 생성 여부를 기록한다.
-- `coupler-api`를 `released`로 닫을 때는 `scopeResults.coupler-api.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-api.tag`를 concrete 값으로 채운다.
+- `coupler-api`를 `released`로 닫을 때는 `scopeResults.coupler-api.evidence.deployment`, `smoke`,
+  `publicContract`, `runtimeRecovery`와 `versionMapping.coupler-api.tag`를 채운다. `publicContract`는
+  Store 직전/현재 build, OTA label/cohort, Admin artifact별 runtime/contract ref와 REST·WebSocket·
+  bootstrap·version interface를 exact inventory로 기록하고, 각 consumer-interface의 current API case를
+  연결한다. `runtimeRecovery`는 previous-release, forward-fix, controlled-recovery 중 하나와
+  persisted/queued/external-effect 안전 근거를 기록한다. previous-release이면 inventory의 모든
+  consumer-interface가 이전 API에서 성공한 rollback case를 정확히 하나씩 가져야 하고 그 전체 ID를
+  `previousReleaseCaseIds`에 기록한다.
+- Terminal `coupler-api` scope는 `contracts-package` scope를 반드시 함께 포함해 `released`로 닫는다.
+  이전 package를 그대로 쓰는 API 릴리스도 현재 API SHA에서 생성·발행된 stable package와 active
+  Admin/Mobile exact pin 정렬을 먼저 확인한다.
+
+`publicContract`는 아래 closed shape만 사용한다. `apiRefs.current`와 contracts-package `sourceRef`는
+`versionMapping.coupler-api.commit`과 같은 40자 SHA이고, `contractRefs.current`는 포함된
+contracts-package의 `publishedPackage`와 같다. `consumers`에는
+`mobile-store | mobile-nextpush | admin` × `previous | current` 여섯 쌍을 정확히 하나씩 둔다.
+Store/Admin은 항상 `present`이고 NextPush가 실제 없을 때만 `absent`와 owner/absence evidence를 쓴다.
+`present` mobile은 `rest`, `websocket`, `bootstrap`, `version`, Admin은 `rest`, `websocket` exact-set이다.
+심사용 Store native bundle이 개발 API를 보고 같은 target binary의 Production NextPush가 운영 API를
+보는 특수 제출은 `previous mobile-store`, `current mobile-store`, `current mobile-nextpush` consumer의
+artifact/case evidence에 각 API 환경을 구분해 적는다. 개발계 Store case는 심사·QA 근거이며 운영
+API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 native 개발 API fallback은 잔존 위험으로
+기록하되 그 사실만으로 cutover 성공·실패, 제출 차단 또는 재제출을 판정하지 않는다.
+
+```json
+{
+  "apiRefs": {
+    "previous": "<previous-api-40-char-sha>",
+    "current": "<versionMapping.coupler-api.commit>"
+  },
+  "contractRefs": {
+    "previous": "@coupler-developer/coupler-api-contracts@<previous-version>",
+    "current": "@coupler-developer/coupler-api-contracts@<published-version>"
+  },
+  "consumers": [
+    {
+      "state": "present",
+      "id": "current-store",
+      "surface": "mobile-store",
+      "generation": "current",
+      "artifact": {
+        "kind": "store-builds",
+        "mappingRef": "<versionMapping.coupler-mobile-app.store>",
+        "iosVersionBuild": "X.Y.Z (build)",
+        "androidVersionBuild": "X.Y.Z (build)"
+      },
+      "contractRef": "@coupler-developer/coupler-api-contracts@<published-version>",
+      "interfaces": ["rest", "websocket", "bootstrap", "version"]
+    },
+    {
+      "state": "present",
+      "id": "previous-nextpush",
+      "surface": "mobile-nextpush",
+      "generation": "previous",
+      "artifact": {
+        "kind": "nextpush-deployment",
+        "mappingRef": "<previous-app/deployment/label/target>",
+        "ios": {
+          "app": "<app>",
+          "deployment": "Production",
+          "label": "<label>",
+          "cohort": "<cohort>",
+          "targetBinary": "X.Y.Z (build)"
+        },
+        "android": {
+          "app": "<app>",
+          "deployment": "Production",
+          "label": "<label>",
+          "cohort": "<cohort>",
+          "targetBinary": "X.Y.Z (build)"
+        }
+      },
+      "contractRef": "@coupler-developer/coupler-api-contracts@<previous-version>",
+      "interfaces": ["rest", "websocket", "bootstrap", "version"]
+    },
+    {
+      "state": "absent",
+      "id": "current-nextpush",
+      "surface": "mobile-nextpush",
+      "generation": "current",
+      "owner": "<owner>",
+      "absenceEvidence": "<Production 배포/label 부재 확인>"
+    },
+    {
+      "state": "present",
+      "id": "current-admin",
+      "surface": "admin",
+      "generation": "current",
+      "artifact": {
+        "kind": "admin-build",
+        "artifactRef": "<versionMapping.coupler-admin-web.commit>"
+      },
+      "contractRef": "@coupler-developer/coupler-api-contracts@<published-version>",
+      "interfaces": ["rest", "websocket"]
+    }
+  ],
+  "cases": [
+    {
+      "id": "current-store-rest-current-api",
+      "consumerId": "current-store",
+      "interface": "rest",
+      "apiGeneration": "current",
+      "exposure": "post-activation",
+      "expected": "success",
+      "evidence": "<실제 fixture/smoke 결과>"
+    }
+  ]
+}
+```
+
+위 예시의 생략된 `previous-store`, `previous-admin`도 같은
+discriminated shape로 채운다. `cases`는 모든 `present consumer × interfaces`에 대해 current API case를
+정확히 하나 이상 만들고, key `consumerId:interface:apiGeneration:exposure`를 중복하지 않는다. non-cutover는
+모두 `success`다. cutover는 이전 mobile의 `bootstrap`/`version`은 계속 `success`, 호환 불가능한 product
+요청은 activation에서 `deterministic-rejection`으로 기록한다.
+
+`runtimeRecovery`의 closed shape는 아래 둘 중 하나다. 첫 shape의 `strategy`는 실제 대응에 따라
+`forward-fix | controlled-recovery` 중 하나를 쓴다. API scope가 `rolled_back`이면 반드시
+`previous-release`이며, 모든 `present consumer × interfaces`에 대한
+`apiGeneration: previous`, `exposure: rollback`, `expected: success` case ID exact-set을 넣는다.
+
+```json
+{
+  "strategy": "forward-fix",
+  "stateSafety": {
+    "source": "application-evidence",
+    "persistedState": "<final DB read/write 검증>",
+    "queuedState": "<cursor/in-flight/idempotency 검증>",
+    "externalEffects": "<effect ledger/sink 검증>"
+  },
+  "previousReleaseCaseIds": []
+}
+```
+
+```json
+{
+  "strategy": "previous-release",
+  "stateSafety": {
+    "source": "db-maintenance-execution",
+    "scope": "db-migration"
+  },
+  "previousReleaseCaseIds": [
+    "<every successful previous-API rollback case id>"
+  ]
+}
+```
+
+DB-backed `stateSafety`는 `db-migration` scope가 `released | rolled_back`이고 dev/prod execution artifact가
+모두 실제 bytes SHA와 결속된 경우에만 terminal API 증빙으로 쓸 수 있다. API client rollback만 수행하고
+API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기록하지 않는다.
+
 - `coupler-admin-web`를 `released`로 닫을 때는 `scopeResults.coupler-admin-web.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-admin-web.tag`를 concrete 값으로 채운다.
-- `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`, `workflow`, `sourceRef`를 concrete 값으로 채운다.
+- `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`,
+  `workflow`, `sourceRef`를 concrete 값으로 채운다. `publishedPackage`는 package/version 식별자만,
+  `sourceRef`는 `versionMapping.coupler-api.commit`과 같은 40자 SHA만 쓴다.
 - 신규 `db-migration` evidence는 아래 maintenance 형식만 사용한다. 환경별 산출물은 실행기가 만든
   `plan.json`과 `execution.jsonl` 두 개뿐이다.
 - `pending`에서는 dev/prod plan을 모두 고정하고 execution은 `null`로 둔다. 개발계 완료 뒤 운영계를
@@ -130,13 +285,19 @@
 - `포함 범위`와 `제외 범위`는 사람이 읽는 실행 계약이다. 배포 범위(`DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`)별로 완료/제외를 구분한다.
 - 제외한 범위와 완료 판정에 직접 쓰이지 않는 `N/A` 항목은 미적용 사유와 근거를 함께 적는다.
 - `released` 또는 `rolled_back` scope의 완료/rollback 증적은 실제 workflow, Gate, smoke, artifact, rollback 기준 같은 concrete 증빙으로 채우며 `N/A - <사유>`로 대체하지 않는다.
+- `rolled_back` scope는 `rollbackReason`을 기록한다. scope descriptor에 전용 rollback evidence가 없는
+  `contracts-package`, `mobile-store`, `mobile-nextpush`, `docs`는 실제 되돌림 결과를
+  `rollbackEvidence`에도 기록한다. `db-migration`은 dev/prod maintenance execution artifact가 이 역할을
+  소유하므로 별도 `rollbackEvidence`를 만들지 않는다.
 - `preflightRepoNames`는 `docs + releaseScopes.requiredRepoRefs + extraRepoRefs`로 계산한다.
 - `preflightRepoNames`가 `docs`뿐인 릴리스 기록은 서비스 repo workspace 없이 docs-only preflight를 실행할 수 있다.
 - 서비스 레포가 `preflightRepoNames`에 포함되면 preflight 실행 시 해당 repo가 있는 workspace root가 필요하다.
 - preflight 검증 대상 릴리즈 기록에서 `preflightRepoNames`에 포함된 서비스 레포의 `versionMapping` ref는 릴리스 상태와 무관하게 실행 시점의 현재 `origin/main` 기준점과 같아야 한다.
 - `docs`의 릴리즈 기준점은 `versionMapping.docs.tag`와 실제 docs tag commit으로 확인한다. 릴리즈 기록 문서 안의 `versionMapping.docs.commit`에는 자기 자신을 안정적으로 가리키는 concrete SHA를 적지 않는다.
 - `docs` scope가 `released`이면 `versionMapping.docs.tag`를 목표 버전으로 고정한다. 실제 origin annotated tag는 final PR merge 뒤 병합된 main 커밋에 생성하고 postcheck하며, tag commit은 `origin/main` 계보에 있어야 한다.
-- `preflightRepoNames`에 포함된 서비스 레포는 `versionMapping`에 확인 가능한 `tag`/`releaseTag` 또는 `commit` SHA를 적는다. 태그가 아직 없으면 `tag: null`과 현재 `origin/main` 기준 `commit` SHA를 함께 적는다.
+- `preflightRepoNames`에 포함된 서비스 레포는 `versionMapping`에 확인 가능한 `tag`/`releaseTag` 또는
+  `commit` SHA를 적는다. `coupler-api`와 `coupler-admin-web`은 terminal 공개 계약/artifact를 결속하므로
+  태그가 있어도 현재 `origin/main` 기준 `commit` SHA를 함께 적는다.
 - 서비스 레포 태그를 적으면 origin에서 확인 가능한 annotated tag여야 하며, 태그와 커밋 SHA를 함께 적을 때는 둘이 같은 커밋을 가리켜야 한다.
 - `docs` 태그는 릴리스 기록과 Release Note 기준점이고, 서비스 레포 태그를 대체하지 않는다.
 - Mobile Store 제출, Mobile Store 출시, Mobile NextPush 배포는 각각 별도 상태와 증빙으로 적는다.
@@ -158,8 +319,18 @@
 - `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
 - `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
 - `버전 매핑` 섹션은 사람이 읽는 mirror다. 자동화 기준은 `release-metadata.versionMapping`이며, 둘이 서로 다른 기준점을 가리키지 않게 같이 갱신한다.
-- API contract cutover가 포함되면 `release-metadata.apiContractCutover`를 cutover 상태/비교 기준/운영 cutover 증적의 기계 판정 SoT로 채우고, contracts package publish 증적은 `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만 `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을 `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
-- API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다. `검증 근거`에는 `N/A - API 계약 변경 없음`처럼 사유만 남긴다.
+- `API cutover: Yes`이면 `release-metadata.apiContractCutover`를 activation과 client rollback의 기계
+  판정 SoT로 채운다. 소비자 inventory·API ref·contract case·runtime 복구는
+  `scopeResults.coupler-api.evidence`가 소유하고, contracts package publish 증적은
+  `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만
+  `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을
+  `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
+- API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다.
+  이는 API 계약 변경 없음 또는 `API cutover: No` 판정이다. `publicContract.cases`에는 모든 지원 이전
+  consumer-interface가 현재 API+최종 DB에서 성공한 근거를 남긴다.
+- DB 변경은 별도 `Compatible/Cutover` 필드를 만들지 않는다. canonical DB maintenance plan/execution이
+  이전·현재·혼합 runtime, 시작·최종 DB, 상태 표면, FENCED/RESUMED/RECOVERING과 복구 전략을 소유한다.
+  Docs는 해당 artifact의 경로와 bytes SHA-256만 묶는다.
 - 이 기본 템플릿은 non-cutover 기본형이다. API contract cutover가 포함된 릴리스에서만 `content/templates/api-contract-cutover-gate-template.md`의 cutover Gate 항목을 별도로 삽입한다.
 - 검증 근거에는 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 남긴다.
 - 개인 사용자명, 로컬 home/tmp 절대 경로, 비공개 secret은 릴리스 기록에 남기지 않는다.
@@ -179,9 +350,15 @@
 ## 검증 근거
 
 - 검증 명령, 응답, 로그, workflow URL 또는 수동 검증 결과를 기록한다.
-- API contract cutover 포함 시 `force_update`/`min_version` 강제 업데이트 차단 근거를 기록한다.
+- API 변경 시 `API cutover: No | Yes`와 consumer-interface case를 기록한다. DB 변경 시에는 개발계·운영계
+  plan/execution 네 artifact의 경로와 bytes SHA-256만 기록하고, runtime/schema 조합·phase·상태 표면·복구
+  결과는 canonical artifact를 참조한다.
+- API contract cutover 포함 시 서버·proxy·유지보수 상태의 요청 차단 근거와 적용한
+  `force_update`/`min_version` 또는 NextPush 전환 근거를 구분해 기록한다.
 - API contract cutover 포함 시 contracts package publish version과 Mobile/Admin 소비 경로 검증 근거를 기록한다. Admin/Mobile이 generated copy를 소비하는 동안에는 `Release Contracts` workflow가 발행한 `@coupler-developer/coupler-api-contracts@x.y.z` version을 `scopeResults.contracts-package.evidence.publishedPackage`에 기록하고 exact match 검증 근거를 함께 남긴다. package dependency 전환 후에는 Mobile/Admin `package.json`/lockfile dependency version, consumer import path, 각 소비자 레포 품질 게이트 결과를 기록한다.
-- API contract cutover가 없으면 `N/A - API 계약 변경 없음`처럼 사유만 남기고 `API contract cutover Gate` 섹션은 만들지 않는다.
+- API contract cutover가 없으면 `N/A - API 하위 호환 검증으로 cutover 불필요` 또는
+  `N/A - API 계약 변경 없음`처럼 사유와
+  근거를 남기고 Gate 섹션은 만들지 않는다.
 
 ### Mobile 개발계 QA 빌드 기록
 

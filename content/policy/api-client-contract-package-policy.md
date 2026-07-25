@@ -71,8 +71,8 @@
 - Package request DTO는 type-only 계약이며 path/query/body 위치, required/optional, nullable, 배열/단수 구조를 보존해야 한다. DB row, 서버 내부 DTO, 화면 ViewModel, 로컬 draft는 package public DTO로 승격하지 않는다.
 - 소비자는 package request DTO로 payload를 구성한다. 화면 ViewModel과 로컬 draft는 API 호출 계층으로 역유입하지 않는다.
 - `main`과 Ready 상태의 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에
-  exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 계약 정렬과 cutover는
-  완료가 아니다.
+  exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 현재 source 계약 정렬은
+  완료가 아니다. 이 source 정렬은 이미 설치된 이전 Mobile 계약의 차단 증빙이 아니다.
 - Admin/Mobile Draft PR은 교차 컴파일 검증에 한해 published PR preview version을 dependency와 lockfile에
   exact pin할 수 있다. PR 본문에는 API PR 번호, preview version, 검증한 API head SHA를 남긴다.
 - PR preview는 소비자 검증용 prerelease이며 stable 발행, 계약 정렬, cutover 또는 운영 배포 완료 증거가 아니다.
@@ -88,14 +88,16 @@
 - Preview checkout은 Git credential을 보존하지 않는다. PR 코드를 검사·pack하는 prepare job에는 package
   write 권한을 주지 않고, 별도 publish job이 Draft 상태와 head SHA 및 tarball metadata를 다시 검증한 뒤
   lifecycle script를 끄고 발행한다.
-- 최종 구조 리뷰에서는 API package source와 Admin/Mobile dependency·lockfile을 하나의 동시 배포 계약 묶음으로 비교한다. 세 레포의 exact version과 실제 runtime 공개 표면이 같으면 함께 배포 가능한 최종 계약으로 판정하며, 이 코드 판정 자체에 Store/NextPush 이력이나 legacy traffic 운영 증빙을 요구하지 않는다.
-- 운영 배포 증빙은 작업 요청자가 승인해 이미 배포된 호환 경로나 URL-encoded parser 같은 legacy 입력 경로를
-  실제 제거할 때 확인한다. Mobile 제거 근거는 Store 출시 activation 강제 업데이트 또는 NextPush mandatory와 현재 코드
-  소비 경로 0건이며, 별도 24시간 traffic 관찰은 기본 Gate가 아니다. 브랜치 이름에 `cutover`가 있다는 이유만으로
-  package 정렬 리뷰에 운영 Gate를 추가하지 않는다.
+- 최종 구조 리뷰에서는 API package source와 Admin/Mobile dependency·lockfile의 exact version과 실제 runtime
+  공개 표면을 비교한다. 이 현재 source 정렬과 `API cutover` 판정은 별도다.
+- 이전 Mobile 계약의 하위 호환 또는 운영 legacy 제거 증빙은
+  [엔지니어링 가드레일](engineering-guardrails.md)의 `API 계약과 runtime-state 안전성의 독립 판정`을 따른다.
+  Store/NextPush 이력, source 검색 결과 또는 버전을 구분할 수 없는 traffic 0건으로 이를 대신하지 않는다.
 - 변경된 계약 symbol을 특정 consumer가 직접 import하지 않더라도 version 갱신 대상에서 제외하지 않는다. 계약 package는 active consumer가 함께 고정하는 공용 계약 스냅샷이다.
 - 새 stable version을 발행하면 같은 릴리즈 작업 단위에서 Admin/Mobile dependency와 lockfile 갱신 PR을 모두 준비하고 품질 게이트를 통과시킨다. 두 PR이 `main`에 병합되기 전에는 계약 package 소비 정렬을 완료로 기록하지 않는다.
-- 소비자 version 지연은 별도 호환 릴리즈로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer, 현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 cutover 완료로 판정하지 않는다.
+- 소비자 source version 지연은 별도 예외로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer,
+  현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 현재
+  source 계약 정렬을 완료로 판정하지 않는다.
 - package 이름은 `@coupler-developer/coupler-api-contracts`로 고정한다. 별도 import alias를 두지 않는다.
 - API repo의 package 발행/검증 명령은 API repo의 `packageManager`와 lockfile 기준을 따른다. 현재 기준은 `pnpm`/`pnpm-lock.yaml`이다.
 - API repo의 stable/preview publish 권한은 GitHub Actions 기본 `github.token`과 workflow
@@ -235,7 +237,9 @@
 3. 계약 산출물이 바뀌면 package version을 올리고 새 version을 발행한다.
 4. Admin/Mobile은 직접 사용하는 계약 symbol 변경 여부와 무관하게 published latest stable version으로 dependency와 lockfile을 함께 갱신한다.
 5. 각 소비자 표준 품질 게이트와 package version/lockfile 일치를 확인한 뒤 두 소비자 PR을 `main`에 병합한다.
-6. breaking 또는 cutover 성격의 변경은 두 active consumer의 version 정렬을 포함해 API 계약 변경 모바일 릴리즈 플로우의 gate를 통과한 뒤 진행한다.
+6. API/DB 변경은 두 active consumer의 현재 source version 정렬과 별도로
+   [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
+   `API cutover`와 DB runtime/schema 조합 Gate를 통과한 뒤 진행한다.
 
 ## 증빙/추적
 
@@ -282,7 +286,8 @@
 - [ ] 계약 산출물 변경마다 새 package version과 릴리즈 증빙이 남았는가?
 - [ ] API `main`의 published latest stable version과 Admin/Mobile `package.json` 및 lockfile의 exact version이 모두 같은가?
 - [ ] 직접 import하지 않는 계약 symbol을 이유로 active consumer의 version 갱신을 생략하지 않았는가?
-- [ ] 소비자 version 지연 예외가 있다면 별도 호환 릴리즈의 owner, 사유, 목표 version, 제거 조건과 목표 시점이 기록되어 있고 cutover를 미완료로 유지했는가?
+- [ ] 소비자 source version 지연 예외가 있다면 owner, 사유, 목표 version, 제거 조건과 목표 시점이 기록되어
+      있고 현재 source 계약 정렬을 미완료로 유지했는가?
 
 ## 관련 문서
 

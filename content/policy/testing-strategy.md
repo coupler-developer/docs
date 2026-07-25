@@ -118,13 +118,13 @@
 
 | 변경 유형 | 최소 검증 |
 | --- | --- |
-| API 계약 | 요청/응답 계약 테스트 또는 controller/route 통합 테스트 |
+| API 계약 | 요청/응답 계약 테스트 또는 controller/route 통합 테스트. API/DB 변경이면 직전 운영 Mobile/Admin 계약과 새 API+migrated DB 조합 포함 |
 | API 조회·동작 구조 | 페이지 조회의 필수 데이터·권한 계약, bounded 최대치의 payload·query 수, 소비자 요청 그래프 또는 화면 테스트 |
 | 상태 머신(FSM)/상태 전이 | 허용/거부 전이 테스트 또는 상태 차이 로그 |
 | 권한/보안 | 권한별 허용/거부 검증 |
 | 결제 | 중복 결제, 환불, 키 지급/회수 검증 |
 | 푸시 | 발송, 스킵, 중복 방지, 저장 결과 검증 |
-| DB | [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 catalog/fixture 검증 |
+| DB | [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 catalog/fixture와 직전/신규 API runtime+migrated DB 검증 |
 | 배포 | 배포 후 핵심 응답, 로그, 롤백 기준 검증 |
 | 네이티브/모바일 릴리즈 | 실기기 또는 배포 리허설 검증 |
 | 다중 레포 변경 | 각 레포 품질 게이트와 교차 계약 검증 |
@@ -252,6 +252,15 @@
 
 - 운영 반영 전 최소 검증 순서는 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 표준 절차를 따른다.
 - 상세 판정 기준은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
+- API `No`는 release-scoped Store/OTA/Admin consumer-interface가 현재 API+최종 DB에서 성공하는 자동
+  계약·통합 테스트 또는 재현 가능한 smoke로 검증한다.
+- DB는 plan에 선언한 이전·현재·실제 혼합 runtime과 시작·최종 DB 조합의 변경 경계를 검증한다. 모든
+  `RESUMED` 조합은 성공해야 하고, FENCED smoke는 DB·queue·external-effect 표면 residual 0을 exact-set으로
+  확인한다.
+- post-resume 이전 릴리즈 복구를 허용하면 수락 write, queue cursor/in-flight/idempotency와 외부 sink
+  효과의 무손실 보존·재생·보상 테스트를 포함한다. snapshot/PITR 성공만으로 대체하지 않는다.
+- Store 강제 업데이트, NextPush mandatory와 버전을 구분할 수 없는 traffic 0건은 위 case나 runtime
+  조합 테스트를 대체하지 않는다.
 - CI는 API admission·local MariaDB replay와 docs evidence 계약만 검증한다. 실제 운영 DB 상태, credential,
   topology, backup 복구 가능성을 정적 CI가 확인했다고 표현하지 않는다.
 
