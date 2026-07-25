@@ -557,7 +557,10 @@ describe("release metadata scope results", () => {
     ).contractRef = "@coupler-developer/coupler-api-contracts@9.8.0";
     publicContract.consumers.find(
       ({ id }) => id === "previous-store",
-    ).interfaces = ["rest", "bootstrap", "version"];
+    ).interfaces = ["rest", "version"];
+    publicContract.consumers.find(
+      ({ id }) => id === "previous-admin",
+    ).interfaceInventoryEvidence = "pending";
     publicContract.consumers.find(
       ({ id }) => id === "current-admin",
     ).artifact.artifactRef = "e".repeat(40);
@@ -601,7 +604,12 @@ describe("release metadata scope results", () => {
     );
     assert(
       errors.some((error) =>
-        /consumers\.0\.interfaces must exactly cover/.test(error),
+        /consumers\.0\.interfaces must include rest, bootstrap, version/.test(error),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /consumers\.4\.interfaceInventoryEvidence must be concrete evidence/.test(error),
       ),
     );
     assert(
@@ -694,6 +702,62 @@ describe("release metadata scope results", () => {
         /current admin consumer requires versionMapping\.coupler-admin-web\.commit/.test(
           error,
         ),
+      ),
+    );
+  });
+
+  it("accepts artifact-specific previous contract refs and actual historical interface inventories", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    const consumers =
+      metadata.scopeResults["coupler-api"].evidence.publicContract.consumers;
+    const previousStore = consumers.find(({ id }) => id === "previous-store");
+    const previousAdmin = consumers.find(({ id }) => id === "previous-admin");
+
+    previousStore.contractRef =
+      "coupler-mobile-app@1111111111111111111111111111111111111111 local wire contract";
+    previousStore.interfaces = ["rest", "bootstrap", "version"];
+    previousAdmin.interfaces = ["rest"];
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("keeps the minimum mobile and Admin interfaces fail-closed", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    const consumers =
+      metadata.scopeResults["coupler-api"].evidence.publicContract.consumers;
+    consumers.find(({ id }) => id === "previous-store").interfaces = [
+      "rest",
+      "version",
+    ];
+    consumers.find(({ id }) => id === "previous-admin").interfaces = [
+      "websocket",
+    ];
+
+    const errors = validate(metadata);
+    assert(
+      errors.some((error) =>
+        /consumers\.0\.interfaces must include rest, bootstrap, version/.test(
+          error,
+        ),
+      ),
+    );
+    assert(
+      errors.some((error) =>
+        /consumers\.4\.interfaces must include rest/.test(error),
       ),
     );
   });
@@ -1574,7 +1638,9 @@ function apiPublicContractEvidence(
         androidVersionBuild: "9.8.0 (899)",
       },
       contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
-      interfaces: ["rest", "websocket", "bootstrap", "version"],
+      interfaces: ["rest", "bootstrap", "version"],
+      interfaceInventoryEvidence:
+        "Store 9.8.0 source inventory contains REST, bootstrap, and version consumers; no WebSocket runtime",
     },
     {
       state: "present",
@@ -1589,6 +1655,8 @@ function apiPublicContractEvidence(
       },
       contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
       interfaces: ["rest", "websocket", "bootstrap", "version"],
+      interfaceInventoryEvidence:
+        "Store 9.9.0 source inventory contains REST, WebSocket, bootstrap, and version consumers",
     },
     {
       state: "present",
@@ -1614,7 +1682,9 @@ function apiPublicContractEvidence(
         },
       },
       contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
-      interfaces: ["rest", "websocket", "bootstrap", "version"],
+      interfaces: ["rest", "bootstrap", "version"],
+      interfaceInventoryEvidence:
+        "NextPush v98 source inventory contains REST, bootstrap, and version consumers; no WebSocket runtime",
     },
     currentNextPush
       ? {
@@ -1642,6 +1712,8 @@ function apiPublicContractEvidence(
           },
           contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
           interfaces: ["rest", "websocket", "bootstrap", "version"],
+          interfaceInventoryEvidence:
+            "NextPush v99 source inventory contains REST, WebSocket, bootstrap, and version consumers",
         }
       : {
           state: "absent",
@@ -1658,7 +1730,9 @@ function apiPublicContractEvidence(
       generation: "previous",
       artifact: { kind: "admin-build", artifactRef: adminCommit },
       contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
-      interfaces: ["rest", "websocket"],
+      interfaces: ["rest"],
+      interfaceInventoryEvidence:
+        "Admin 9.8.0 source inventory contains REST consumers; no WebSocket runtime",
     },
     {
       state: "present",
@@ -1668,6 +1742,8 @@ function apiPublicContractEvidence(
       artifact: { kind: "admin-build", artifactRef: adminCommit },
       contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
       interfaces: ["rest", "websocket"],
+      interfaceInventoryEvidence:
+        "Admin 9.9.0 source inventory contains REST and WebSocket consumers",
     },
   ];
   const cases = consumers.filter(({ state }) => state === "present").flatMap((consumer) =>
