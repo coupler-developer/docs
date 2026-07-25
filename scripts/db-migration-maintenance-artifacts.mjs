@@ -19,7 +19,7 @@ export function validateMaintenanceDbMigrationEvidence({
   evidence,
   version,
   terminal,
-  requirePlan = terminal,
+  scopeStatus,
   readArtifact,
   context,
 }) {
@@ -32,7 +32,10 @@ export function validateMaintenanceDbMigrationEvidence({
     errors.push(`${context}.schema must be ${dbMigrationMaintenanceEvidenceSchema}`);
   }
 
+  const active = scopeStatus === "pending" || scopeStatus === "in_progress";
   for (const environment of environments) {
+    const requirePlan =
+      environment === "dev" ? terminal || active : terminal;
     validateEnvironmentArtifacts({
       value: evidence[environment],
       environment,
@@ -44,7 +47,30 @@ export function validateMaintenanceDbMigrationEvidence({
       errors,
     });
   }
+  validateArtifactSequence(evidence, context, errors);
   return errors;
+}
+
+function validateArtifactSequence(evidence, context, errors) {
+  const artifacts = [
+    ["dev.plan", evidence.dev?.plan],
+    ["dev.execution", evidence.dev?.execution],
+    ["prod.plan", evidence.prod?.plan],
+    ["prod.execution", evidence.prod?.execution],
+  ];
+  let missingPredecessor = false;
+
+  for (const [artifactName, artifact] of artifacts) {
+    if (artifact === null || artifact === undefined) {
+      missingPredecessor = true;
+      continue;
+    }
+    if (missingPredecessor) {
+      errors.push(
+        `${context} artifacts must follow dev.plan -> dev.execution -> prod.plan -> prod.execution; ${artifactName} has a missing predecessor`,
+      );
+    }
+  }
 }
 
 function validateEnvironmentArtifacts({

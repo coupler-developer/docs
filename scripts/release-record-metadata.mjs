@@ -311,14 +311,12 @@ function validateScopeResult(
 
   if (scopeName === "db-migration" && result.evidence) {
     const terminal = result.status === "released" || result.status === "rolled_back";
-    const requirePlan =
-      terminal || result.status === "pending" || result.status === "in_progress";
     errors.push(
       ...validateMaintenanceDbMigrationEvidence({
         evidence: result.evidence,
         version: metadata.version,
         terminal,
-        requirePlan,
+        scopeStatus: result.status,
         readArtifact,
         context: `${context}: release-metadata scopeResults.db-migration.evidence`,
       }),

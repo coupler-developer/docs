@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe("validate release records metadata sync", () => {
   it("binds a new DB migration record to exact working-tree artifact bytes", () => {
-    const evidence = writeMaintenancePlans();
+    const evidence = writePendingMaintenanceEvidence();
     writeReleaseRecord({
       releaseStatus: "pending",
       apiContractCutover: null,
@@ -71,7 +71,7 @@ describe("validate release records metadata sync", () => {
         "evidence",
         "db-migrations",
         "v9.9.0",
-        "prod",
+        "dev",
         "plan.json",
       ),
       "changed bytes\n",
@@ -907,7 +907,7 @@ function apiPublicContractEvidence(cutover) {
   };
 }
 
-function writeMaintenancePlans() {
+function writePendingMaintenanceEvidence() {
   const version = "v9.9.0";
   const root = path.join(
     tempRoot,
@@ -918,11 +918,8 @@ function writeMaintenancePlans() {
     version,
   );
   const devPlan = Buffer.from('{"environment":"dev"}\n');
-  const prodPlan = Buffer.from('{"environment":"prod"}\n');
   fs.mkdirSync(path.join(root, "dev"), { recursive: true });
-  fs.mkdirSync(path.join(root, "prod"), { recursive: true });
   fs.writeFileSync(path.join(root, "dev", "plan.json"), devPlan);
-  fs.writeFileSync(path.join(root, "prod", "plan.json"), prodPlan);
   return {
     schema: "db-migration-maintenance-evidence/v1",
     dev: {
@@ -933,10 +930,7 @@ function writeMaintenancePlans() {
       execution: null,
     },
     prod: {
-      plan: {
-        path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
-        sha256: createHash("sha256").update(prodPlan).digest("hex"),
-      },
+      plan: null,
       execution: null,
     },
   };

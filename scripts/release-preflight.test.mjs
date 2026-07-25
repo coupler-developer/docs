@@ -176,6 +176,59 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /preflight repos: docs, coupler-api/);
     assert.match(result.stdout, /Result: PASS/);
   });
+
+  it("revalidates an in-progress DB release after recording dev execution and the prod plan", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    git(workspace.docsRoot, ["checkout", "-b", "docs/db-release-in-progress"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(workspace.docsRoot, "in-progress DB release");
+    git(workspace.docsRoot, [
+      "push",
+      "-u",
+      "origin",
+      "docs/db-release-in-progress",
+    ]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /preflight repos: docs, coupler-api/);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("continues to reject a planned release record", () => {
+    const docsRoot = createRepository("docs");
+    git(docsRoot, ["checkout", "-b", "docs/planned-release"]);
+    writePendingRelease(docsRoot, { status: "planned" });
+    const plannedRef = commit(docsRoot, "planned release");
+    git(docsRoot, ["push", "-u", "origin", "docs/planned-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      plannedRef,
+    ], docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stdout,
+      /--pending-ref requires release-metadata status pending or in_progress, got planned/,
+    );
+  });
 });
 
 function createWorkspace() {
@@ -232,14 +285,19 @@ function writeOpaqueRelease(docsRoot, version) {
 
 function writePendingRelease(
   docsRoot,
-  { dbMigration = false, apiRef = null } = {},
+  {
+    dbMigration = false,
+    apiRef = null,
+    status = "pending",
+    dbMigrationStage = "dev-planned",
+  } = {},
 ) {
   const version = "v9.9.0";
   const releaseScopes = dbMigration ? ["docs", "db-migration"] : ["docs"];
   const scopeResults = {
     docs: {
-      status: "pending",
-      summary: "docs pending",
+      status,
+      summary: `docs ${status}`,
       evidence: {},
     },
   };
@@ -253,14 +311,21 @@ function writePendingRelease(
       version,
     );
     const devPlan = Buffer.from('{"environment":"dev"}\n');
+    const devExecution = Buffer.from('{"environment":"dev","completed":true}\n');
     const prodPlan = Buffer.from('{"environment":"prod"}\n');
     fs.mkdirSync(path.join(artifactRoot, "dev"), { recursive: true });
     fs.mkdirSync(path.join(artifactRoot, "prod"), { recursive: true });
     fs.writeFileSync(path.join(artifactRoot, "dev", "plan.json"), devPlan);
-    fs.writeFileSync(path.join(artifactRoot, "prod", "plan.json"), prodPlan);
+    if (dbMigrationStage === "prod-planned") {
+      fs.writeFileSync(
+        path.join(artifactRoot, "dev", "execution.jsonl"),
+        devExecution,
+      );
+      fs.writeFileSync(path.join(artifactRoot, "prod", "plan.json"), prodPlan);
+    }
     scopeResults["db-migration"] = {
-      status: "pending",
-      summary: "DB maintenance pending",
+      status,
+      summary: `DB maintenance ${status}`,
       evidence: {
         schema: "db-migration-maintenance-evidence/v1",
         dev: {
@@ -268,13 +333,22 @@ function writePendingRelease(
             path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
             sha256: sha256Hex(devPlan),
           },
-          execution: null,
+          execution:
+            dbMigrationStage === "prod-planned"
+              ? {
+                  path: `content/releases/evidence/db-migrations/${version}/dev/execution.jsonl`,
+                  sha256: sha256Hex(devExecution),
+                }
+              : null,
         },
         prod: {
-          plan: {
-            path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
-            sha256: sha256Hex(prodPlan),
-          },
+          plan:
+            dbMigrationStage === "prod-planned"
+              ? {
+                  path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
+                  sha256: sha256Hex(prodPlan),
+                }
+              : null,
           execution: null,
         },
       },
@@ -284,7 +358,7 @@ function writePendingRelease(
   const metadata = {
     schema: "release-metadata/v2",
     version,
-    status: "pending",
+    status,
     releaseScopes,
     extraRepoRefs: [],
     versionMapping: {
@@ -307,7 +381,7 @@ function writePendingRelease(
   fs.writeFileSync(
     path.join(releaseRoot, `${version}.md`),
     [
-      "# Pending release",
+      "# Active release",
       "",
       "```release-metadata",
       JSON.stringify(metadata, null, 2),
@@ -316,13 +390,13 @@ function writePendingRelease(
       "## 범위",
       "",
       `- 대상: ${targetRepos}`,
-      "- 포함 범위: pending release",
+      "- 포함 범위: active release",
       "- 제외 범위: none",
       "",
       "## 릴리스 상태",
       "",
       `- 목표 버전: \`${version}\``,
-      "- 전체 상태: `pending`",
+      `- 전체 상태: \`${status}\``,
       "- 완료 범위: N/A",
       "- 대기 범위: 운영 배포",
       "",
