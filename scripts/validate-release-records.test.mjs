@@ -244,7 +244,7 @@ describe("validate release records metadata sync", () => {
           evidence: {
             publishedPackage: "@coupler-developer/coupler-api-contracts@9.9.0",
             workflow: "Release Contracts workflow https://example.invalid/actions/2",
-            sourceRef: "coupler-api v9.9.0",
+            sourceRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           },
         },
       },
@@ -286,7 +286,7 @@ describe("validate release records metadata sync", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stderr,
-      /publishedPackage must include @coupler-developer\/coupler-api-contracts@x\.y\.z/,
+      /publishedPackage must equal @coupler-developer\/coupler-api-contracts@x\.y\.z/,
     );
   });
 });
@@ -532,13 +532,13 @@ function releaseRecordSource({
   verificationNote,
 }) {
   const effectiveReleaseScopes = metadataReleaseScopes
-    ?? (apiContractCutover ? ["docs", "contracts-package"] : ["docs"]);
+    ?? (apiContractCutover ? ["docs", "contracts-package", "coupler-api"] : ["docs"]);
   const effectiveScopeTargetLine = scopeTargetLine
     ?? (effectiveReleaseScopes.includes("contracts-package")
       ? "`docs`, `coupler-api`"
       : "`docs`");
   const metadata = {
-    schema: "release-metadata/v1",
+    schema: "release-metadata/v2",
     version: "v9.9.0",
     status: releaseStatus,
     releaseScopes: effectiveReleaseScopes,
@@ -628,30 +628,20 @@ function releaseRecordSource({
           "### API contract cutover Gate",
           "",
           "- Cutover 상태: `" + markdownCutoverStatus + "`",
-          "- 비교 기준 ref:",
-          "    - `coupler-api`: " + markdownCutoverValue,
-          "    - `coupler-mobile-app`: " + markdownCutoverValue,
-          "    - `coupler-admin-web`: " + markdownCutoverValue,
           "- Contract artifact sync:",
           "    - 명령: " + markdownCutoverValue,
           "    - 결과: " + markdownCutoverValue,
           "    - published package: " + markdownPublishedPackageValue,
           "    - Mobile/Admin consumer path: " + markdownCutoverValue,
-          "- N+1 배포 근거:",
-          "    - Store version/build 또는 NextPush app/deployment/label: " + markdownCutoverValue,
-          "    - 운영 출시/적용 시각: " + markdownCutoverValue,
-          "    - 확인 URL 또는 콘솔 증빙: " + markdownCutoverValue,
-          "- Legacy traffic 차단 근거:",
-          "    - 기존 N version/build: " + markdownCutoverValue,
-          "    - 강제 업데이트 설정 위치: " + markdownCutoverValue,
-          "    - `version_code < min_version` 요청 결과: " + markdownCutoverValue,
-          "- Admin 검증:",
-          "    - 앱 버전 설정 화면 저장 검증: " + markdownCutoverValue,
-          "    - 변경 데이터 조회/운영자 액션 smoke: " + markdownCutoverValue,
-          "- Rollback 기준:",
-          "    - 직전 호환 API/Admin/Mobile SHA 또는 tag: " + markdownCutoverValue,
-          "    - DB 백업/복구 기준: " + markdownCutoverValue,
-          "    - 되돌림 금지/주의 사항: " + markdownCutoverValue,
+          "- Activation:",
+          "    - Activation case IDs: " + markdownCutoverValue,
+          "    - Activation 적용 시각: " + markdownCutoverValue,
+          "    - 요청 장벽 증빙: " + markdownCutoverValue,
+          "    - 이전 client bootstrap/upgrade 증빙: " + markdownCutoverValue,
+          "- Client rollback:",
+          "    - Client rollback case IDs: " + markdownCutoverValue,
+          "    - Rollback 요청 장벽 증빙: " + markdownCutoverValue,
+          "    - Client rollback 주의 사항: " + markdownCutoverValue,
           "",
         ]
       : []),
@@ -669,33 +659,20 @@ function releaseRecordSource({
 function cutoverMetadata(status) {
   return {
     status,
-    comparisonRefs: {
-      "coupler-api": "pending",
-      "coupler-mobile-app": "pending",
-      "coupler-admin-web": "pending",
-    },
     contractArtifactSync: {
       command: "pending",
       result: "pending",
       consumerPath: "pending",
     },
-    nPlusOneDeployment: {
-      target: "pending",
+    activation: {
+      caseIds: ["pending"],
       appliedAt: "pending",
-      evidence: "pending",
-    },
-    legacyTrafficBlock: {
-      previousVersionBuild: "pending",
-      forceUpdateConfig: "pending",
-      versionCodeCheck: "pending",
-    },
-    adminVerification: {
-      versionSettingsSave: "pending",
-      operatorActionSmoke: "pending",
+      barrierEvidence: "pending",
+      bootstrapUpgradeEvidence: "pending",
     },
     rollback: {
-      previousRefs: "pending",
-      dbBackupRestore: "pending",
+      caseIds: ["pending"],
+      barrierEvidence: "pending",
       cautions: "pending",
     },
   };
@@ -704,34 +681,29 @@ function cutoverMetadata(status) {
 function releasedCutoverMetadata() {
   return {
     status: "released",
-    comparisonRefs: {
-      "coupler-api": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "coupler-mobile-app": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "coupler-admin-web": "cccccccccccccccccccccccccccccccccccccccc",
-    },
     contractArtifactSync: {
       command: "pnpm check:generated-client-contract-copies",
       result: "generated copies exact match",
       consumerPath: "Mobile/Admin src/api/generated",
     },
-    nPlusOneDeployment: {
-      target: "Store 9.9.0 (900)",
+    activation: {
+      caseIds: [
+        "previous-store-rest-current-api",
+        "previous-store-bootstrap-current-api",
+      ],
       appliedAt: "2026-07-08 10:00 KST",
-      evidence: "workflow https://example.invalid/actions/1",
-    },
-    legacyTrafficBlock: {
-      previousVersionBuild: "9.8.0 (899)",
-      forceUpdateConfig: "Admin 설정 > 버전, API t_app_info.min_version",
-      versionCodeCheck: "GET /app/auth/getSettingList?os=google&version_code=899 -> app_info.force_update: 2",
-    },
-    adminVerification: {
-      versionSettingsSave: "Admin version setting saved",
-      operatorActionSmoke: "member detail smoke passed",
+      barrierEvidence:
+        "Proxy barrier rejected incompatible product requests and reopened after smoke",
+      bootstrapUpgradeEvidence:
+        "Previous mobile bootstrap/version remained parseable and directed upgrade",
     },
     rollback: {
-      previousRefs: "api/admin/mobile v9.8.0",
-      dbBackupRestore: "DB migration N/A - no schema change",
-      cautions: "Do not revert min_version below legacy cutoff",
+      caseIds: [
+        "previous-store-version-current-api",
+        "previous-nextpush-version-current-api",
+      ],
+      barrierEvidence: "Client rollback case smoke passed behind the barrier",
+      cautions: "Do not reopen product requests before rollback smoke",
     },
   };
 }
@@ -774,7 +746,7 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
       return {
         publishedPackage: "@coupler-developer/coupler-api-contracts@9.9.0",
         workflow: "Release Contracts workflow https://example.invalid/actions/2",
-        sourceRef: "coupler-api v9.9.0",
+        sourceRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       };
     }
 
@@ -785,7 +757,154 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
     };
   }
 
+  if (scopeName === "coupler-api") {
+    const concrete = releaseStatus === "released" || releaseStatus === "rolled_back";
+    return {
+      deployment: concrete ? "coupler-api production deployment evidence" : "pending",
+      smoke: concrete ? "coupler-api production smoke evidence" : "pending",
+      publicContract: concrete ? apiPublicContractEvidence(Boolean(apiContractCutover)) : null,
+      runtimeRecovery: concrete
+        ? {
+            strategy: "forward-fix",
+            stateSafety: {
+              source: "application-evidence",
+              persistedState: "current final DB remains forward-readable",
+              queuedState: "queue cursor and in-flight ownership stay current",
+              externalEffects: "idempotency ledger and sink verification passed",
+            },
+            previousReleaseCaseIds: [],
+          }
+        : null,
+    };
+  }
+
   return {};
+}
+
+function apiPublicContractEvidence(cutover) {
+  const consumers = [
+    {
+      state: "present",
+      id: "previous-store",
+      surface: "mobile-store",
+      generation: "previous",
+      artifact: {
+        kind: "store-builds",
+        mappingRef: "9.8.0 (899)",
+        iosVersionBuild: "9.8.0 (899)",
+        androidVersionBuild: "9.8.0 (899)",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    {
+      state: "present",
+      id: "current-store",
+      surface: "mobile-store",
+      generation: "current",
+      artifact: {
+        kind: "store-builds",
+        mappingRef: "9.9.0 (900)",
+        iosVersionBuild: "9.9.0 (900)",
+        androidVersionBuild: "9.9.0 (900)",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    {
+      state: "present",
+      id: "previous-nextpush",
+      surface: "mobile-nextpush",
+      generation: "previous",
+      artifact: {
+        kind: "nextpush-deployment",
+        mappingRef: "Production v98 target 9.8.0 (899)",
+        ios: {
+          app: "coupler-ios",
+          deployment: "Production",
+          label: "v98",
+          cohort: "100%",
+          targetBinary: "9.8.0 (899)",
+        },
+        android: {
+          app: "coupler-android",
+          deployment: "Production",
+          label: "v98",
+          cohort: "100%",
+          targetBinary: "9.8.0 (899)",
+        },
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket", "bootstrap", "version"],
+    },
+    {
+      state: "absent",
+      id: "current-nextpush",
+      surface: "mobile-nextpush",
+      generation: "current",
+      owner: "mobile release owner",
+      absenceEvidence: "No current-generation Production NextPush deployment exists",
+    },
+    {
+      state: "present",
+      id: "previous-admin",
+      surface: "admin",
+      generation: "previous",
+      artifact: {
+        kind: "admin-build",
+        artifactRef: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.8.0",
+      interfaces: ["rest", "websocket"],
+    },
+    {
+      state: "present",
+      id: "current-admin",
+      surface: "admin",
+      generation: "current",
+      artifact: {
+        kind: "admin-build",
+        artifactRef: "cccccccccccccccccccccccccccccccccccccccc",
+      },
+      contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
+      interfaces: ["rest", "websocket"],
+    },
+  ];
+  return {
+    apiRefs: {
+      previous: "dddddddddddddddddddddddddddddddddddddddd",
+      current: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    contractRefs: {
+      previous: "@coupler-developer/coupler-api-contracts@9.8.0",
+      current: "@coupler-developer/coupler-api-contracts@9.9.0",
+    },
+    consumers,
+    cases: consumers.filter(({ state }) => state === "present").flatMap((consumer) =>
+      consumer.interfaces.map((interfaceName) => {
+        const previous = consumer.generation === "previous";
+        const oldReadable = interfaceName === "bootstrap" || interfaceName === "version";
+        let exposure = "post-activation";
+        if (previous && interfaceName === "version") {
+          exposure = "rollback";
+        } else if (previous) {
+          exposure = "activation";
+        }
+        return {
+          id: `${consumer.id}-${interfaceName}-current-api`,
+          consumerId: consumer.id,
+          interface: interfaceName,
+          apiGeneration: "current",
+          exposure,
+          expected:
+            cutover && previous && !oldReadable
+              ? "deterministic-rejection"
+              : "success",
+          evidence: `${consumer.id} ${interfaceName} evidence`,
+        };
+      }),
+    ),
+  };
 }
 
 function writeMaintenancePlans() {

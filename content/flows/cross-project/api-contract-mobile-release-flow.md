@@ -9,14 +9,15 @@
 
 ## 목적
 
-API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로 배포하고, Store 출시 activation 강제
-업데이트 또는 NextPush mandatory로 이전 Mobile 계약을 교체하는 순서를 고정한다.
+Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runtime 조합을 빠뜨리지 않고,
+`API cutover: No | Yes`에 맞는 배포·activation·복구 순서를 고정한다.
 
 ## 범위
 
 - 시작 조건: Mobile Store 또는 NextPush 배포가 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작,
   DB 읽기/쓰기 계약 중 하나 이상을 변경한다.
-- 종료 조건: 최종 계약 정렬, 배포 수단별 교체 설정, 운영 smoke와 rollback 기준이 릴리즈 기록에 남는다.
+- 종료 조건: release-scoped 소비자 inventory, API contract case, DB runtime plan/execution, 운영 smoke와
+  복구 기준이 릴리즈 기록에 남는다.
 - 제외 범위: 신규 SQL 작성, Store/NextPush 플랫폼 자체 정책 해석, API 계약 변경이 없는 UI-only 배포
 
 ## 상위 규범 문서
@@ -25,127 +26,142 @@ API 계약 package, API, Admin, Mobile을 하나의 최종 계약 snapshot으로
 - [배포 태그 정책](../../policy/release-tag-policy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)
-- [DB Migration Gate 정책](../../policy/db-migration-gate-policy.md)
+- [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
 - [테스트/CI 전략](../../policy/testing-strategy.md)
 
 ## 핵심 원칙
 
-- 기본 경로는 서로 다른 Mobile 계약의 공존이 아니라 하나의 최종 계약 배포다.
-- Store 배포는 심사 승인과 출시 가능 상태를 확인한 뒤 단일 activation window에서 플랫폼별 새 build를
-  `version_code`와 `min_version`으로 고정해 이전 build에 `force_update=2`를 반환한다.
-- NextPush 배포는 Android·iOS `Production` mandatory로 이전 bundle을 교체한다.
-- activation window 동안 구·신 계약의 사용자 요청이 API를 통과하지 않도록 배포 장벽을 적용한다. 장벽 없이
-  API/Admin, 강제 업데이트 또는 양 플랫폼 mandatory가 순차 노출되는 배포는 `BLOCKED`다.
-- 설치된 구버전의 존재, 일반적인 모바일 관행, Store 심사 지연 가능성은 호환 코드의 근거나 승인으로 사용하지
-  않는다.
-- 누락 필드 자동 생성, legacy 필드 coalesce, 구형 endpoint, GET 부수효과, version branch를 배포 안전장치로
-  두지 않는다.
-- DB rollback을 위한 nullable expand는 유지할 수 있지만 public API 누락 필드 수용 근거가 아니다.
-- 24시간 legacy traffic 관찰은 기본 Gate가 아니다. 작업 요청자가 별도로 요구한 경우에만 추가한다.
+- 공개 계약의 기본 경로는 `API cutover: No`다. DB 변경은 `Compatible/Cutover` 전역 라벨을 만들지 않고
+  실제 runtime/schema 조합과 상태 표면으로 판정한다.
+- Store 출시와 NextPush 적용은 모바일 활성화 수단이다. source 정렬, 강제 업데이트 팝업, mandatory 설정,
+  버전을 구분하지 못하는 traffic 0건은 이전 소비자의 호환 또는 차단 증빙이 아니다.
+- `API cutover: Yes`여도 이전 소비자가 이해할 수 있는 bootstrap/version/업데이트 경로는 계속 성공해야
+  한다. 호환 불가능한 제품 요청은 이전 소비자가 파싱할 수 있는 응답으로 결정론적으로 거부한다.
+- DB writer가 재개된 뒤의 코드 rollback은 API 계약만으로 결정하지 않는다. 재개 뒤 수락한 write,
+  queue cursor·in-flight 작업, idempotency와 외부효과의 보존·재생·보상 가능성을 함께 확인한다.
+- 심사용 native bundle이 개발 API를 보는 특수 제출은 우발적 운영 설정 오류로 재분류하지 않는다. 다만
+  기존 Store→운영 API, 심사 native→개발 API, 같은 target binary+Production NextPush→운영 API를 서로
+  다른 consumer/case evidence로 기록하고 개발계 case를 운영 API+최종 DB 호환 증빙으로 사용하지 않는다.
+  NextPush 실패 시 native 개발 API로 진행할 수 있는 경로는 잔존 위험이지만 그 사실만으로 cutover 또는
+  심사 제출의 성공·실패를 판정하지 않는다.
 
 ## 배포 단위
 
 | 구성요소 | 완료 기준 |
 | --- | --- |
 | Contracts package | API source next stable version, stable publish, Admin·Mobile exact dependency/lockfile 일치 |
-| API | 최종 Swagger와 runtime만 노출, compatibility helper와 legacy route 0건 |
+| API | 현재 Swagger/runtime 정렬, inventory의 contract case 통과 |
 | Admin | exact package와 최종 operation만 소비, 운영 artifact smoke 통과 |
-| Mobile Store | 승인·출시 가능한 build 고정, activation 뒤 이전 build `force_update=2`, 새 build `force_update=0` 검증 |
-| Mobile NextPush | Android·iOS `Production` mandatory 이력과 적용 smoke |
-| DB | 적용 stage별 DB Migration Gate 통과; rollback용 nullable expand는 필요 시 유지 |
+| Mobile Store | 제출·승인·출시 build와 API 대상, platform/build ref 및 smoke 고정 |
+| Mobile NextPush | 플랫폼별 app/deployment/label/cohort, target binary와 적용 smoke 고정 |
+| DB | immutable runtime contract, FENCED/RESUMED/RECOVERING 실행과 상태 표면 증빙 |
 
 ## 메인 흐름
 
-### 0) 범위와 기준점 고정
+### 0) 소비자와 기준점 고정
 
-1. Store와 NextPush 중 적용 수단, 플랫폼, 제출 build 또는 target binary, API/Admin/Mobile/docs ref를 기록한다.
-2. 변경을 contracts package, API, Admin, Mobile, DB로 나누고 포함하지 않은 범위는 `N/A` 근거를 남긴다.
-3. 작업 요청자가 별도 호환을 명시 승인하지 않았다면 기술 이행 유형을 `최종 상태`로 고정한다.
+1. Store의 직전 지원 build와 제출·출시 build, Android/iOS OTA app/deployment/label/cohort와 target binary,
+   운영 Admin artifact를 소비자 ID별로 기록한다.
+2. 각 소비자에 source/binary ref, 계약 세대, API 환경, REST·WebSocket·bootstrap·version 호출 표면을
+   연결한다. 심사 native와 출시 NextPush가 같은 Store build를 공유해도 API 환경이 다르면 Store와
+   NextPush consumer evidence를 합치지 않는다.
+3. API/Admin/Mobile/docs ref, contracts package, DB migration 포함 여부와 제외 범위의 `N/A` 근거를 기록한다.
+4. 공개 계약 변경은 `API cutover: No | Yes`를 판정한다. DB 변경은 이전·현재·실제 혼합 runtime,
+   시작·최종 DB, 변경 경계와 상태 표면을 migration runtime contract에 선언한다.
 
 ### 1) 최종 계약 준비
 
-1. 필요한 DB expand/backfill을 DB Migration Gate에 따라 먼저 준비한다.
-2. Swagger/OpenAPI와 generated contract에서 필수 필드, endpoint, success DTO를 최종 형태로 고정한다.
-3. API compatibility helper, legacy route, GET read side effect와 Mobile/Admin legacy 호출을 같은 변경에서 제거한다.
-4. contracts package source version을 올리고 `pnpm check:contracts`, `pnpm pack:contracts`를 통과한다.
-5. stable 발행 뒤 Admin·Mobile `package.json`과 lockfile을 같은 exact version으로 정렬한다.
-6. 네 저장소의 표준 품질 게이트를 통과한다.
+1. Swagger/OpenAPI와 generated contract를 고정하고 contracts package stable을 발행한다.
+2. Admin·Mobile `package.json`과 lockfile을 같은 exact package version으로 정렬한다.
+3. 운영에 실제 노출할 현재 소비자와 현재 완전 릴리즈가 현재 운영 API+최종 DB에서 성공하는 case를
+   검증한다. 개발 API를 보는 심사 native case는 별도 QA case로만 남긴다.
+4. API `No`이면 inventory의 모든 지원 이전 소비자가 현재 API+최종 DB에서 성공하고, 이번 변경이 제거
+   예정 adapter·dual-write·fallback을 만들지 않는지 검증한다.
+5. API `Yes`이면 old-readable bootstrap/version 성공 case와 incompatible product request의 결정론적
+   거부 case를 검증하고, activation·client rollback이 참조할 case ID를 고정한다. activation case에는
+   선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
+6. DB migration이 있으면 plan에 선언한 모든 `RESUMED` 조합과 이전 릴리즈 복구 후보를 개발계 FENCED에서
+   검증한다.
 
 ### 2) 배포 전 Gate
 
 아래 조건이 모두 충족되지 않으면 운영 반영을 시작하지 않는다.
 
-- API package source, published latest stable, Admin·Mobile dependency/lockfile version 일치
-- API/Admin/Mobile에서 제거 대상 legacy symbol과 runtime 호출 0건
-- Store 제출 artifact 또는 NextPush bundle과 배포 commit 연결
-- 강제 업데이트 또는 mandatory 설정을 적용·검증할 작업자와 rollback 기준점 확보
-- activation window의 사용자 요청 차단 수단과 시작·종료 증빙 확보
-- DB 적용 범위의 preflight·ledger·postcheck 준비
+- 소비자 inventory가 Store, OTA, Admin, REST, WebSocket, bootstrap/version 표면을 exact-set으로 포함한다.
+- package source/published stable/consumer dependency와 각 artifact ref가 일치한다.
+- API contract case와 API `No | Yes` 판정이 일치한다.
+- DB plan은 runtime set·schema 조합·상태 표면·복구 전략과 같은 catalog/runtime-contract SHA의 개발계
+  완료 execution을 참조한다.
+- API `Yes`이면 activation 장벽, old-readable bootstrap/upgrade, client rollback case가 준비돼 있다.
+- DB migration이면 writer/effect producer inventory, backup, FENCED smoke, RESUMED 순서가 준비돼 있다.
 
-### 3) Store 계약 전환
+### 3) Store 배포
 
-1. 제출 artifact와 commit을 고정하고 제출 마커 기준을 준비한다. 이때 운영 `min_version`은 바꾸지 않는다.
-2. 심사 승인과 새 build의 출시 가능 상태를 확인한다.
-3. 사용자 요청을 차단하는 activation window에 진입하고 DB expand/backfill, API, Admin, Store 출시와 플랫폼별
-   `version_code`·`min_version`을 고정한 최종 snapshot으로 연속 반영한다.
-4. 이전 build의 설정 응답이 `force_update=2`, 새 build가 `force_update=0`인지 실제 요청으로 확인한다.
-5. 새 build의 변경 도메인과 기본 진입을 smoke한 뒤에만 activation window를 종료한다.
-6. 제출 마커·승인/출시 시각·장벽 시작/종료·설정 변경·배포 SHA·smoke 결과를 같은 릴리즈 기록에 남긴다.
+1. 제출 artifact와 commit, 제출 마커를 고정하고 수동 출시로 심사한다. 심사 중 기존 운영 앱을 막기 위해
+   `min_version`을 미리 올리지 않는다.
+2. API `No`이면 migration/API 배포 뒤에도 지원 이전 앱 case가 통과한 상태에서 승인 build를 출시한다.
+3. API `Yes`이면 승인·출시 가능 상태에서 activation 장벽을 닫고 API/Admin/Store를 전환한다. 장벽 안에서도
+   bootstrap/version은 old-readable해야 하며 product request 거부 응답을 확인한다.
+4. DB migration이 포함되면 별도 유지보수 실행의 durable FENCED → migration → final-DB smoke → RESUMED
+   순서를 activation window에 배치한다.
+5. 출시·activation 시각, case ID, artifact ref, smoke와 복구 기준을 같은 릴리즈 기록에 남긴다.
 
-### 4) NextPush 계약 전환
+### 4) NextPush 배포
 
-1. Android·iOS bundle과 API/Admin/DB 기준점을 고정하고 activation window의 사용자 요청 차단 수단을 확인한다.
-2. activation window에 진입한 뒤 DB expand/backfill, API/Admin과 Android·iOS `Production` mandatory를 연속
-   반영한다.
-3. 두 플랫폼의 deployment history에서 label, uploaded time, target binary, mandatory 상태를 확인한다.
-4. 실제 기기에서 mandatory 적용 후 변경 도메인과 기본 진입을 smoke한 뒤에만 activation window를 종료한다.
-5. 일부 플랫폼이나 일부 구성요소만 활성 상태인 동안 사용자 요청을 허용하거나 완료 처리하지 않는다.
+1. Android/iOS의 app/deployment/label/cohort와 target Store binary를 고정한다.
+2. API `No`이면 이전·신규 OTA 소비자가 같은 API+최종 DB에서 성공한 상태로 rollout한다.
+3. API `Yes`이면 activation 장벽 안에서 API/Admin과 양 플랫폼 label을 전환하고, old-readable
+   bootstrap/upgrade와 새 계약 smoke를 확인한다.
+4. Mandatory는 선택한 rollout 속성으로만 기록하고 API 요청 차단 증빙으로 사용하지 않는다.
 
 ### 5) 완료 Gate
 
-- 최종 API operation과 필수 요청 계약 smoke 통과
-- 제거한 legacy endpoint 404와 현재 Mobile/Admin 호출 0건 확인
-- Store는 이전 build `force_update=2`, NextPush는 양 플랫폼 mandatory 적용 확인
-- activation window 동안 혼합 계약 사용자 요청 0건과 장벽 시작·종료 확인
-- package exact version 정렬과 표준 품질 게이트 통과
-- API/Admin/Mobile/강제 업데이트 또는 mandatory의 같은 rollback snapshot 기록
+- 소비자 inventory의 현재·이전 case와 실제 운영 artifact가 일치한다.
+- API `No`이면 모든 지원 이전 소비자가 성공하고 이번 변경이 만든 후속 공개 계약 전환 작업이 0건이다.
+- API `Yes`이면 activation·거부·bootstrap/upgrade·client rollback case가 실제 순서에서 통과했다.
+- DB migration이면 FENCED final-DB smoke, 모든 상태 표면 residual 0, durable RESUMED와 시작 watermark,
+  현재 완전 릴리즈 smoke가 완료됐다.
+- 이전 릴리즈 rollback을 허용했다면 final DB 조합 smoke와 재개 뒤 수락 write·queue·외부효과의 무손실
+  보존 증빙이 있다. 없으면 forward fix/통제된 reconciliation만 복구 경로로 남긴다.
+- package exact version 정렬과 각 저장소 표준 품질 게이트가 통과했다.
 
-별도 장시간 관찰 없이 위 증빙이 충족되면 최종 계약 배포를 완료 처리한다.
+## 임시 전환 경로
 
-## 명시 승인된 호환 예외
+제거 예정 adapter·dual-write·version branch가 필요하면 `API cutover: Yes`다. 허용 범위, 제거 조건,
+목표 시점, 추적 이슈, 양쪽 계약 case와 client rollback을 기록하고 Exit Gate 전에는 완료 처리하지 않는다.
+Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 
-서로 다른 계약의 공존이 실제로 필요하면 작업 요청자가 명시적으로 승인해야 한다. 승인 기록에는 공존 대상과
-이유, 허용 endpoint/adapter, 시작·종료 조건, 목표 시점, 추적 이슈, 두 버전 검증과 rollback 기준을 포함한다.
+## 롤백과 복구
 
-- 승인 전에는 호환 helper나 legacy endpoint를 구현·유지하지 않는다.
-- 설치된 구버전이나 심사 지연 가능성을 승인으로 추정하지 않는다.
-- 승인 범위를 넘는 silent fallback, 출처 추측, 여러 레이어의 임시 분기는 금지한다.
-- 승인 종료 시 별도 cutover에서 예외 경로를 제거한다. Exit Gate는 강제 업데이트/mandatory, 현재 소비 경로
-  0건, 단일 계약 정렬이며 24시간 traffic 관찰은 별도 요청이 있을 때만 적용한다.
-
-## 롤백
-
-- 기능 실패는 API만 또는 Mobile만 임시 복구하지 않고 API, Admin, Mobile과 강제 업데이트/mandatory 기준을
-  직전 검증 snapshot으로 함께 되돌린다.
-- DB nullable expand는 과거 행과 rollback 안전을 위해 유지할 수 있다. contract/drop은 의존성 0건과 별도
-  DB Migration Gate를 통과한 뒤 실행한다.
-- rollback을 이유로 작업 요청자의 새 승인 없이 누락 필드 fallback이나 구형 endpoint를 추가하지 않는다.
+- Store/OTA client rollback은 `apiContractCutover.rollback.caseIds`로 검증한 소비자·API 계약까지만 허용한다.
+- 이전 API/runtime rollback은 release-scoped inventory의 이전·현재 모든 소비자 interface가 이전 API와
+  final DB에서 성공한 rollback case를 정확히 하나씩 가질 때만 허용한다. 이 case 전체가
+  `runtimeRecovery.previousReleaseCaseIds`와 일치해야 한다.
+- API binary rollback은 DB migration 실행의 active mixture와 persisted/queued/external-effect 안전성까지
+  통과해야 한다.
+- `RESUMED` 전에는 writer/effect producer가 계속 닫혀 있을 때만 선언된 backup/snapshot restore를 쓸 수
+  있다.
+- `RESUMED` 뒤 snapshot/PITR만으로는 rollback하지 않는다. 모든 수락 write/effect를 보존할 수 없으면
+  forward fix 또는 통제된 lossless reconciliation을 수행한다.
 
 ## 검증 체크리스트
 
-- [ ] 기술 이행 유형이 기본 `최종 상태`이거나 호환 예외의 사용자 명시 승인 근거가 있는가?
-- [ ] API package source, published stable, Admin·Mobile exact version이 같은가?
-- [ ] compatibility helper, legacy endpoint, GET read side effect, legacy Mobile/Admin 호출이 0건인가?
-- [ ] Store 출시 activation 뒤 이전 build `force_update=2` 또는 NextPush 양 플랫폼 mandatory가 확인됐는가?
-- [ ] activation window에서 혼합 계약 사용자 요청이 차단되고 smoke 뒤 장벽이 해제됐는가?
-- [ ] DB, API, Admin, Mobile의 적용 순서와 smoke, 전체 snapshot rollback 기준이 기록됐는가?
+- [ ] Store/OTA/Admin/REST/WS/bootstrap/version 소비자 inventory가 exact-set인가?
+- [ ] `API cutover: No | Yes`와 contract case가 일치하는가?
+- [ ] API `No`이면 모든 지원 이전 소비자가 현재 API+최종 DB에서 성공하는가?
+- [ ] API `Yes`이면 old-readable bootstrap/upgrade와 결정론적 거부, activation/client rollback이 있는가?
+- [ ] 이전 API/runtime rollback이면 모든 release-scoped 소비자 interface의 이전 API 성공 case가 정확히
+  하나씩 있고 선택된 rollback case와 일치하는가?
+- [ ] DB plan이 이전·현재·혼합 runtime, 변경 경계, 상태 표면과 허용 phase를 선언했는가?
+- [ ] FENCED/RESUMED/RECOVERING 순서와 post-resume 무손실 복구 조건이 검증됐는가?
 - [ ] 마지막 변경 이후 각 저장소의 표준 품질 게이트가 통과했는가?
 
 ## 비포함 / 금지
 
-- Store 제출 전에 구버전 공존을 가정한 호환 API를 먼저 운영하지 않는다.
-- 호환 승인 없이 optional 요청 필드, 자동 생성 키, deprecated route, 혼합 버전 부수효과를 남기지 않는다.
-- Store 승인 또는 traffic 0건을 기다리느라 강제 업데이트가 끝난 최종 계약 제거를 보류하지 않는다.
+- Store/NextPush 활성화를 API/DB 호환 검증 대신 사용하지 않는다.
+- 현재 source 정렬, 앱 팝업 또는 버전 미식별 traffic 0건으로 이전 계약 요청 차단을 추론하지 않는다.
+- API `No`에 제거 예정 adapter·dual-write를 숨기지 않는다.
+- snapshot/PITR를 재개 뒤 수락한 write/effect의 보존 증빙으로 사용하지 않는다.
 - 이 문서를 도메인 상태 전이의 규범 문서로 사용하지 않는다.
 
 ## 관련 문서

@@ -56,13 +56,12 @@
 | 상태/단계 | 진입 조건 | 허용 구조 | Exit Gate | 비적용 근거 |
 | --- | --- | --- | --- | --- |
 | 신규·직접 수정 최종 상태 | 신규 operation, 성공 DTO/endpoint 동작/소비 페이지 직접 변경 | 단일 페이지 조회, 근거 있는 증분 조회·동작 명령·전송 경계 | 페이지 데이터 목록·요청 그래프·계약·테스트·리뷰 통과 | 없음 |
-| 호환 배포 | 작업 요청자가 기존/다음 Mobile 또는 Admin 계약의 공존을 명시적으로 승인 | additive 페이지 조회 또는 경계가 명시된 versioned DTO/adapter | 승인 근거, 두 소비자 시나리오, 제거 조건·목표 시점·추적 이슈·검증 근거 | [엔지니어링 가드레일](engineering-guardrails.md)의 호환 배포 조건을 충족할 때만 적용 |
-| 운영 legacy cutover | 이미 배포된 승인 예외의 요소별 조회·waterfall·구 DTO를 제거 | 제거 대상으로 고정된 legacy operation/adapter 삭제 | 강제 업데이트/mandatory, 현재 소비 경로 0건과 단일 페이지 조회 수렴 | 실제 운영 legacy 제거가 아니면 `N/A` |
+| 하위 호환 변경 | 직전/다음 Mobile 또는 Admin 계약이 같은 API/DB에서 동작 | additive 페이지 조회 또는 기존 공개 계약 유지 | 두 소비자 계약, 적용 시 직전/신규 API runtime+migrated DB, 이번 변경이 만든 후속 API 전환 0건 | [엔지니어링 가드레일](engineering-guardrails.md)의 `API cutover: No` 조건 |
+| 운영 legacy cutover | 요소별 조회·waterfall·구 DTO를 제거 | 제거 대상으로 고정된 legacy operation/adapter 삭제 | `API cutover: Yes`, release-scoped 소비자 case, 결정론적 요청 차단과 단일 페이지 조회 수렴 | 실제 운영 legacy 제거가 아니면 `N/A` |
 | 변경 범위 밖 기존 구현 | operation과 소비 호출 경로를 수정·재사용하지 않음 | 현행 유지 가능, 준수 완료로 표기 금지 | 후속 직접 변경 시 재분류 | 영향 경로가 없다는 코드·호출 그래프 근거 필요 |
 
 - 미래 기능을 위한 미사용 endpoint, enum mode, 응답 필드는 정상/최종 상태에 미리 공개하지 않는다. 제품 정책이
-  확정되면 신규·직접 수정 최종 상태로 진입하며, 작업 요청자가 공존을 명시적으로 승인한 경우에만 호환 배포로
-  진입한다.
+  확정된 additive 기능은 하위 호환 변경으로 진입한다.
 - 기존 페이지의 요소별 호출을 새 페이지가 그대로 재사용하면 변경 범위 밖으로 보지 않는다. 새 소비 흐름의 요청 그래프 전체를 재평가한다.
 - 기존 Mobile 화면과 Admin route 전체의 준수 여부 baseline 및 잔여 전환은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `기존 API 페이지 조회 구조 감사·전환 미완료`에서 추적한다.
 
@@ -72,9 +71,9 @@
 - 각 요청 그래프를 `준수`, `허용된 분리`, `전환 필요`, `정책 비적용`으로 분류한다. `허용된 분리`에는 분리 조건과 독립 실패 UX, `정책 비적용`에는 인증·동작 명령·전송·스트림·내부 작업 등 비적용 근거를 남긴다.
 - 사용자 진입 차단·부분 실패 시 핵심 데이터 소실, 종속 waterfall, visible item N+1, 권한·상태 혼합 snapshot, 높은 호출량·지연, 명령 뒤 강제 전체 재조회 순으로 우선순위를 높인다.
 - 전환은 페이지별 vertical slice로 수행한다. 페이지 조회 DTO·서버 query·Swagger/OpenAPI·generated contract·Mobile/Admin 소비·테스트를 한 변경 묶음으로 정렬하고, 모든 기존 API를 한 번에 재작성하는 big-bang 작업으로 만들지 않는다.
-- 기존 endpoint의 현재 소비 경로를 코드와 계약에서 확인하고, Store 출시 activation 강제 업데이트 또는 NextPush mandatory
-  같은 교체 근거를 확보한 뒤 같은 최종 계약 배포에서 legacy를 제거한다. 일반적인 다른 소비자 가능성이나 24시간
-  traffic 관찰을 기본 전제로 두지 않는다.
+- 기존 endpoint 제거는 release-scoped Store/OTA/Admin 소비자 inventory와 case, 이전 계약 요청의
+  결정론적 서버 측 차단을 함께 확인한 contract cutover로 진행한다. source audit, Store 강제 업데이트,
+  NextPush mandatory 또는 traffic 관찰을 완료 Gate로 사용하지 않는다.
 - baseline에 없는 기존 API를 준수로 추정하지 않으며, 감사만 끝내고 전환 필요 항목을 완료 처리하지 않는다. 잔여 전환이 있으면 기술부채 항목 또는 연결된 작업에서 계속 추적한다.
 
 ## 필수 규칙
@@ -174,11 +173,11 @@
 ### 9. 계약 진화와 호환을 숨기지 않는다
 
 - 페이지 조회에 field를 추가·변경하거나 여러 기존 조회를 집계 operation으로 전환하면
-  [엔지니어링 가드레일](engineering-guardrails.md)의 API 계약 변경과 강제 업데이트 배포 기준을 따른다.
-- 기존/다음 소비자 공존을 작업 요청자가 명시적으로 승인한 경우에만 additive field, versioned DTO 또는 경계가
-  보이는 adapter를 사용한다. 클라이언트가 여러 shape를 fallback으로 추측하지 않는다.
-- 승인된 요소별 legacy endpoint를 유지해야 하면 승인 근거, 제거 조건, 목표 시점, 추적 이슈와 검증 근거를 둔다.
-  traffic 관찰은 작업 요청자가 별도로 요구한 경우에만 Exit Gate에 추가한다.
+  [엔지니어링 가드레일](engineering-guardrails.md)의 API 계약과 runtime-state 안전성의 독립 판정을 따른다.
+- Additive field·endpoint는 직전 소비자가 무시하거나 계속 기존 계약을 사용할 수 있고 후속 제거가 없을 때
+  `API cutover: No`다. 클라이언트가 여러 shape를 fallback으로 추측하게 만들지 않는다.
+- Versioned DTO, adapter 또는 legacy endpoint의 후속 제거가 필요하면 `API cutover: Yes`로 분류하고
+  제거 조건, 목표 시점, 추적 이슈와 검증 근거를 둔다.
 - 미래 기능을 위해 현재 의미 없는 nullable field, disabled enum, 미사용 endpoint를 추가하지 않는다. 기능 활성 시 계약과 소비자 확인 흐름을 같은 변경 단위에서 설계한다.
 
 ## 분리 판단표
@@ -223,7 +222,7 @@
 - command 성공 후 강제 재조회 필요 여부와 page state 갱신 방식
 - Swagger/OpenAPI·generated contract·소비자 경계 정렬 결과
 - 적용 테스트와 [테스트/CI 전략](testing-strategy.md)의 표준 품질 게이트 결과
-- 호환/legacy가 있으면 제거 조건, 목표 시점, 추적 이슈와 검증 근거
+- `API cutover: Yes` 또는 legacy가 있으면 제거 조건, 목표 시점, 추적 이슈와 검증 근거
 - 기존 API 고도화면 요청 그래프 baseline 분류, 우선순위, 페이지별 전환·legacy 제거 결과
 
 ## 검증 기준
@@ -244,7 +243,9 @@
 - 페이지 조회, 증분 조회, 동작 명령, 전송·스트림의 책임이 섞이지 않는다.
 - 공개 DTO가 bounded projection이며 민감정보와 내부 식별자를 노출하지 않는다.
 - command 성공 뒤 정확한 화면 갱신을 위해 동일 페이지 전체를 의무적으로 재조회하는 구조가 없거나, 실시간·외부 일관성상 필요한 근거가 있다.
-- 호환/legacy 예외는 제거 조건·목표 시점·추적·검증 근거를 갖고 최종 상태와 충돌하지 않는다.
+- API `No` 변경은 직전/다음 소비자 계약을 충족하고 이번 변경이 만든 후속 API 제거가 없다. DB 변경도
+  포함하면 별도의 DB runtime/schema 조합과 상태 표면 판정을 충족한다.
+- Legacy 전환은 제거 조건·목표 시점·추적·검증 근거를 갖고 최종 상태와 충돌하지 않는다.
 - 기존 API 전체 고도화 완료를 주장하려면 정책 적용 대상 화면·route baseline 100%, 전환 필요 0건, legacy 제거 Gate 통과가 확인돼 있다.
 - Swagger/OpenAPI, generated contract, API runtime, Mobile/Admin 소비와 관련 정책이 같은 결론을 가리킨다.
 - 마지막 변경 이후 적용 검증과 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`가 `No Findings`다.
@@ -265,7 +266,8 @@
 - [ ] 동작 명령이 명시적 의도, transaction, 멱등성 적용 여부와 canonical 결과를 갖는가?
 - [ ] command 성공 후 불필요한 동일 페이지 전체 재조회 묶음이 없는가?
 - [ ] 미래 기능을 위한 미사용 endpoint·field·enum mode를 공개하지 않았는가?
-- [ ] 호환/legacy 예외에 제거 조건·목표 시점·추적 이슈·검증 근거가 있는가?
+- [ ] API/DB 변경의 `API cutover`, 소비자 case, DB runtime/schema 조합 검증이 있고, legacy 전환이면 제거
+      조건·목표 시점·추적 이슈·검증 근거가 있는가?
 - [ ] 기존 API 고도화면 대상 화면·route 요청 그래프를 빠짐없이 분류하고 잔여 전환을 기술부채로 추적했는가?
 - [ ] Swagger/OpenAPI·generated contract·API·소비자 테스트와 표준 품질 게이트를 통과했는가?
 - [ ] [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate`를 통과했는가?
@@ -308,10 +310,9 @@ GET /chat?include=header,self,members    # 클라이언트가 응답 책임을 �
 ## 롤백
 
 - 정책 변경 자체의 rollback 기준점은 변경 전 `main` commit이다.
-- API 계약 적용 중 rollback은 API, Admin, Mobile과 강제 업데이트/mandatory 기준을 직전 검증 snapshot으로
-  함께 되돌린다.
-- 승인된 additive 호환 배포를 되돌릴 때는 승인 범위와 두 소비자 상태를 확인한 뒤 새 page DTO/endpoint를
-  제거한다.
+- API 계약 적용 중 rollback은 migrated DB에서 검증한 직전 API, Admin, Mobile 기준점으로 되돌린다.
+- Additive 하위 호환 변경을 되돌릴 때는 직전 소비자 계약과 새 기능 데이터 영향을 확인한 뒤 새 page
+  DTO/endpoint를 제거한다.
 - legacy endpoint 제거를 되돌려야 하면 전체 직전 snapshot을 복구한다. 작업 요청자의 새 명시 승인 없이 제거 전
   adapter만 한시 복원하지 않는다.
 

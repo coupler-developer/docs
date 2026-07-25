@@ -1,4 +1,4 @@
-export const releaseMetadataSchema = "release-metadata/v1";
+export const releaseMetadataSchema = "release-metadata/v2";
 
 export const releaseMetadataTopLevelKeys = new Set([
   "schema",
@@ -95,7 +95,7 @@ export const releaseScopeDescriptors = {
       {
         label: "contracts package source ref",
         metadataPath: ["scopeResults", "contracts-package", "evidence", "sourceRef"],
-        valueType: "concreteEvidence",
+        valueType: "commitSha",
       },
     ],
   },
@@ -114,16 +114,21 @@ export const releaseScopeDescriptors = {
         valueType: "concreteEvidence",
       },
       {
-        label: "coupler-api rollback",
-        metadataPath: ["scopeResults", "coupler-api", "evidence", "rollback"],
-        valueType: "concreteEvidence",
+        label: "coupler-api public contract",
+        metadataPath: ["scopeResults", "coupler-api", "evidence", "publicContract"],
+        valueType: "apiPublicContract",
+      },
+      {
+        label: "coupler-api runtime recovery",
+        metadataPath: ["scopeResults", "coupler-api", "evidence", "runtimeRecovery"],
+        valueType: "apiRuntimeRecovery",
       },
     ],
     rollbackEvidence: [
       {
-        label: "coupler-api rollback",
-        metadataPath: ["scopeResults", "coupler-api", "evidence", "rollback"],
-        valueType: "concreteEvidence",
+        label: "coupler-api runtime recovery",
+        metadataPath: ["scopeResults", "coupler-api", "evidence", "runtimeRecovery"],
+        valueType: "apiRuntimeRecovery",
       },
     ],
   },
@@ -283,7 +288,7 @@ export const semverTagPattern = /^v\d+\.\d+\.\d+$/;
 export const commitShaPattern = /^[0-9a-f]{7,40}$/i;
 export const sha256Pattern = /^[0-9a-f]{64}$/i;
 export const contractsPackagePattern =
-  /@coupler-developer\/coupler-api-contracts@\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/;
+  /^@coupler-developer\/coupler-api-contracts@\d+\.\d+\.\d+$/;
 export const submittedMarkerTagPattern =
   /^submitted\/(?:mobile|android|ios)-\d+\.\d+\.\d+-\d+$/;
 
@@ -391,18 +396,6 @@ export const versionMappingFieldDescriptors = {
 
 export const apiContractCutoverValueFields = [
   {
-    label: "`coupler-api`",
-    metadataPath: ["apiContractCutover", "comparisonRefs", "coupler-api"],
-  },
-  {
-    label: "`coupler-mobile-app`",
-    metadataPath: ["apiContractCutover", "comparisonRefs", "coupler-mobile-app"],
-  },
-  {
-    label: "`coupler-admin-web`",
-    metadataPath: ["apiContractCutover", "comparisonRefs", "coupler-admin-web"],
-  },
-  {
     label: "명령",
     metadataPath: ["apiContractCutover", "contractArtifactSync", "command"],
   },
@@ -419,47 +412,31 @@ export const apiContractCutoverValueFields = [
     metadataPath: ["apiContractCutover", "contractArtifactSync", "consumerPath"],
   },
   {
-    label: "Store version/build 또는 NextPush app/deployment/label",
-    metadataPath: ["apiContractCutover", "nPlusOneDeployment", "target"],
+    label: "Activation case IDs",
+    metadataPath: ["apiContractCutover", "activation", "caseIds"],
   },
   {
-    label: "운영 출시/적용 시각",
-    metadataPath: ["apiContractCutover", "nPlusOneDeployment", "appliedAt"],
+    label: "Activation 적용 시각",
+    metadataPath: ["apiContractCutover", "activation", "appliedAt"],
   },
   {
-    label: "확인 URL 또는 콘솔 증빙",
-    metadataPath: ["apiContractCutover", "nPlusOneDeployment", "evidence"],
+    label: "요청 장벽 증빙",
+    metadataPath: ["apiContractCutover", "activation", "barrierEvidence"],
   },
   {
-    label: "기존 N version/build",
-    metadataPath: ["apiContractCutover", "legacyTrafficBlock", "previousVersionBuild"],
+    label: "이전 client bootstrap/upgrade 증빙",
+    metadataPath: ["apiContractCutover", "activation", "bootstrapUpgradeEvidence"],
   },
   {
-    label: "강제 업데이트 설정 위치",
-    metadataPath: ["apiContractCutover", "legacyTrafficBlock", "forceUpdateConfig"],
+    label: "Client rollback case IDs",
+    metadataPath: ["apiContractCutover", "rollback", "caseIds"],
   },
   {
-    label: "`version_code < min_version` 요청 결과",
-    metadataPath: ["apiContractCutover", "legacyTrafficBlock", "versionCodeCheck"],
+    label: "Rollback 요청 장벽 증빙",
+    metadataPath: ["apiContractCutover", "rollback", "barrierEvidence"],
   },
   {
-    label: "앱 버전 설정 화면 저장 검증",
-    metadataPath: ["apiContractCutover", "adminVerification", "versionSettingsSave"],
-  },
-  {
-    label: "변경 데이터 조회/운영자 액션 smoke",
-    metadataPath: ["apiContractCutover", "adminVerification", "operatorActionSmoke"],
-  },
-  {
-    label: "직전 호환 API/Admin/Mobile SHA 또는 tag",
-    metadataPath: ["apiContractCutover", "rollback", "previousRefs"],
-  },
-  {
-    label: "DB 백업/복구 기준",
-    metadataPath: ["apiContractCutover", "rollback", "dbBackupRestore"],
-  },
-  {
-    label: "되돌림 금지/주의 사항",
+    label: "Client rollback 주의 사항",
     metadataPath: ["apiContractCutover", "rollback", "cautions"],
   },
 ];

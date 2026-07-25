@@ -282,7 +282,7 @@ function writePendingRelease(
   }
 
   const metadata = {
-    schema: "release-metadata/v1",
+    schema: "release-metadata/v2",
     version,
     status: "pending",
     releaseScopes,

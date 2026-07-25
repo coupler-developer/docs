@@ -81,8 +81,8 @@
 
 1. 목표 버전과 릴리즈 상태 초안을 고정한다.
 2. [배포/릴리즈 프로세스](../../policy/release-process.md)의 scope 계약에 따라 포함·제외 범위를 기록한다.
-3. API 계약 변경, DB contract/drop, Mobile Store 제출, NextPush-only 배포처럼 별도 Gate가 필요한 범위를 먼저
-   분류한다.
+3. API 변경은 `API cutover: No | Yes`로 분류하고, DB 변경은 실제 runtime/schema 조합과 상태 표면을
+   plan에 선언한다. Mobile Store 제출, NextPush-only 배포처럼 별도 Gate가 필요한 범위도 고정한다.
 
 ### 1) Release Record Gate
 
@@ -115,14 +115,21 @@
 
 ### 5) Cross Repo Contract Gate
 
-1. API 계약 변경이 없으면 `N/A` 근거를 릴리즈 기록에 남긴다.
-2. API 계약 변경이 있으면 [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)에 따라
-   단일 최종 계약과 Store 출시 activation 강제 업데이트 또는 NextPush mandatory 방식을 고정한다.
+1. API 계약 변경이 없으면 API `N/A` 근거를, DB 변경이 없으면 DB `N/A` 근거를 릴리즈 기록에 남긴다.
+2. API 계약 변경은 release-scoped Store/OTA/Admin 소비자와 REST·WebSocket·bootstrap·version case로
+   `API cutover`를 판정한다. DB 변경은 이전·현재·실제 혼합 runtime과 시작·최종 DB, 변경 경계와 상태
+   표면을 plan에 선언한다. Mobile 배포가 포함되면
+   [API 계약 변경 모바일 릴리즈 플로우](api-contract-mobile-release-flow.md)를 함께 따른다.
 3. 계약 package가 포함되면 [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의
    발행·소비 정렬 Gate와 증빙을 완료한다.
-4. 호환 경로가 있으면 작업 요청자의 명시 승인 근거를 확인한다. 근거가 없으면 Gate를 실패시키고 최종 계약에서
-   해당 경로를 제거한다.
-5. 계약 정렬과 강제 업데이트/mandatory 계획을 해당 scope 증빙에 반영한 뒤 Deploy Evidence Gate로 전달한다.
+4. API `No`이면 모든 지원 이전 consumer-interface의 current API+final DB 성공과 후속 API 전환 작업
+   0건을 확인한다.
+5. API `Yes`이면 activation case, old-readable bootstrap/upgrade, 결정론적 거부와 client rollback을
+   확인한다.
+6. DB migration이면 writer/effect producer 중지, backup, FENCED final-DB smoke, durable RESUMED와
+   post-resume state/effect 복구 전략을 확인한다.
+7. consumer inventory와 API case는 `scopeResults.coupler-api.evidence`, DB 의미는 canonical
+   plan/execution에 반영한 뒤 Deploy Evidence Gate로 전달한다.
 
 ### 6) Deploy Evidence Gate
 
@@ -132,8 +139,9 @@
    `execution.jsonl`만 scope result에 남긴다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
    기준점, smoke와 rollback 증빙을 남긴다.
-4. DB 변경과 서비스 배포가 함께 있으면 `writer 중지 -> drain/backup -> DB migration -> 전체 postcheck ->
-   서비스 재기동 -> smoke -> 유지보수 해제` 순서로 실행한다. 모든 writer를 중지할 수 없으면 배포를 중단한다.
+4. DB 변경과 서비스 배포가 함께 있으면 `writer/effect producer 중지 -> drain/backup -> durable FENCED ->
+   DB migration -> 전체 postcheck -> final-DB zero-residual smoke -> durable RESUMED -> writer 재개 ->
+   운영 smoke` 순서로 실행한다. 모든 producer를 중지할 수 없으면 배포를 중단한다.
 
 ### 7) Tag Gate
 
@@ -178,8 +186,8 @@
 
 - preflight가 실패하면 실패 항목을 릴리즈 기록 또는 PR 체크리스트에 반영하고, 원인 수정 후 다시 실행한다.
 - 원격 fetch가 실패하거나 `origin/main`을 확인할 수 없으면 preflight가 실패하므로, 네트워크/remote 설정을 복구한 뒤 다시 실행한다.
-- Store 심사가 지연되면 제출 artifact와 최종 계약 snapshot만 유지하고 운영 `min_version`, API/Admin activation과
-  Mobile 릴리즈 태그를 보류한다. 사용자 명시 승인 없는 호환 배포를 추가하지 않는다.
+- Store 심사가 지연돼도 지원 이전 운영 앱과 API/DB 조합을 유지한다. `API cutover: Yes` 범위의 운영
+  `min_version`, API/Admin activation과 Mobile 릴리즈 태그는 승인 전까지 보류한다.
 - NextPush-only 배포면 native version, Store upload, 모바일 릴리즈 태그를 자동 변경하지 않는다.
 - docs Release Note 후속 사항은 기존 기록을 수정하거나 정정용 새 버전으로 만들지 않고 이슈·장애 기록에서
   추적한다. 실제 새 배포가 있을 때만 그 실행의 새 릴리스 기록을 만든다.
@@ -190,11 +198,11 @@
 - 이 문서에 배포 명령어를 중복 정의하지 않는다. 명령어는 [운영 배포 명령어 런북](production-deploy-command-runbook.md)을 따른다.
 - `release-preflight`는 원격 최신성 확인을 위한 git fetch와 tag 조회 외에 배포, DB write, Store 제출, NextPush 배포, tag push를 실행하지 않는다.
 - 서비스 레포 태그를 docs 태그로 대체하지 않는다.
-- API 계약 변경을 설치된 구버전 공존 가정만으로 호환/cutover 2단계로 분리하지 않는다.
-- Store 출시 activation 강제 업데이트 또는 NextPush mandatory 설정과 최종 계약 정렬 없이 API 계약 배포를 완료 처리하지
-  않는다.
-- API/Admin과 Mobile 교체가 모두 끝나기 전 혼합 계약 사용자 요청을 막는 activation barrier가 없으면 배포를
-  시작하지 않는다.
+- Store 출시 activation, 강제 업데이트, NextPush mandatory 또는 현재 source 정렬을 API/DB 호환
+  증빙으로 사용하지 않는다.
+- API `No`에 임시 adapter·dual-write를 남기거나 DB plan에서 실제 runtime/schema 조합을 누락하지 않는다.
+- API `Yes`인데 API/Admin과 Mobile 전환 전 요청을 서버 측에서 결정론적으로 차단할 수
+  없으면 배포를 시작하지 않는다.
 
 ## 관련 문서
 

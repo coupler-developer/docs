@@ -356,7 +356,7 @@ Swagger/OpenAPI는 `ERROR_CATALOG` 기준으로 실패 응답 계약을 작성�
 
 ## Transition 계층 금지
 
-최종 구조와 cutover PR의 완료 조건은 transition 계층 0건이다.
+최종 구조와 contract cutover 완료 후보의 조건은 transition 계층 0건이다.
 
 transition 계층으로 본다:
 
@@ -369,9 +369,10 @@ transition 계층으로 본다:
 - 서버 public `ERROR_CODE` alias
 - `path`/`group`/`name`/`codePrefix` 기반 taxonomy DSL
 
-구버전 클라이언트 호환은 작업 요청자가 서로 다른 계약의 공존을 명시 승인한 경우에만 최종 구조 PR과 분리한
-별도 호환 배포 작업으로 다룬다. 설치된 구버전의 존재나 Store 심사 지연 가능성을 승인으로 추정하지 않으며,
-승인되지 않은 transition 계층은 강제 업데이트/mandatory가 포함된 단일 최종 계약에서 제거한다.
+구버전 클라이언트와의 API/DB 하위 호환은
+[엔지니어링 가드레일](engineering-guardrails.md)의 `API 계약과 runtime-state 안전성의 독립 판정`을 따른다.
+Additive error descriptor처럼 직전 계약을 깨지 않는 변경은 transition이 아니다. 제거 예정 bridge·alias·dual
+parser가 필요하면 `API cutover: Yes`이며 명시한 Exit Gate 없이 최종 구조에 남기지 않는다.
 
 ## 변경 절차
 
@@ -405,7 +406,7 @@ API 에러 계약을 변경할 때는 다음 순서를 지킨다.
 - [ ] Admin 목록 endpoint가 success/failure 모두 공통 envelope을 사용하는가?
 - [ ] file/proxy transport 실패는 `ErrorData` 밖에서 처리되는가?
 - [ ] Swagger/OpenAPI가 같은 catalog 기준으로 검증되는가?
-- [ ] final structure/cutover 범위에 transition 계층이 0건인가?
+- [ ] final structure 또는 contract cutover 완료 후보에 transition 계층이 0건인가?
 
 ## 관련 문서
 

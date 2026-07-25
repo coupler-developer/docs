@@ -35,6 +35,9 @@ export {
   releaseMetadataSchema,
 };
 
+const isFullCommitSha = (value) =>
+  typeof value === "string" && /^[0-9a-f]{40}$/i.test(value);
+
 export function parseReleaseMetadataBlock(source, context, errors) {
   const matches = [
     ...source.matchAll(/^```release-metadata\s*\n([\s\S]*?)\n```$/gm),
@@ -287,6 +290,23 @@ function validateScopeResult(
     validateScopeEvidenceKeys(scopeName, result.evidence, context, errors);
     validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
     validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
+    if (scopeName === "coupler-api") {
+      const terminal = result.status === "released" || result.status === "rolled_back";
+      validateApiPublicContractEvidence(
+        result.evidence.publicContract,
+        metadata,
+        context,
+        errors,
+        { terminal },
+      );
+      validateApiRuntimeRecoveryEvidence(
+        result.evidence.runtimeRecovery,
+        metadata,
+        context,
+        errors,
+        { terminal, scopeStatus: result.status },
+      );
+    }
   }
 
   if (scopeName === "db-migration" && result.evidence) {
@@ -323,8 +343,26 @@ function validateScopeResult(
       fieldPath: `scopeResults.${scopeName}.rollbackReason`,
       errors,
     });
-  } else if (result.rollbackReason !== undefined && result.rollbackReason !== null) {
-    errors.push(`${context}: release-metadata scopeResults.${scopeName}.rollbackReason is only allowed for rolled_back scope results`);
+    const hasDescriptorRollbackEvidence =
+      (releaseScopeDescriptors[scopeName]?.rollbackEvidence ?? []).length > 0;
+    if (!hasDescriptorRollbackEvidence && scopeName !== "db-migration") {
+      validateConcreteEvidenceValue({
+        value: result.rollbackEvidence,
+        context,
+        scopeName,
+        fieldPath: `scopeResults.${scopeName}.rollbackEvidence`,
+        errors,
+      });
+    } else if (result.rollbackEvidence !== undefined && result.rollbackEvidence !== null) {
+      errors.push(`${context}: release-metadata scopeResults.${scopeName}.rollbackEvidence duplicates canonical rollback evidence`);
+    }
+  } else {
+    if (result.rollbackReason !== undefined && result.rollbackReason !== null) {
+      errors.push(`${context}: release-metadata scopeResults.${scopeName}.rollbackReason is only allowed for rolled_back scope results`);
+    }
+    if (result.rollbackEvidence !== undefined && result.rollbackEvidence !== null) {
+      errors.push(`${context}: release-metadata scopeResults.${scopeName}.rollbackEvidence is only allowed for rolled_back scope results`);
+    }
   }
 }
 
@@ -334,6 +372,7 @@ function validateScopeResultKeys(scopeName, result, context, errors) {
     "summary",
     "evidence",
     "rollbackReason",
+    "rollbackEvidence",
     "supersededBy",
     "incompleteReason",
     "tagStatus",
@@ -410,6 +449,10 @@ function validateEvidenceShapeValue({
 
   if (valueType === "submittedMarkers") {
     validateSubmittedMarkersShape(value, context, fieldPath, errors);
+    return;
+  }
+
+  if (valueType === "apiPublicContract" || valueType === "apiRuntimeRecovery") {
     return;
   }
 
@@ -591,6 +634,687 @@ function validateDocsVersionMapping(metadata, context, errors) {
   }
 }
 
+function validateConsumerArtifact(
+  consumer,
+  metadata,
+  context,
+  consumerPath,
+  errors,
+  { terminal },
+) {
+  const artifact = consumer.artifact;
+  const validateTerminalArtifactValue = (value, fieldPath) => {
+    if (terminal) {
+      validateConcreteEvidenceValue({
+        value,
+        context,
+        scopeName: "coupler-api",
+        fieldPath,
+        errors,
+      });
+    }
+  };
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
+    if (terminal || artifact !== null) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact must be an object${terminal ? "" : " or null"}`);
+    }
+    return;
+  }
+  const current = consumer.generation === "current";
+  if (consumer.surface === "mobile-store") {
+    validateExactObjectKeys({
+      value: artifact,
+      allowedKeys: ["kind", "mappingRef", "iosVersionBuild", "androidVersionBuild"],
+      context,
+      fieldPath: `${consumerPath}.artifact`,
+      errors,
+    });
+    if (artifact.kind !== "store-builds") {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.kind must be store-builds`);
+    }
+    for (const key of ["mappingRef", "iosVersionBuild", "androidVersionBuild"]) {
+      if (!isNonEmptyString(artifact[key])) {
+        errors.push(`${context}: release-metadata ${consumerPath}.artifact.${key} must be a non-empty string`);
+      }
+      validateTerminalArtifactValue(
+        artifact[key],
+        `${consumerPath}.artifact.${key}`,
+      );
+    }
+    for (const key of ["iosVersionBuild", "androidVersionBuild"]) {
+      if (isNonEmptyString(artifact[key]) && !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(artifact[key])) {
+        errors.push(`${context}: release-metadata ${consumerPath}.artifact.${key} must be "X.Y.Z (build)"`);
+      }
+    }
+    if (
+      terminal &&
+      current &&
+      (typeof metadata.versionMapping?.["coupler-mobile-app"]?.store !== "string" ||
+        !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(
+          metadata.versionMapping["coupler-mobile-app"].store,
+        ))
+    ) {
+      errors.push(`${context}: terminal current mobile-store consumer requires versionMapping.coupler-mobile-app.store`);
+    } else if (
+      terminal &&
+      current &&
+      artifact.mappingRef !== metadata.versionMapping["coupler-mobile-app"].store
+    ) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.store`);
+    }
+    return;
+  }
+  if (consumer.surface === "mobile-nextpush") {
+    validateExactObjectKeys({
+      value: artifact,
+      allowedKeys: ["kind", "mappingRef", "ios", "android"],
+      context,
+      fieldPath: `${consumerPath}.artifact`,
+      errors,
+    });
+    if (artifact.kind !== "nextpush-deployment") {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.kind must be nextpush-deployment`);
+    }
+    if (!isNonEmptyString(artifact.mappingRef)) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must be a non-empty string`);
+    }
+    validateTerminalArtifactValue(
+      artifact.mappingRef,
+      `${consumerPath}.artifact.mappingRef`,
+    );
+    for (const platform of ["ios", "android"]) {
+      validateNestedObjectKeys({
+        value: artifact[platform],
+        allowedKeys: ["app", "deployment", "label", "cohort", "targetBinary"],
+        context,
+        fieldPath: `${consumerPath}.artifact.${platform}`,
+        errors,
+      });
+      if (artifact[platform] && typeof artifact[platform] === "object") {
+        for (const key of ["app", "deployment", "label", "cohort", "targetBinary"]) {
+          if (!isNonEmptyString(artifact[platform][key])) {
+            errors.push(`${context}: release-metadata ${consumerPath}.artifact.${platform}.${key} must be a non-empty string`);
+          }
+          validateTerminalArtifactValue(
+            artifact[platform][key],
+            `${consumerPath}.artifact.${platform}.${key}`,
+          );
+        }
+      }
+    }
+    if (
+      terminal &&
+      current &&
+      artifact.mappingRef !== metadata.versionMapping?.["coupler-mobile-app"]?.nextPush
+    ) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.nextPush`);
+    }
+    return;
+  }
+  if (consumer.surface === "admin") {
+    validateExactObjectKeys({
+      value: artifact,
+      allowedKeys: ["kind", "artifactRef"],
+      context,
+      fieldPath: `${consumerPath}.artifact`,
+      errors,
+    });
+    if (artifact.kind !== "admin-build" || !isFullCommitSha(artifact.artifactRef)) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact must identify an admin-build full commit SHA artifactRef`);
+    }
+    validateTerminalArtifactValue(
+      artifact.artifactRef,
+      `${consumerPath}.artifact.artifactRef`,
+    );
+    if (
+      terminal &&
+      current &&
+      !isFullCommitSha(metadata.versionMapping?.["coupler-admin-web"]?.commit)
+    ) {
+      errors.push(`${context}: terminal current admin consumer requires versionMapping.coupler-admin-web.commit`);
+    } else if (
+      terminal &&
+      current &&
+      artifact.artifactRef !== metadata.versionMapping["coupler-admin-web"].commit
+    ) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.artifactRef must match versionMapping.coupler-admin-web.commit`);
+    }
+  }
+}
+
+function validateApiPublicContractEvidence(
+  publicContract,
+  metadata,
+  context,
+  errors,
+  { terminal },
+) {
+  const fieldPath = "scopeResults.coupler-api.evidence.publicContract";
+  const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
+  if (!publicContract || typeof publicContract !== "object" || Array.isArray(publicContract)) {
+    if (publicContract !== null || terminal) {
+      errors.push(`${context}: release-metadata ${fieldPath} must be an object${terminal ? "" : " or null"}`);
+    }
+    return;
+  }
+  if (
+    terminal &&
+    (!releaseScopes.includes("contracts-package") ||
+      metadata.scopeResults?.["contracts-package"]?.status !== "released")
+  ) {
+    errors.push(`${context}: terminal coupler-api public contract requires a released contracts-package scope`);
+  }
+
+  validateExactObjectKeys({
+    value: publicContract,
+    allowedKeys: ["apiRefs", "contractRefs", "consumers", "cases"],
+    context,
+    fieldPath,
+    errors,
+  });
+  validateNestedObjectKeys({
+    value: publicContract.apiRefs,
+    allowedKeys: ["previous", "current"],
+    context,
+    fieldPath: `${fieldPath}.apiRefs`,
+    errors,
+  });
+  if (publicContract.apiRefs && typeof publicContract.apiRefs === "object") {
+    for (const generation of ["previous", "current"]) {
+      const value = publicContract.apiRefs[generation];
+      if (terminal ? !isFullCommitSha(value) : value !== null && !isNonEmptyString(value)) {
+        errors.push(`${context}: release-metadata ${fieldPath}.apiRefs.${generation} must be ${terminal ? "a commit SHA" : "a string or null"}`);
+      }
+    }
+    if (terminal) {
+      const mappedCommit = metadata.versionMapping?.["coupler-api"]?.commit;
+      if (!isFullCommitSha(mappedCommit)) {
+        errors.push(`${context}: terminal coupler-api public contract requires versionMapping.coupler-api.commit`);
+      } else if (publicContract.apiRefs.current !== mappedCommit) {
+        errors.push(`${context}: release-metadata ${fieldPath}.apiRefs.current must exactly match versionMapping.coupler-api.commit`);
+      }
+    }
+  }
+  validateNestedObjectKeys({
+    value: publicContract.contractRefs,
+    allowedKeys: ["previous", "current"],
+    context,
+    fieldPath: `${fieldPath}.contractRefs`,
+    errors,
+  });
+  if (publicContract.contractRefs && typeof publicContract.contractRefs === "object") {
+    for (const generation of ["previous", "current"]) {
+      const value = publicContract.contractRefs[generation];
+      if (terminal ? !hasContractsPackageVersion(value) : value !== null && !isNonEmptyString(value)) {
+        errors.push(`${context}: release-metadata ${fieldPath}.contractRefs.${generation} must be ${terminal ? "a canonical contracts package/version" : "a string or null"}`);
+      }
+    }
+    const publishedPackage = metadata.scopeResults?.["contracts-package"]?.evidence?.publishedPackage;
+    if (
+      terminal &&
+      releaseScopes.includes("contracts-package") &&
+      publicContract.contractRefs.current !== publishedPackage
+    ) {
+      errors.push(`${context}: release-metadata ${fieldPath}.contractRefs.current must exactly match the published contracts package`);
+    }
+    const packageSourceRef =
+      metadata.scopeResults?.["contracts-package"]?.evidence?.sourceRef;
+    if (
+      terminal &&
+      releaseScopes.includes("contracts-package") &&
+      packageSourceRef !== publicContract.apiRefs?.current
+    ) {
+      errors.push(`${context}: release-metadata contracts-package sourceRef must exactly match ${fieldPath}.apiRefs.current`);
+    }
+  }
+
+  if (!Array.isArray(publicContract.consumers)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.consumers must be an array`);
+    return;
+  }
+  if (!Array.isArray(publicContract.cases)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.cases must be an array`);
+    return;
+  }
+
+  const allowedSurfaces = new Set(["mobile-store", "mobile-nextpush", "admin"]);
+  const allowedInterfaces = new Set(["rest", "websocket", "bootstrap", "version"]);
+  const allowedGenerations = new Set(["previous", "current"]);
+  const consumerIds = new Set();
+  const consumerById = new Map();
+  for (const [index, consumer] of publicContract.consumers.entries()) {
+    const consumerPath = `${fieldPath}.consumers.${index}`;
+    if (!consumer || typeof consumer !== "object" || Array.isArray(consumer)) {
+      errors.push(`${context}: release-metadata ${consumerPath} must be an object`);
+      continue;
+    }
+    const present = consumer.state === "present";
+    const absent = consumer.state === "absent";
+    validateExactObjectKeys({
+      value: consumer,
+      allowedKeys: present
+        ? ["state", "id", "surface", "generation", "artifact", "contractRef", "interfaces"]
+        : ["state", "id", "surface", "generation", "owner", "absenceEvidence"],
+      context,
+      fieldPath: consumerPath,
+      errors,
+    });
+    if (!isNonEmptyString(consumer.id) || consumerIds.has(consumer.id)) {
+      errors.push(`${context}: release-metadata ${consumerPath}.id must be a unique non-empty string`);
+    } else {
+      consumerIds.add(consumer.id);
+      consumerById.set(consumer.id, consumer);
+    }
+    if (!allowedSurfaces.has(consumer.surface)) {
+      errors.push(`${context}: release-metadata ${consumerPath}.surface is not allowed: ${consumer.surface}`);
+    }
+    if (!allowedGenerations.has(consumer.generation)) {
+      errors.push(`${context}: release-metadata ${consumerPath}.generation is not allowed: ${consumer.generation}`);
+    }
+    if (!present && !absent) {
+      errors.push(`${context}: release-metadata ${consumerPath}.state must be present or absent`);
+    } else if (absent) {
+      if (consumer.surface !== "mobile-nextpush") {
+        errors.push(`${context}: release-metadata ${consumerPath} only mobile-nextpush may be absent`);
+      }
+      for (const key of ["owner", "absenceEvidence"]) {
+        if (!isNonEmptyString(consumer[key])) {
+          errors.push(`${context}: release-metadata ${consumerPath}.${key} must be a non-empty string`);
+        }
+        if (terminal) {
+          validateConcreteEvidenceValue({
+            value: consumer[key],
+            context,
+            scopeName: "coupler-api",
+            fieldPath: `${consumerPath}.${key}`,
+            errors,
+          });
+        }
+      }
+    } else {
+      if (terminal) {
+        validateConcreteEvidenceValue({
+          value: consumer.contractRef,
+          context,
+          scopeName: "coupler-api",
+          fieldPath: `${consumerPath}.contractRef`,
+          errors,
+        });
+      } else if (consumer.contractRef !== null && !isNonEmptyString(consumer.contractRef)) {
+        errors.push(`${context}: release-metadata ${consumerPath}.contractRef must be a string or null`);
+      }
+      if (
+        terminal &&
+        ["previous", "current"].includes(consumer.generation) &&
+        consumer.contractRef !== publicContract.contractRefs?.[consumer.generation]
+      ) {
+        errors.push(`${context}: release-metadata ${consumerPath}.contractRef must match publicContract.contractRefs.${consumer.generation}`);
+      }
+      validateConsumerArtifact(
+        consumer,
+        metadata,
+        context,
+        consumerPath,
+        errors,
+        { terminal },
+      );
+      const requiredInterfaces =
+        consumer.surface === "admin"
+          ? ["rest", "websocket"]
+          : ["rest", "websocket", "bootstrap", "version"];
+      validateClosedStringArray(
+        consumer.interfaces,
+        allowedInterfaces,
+        context,
+        `${consumerPath}.interfaces`,
+        errors,
+        { nonEmpty: true },
+      );
+      if (
+        terminal &&
+        (!Array.isArray(consumer.interfaces) ||
+          JSON.stringify([...consumer.interfaces].sort()) !== JSON.stringify(requiredInterfaces.sort()))
+      ) {
+        errors.push(`${context}: release-metadata ${consumerPath}.interfaces must exactly cover ${requiredInterfaces.join(", ")}`);
+      }
+    }
+  }
+
+  const caseIds = new Set();
+  const currentCoverage = new Set();
+  const caseCoverage = new Set();
+  for (const [index, contractCase] of publicContract.cases.entries()) {
+    const casePath = `${fieldPath}.cases.${index}`;
+    if (!contractCase || typeof contractCase !== "object" || Array.isArray(contractCase)) {
+      errors.push(`${context}: release-metadata ${casePath} must be an object`);
+      continue;
+    }
+    validateExactObjectKeys({
+      value: contractCase,
+      allowedKeys: [
+        "id",
+        "consumerId",
+        "interface",
+        "apiGeneration",
+        "exposure",
+        "expected",
+        "evidence",
+      ],
+      context,
+      fieldPath: casePath,
+      errors,
+    });
+    if (!isNonEmptyString(contractCase.id) || caseIds.has(contractCase.id)) {
+      errors.push(`${context}: release-metadata ${casePath}.id must be a unique non-empty string`);
+    } else {
+      caseIds.add(contractCase.id);
+    }
+    const consumer = consumerById.get(contractCase.consumerId);
+    if (!consumer) {
+      errors.push(`${context}: release-metadata ${casePath}.consumerId references an unknown consumer`);
+    }
+    if (!allowedInterfaces.has(contractCase.interface)) {
+      errors.push(`${context}: release-metadata ${casePath}.interface is not allowed: ${contractCase.interface}`);
+    } else if (
+      consumer &&
+      (!Array.isArray(consumer.interfaces) ||
+        !consumer.interfaces.includes(contractCase.interface))
+    ) {
+      errors.push(`${context}: release-metadata ${casePath}.interface is not declared by its consumer`);
+    }
+    if (!allowedGenerations.has(contractCase.apiGeneration)) {
+      errors.push(`${context}: release-metadata ${casePath}.apiGeneration is not allowed`);
+    }
+    if (!["rollout", "activation", "post-activation", "rollback"].includes(contractCase.exposure)) {
+      errors.push(`${context}: release-metadata ${casePath}.exposure is not allowed`);
+    }
+    if (!["success", "deterministic-rejection"].includes(contractCase.expected)) {
+      errors.push(`${context}: release-metadata ${casePath}.expected is not allowed`);
+    }
+    if (terminal) {
+      validateConcreteEvidenceValue({
+        value: contractCase.evidence,
+        context,
+        scopeName: "coupler-api",
+        fieldPath: `${casePath}.evidence`,
+        errors,
+      });
+    } else if (contractCase.evidence !== null && !isNonEmptyString(contractCase.evidence)) {
+      errors.push(`${context}: release-metadata ${casePath}.evidence must be a string or null`);
+    }
+    const exactCoverageKey = `${contractCase.consumerId}:${contractCase.interface}:${contractCase.apiGeneration}:${contractCase.exposure}`;
+    if (caseCoverage.has(exactCoverageKey)) {
+      errors.push(`${context}: release-metadata ${fieldPath}.cases duplicates contract coverage: ${exactCoverageKey}`);
+    }
+    caseCoverage.add(exactCoverageKey);
+    if (contractCase.apiGeneration === "current") {
+      currentCoverage.add(`${contractCase.consumerId}:${contractCase.interface}`);
+    }
+  }
+
+  if (terminal) {
+    const inventoryConsumers = publicContract.consumers.filter(
+      (consumer) => consumer && typeof consumer === "object" && !Array.isArray(consumer),
+    );
+    const validConsumers = inventoryConsumers.filter(({ state }) => state === "present");
+    const surfaces = new Set(inventoryConsumers.map(({ surface }) => surface));
+    const generations = new Set(inventoryConsumers.map(({ generation }) => generation));
+    if ([...allowedSurfaces].some((surface) => !surfaces.has(surface))) {
+      errors.push(`${context}: release-metadata ${fieldPath}.consumers must cover mobile-store, mobile-nextpush, and admin`);
+    }
+    if ([...allowedGenerations].some((generation) => !generations.has(generation))) {
+      errors.push(`${context}: release-metadata ${fieldPath}.consumers must include previous and current generations`);
+    }
+    for (const surface of allowedSurfaces) {
+      for (const generation of allowedGenerations) {
+        const pairCount = inventoryConsumers.filter(
+          (consumer) =>
+            consumer.surface === surface &&
+            consumer.generation === generation,
+        ).length;
+        if (pairCount !== 1) {
+          errors.push(`${context}: release-metadata ${fieldPath}.consumers must contain exactly one ${surface}:${generation}`);
+        }
+      }
+    }
+    for (const consumer of validConsumers) {
+      for (const interfaceName of Array.isArray(consumer.interfaces) ? consumer.interfaces : []) {
+        const coverageKey = `${consumer.id}:${interfaceName}`;
+        const currentCases = publicContract.cases.filter(
+          (candidate) =>
+            candidate &&
+            candidate.consumerId === consumer.id &&
+            candidate.interface === interfaceName &&
+            candidate.apiGeneration === "current",
+        );
+        if (!currentCoverage.has(coverageKey) || currentCases.length === 0) {
+          errors.push(`${context}: release-metadata ${fieldPath}.cases is missing current API coverage: ${coverageKey}`);
+          continue;
+        }
+        if (
+          (consumer.generation === "current" || metadata.apiContractCutover == null) &&
+          currentCases.some((contractCase) => contractCase.expected !== "success")
+        ) {
+          errors.push(`${context}: release-metadata ${fieldPath}.cases requires success for ${coverageKey}`);
+        }
+        if (
+          metadata.apiContractCutover != null &&
+          consumer.generation === "previous" &&
+          (interfaceName === "bootstrap" || interfaceName === "version") &&
+          currentCases.some((contractCase) => contractCase.expected !== "success")
+        ) {
+          errors.push(`${context}: release-metadata ${fieldPath}.cases requires old-readable bootstrap/version success for ${coverageKey}`);
+        }
+      }
+    }
+    const currentNextPush = inventoryConsumers.find(
+      ({ surface, generation }) => surface === "mobile-nextpush" && generation === "current",
+    );
+    const nextPushMapping = metadata.versionMapping?.["coupler-mobile-app"]?.nextPush;
+    if (
+      currentNextPush &&
+      ((isEmptyRefValue(nextPushMapping) && currentNextPush.state !== "absent") ||
+        (!isEmptyRefValue(nextPushMapping) && currentNextPush.state !== "present"))
+    ) {
+      errors.push(`${context}: release-metadata ${fieldPath}.consumers current mobile-nextpush presence must match versionMapping.coupler-mobile-app.nextPush`);
+    }
+    if (
+      metadata.apiContractCutover != null &&
+      !publicContract.cases.some(
+        (contractCase) =>
+          contractCase &&
+          consumerById.get(contractCase.consumerId)?.generation === "previous" &&
+          contractCase.apiGeneration === "current" &&
+          contractCase.exposure === "activation" &&
+          contractCase.expected === "deterministic-rejection",
+      )
+    ) {
+      errors.push(`${context}: release-metadata ${fieldPath}.cases API cutover requires a deterministic previous-consumer rejection case`);
+    }
+  }
+
+}
+
+function validateApiRuntimeRecoveryEvidence(
+  runtimeRecovery,
+  metadata,
+  context,
+  errors,
+  { terminal, scopeStatus },
+) {
+  const fieldPath = "scopeResults.coupler-api.evidence.runtimeRecovery";
+  if (!runtimeRecovery || typeof runtimeRecovery !== "object" || Array.isArray(runtimeRecovery)) {
+    if (runtimeRecovery !== null || terminal) {
+      errors.push(`${context}: release-metadata ${fieldPath} must be an object${terminal ? "" : " or null"}`);
+    }
+    return;
+  }
+  validateExactObjectKeys({
+    value: runtimeRecovery,
+    allowedKeys: ["strategy", "stateSafety", "previousReleaseCaseIds"],
+    context,
+    fieldPath,
+    errors,
+  });
+  if (!["previous-release", "forward-fix", "controlled-recovery"].includes(runtimeRecovery.strategy)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.strategy is not allowed`);
+  }
+  validateClosedStringArray(
+    runtimeRecovery.previousReleaseCaseIds,
+    null,
+    context,
+    `${fieldPath}.previousReleaseCaseIds`,
+    errors,
+    { nonEmpty: runtimeRecovery.strategy === "previous-release" },
+  );
+  if (
+    runtimeRecovery.strategy !== "previous-release" &&
+    Array.isArray(runtimeRecovery.previousReleaseCaseIds) &&
+    runtimeRecovery.previousReleaseCaseIds.length !== 0
+  ) {
+    errors.push(`${context}: release-metadata ${fieldPath}.previousReleaseCaseIds is only allowed for previous-release`);
+  }
+
+  const stateSafety = runtimeRecovery.stateSafety;
+  if (!stateSafety || typeof stateSafety !== "object" || Array.isArray(stateSafety)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.stateSafety must be an object`);
+  } else if (stateSafety.source === "db-maintenance-execution") {
+    validateExactObjectKeys({
+      value: stateSafety,
+      allowedKeys: ["source", "scope"],
+      context,
+      fieldPath: `${fieldPath}.stateSafety`,
+      errors,
+    });
+    const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
+    if (stateSafety.scope !== "db-migration" || !releaseScopes.includes("db-migration")) {
+      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety must reference an included db-migration scope`);
+    }
+    const dbResult = metadata.scopeResults?.["db-migration"];
+    if (
+      terminal &&
+      (!["released", "rolled_back"].includes(dbResult?.status) ||
+        !dbResult?.evidence?.dev?.execution ||
+        !dbResult?.evidence?.prod?.execution)
+    ) {
+      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety requires terminal dev/prod DB maintenance executions`);
+    }
+  } else if (stateSafety.source === "application-evidence") {
+    validateExactObjectKeys({
+      value: stateSafety,
+      allowedKeys: ["source", "persistedState", "queuedState", "externalEffects"],
+      context,
+      fieldPath: `${fieldPath}.stateSafety`,
+      errors,
+    });
+    for (const key of ["persistedState", "queuedState", "externalEffects"]) {
+      if (terminal) {
+        validateConcreteEvidenceValue({
+          value: stateSafety[key],
+          context,
+          scopeName: "coupler-api",
+          fieldPath: `${fieldPath}.stateSafety.${key}`,
+          errors,
+        });
+      } else if (stateSafety[key] !== null && !isNonEmptyString(stateSafety[key])) {
+        errors.push(`${context}: release-metadata ${fieldPath}.stateSafety.${key} must be a string or null`);
+      }
+    }
+  } else {
+    errors.push(`${context}: release-metadata ${fieldPath}.stateSafety.source is not allowed`);
+  }
+
+  if (terminal && scopeStatus === "rolled_back" && runtimeRecovery.strategy !== "previous-release") {
+    errors.push(`${context}: release-metadata ${fieldPath}.strategy must be previous-release when coupler-api is rolled_back`);
+  }
+
+  if (terminal && runtimeRecovery.strategy === "previous-release") {
+    const publicContract =
+      metadata.scopeResults?.["coupler-api"]?.evidence?.publicContract;
+    const consumers = Array.isArray(publicContract?.consumers)
+      ? publicContract.consumers
+      : [];
+    const cases = Array.isArray(publicContract?.cases)
+      ? publicContract.cases
+      : [];
+    const expectedCaseIds = [];
+    for (const consumer of consumers) {
+      if (
+        !consumer ||
+        typeof consumer !== "object" ||
+        Array.isArray(consumer) ||
+        consumer.state !== "present" ||
+        !Array.isArray(consumer.interfaces)
+      ) {
+        continue;
+      }
+      for (const interfaceName of consumer.interfaces) {
+        const matchingCases = cases.filter(
+          (contractCase) =>
+            contractCase?.consumerId === consumer.id &&
+            contractCase.interface === interfaceName &&
+            contractCase.apiGeneration === "previous" &&
+            contractCase.exposure === "rollback" &&
+            contractCase.expected === "success",
+        );
+        if (matchingCases.length !== 1) {
+          errors.push(`${context}: release-metadata ${fieldPath}.previousReleaseCaseIds requires exact successful previous-API rollback coverage: ${consumer.id}:${interfaceName}`);
+          continue;
+        }
+        expectedCaseIds.push(matchingCases[0].id);
+      }
+    }
+    for (const caseId of Array.isArray(runtimeRecovery.previousReleaseCaseIds)
+      ? runtimeRecovery.previousReleaseCaseIds
+      : []) {
+      const contractCase = cases.find((candidate) => candidate?.id === caseId);
+      if (
+        !contractCase ||
+        contractCase.apiGeneration !== "previous" ||
+        contractCase.exposure !== "rollback" ||
+        contractCase.expected !== "success"
+      ) {
+        errors.push(`${context}: release-metadata ${fieldPath}.previousReleaseCaseIds must reference successful previous-API rollback cases: ${caseId}`);
+      }
+    }
+    const actualCaseIds = Array.isArray(runtimeRecovery.previousReleaseCaseIds)
+      ? [...runtimeRecovery.previousReleaseCaseIds].sort()
+      : [];
+    expectedCaseIds.sort();
+    if (JSON.stringify(actualCaseIds) !== JSON.stringify(expectedCaseIds)) {
+      errors.push(`${context}: release-metadata ${fieldPath}.previousReleaseCaseIds must exactly cover every release consumer interface`);
+    }
+  }
+}
+
+function validateClosedStringArray(
+  value,
+  allowedValues,
+  context,
+  fieldPath,
+  errors,
+  { nonEmpty = false } = {},
+) {
+  if (!Array.isArray(value)) {
+    errors.push(`${context}: release-metadata ${fieldPath} must be an array`);
+    return;
+  }
+  if (nonEmpty && value.length === 0) {
+    errors.push(`${context}: release-metadata ${fieldPath} must not be empty`);
+  }
+  const seen = new Set();
+  for (const item of value) {
+    if (!isNonEmptyString(item) || seen.has(item)) {
+      errors.push(`${context}: release-metadata ${fieldPath} must contain unique non-empty strings`);
+      continue;
+    }
+    seen.add(item);
+    if (allowedValues && !allowedValues.has(item)) {
+      errors.push(`${context}: release-metadata ${fieldPath} contains an unsupported value: ${item}`);
+    }
+  }
+}
+
 function validateApiContractCutoverMetadata(metadata, context, errors) {
   const cutover = metadata.apiContractCutover;
 
@@ -611,17 +1335,30 @@ function validateApiContractCutoverMetadata(metadata, context, errors) {
     errors.push(`${context}: release-metadata apiContractCutover.status is not allowed: ${cutover.status}`);
   }
 
-  for (const pathParts of apiContractCutoverRequiredPaths) {
-    const value = getNestedValue(metadata, pathParts);
-    const fieldPath = pathParts.join(".");
-
-    if (!isNonEmptyString(value)) {
-      errors.push(`${context}: release-metadata ${fieldPath} must be a non-empty string`);
-    }
+  if (
+    !(Array.isArray(metadata.releaseScopes) && metadata.releaseScopes.includes("coupler-api")) ||
+    !(Array.isArray(metadata.releaseScopes) && metadata.releaseScopes.includes("contracts-package"))
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover requires coupler-api and contracts-package scopes`);
   }
 
-  if (cutover.status === "rollback" && metadata.status !== "rolled_back") {
-    errors.push(`${context}: release-metadata apiContractCutover.status rollback requires release-metadata status rolled_back`);
+  if (
+    cutover.status === "rollback" &&
+    metadata.scopeResults?.["coupler-api"]?.status !== "rolled_back"
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.status rollback requires scopeResults.coupler-api.status rolled_back`);
+  }
+  if (
+    cutover.status === "released" &&
+    metadata.scopeResults?.["coupler-api"]?.status !== "released"
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.status released requires scopeResults.coupler-api.status released`);
+  }
+  if (
+    isTerminalApiContractCutoverStatus(cutover.status) &&
+    metadata.scopeResults?.["contracts-package"]?.status !== "released"
+  ) {
+    errors.push(`${context}: terminal apiContractCutover requires scopeResults.contracts-package.status released`);
   }
 
   if (isTerminalApiContractCutoverStatus(cutover.status)) {
@@ -634,11 +1371,8 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     value: cutover,
     allowedKeys: [
       "status",
-      "comparisonRefs",
       "contractArtifactSync",
-      "nPlusOneDeployment",
-      "legacyTrafficBlock",
-      "adminVerification",
+      "activation",
       "rollback",
     ],
     context,
@@ -647,13 +1381,6 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
   });
 
   validateNestedObjectKeys({
-    value: cutover.comparisonRefs,
-    allowedKeys: ["coupler-api", "coupler-mobile-app", "coupler-admin-web"],
-    context,
-    fieldPath: "apiContractCutover.comparisonRefs",
-    errors,
-  });
-  validateNestedObjectKeys({
     value: cutover.contractArtifactSync,
     allowedKeys: ["command", "result", "consumerPath"],
     context,
@@ -661,33 +1388,55 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     errors,
   });
   validateNestedObjectKeys({
-    value: cutover.nPlusOneDeployment,
-    allowedKeys: ["target", "appliedAt", "evidence"],
+    value: cutover.activation,
+    allowedKeys: [
+      "caseIds",
+      "appliedAt",
+      "barrierEvidence",
+      "bootstrapUpgradeEvidence",
+    ],
     context,
-    fieldPath: "apiContractCutover.nPlusOneDeployment",
-    errors,
-  });
-  validateNestedObjectKeys({
-    value: cutover.legacyTrafficBlock,
-    allowedKeys: ["previousVersionBuild", "forceUpdateConfig", "versionCodeCheck"],
-    context,
-    fieldPath: "apiContractCutover.legacyTrafficBlock",
-    errors,
-  });
-  validateNestedObjectKeys({
-    value: cutover.adminVerification,
-    allowedKeys: ["versionSettingsSave", "operatorActionSmoke"],
-    context,
-    fieldPath: "apiContractCutover.adminVerification",
+    fieldPath: "apiContractCutover.activation",
     errors,
   });
   validateNestedObjectKeys({
     value: cutover.rollback,
-    allowedKeys: ["previousRefs", "dbBackupRestore", "cautions"],
+    allowedKeys: ["caseIds", "barrierEvidence", "cautions"],
     context,
     fieldPath: "apiContractCutover.rollback",
     errors,
   });
+
+  for (const [fieldPath, value] of [
+    ["apiContractCutover.contractArtifactSync.command", cutover.contractArtifactSync?.command],
+    ["apiContractCutover.contractArtifactSync.result", cutover.contractArtifactSync?.result],
+    ["apiContractCutover.contractArtifactSync.consumerPath", cutover.contractArtifactSync?.consumerPath],
+    ["apiContractCutover.activation.appliedAt", cutover.activation?.appliedAt],
+    ["apiContractCutover.activation.barrierEvidence", cutover.activation?.barrierEvidence],
+    ["apiContractCutover.activation.bootstrapUpgradeEvidence", cutover.activation?.bootstrapUpgradeEvidence],
+    ["apiContractCutover.rollback.barrierEvidence", cutover.rollback?.barrierEvidence],
+    ["apiContractCutover.rollback.cautions", cutover.rollback?.cautions],
+  ]) {
+    if (!isNonEmptyString(value)) {
+      errors.push(`${context}: release-metadata ${fieldPath} must be a non-empty string`);
+    }
+  }
+  validateClosedStringArray(
+    cutover.activation?.caseIds,
+    null,
+    context,
+    "apiContractCutover.activation.caseIds",
+    errors,
+    { nonEmpty: true },
+  );
+  validateClosedStringArray(
+    cutover.rollback?.caseIds,
+    null,
+    context,
+    "apiContractCutover.rollback.caseIds",
+    errors,
+    { nonEmpty: true },
+  );
 }
 
 function validateNestedObjectKeys({
@@ -735,7 +1484,7 @@ function validateReleaseCompletionState(metadata, context, errors) {
     }
   }
 
-  if (metadata.status === completedReleaseStatus || metadata.status === "rolled_back") {
+  if (metadata.apiContractCutover != null) {
     validateTerminalApiContractCutoverStatus(metadata, context, errors);
   }
 }
@@ -777,12 +1526,17 @@ export function deriveReleaseStatusFromScopeResults(metadata) {
     return "pending";
   }
 
-  if (statuses.some((status) => status === "rolled_back")) {
-    return "rolled_back";
-  }
-
   if (statuses.every((status) => status === "released")) {
     return "released";
+  }
+
+  if (
+    statuses.some((status) => status === "rolled_back") &&
+    statuses.every((status) =>
+      ["released", "rolled_back", "superseded"].includes(status),
+    )
+  ) {
+    return "rolled_back";
   }
 
   if (
@@ -865,8 +1619,15 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
   if (evidence.valueType === "contractsPackageVersion") {
     if (!hasContractsPackageVersion(value)) {
       errors.push(
-        `${context}: terminal ${scopeName} evidence ${fieldPath} must include @coupler-developer/coupler-api-contracts@x.y.z`,
+        `${context}: terminal ${scopeName} evidence ${fieldPath} must equal @coupler-developer/coupler-api-contracts@x.y.z`,
       );
+    }
+    return;
+  }
+
+  if (evidence.valueType === "commitSha") {
+    if (!isFullCommitSha(value)) {
+      errors.push(`${context}: terminal ${scopeName} evidence ${fieldPath} must be a full 40-character commit SHA`);
     }
     return;
   }
@@ -883,6 +1644,11 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
     return;
   } else if (evidence.valueType === "concreteEvidence") {
     validateConcreteEvidenceValue({ value, context, scopeName, fieldPath, errors });
+  } else if (
+    evidence.valueType === "apiPublicContract" ||
+    evidence.valueType === "apiRuntimeRecovery"
+  ) {
+    return;
   } else {
     errors.push(
       `${context}: ${scopeName} evidence ${fieldPath} has unknown valueType: ${evidence.valueType}`,
@@ -1036,40 +1802,23 @@ function validateTerminalApiContractCutoverStatus(metadata, context, errors) {
     return;
   }
 
-  if (metadata.status === completedReleaseStatus && cutover.status !== "released") {
-    errors.push(`${context}: released metadata apiContractCutover.status must be released`);
+  const apiStatus = metadata.scopeResults?.["coupler-api"]?.status;
+  if (apiStatus === completedReleaseStatus && cutover.status !== "released") {
+    errors.push(`${context}: released coupler-api scope requires apiContractCutover.status released`);
   }
 
-  if (metadata.status === "rolled_back" && cutover.status !== "rollback") {
-    errors.push(`${context}: rolled_back metadata apiContractCutover.status must be rollback`);
+  if (apiStatus === "rolled_back" && cutover.status !== "rollback") {
+    errors.push(`${context}: rolled_back coupler-api scope requires apiContractCutover.status rollback`);
   }
 }
 
 function validateTerminalApiContractCutoverFields(metadata, context, errors) {
-  for (const pathParts of apiContractCutoverRequiredPaths) {
+  const cutover = metadata.apiContractCutover;
+  for (const pathParts of apiContractCutoverRequiredPaths.filter(
+    (parts) => parts.at(-1) !== "caseIds",
+  )) {
     const value = getNestedValue(metadata, pathParts);
     const fieldPath = pathParts.join(".");
-
-    if (pathParts[0] === "apiContractCutover" && pathParts[1] === "comparisonRefs") {
-      if (!isCommitSha(value)) {
-        errors.push(`${context}: release-metadata ${fieldPath} must be a commit SHA`);
-      }
-      continue;
-    }
-
-    if (
-      pathParts[0] === "scopeResults" &&
-      pathParts[1] === "contracts-package" &&
-      pathParts.at(-1) === "publishedPackage"
-    ) {
-      if (!hasContractsPackageVersion(value)) {
-        errors.push(
-          `${context}: released metadata ${fieldPath} must include @coupler-developer/coupler-api-contracts@x.y.z`,
-        );
-      }
-      continue;
-    }
-
     validateConcreteEvidenceValue({
       value,
       context,
@@ -1077,6 +1826,70 @@ function validateTerminalApiContractCutoverFields(metadata, context, errors) {
       fieldPath,
       errors,
     });
+  }
+
+  const publicContract =
+    metadata.scopeResults?.["coupler-api"]?.evidence?.publicContract;
+  const contractCases = Array.isArray(publicContract?.cases)
+    ? publicContract.cases
+    : [];
+  const consumers = Array.isArray(publicContract?.consumers)
+    ? publicContract.consumers
+    : [];
+  const consumerById = new Map(
+    consumers
+      .filter((consumer) => consumer && typeof consumer === "object")
+      .map((consumer) => [consumer.id, consumer]),
+  );
+  for (const [phase, caseIds] of [
+    ["activation", cutover.activation?.caseIds],
+    ["rollback", cutover.rollback?.caseIds],
+  ]) {
+    for (const caseId of Array.isArray(caseIds) ? caseIds : []) {
+      const contractCase = contractCases.find((candidate) => candidate?.id === caseId);
+      if (!contractCase || contractCase.exposure !== phase) {
+        errors.push(`${context}: release-metadata apiContractCutover.${phase}.caseIds must reference ${phase} public contract cases: ${caseId}`);
+      }
+    }
+  }
+  const activationCaseIds = Array.isArray(cutover.activation?.caseIds)
+    ? cutover.activation.caseIds
+    : [];
+  const activationCases = activationCaseIds
+    .map((caseId) => contractCases.find((candidate) => candidate?.id === caseId))
+    .filter(Boolean);
+  if (
+    activationCases.some(
+      (contractCase) => contractCase.apiGeneration !== "current",
+    )
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.activation.caseIds must exercise the current API`);
+  }
+  if (
+    !activationCases.some(
+      (contractCase) =>
+        contractCase.expected === "deterministic-rejection" &&
+        consumerById.get(contractCase.consumerId)?.generation === "previous",
+    )
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.activation.caseIds must include a deterministic previous-consumer rejection`);
+  }
+  const rollbackCases = (
+    Array.isArray(cutover.rollback?.caseIds)
+      ? cutover.rollback.caseIds
+      : []
+  )
+    .map((caseId) => contractCases.find((candidate) => candidate?.id === caseId))
+    .filter(Boolean);
+  if (
+    rollbackCases.some(
+      (contractCase) =>
+        contractCase.apiGeneration !== "current" ||
+        contractCase.expected !== "success" ||
+        consumerById.get(contractCase.consumerId)?.generation !== "previous",
+    )
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.rollback.caseIds must reference successful previous-consumer/current-API rollback cases`);
   }
 }
 

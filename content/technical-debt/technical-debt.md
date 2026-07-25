@@ -151,13 +151,15 @@
 
 ## 20) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
-- 현상: 코드 계약은 수렴했지만 API/Admin/Mobile exact package와 Store 출시 activation 강제 업데이트 또는 NextPush
-  mandatory를 하나의 최종 계약 배포로 정렬한 기록이 없다.
-- 영향: 일부 구성요소만 다른 계약으로 활성화되거나 승인되지 않은 임시 호환 경로를 남긴 채 완료로 오인할 수 있다.
-- 조치: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로 단일 최종
-  계약 snapshot과 배포 수단별 교체 설정을 기록한다.
-- 완료: exact package·배포 순서·Store `min_version/force_update` 또는 NextPush mandatory·legacy 코드 소비
-  0건과 전체 snapshot rollback 근거 확보.
+- 현상: 현재 source 계약은 수렴했지만 Store/OTA/Admin의 실제 지원 소비자 inventory와 REST·WebSocket·
+  bootstrap·version case, 이전·현재 runtime의 final DB 조합 기록이 없다.
+- 영향: source package 정렬이나 강제 업데이트를 하위 호환 증빙으로 오인하거나 후속 제거가 필요한 임시
+  경로를 API `No`로 닫을 수 있다.
+- 조치: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
+  release-scoped 소비자 inventory와 case를 검증하고 `API cutover`를 판정하며, DB 변경은 maintenance
+  runtime contract에 실제 조합·상태 표면·복구 전략을 선언한다.
+- 완료: exact package, 모든 지원 consumer-interface case, API 판정과 적용 시 activation/client rollback,
+  DB maintenance의 FENCED/RESUMED/RECOVERING·state/effect 복구·legacy 제거 근거 확보.
 
 ## 21) API success DTO schema 정리 미완료 `P2` `L`
 
@@ -166,16 +168,18 @@
 - 조치: 신규·직접 수정 operation부터 Swagger success DTO와 generated contract를 구체화한다. 내부 필드를 읽지 않고 값 전체를 전달·보관하는 opaque JSON passthrough는 제외한다.
 - 완료: 구조를 읽는 소비 success data의 명시 타입과 exact DTO 소비, local 계약 보정 0건.
 
-## 22) 그룹미팅 소비자 cutover 및 출시 통합 미완료 `P1` `L`
+## 22) 그룹미팅 소비자 정렬 및 출시 통합 미완료 `P1` `L`
 
 - 현상: 그룹미팅 소비 구현은 세 source main에 반영됐지만 실제 배포물의 exact version 일치 증빙, 대상 환경별
   migration ledger·runtime, FCM, `group_meeting:message` WebSocket, scheduler smoke와 운영 전환이 남아 있다.
 - 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
-- 조치: 세 source main의 latest stable exact version을 merge gate로 확인 → 대상 환경 migration ledger·schema 확인 →
-  API·Admin·Mobile runtime/FCM/WebSocket smoke → 운영 scheduler smoke 순으로 통합한다.
+- 조치: 세 source main의 latest stable exact version 확인 → Store/OTA/Admin 소비자 inventory와
+  REST·WebSocket·bootstrap/version case → DB runtime contract의 이전·현재·혼합 조합과 상태 표면 →
+  새 API·Admin·Mobile runtime/FCM/WebSocket → 운영 scheduler 순으로 통합 검증한다.
 - 완료: dev/prod Gate, 세 레포 exact version, 신규 발송 FCM `77, 78, 79, 81, 82, 83, 84, 85`의 runtime·저장
   smoke, 인증된 현재 구성원의 `group_meeting:message` 수신과 foreground FCM 연결·단절 fallback smoke, 타입 80의
-  Mobile 호환 재진입, 운영 scheduler 검증 통과.
+  Mobile 호환 재진입, release-scoped API case와 DB runtime/schema 조합, 필요한 activation 또는 복구,
+  운영 scheduler 검증 통과.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
@@ -213,8 +217,8 @@
   전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source main에 반영됐지만 실제 배포 확인과 나머지 화면 감사가
   남아 있다.
 - 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
-- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → 현재 코드 소비 경로 0건과 강제 업데이트/mandatory 근거 확인 후 legacy endpoint 제거.
-- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 현재 코드 소비 0건·강제 업데이트/mandatory 증빙 및 제거.
+- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → `API cutover: Yes`, release-scoped 소비자 case와 이전 endpoint 요청의 서버 측 차단 확인 후 legacy endpoint 제거.
+- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 소비자 case·결정론적 요청 차단·client rollback 증빙 및 제거.
 
 ## 27) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
 

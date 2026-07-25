@@ -115,7 +115,7 @@ function writeRecord(status) {
       "# Release",
       "",
       "```release-metadata",
-      JSON.stringify({ schema: "release-metadata/v1", version: "v9.9.0", status }),
+      JSON.stringify({ schema: "release-metadata/v2", version: "v9.9.0", status }),
       "```",
       "",
     ].join("\n"),
