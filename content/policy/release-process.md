@@ -131,6 +131,11 @@
   최초 `pending`에서는 dev plan과 SHA-256만 고정하고, 개발계 완료 뒤 dev execution에 결속된 prod plan을
   같은 미병합 PR에 추가한다. 변경된 PR head의 preflight를 다시 통과한 뒤 운영계를 실행하며, terminal
   상태에서는 네 파일의 실제 bytes checksum과 DB ledger 완료가 일치해야 한다.
+- 단, canonical executor 도입 전에 운영 migration이 완료된 `v2.3.0`만
+  `db-migration-precanonical-transition-evidence/v1`의 일회성 운영 처분을 허용한다. 현재 live
+  catalog/ledger/postcondition을 read-only로 검증하고 과거 execution을 사후 제조하지 않으며,
+  `db-migration` scope가 `released`일 때만 사용한다. 후속 릴리스와 rollback 증빙에는 이 예외를 재사용하지
+  않는다.
 - Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 exact
   artifact 경로·bytes SHA-256만 묶는다. 과거 기록과 DB artifact는 schema·상태·증빙을 읽지 않고 경로·blob
   불변성만 확인한다.
