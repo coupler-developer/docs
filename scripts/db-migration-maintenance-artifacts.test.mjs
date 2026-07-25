@@ -51,14 +51,18 @@ describe("maintenance DB migration artifact reference format", () => {
     );
   });
 
-  it("allows null artifacts only before terminal state", () => {
+  it("allows an empty planned artifact prefix but requires all four artifacts at terminal state", () => {
     const evidence = evidenceFor();
     evidence.dev.plan = null;
+    evidence.dev.execution = null;
+    evidence.prod.plan = null;
+    evidence.prod.execution = null;
     assert.deepEqual(
       validateMaintenanceDbMigrationEvidence({
         evidence,
         version,
         terminal: false,
+        scopeStatus: "planned",
         context: "db migration evidence",
       }),
       [],
@@ -70,6 +74,83 @@ describe("maintenance DB migration artifact reference format", () => {
         terminal: true,
         context: "db migration evidence",
       }).some((error) => /dev\.plan must be an artifact reference/.test(error)),
+    );
+  });
+
+  it("accepts each ordered non-terminal artifact prefix", () => {
+    const devPlanned = evidenceFor();
+    devPlanned.dev.execution = null;
+    devPlanned.prod.plan = null;
+    devPlanned.prod.execution = null;
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: devPlanned,
+        version,
+        terminal: false,
+        scopeStatus: "pending",
+        context: "db migration evidence",
+      }),
+      [],
+    );
+
+    const devCompleted = evidenceFor();
+    devCompleted.prod.plan = null;
+    devCompleted.prod.execution = null;
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: devCompleted,
+        version,
+        terminal: false,
+        scopeStatus: "in_progress",
+        context: "db migration evidence",
+      }),
+      [],
+    );
+
+    const prodPlanned = evidenceFor();
+    prodPlanned.prod.execution = null;
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: prodPlanned,
+        version,
+        terminal: false,
+        scopeStatus: "in_progress",
+        context: "db migration evidence",
+      }),
+      [],
+    );
+  });
+
+  it("rejects prod artifacts whose dev or prod predecessor is missing", () => {
+    const prodPlanBeforeDevExecution = evidenceFor();
+    prodPlanBeforeDevExecution.dev.execution = null;
+    prodPlanBeforeDevExecution.prod.execution = null;
+    const prodPlanErrors = validateMaintenanceDbMigrationEvidence({
+      evidence: prodPlanBeforeDevExecution,
+      version,
+      terminal: false,
+      scopeStatus: "in_progress",
+      context: "db migration evidence",
+    });
+    assert(
+      prodPlanErrors.some((error) =>
+        /prod\.plan has a missing predecessor/.test(error),
+      ),
+    );
+
+    const prodExecutionBeforePlan = evidenceFor();
+    prodExecutionBeforePlan.prod.plan = null;
+    const prodExecutionErrors = validateMaintenanceDbMigrationEvidence({
+      evidence: prodExecutionBeforePlan,
+      version,
+      terminal: false,
+      scopeStatus: "in_progress",
+      context: "db migration evidence",
+    });
+    assert(
+      prodExecutionErrors.some((error) =>
+        /prod\.execution has a missing predecessor/.test(error),
+      ),
     );
   });
 

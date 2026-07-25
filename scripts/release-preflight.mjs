@@ -27,6 +27,7 @@ import {
 
 const docsRoot = process.cwd();
 const errors = [];
+const preflightReleaseStatuses = new Set(["pending", "in_progress"]);
 let args = {};
 try {
   args = parseArgs(process.argv.slice(2));
@@ -45,9 +46,13 @@ if (version && !args.pendingRef) {
 const releaseRecord = version && args.pendingRef
   ? readReleaseRecord(version, errors, args.pendingRef)
   : null;
-if (args.pendingRef && releaseRecord?.status !== "pending") {
+if (
+  args.pendingRef &&
+  releaseRecord &&
+  !preflightReleaseStatuses.has(releaseRecord.status)
+) {
   errors.push(
-    `--pending-ref requires release-metadata status pending, got ${releaseRecord?.status ?? "unknown"}`,
+    `--pending-ref requires release-metadata status pending or in_progress, got ${releaseRecord.status ?? "unknown"}`,
   );
 }
 const preflightRepoNames = releaseRecord
@@ -953,7 +958,7 @@ Options:
   --version <vX.Y.Z>       Required. Release record version to inspect.
   --workspace-root <path>  Workspace root containing service repositories.
   --include <repos>        Comma-separated repo refs to check. Values: docs, coupler-api, coupler-admin-web, coupler-mobile-app, api, admin, mobile, all.
-  --pending-ref <SHA>      Full pushed docs PR head SHA. Requires pending metadata and a clean non-main branch synced with origin upstream.
+  --pending-ref <SHA>      Full pushed docs PR head SHA. Requires pending or in_progress metadata and a clean non-main branch synced with origin upstream.
   --help                  Show this help.
 `);
 }

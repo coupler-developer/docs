@@ -953,7 +953,7 @@ describe("release metadata scope results", () => {
     );
   });
 
-  it("requires plans from pending onward and all four artifacts at terminal status", () => {
+  it("allows a dev-only pending plan and requires all four artifacts at terminal status", () => {
     const pendingMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -962,6 +962,8 @@ describe("release metadata scope results", () => {
       },
       status: "pending",
     });
+    assert.deepEqual(validate(pendingMetadata), []);
+
     pendingMetadata.scopeResults["db-migration"].evidence.dev.plan = null;
     assert(
       validate(pendingMetadata).some((error) =>
@@ -980,6 +982,30 @@ describe("release metadata scope results", () => {
     assert(
       validate(releasedMetadata).some((error) =>
         /prod\.execution must be an artifact reference/.test(error),
+      ),
+    );
+  });
+
+  it("accepts the dev-completed and prod-planned prefixes but rejects gaps", () => {
+    const inProgressMetadata = buildMetadata({
+      scopes: ["docs", "db-migration"],
+      statuses: {
+        docs: "in_progress",
+        "db-migration": "in_progress",
+      },
+      status: "in_progress",
+    });
+    const evidence = inProgressMetadata.scopeResults["db-migration"].evidence;
+    evidence.dev.execution = maintenanceArtifactRef("dev", "execution.jsonl");
+    assert.deepEqual(validate(inProgressMetadata), []);
+
+    evidence.prod.plan = maintenanceArtifactRef("prod", "plan.json");
+    assert.deepEqual(validate(inProgressMetadata), []);
+
+    evidence.dev.execution = null;
+    assert(
+      validate(inProgressMetadata).some((error) =>
+        /prod\.plan has a missing predecessor/.test(error),
       ),
     );
   });
@@ -1425,8 +1451,14 @@ function evidenceFor(scopeName, status) {
 function plannedDbMigrationEvidence() {
   return {
     schema: "db-migration-maintenance-evidence/v1",
-    dev: maintenanceEnvironmentEvidence("dev", false),
-    prod: maintenanceEnvironmentEvidence("prod", false),
+    dev: {
+      plan: maintenanceArtifactRef("dev", "plan.json"),
+      execution: null,
+    },
+    prod: {
+      plan: null,
+      execution: null,
+    },
   };
 }
 
@@ -1439,18 +1471,18 @@ function releasedDbMigrationEvidence() {
 }
 
 function maintenanceEnvironmentEvidence(environment, terminal) {
-  const root = `content/releases/evidence/db-migrations/${version}/${environment}`;
   return {
-    plan: {
-      path: `${root}/plan.json`,
-      sha256: checksum,
-    },
+    plan: maintenanceArtifactRef(environment, "plan.json"),
     execution: terminal
-      ? {
-          path: `${root}/execution.jsonl`,
-          sha256: checksum,
-        }
+      ? maintenanceArtifactRef(environment, "execution.jsonl")
       : null,
+  };
+}
+
+function maintenanceArtifactRef(environment, fileName) {
+  return {
+    path: `content/releases/evidence/db-migrations/${version}/${environment}/${fileName}`,
+    sha256: checksum,
   };
 }
 
