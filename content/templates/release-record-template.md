@@ -147,7 +147,8 @@ API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 nativ
         "androidVersionBuild": "X.Y.Z (build)"
       },
       "contractRef": "@coupler-developer/coupler-api-contracts@<published-version>",
-      "interfaces": ["rest", "websocket", "bootstrap", "version"]
+      "interfaces": ["rest", "websocket", "bootstrap", "version"],
+      "interfaceInventoryEvidence": "<태그/배포 소스에서 실제 소비 인터페이스를 확인한 결과>"
     },
     {
       "state": "present",
@@ -173,7 +174,8 @@ API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 nativ
         }
       },
       "contractRef": "@coupler-developer/coupler-api-contracts@<previous-version>",
-      "interfaces": ["rest", "websocket", "bootstrap", "version"]
+      "interfaces": ["rest", "bootstrap", "version"],
+      "interfaceInventoryEvidence": "<이 NextPush 소스에는 REST/bootstrap/version이 있고 WebSocket runtime은 없음을 확인>"
     },
     {
       "state": "absent",
@@ -193,7 +195,8 @@ API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 nativ
         "artifactRef": "<versionMapping.coupler-admin-web.commit>"
       },
       "contractRef": "@coupler-developer/coupler-api-contracts@<published-version>",
-      "interfaces": ["rest", "websocket"]
+      "interfaces": ["rest", "websocket"],
+      "interfaceInventoryEvidence": "<배포 소스에서 REST/WebSocket 소비를 확인>"
     }
   ],
   "cases": [
@@ -211,10 +214,15 @@ API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 nativ
 ```
 
 위 예시의 생략된 `previous-store`, `previous-admin`도 같은
-discriminated shape로 채운다. `cases`는 모든 `present consumer × interfaces`에 대해 current API case를
-정확히 하나 이상 만들고, key `consumerId:interface:apiGeneration:exposure`를 중복하지 않는다. non-cutover는
-모두 `success`다. cutover는 이전 mobile의 `bootstrap`/`version`은 계속 `success`, 호환 불가능한 product
-요청은 activation에서 `deterministic-rejection`으로 기록한다.
+discriminated shape로 채운다. 각 present consumer의 `contractRef`는 그 산출물이 실제로 사용하는 계약
+패키지 또는 로컬 wire-contract 소스 ref를 기록한다. current consumer는 발행된
+`contractRefs.current`와 정확히 일치해야 한다. 모바일의 필수 인터페이스는 `rest/bootstrap/version`,
+Admin은 `rest`이며, `websocket`은 해당 산출물에 실제 runtime 구현이 있을 때만 포함한다.
+`interfaceInventoryEvidence`에는 이 목록과 WebSocket 포함·제외를 판정한 태그/배포 소스 근거를 기록한다.
+`cases`는 모든 `present consumer × interfaces`에 대해 current API case를 정확히 하나 이상 만들고, key
+`consumerId:interface:apiGeneration:exposure`를 중복하지 않는다. non-cutover는 모두 `success`다.
+cutover는 이전 mobile의 `bootstrap`/`version`은 계속 `success`, 호환 불가능한 product 요청은
+activation에서 `deterministic-rejection`으로 기록한다.
 
 `runtimeRecovery`의 closed shape는 아래 둘 중 하나다. 첫 shape의 `strategy`는 실제 대응에 따라
 `forward-fix | controlled-recovery` 중 하나를 쓴다. API scope가 `rolled_back`이면 반드시

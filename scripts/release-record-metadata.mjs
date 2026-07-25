@@ -887,7 +887,7 @@ function validateApiPublicContractEvidence(
     validateExactObjectKeys({
       value: consumer,
       allowedKeys: present
-        ? ["state", "id", "surface", "generation", "artifact", "contractRef", "interfaces"]
+        ? ["state", "id", "surface", "generation", "artifact", "contractRef", "interfaces", "interfaceInventoryEvidence"]
         : ["state", "id", "surface", "generation", "owner", "absenceEvidence"],
       context,
       fieldPath: consumerPath,
@@ -939,10 +939,21 @@ function validateApiPublicContractEvidence(
       }
       if (
         terminal &&
-        ["previous", "current"].includes(consumer.generation) &&
+        consumer.generation === "current" &&
         consumer.contractRef !== publicContract.contractRefs?.[consumer.generation]
       ) {
         errors.push(`${context}: release-metadata ${consumerPath}.contractRef must match publicContract.contractRefs.${consumer.generation}`);
+      }
+      if (!isNonEmptyString(consumer.interfaceInventoryEvidence)) {
+        errors.push(`${context}: release-metadata ${consumerPath}.interfaceInventoryEvidence must be a non-empty string`);
+      } else if (terminal) {
+        validateConcreteEvidenceValue({
+          value: consumer.interfaceInventoryEvidence,
+          context,
+          scopeName: "coupler-api",
+          fieldPath: `${consumerPath}.interfaceInventoryEvidence`,
+          errors,
+        });
       }
       validateConsumerArtifact(
         consumer,
@@ -952,10 +963,10 @@ function validateApiPublicContractEvidence(
         errors,
         { terminal },
       );
-      const requiredInterfaces =
+      const minimumInterfaces =
         consumer.surface === "admin"
-          ? ["rest", "websocket"]
-          : ["rest", "websocket", "bootstrap", "version"];
+          ? ["rest"]
+          : ["rest", "bootstrap", "version"];
       validateClosedStringArray(
         consumer.interfaces,
         allowedInterfaces,
@@ -967,9 +978,9 @@ function validateApiPublicContractEvidence(
       if (
         terminal &&
         (!Array.isArray(consumer.interfaces) ||
-          JSON.stringify([...consumer.interfaces].sort()) !== JSON.stringify(requiredInterfaces.sort()))
+          minimumInterfaces.some((interfaceName) => !consumer.interfaces.includes(interfaceName)))
       ) {
-        errors.push(`${context}: release-metadata ${consumerPath}.interfaces must exactly cover ${requiredInterfaces.join(", ")}`);
+        errors.push(`${context}: release-metadata ${consumerPath}.interfaces must include ${minimumInterfaces.join(", ")} and list websocket only when the artifact implements it`);
       }
     }
   }
