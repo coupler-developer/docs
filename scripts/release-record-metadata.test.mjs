@@ -641,6 +641,33 @@ describe("release metadata scope results", () => {
     );
   });
 
+  it("accepts a historical package source only when its contracts tree matches the release source", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["contracts-package"].evidence.sourceRef = "d".repeat(40);
+    metadata.scopeResults["contracts-package"].evidence.sourceTree = {
+      path: "packages/contracts",
+      publishedSourceTree: "e".repeat(40),
+      releaseSourceTree: "e".repeat(40),
+    };
+
+    assert.deepEqual(validate(metadata), []);
+
+    metadata.scopeResults["contracts-package"].evidence.sourceTree.releaseSourceTree =
+      "f".repeat(40);
+    assert(
+      validate(metadata).some((error) =>
+        /must prove identical published and release contracts trees/.test(error),
+      ),
+    );
+  });
+
   it("requires terminal current Store and Admin mappings instead of skipping null bindings", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "contracts-package", "coupler-api"],
@@ -1372,6 +1399,13 @@ function evidenceFor(scopeName, status) {
         : "pending",
       workflow: concrete ? "Release Contracts workflow https://example.invalid/actions/2" : "pending",
       sourceRef: concrete ? apiCommit : "pending",
+      sourceTree: concrete
+        ? {
+            path: "packages/contracts",
+            publishedSourceTree: "e".repeat(40),
+            releaseSourceTree: "e".repeat(40),
+          }
+        : null,
     };
   }
 

@@ -229,6 +229,63 @@ describe("release preflight for unpublished PR records", () => {
       /--pending-ref requires release-metadata status pending or in_progress, got planned/,
     );
   });
+
+  it("keeps an annotated service tag as the immutable release ref after main advances", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    git(workspace.apiRoot, ["tag", "-a", "v9.9.0", "-m", "release v9.9.0", apiRef]);
+    git(workspace.apiRoot, ["push", "origin", "refs/tags/v9.9.0"]);
+    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_RELEASE.md"), "# Next work\n");
+    commitAndPush(workspace.apiRoot, "advance API main after release");
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/tagged-release"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+      apiTag: "v9.9.0",
+    });
+    const pendingRef = commit(workspace.docsRoot, "record immutable tagged release");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/tagged-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("still rejects an untagged historical service ref after main advances", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_BASIS.md"), "# Advance\n");
+    commitAndPush(workspace.apiRoot, "advance API main before tag");
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/untagged-release"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+    });
+    const pendingRef = commit(workspace.docsRoot, "record stale untagged release");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/untagged-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /버전 매핑 ref는 현재 origin\/main 기준점과 같아야 합니다/);
+  });
 });
 
 function createWorkspace() {
@@ -288,6 +345,7 @@ function writePendingRelease(
   {
     dbMigration = false,
     apiRef = null,
+    apiTag = null,
     status = "pending",
     dbMigrationStage = "dev-planned",
   } = {},
@@ -363,7 +421,7 @@ function writePendingRelease(
     extraRepoRefs: [],
     versionMapping: {
       docs: { tag: null, commit: "pending" },
-      "coupler-api": { tag: null, commit: apiRef },
+      "coupler-api": { tag: apiTag, commit: apiRef },
       "coupler-admin-web": { tag: null, commit: null },
       "coupler-mobile-app": {
         store: null,
@@ -403,7 +461,7 @@ function writePendingRelease(
       "## 버전 매핑",
       "",
       "- `docs`: 기록 버전 `v9.9.0`, 태그 `N/A`, 커밋 `pending`",
-      `- \`coupler-api\`: 태그 \`N/A\`, 커밋 \`${apiRef ?? "N/A"}\``,
+      `- \`coupler-api\`: 태그 \`${apiTag ?? "N/A"}\`, 커밋 \`${apiRef ?? "N/A"}\``,
       "- `coupler-admin-web`: `N/A`",
       "- `coupler-mobile-app`: Store `N/A`, 릴리스 태그 `N/A`, 커밋 `N/A`, NextPush `N/A`",
       "",

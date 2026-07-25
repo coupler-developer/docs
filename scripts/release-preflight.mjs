@@ -753,7 +753,16 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
   }
 
   validateResolvedBasisConsistency(state.name, resolvedRefs, errors);
-  if (policy.refMustEqualCurrentOriginMain) {
+  const hasResolvedAnnotatedOriginTag = resolvedRefs.some(
+    (ref) => ref.type === "tag",
+  );
+  if (
+    policy.refMustEqualCurrentOriginMain &&
+    !(
+      policy.annotatedOriginTagFreezesHistoricalRef &&
+      hasResolvedAnnotatedOriginTag
+    )
+  ) {
     validateResolvedBasisMatchesOriginMain(state.name, state.originMainFull, resolvedRefs, errors);
   }
 }

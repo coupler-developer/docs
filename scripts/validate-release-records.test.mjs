@@ -245,6 +245,11 @@ describe("validate release records metadata sync", () => {
             publishedPackage: "@coupler-developer/coupler-api-contracts@9.9.0",
             workflow: "Release Contracts workflow https://example.invalid/actions/2",
             sourceRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            sourceTree: {
+              path: "packages/contracts",
+              publishedSourceTree: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              releaseSourceTree: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            },
           },
         },
       },
@@ -739,6 +744,7 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
         publishedPackage: null,
         workflow: null,
         sourceRef: null,
+        sourceTree: null,
       };
     }
 
@@ -747,6 +753,11 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
         publishedPackage: "@coupler-developer/coupler-api-contracts@9.9.0",
         workflow: "Release Contracts workflow https://example.invalid/actions/2",
         sourceRef: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceTree: {
+          path: "packages/contracts",
+          publishedSourceTree: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          releaseSourceTree: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        },
       };
     }
 
@@ -754,6 +765,7 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
       publishedPackage: "pending",
       workflow: "pending",
       sourceRef: "pending",
+      sourceTree: null,
     };
   }
 

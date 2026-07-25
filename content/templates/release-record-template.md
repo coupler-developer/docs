@@ -109,9 +109,12 @@
   이전 package를 그대로 쓰는 API 릴리스도 현재 API SHA에서 생성·발행된 stable package와 active
   Admin/Mobile exact pin 정렬을 먼저 확인한다.
 
-`publicContract`는 아래 closed shape만 사용한다. `apiRefs.current`와 contracts-package `sourceRef`는
+`publicContract`는 아래 closed shape만 사용한다. `apiRefs.current`는
 `versionMapping.coupler-api.commit`과 같은 40자 SHA이고, `contractRefs.current`는 포함된
-contracts-package의 `publishedPackage`와 같다. `consumers`에는
+contracts-package의 `publishedPackage`와 같다. contracts-package `sourceRef`는 실제 stable publish
+workflow source 40자 SHA를 기록한다. publish source와 API release source가 다르면 두 ref의
+`packages/contracts` git tree SHA가 같아야 하며 `sourceTree.path`, `publishedSourceTree`,
+`releaseSourceTree`에 그대로 기록한다. `consumers`에는
 `mobile-store | mobile-nextpush | admin` × `previous | current` 여섯 쌍을 정확히 하나씩 둔다.
 Store/Admin은 항상 `present`이고 NextPush가 실제 없을 때만 `absent`와 owner/absence evidence를 쓴다.
 `present` mobile은 `rest`, `websocket`, `bootstrap`, `version`, Admin은 `rest`, `websocket` exact-set이다.
