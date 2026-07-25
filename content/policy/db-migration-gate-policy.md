@@ -271,6 +271,17 @@ prod plan을 생성·추가하고, 변경된 미병합 PR head에서 preflight�
 `pending`과 `in_progress`에서는 아직 도달하지 않은 후속 artifact를 `null`로 두며, `released` 또는
 `rolled_back`에서는 네 파일이 모두 존재해야 한다.
 
+`v2.3.0`은 canonical executor 도입 전에 운영 migration이 이미 완료된 전환 릴리스이므로 단 한 번
+`db-migration-precanonical-transition-evidence/v1`을 허용한다. 이 schema는 개발계 canonical
+plan/execution을 그대로 요구하고 운영 plan/execution은 `null`로 보존한다. 대신 `prodDisposition`에
+현재 canonical catalog·ledger compatibility SHA, 운영 DB identity·schema fingerprint, 전체 catalog
+resolved count, pending/adjudicable gap 0건, migration 91 live postcondition, 과거 작업자 보관 증빙과
+canonical execution을 사후 생성하지 않았다는 한계를 기록한다. 검증기는 이 처분을 `v2.3.0`의 `released`
+DB scope에서만 허용하고, catalog·ledger compatibility·entry count를 개발계 canonical plan과 결속한다.
+후속 릴리스는 이 schema를 재사용할 수 없으며 표준 네 artifact 없이는 DB scope를 terminal로 닫지 않는다.
+이 처분은 실행 방식이나 표준 절차의 예외가 아니며 `v2.3.0` 운영 DB의 추가 write·migration 재실행을
+허용하지 않는다.
+
 `main`에 이미 병합된 모든 릴리스 기록은 불투명한 역사적 최종본이다. DB evidence의 schema·상태·내용을
 파싱하거나 현재 계약으로 재검증하지 않고, 파일 전체의 경로·blob 불변성만 확인한다.
 
