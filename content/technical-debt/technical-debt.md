@@ -168,18 +168,19 @@
 - 조치: 신규·직접 수정 operation부터 Swagger success DTO와 generated contract를 구체화한다. 내부 필드를 읽지 않고 값 전체를 전달·보관하는 opaque JSON passthrough는 제외한다.
 - 완료: 구조를 읽는 소비 success data의 명시 타입과 exact DTO 소비, local 계약 보정 0건.
 
-## 22) 그룹미팅 소비자 정렬 및 출시 통합 미완료 `P1` `L`
+## 22) 그룹미팅 FCM·실시간·scheduler 운영 smoke 증빙 미확인 `P1` `M`
 
-- 현상: 그룹미팅 소비 구현은 세 source main에 반영됐지만 실제 배포물의 exact version 일치 증빙, 대상 환경별
-  migration ledger·runtime, FCM, `group_meeting:message` WebSocket, scheduler smoke와 운영 전환이 남아 있다.
-- 영향: 부분 배포 시 알림·정원·프로필 공개·개인정보 계약이 어긋날 수 있다.
-- 조치: 세 source main의 latest stable exact version 확인 → Store/OTA/Admin 소비자 inventory와
-  REST·WebSocket·bootstrap/version case → DB runtime contract의 이전·현재·혼합 조합과 상태 표면 →
-  새 API·Admin·Mobile runtime/FCM/WebSocket → 운영 scheduler 순으로 통합 검증한다.
-- 완료: dev/prod Gate, 세 레포 exact version, 신규 발송 FCM `77, 78, 79, 81, 82, 83, 84, 85`의 runtime·저장
-  smoke, 인증된 현재 구성원의 `group_meeting:message` 수신과 foreground FCM 연결·단절 fallback smoke, 타입 80의
-  Mobile 호환 재진입, release-scoped API case와 DB runtime/schema 조합, 필요한 activation 또는 복구,
-  운영 scheduler 검증 통과.
+- 현상: 그룹미팅 API·Admin·Mobile·DB는 2.3.0 운영에 반영됐지만 신규 발송 FCM 77~79·81~85의 runtime·
+  저장, 현재 구성원의 `group_meeting:message` 수신과 foreground FCM·연결 단절 fallback, 채팅 개방
+  scheduler의 통제된 운영 smoke 근거가 릴리스 기록에 없다. 이는 배포 미완료나 논리 모델 `to-be` 상태를
+  뜻하지 않는다.
+- 영향: 운영 반영 사실과 개별 알림·실시간·예약 실행의 검증 범위를 구분할 수 없어 장애 조사와 회귀 판정에서
+  source·unit test를 운영 동작 증빙으로 오인할 수 있다.
+- 조치: 통제된 행사·대상 계정으로 FCM runtime/저장, WebSocket 수신·HTTP snapshot 복구, scheduler 경계·
+  구성원별 중복 방지를 각각 실행하고 시각·대상 artifact·응답·저장·로그 근거를 한 운영 검증 기록에 묶는다.
+- 완료: FCM 77~79·81~85의 runtime·저장, 타입 80의 Mobile 호환 재진입, 인증된 현재 구성원의
+  `group_meeting:message`와 foreground/단절 fallback, 채팅 개방 scheduler·중복 방지 smoke의 concrete
+  근거가 확보되고 이 항목이 삭제된 상태.
 
 ## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
@@ -214,8 +215,8 @@
 
 - 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존
   Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과
-  전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source main에 반영됐지만 실제 배포 확인과 나머지 화면 감사가
-  남아 있다.
+  전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source와 2.3.0 운영에 반영됐고, 나머지 화면 감사가 남아
+  있다.
 - 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
 - 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → `API cutover: Yes`, release-scoped 소비자 case와 이전 endpoint 요청의 서버 측 차단 확인 후 legacy endpoint 제거.
 - 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 소비자 case·결정론적 요청 차단·client rollback 증빙 및 제거.

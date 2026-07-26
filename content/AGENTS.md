@@ -235,7 +235,7 @@
 - [매칭 키 시스템](architecture/matching-key-system.md) - 키 소진 및 환불 규칙
 - [매칭 스케줄 알고리즘](architecture/matching-schedule-algorithm.md)
 - [기존 2:2 그룹미팅 시스템](architecture/meeting-system.md) - 구현·배포된 레거시 계약
-- [그룹미팅 시스템](architecture/group-meeting-system.md) - n대n 그룹미팅 to-be 기획
+- [그룹미팅 시스템](architecture/group-meeting-system.md) - 운영 중인 n대n 그룹미팅 계약
 - [라운지 시스템](architecture/lounge-system.md) - 커뮤니티
 - [채팅 시스템](architecture/chat-system.md)
 - [신고·제재 시스템](architecture/moderation-system.md) - 신고·차단·숨김·패널티

@@ -5,9 +5,9 @@
 - 역할: `설명`
 - 문서 종류: `architecture`
 - 충돌 시 우선 문서: 권한은 [보안/접근통제 정책](../policy/security-access-control-policy.md), 결제는 [결제 운영 정책](../policy/payment-ops-policy.md), 푸시는 [푸시알림 운영 정책](../policy/push-notification-policy.md), 데이터는 [데이터 거버넌스 정책](../policy/data-governance-policy.md), 사용자 노출명과 신규 N:N 식별자 명명은 [서비스 용어 정책](../policy/service-terminology-policy.md)
-- 기준 성격: `to-be`
+- 기준 성격: `as-is`
 
-이 문서는 신규 N:N 그룹미팅의 논리 모델과 도메인 불변조건을 설명한다. 기존 2:2 미팅은 UI 패턴만
+이 문서는 운영 중인 신규 N:N 그룹미팅의 논리 모델과 도메인 불변조건을 설명한다. 기존 2:2 미팅은 UI 패턴만
 참고하며 데이터, 상태, API, 알림 타입을 재사용하지 않는다. private 물리 스키마의 단일 기준은
 `coupler-api`의 migration, schema lock, DB native `COMMENT`다.
 
@@ -16,7 +16,7 @@
 1차 범위는 `행사 생성 -> 공개 시작 -> 공개 활성·확정 운영 -> 신청·Admin 승인/확정 취소 -> 그룹 채팅 -> 종료 -> 후기`다.
 
 - 구현 계약 범위: API, DB, Admin, Mobile, Docs
-- 출시 Gate: 소비자 PR 병합, 대상 환경 migration ledger·schema·runtime smoke, FCM·scheduler smoke
+- 운영 반영 기준점과 exact artifact는 [2.3.0 릴리스 실행 기록](../releases/v2.3.0.md)에 보존한다.
 - 제외: 현장 체크인, 좌석/회전 라운드, 호감 선택, 전역 회원 패널티, 외부 결제/정산
 - 호스트는 참가 정원에서 제외한다.
 - Group Meeting의 공통 이용 자격은 `GENERAL_MEMBER` 이상의 이용 가능한 모바일 회원이다. 호스트는 이
@@ -197,8 +197,9 @@ FINISHED가 된다. CONFIRMED 전 승인 인원 조건은 없다.
 기한이 지난 OPEN에 `/open` 명령을 실행하면 상태 값은 1로 유지하면서 `APPLICATION_REOPENED` 감사 이력과
 marker를 한 번 기록한다. CONFIRMED를 OPEN으로 되돌리는 명령은 기존 `EVENT_OPENED` 이력을 사용하고 초기화된
 채팅을 보존한다.
-N:N 기능은 운영에 배포된 적이 없으므로 기존 상태 2 행사·감사 이력의 데이터 전환은 개발계에서만 일회성으로
-수행한다. 운영에는 데이터 backfill이나 호환 상태를 추가하지 않고 새 상태 제약만 동일하게 적용한다.
+N:N 기능의 운영 최초 도입 전 데이터가 없었으므로 기존 상태 2 행사·감사 이력의 데이터 전환은 개발계에서만
+일회성으로 수행했다. 운영에는 데이터 backfill이나 호환 상태를 추가하지 않고 새 상태 제약만 동일하게
+적용했다.
 
 Admin 행사 정보 수정 API는 DRAFT에서 모든 필드를 허용한다. OPEN과 CONFIRMED에서는 제목, 행사·신청 마감
 일시, 장소, 정원, 썸네일, 상세 이미지·문구, 해시태그를 수정할 수 있다. 참가비와 사진 공개는 OPEN에서 요청
@@ -306,9 +307,7 @@ Mobile은 신청·승인·확정 취소·행사 취소 알림 77~79·81과 신�
 함께 발송한다. 이 보충 알림은 새 승인자만 대상으로 하며 같은 경계의 기존 구성원에게 다시 발송하지 않는다.
 Admin 승인과 cron은 채팅 구성원별로 처리한 개방 경계를 공동 중복 방지 기준으로 사용하므로, 즉발 처리된 새
 승인자는 다음 cron 대상에서 제외된다. 행사 단위 개방 marker는 cron batch 요약이며 수신자 판정 기준이 아니다.
-소비자 정렬과 운영 증빙은
-[기술 부채 인벤토리](../technical-debt/technical-debt.md)의 `그룹미팅 소비자 정렬 및 출시 통합 미완료`에서
-추적한다.
+API·Admin·Mobile과 운영 DB의 반영 기준점은 [2.3.0 릴리스 실행 기록](../releases/v2.3.0.md)에 보존한다.
 
 활성 채팅 화면의 새 `USER` 메시지는 기존 회원 WebSocket의 `group_meeting:message`로 동기화한다. 이벤트는
 canonical `GroupMeetingChatUserMessageItem`을 재사용하며 새 저장에만 현재 호스트·APPROVED 참가자와 발신자에게
@@ -361,11 +360,8 @@ unread 절을 따른다.
 - 성공 DTO generic은 compile-time 계약이다. runtime에서 검증하지 않은 성공 data를 별도 decoder가
   보장하는 것처럼 단정하지 않는다.
 - API·Admin·Mobile은 published latest stable contracts package를 exact pin하고 동일 DTO를 직접 소비한다.
-  소비자별 정렬 미완료 조건, PR 병합과 운영 전환 현황은
-  [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-  `그룹미팅 소비자 정렬 및 출시 통합 미완료`에서 추적한다. 현재 version 정렬은 세 레포 package
-  manifest·lockfile로 판정하고 concrete version과 기준 ref는 릴리스 기록에 둔다. 이 문서에는 별도 normalize,
-  ID fallback, local wire DTO를 추가하지 않는 목표 구조만 유지한다.
+  현재 version 정렬은 세 레포 package manifest·lockfile로 판정하고 concrete version과 기준 ref는 릴리스
+  기록에 둔다. 이 문서에는 별도 normalize, ID fallback, local wire DTO를 추가하지 않는다.
 
 대표 read model은 다음과 같다.
 
@@ -416,7 +412,7 @@ unread 절을 따른다.
   화면에서는 세로로 쌓는다. 상세의 신고 수는 `전체 N건 | 미처리 M건`으로 표시하고 누르면 같은 상세의
   신고 탭을 연다.
 
-## DB 계약 경계와 출시 Gate
+## DB 계약 경계와 운영 기준
 
 이 문서는 논리 상태, 관계, 불변조건만 설명한다. migration 계보·checksum·schema lock·DB native `COMMENT`와
 환경별 적용 상태는 `coupler-api`의 private 물리 계약과 대상 DB의 migration ledger가 단일 기준이다. 날짜별
@@ -424,11 +420,10 @@ unread 절을 따른다.
 
 그룹미팅 runtime을 활성화하기 전에는 대상 환경에서 append-only migration precheck와 ledger 기록, 최종
 schema 검증, runtime smoke를 모두 통과해야 한다. 환경별 실행 증거는 API PR 또는 릴리스 기록에 남긴다.
-group-meeting 논리 ID는 구현 병합, 대상 환경 ledger, Mobile 연결과 운영 전환 조건을 모두 충족한 뒤에만
-`as-is`로 승격한다.
-
-남은 소비자 정렬과 출시 통합은 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`그룹미팅 소비자 정렬 및 출시 통합 미완료`에서 추적한다.
+group-meeting 논리 ID는 운영 API·Admin·Mobile과 대상 DB에 반영된 현행 모델이다. 개별 FCM·WebSocket·
+scheduler 검증 상태와 API 호환성 판정은 이 논리 모델 단계와 분리한다. 현재 미확인 운영 smoke 증빙은
+[기술 부채 인벤토리](../technical-debt/technical-debt.md)의
+`그룹미팅 FCM·실시간·scheduler 운영 smoke 증빙 미확인`에서 비차단 후속 검증으로 추적한다.
 
 ## 관련 문서
 
