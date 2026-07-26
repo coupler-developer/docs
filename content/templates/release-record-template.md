@@ -336,6 +336,11 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
   `scopeResults.contracts-package.evidence.publishedPackage`에 둔다. 이때만
   `content/templates/api-contract-cutover-gate-template.md`의 `API contract cutover Gate` 섹션을
   `검증 근거` 아래에 삽입하고 사람이 읽는 mirror로 채운다.
+- 이미 운영 반영된 뒤 사전 activation·old-readable bootstrap 위반을 발견했다면 과거 증빙을 사후 제조하거나
+  릴리스를 영구 `in_progress`로 두지 않는다. API scope는 실제 배포 결과인 `released`로 두고
+  `apiContractCutover.status`를 `violated`로 닫는다. 정상 Activation·rollback 필드는 만들지 않고 전용
+  `violation`에 허용된 실패 요구조건, exact 영향 소비자 ref, 발견 시점, 관측·미관측 범위, 운영 처분과 후속
+  통제를 기록한다. 이 상태는 정상 Cutover Gate 통과 근거로 재사용할 수 없다.
 - API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다.
   이는 API 계약 변경 없음 또는 `API cutover: No` 판정이다. `publicContract.cases`에는 모든 지원 이전
   consumer-interface가 현재 API+최종 DB에서 성공한 근거를 남긴다.

@@ -125,6 +125,12 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
   보존 증빙이 있다. 없으면 forward fix/통제된 reconciliation만 복구 경로로 남긴다.
 - package exact version 정렬과 각 저장소 표준 품질 게이트가 통과했다.
 
+배포 뒤에 위 사전 Gate 위반을 발견했다면 당시 activation이나 old-readable case를 사후 제조하지 않는다.
+현재 서비스 동작과 영향 범위를 확인하고 안전한 forward fix를 선택한 뒤 릴리스 기록의 cutover를
+`violated`로 terminal 처분한다. 정상 Activation·rollback 구조 대신 실패 요구조건, exact 영향 소비자 ref,
+관측·미관측 범위, 운영 처분과 후속 통제를 전용 `violation` 구조에 기록한다. 이 처분은 정상 완료 case가
+아니며 다음 릴리스의 Gate 증빙으로 재사용하지 않는다.
+
 ## 임시 전환 경로
 
 제거 예정 adapter·dual-write·version branch가 필요하면 `API cutover: Yes`다. 허용 범위, 제거 조건,

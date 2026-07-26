@@ -7,6 +7,7 @@ import {
 import { createReleaseRecordModel } from "./release-record-model.mjs";
 import {
   apiContractCutoverRequiredPaths,
+  apiContractCutoverViolationRequiredPaths,
   releaseScopeDescriptors,
 } from "./release-schema.mjs";
 
@@ -283,6 +284,128 @@ describe("release metadata scope results", () => {
 
     assert(
       errors.some((error) => /apiContractCutover\.activation\.barrierEvidence must be concrete evidence, not an N\/A reason/.test(error)),
+    );
+  });
+
+  it("closes a post-deploy cutover violation without fabricating missing pre-deploy cases", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("does not let the violation disposition weaken a normal released cutover", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+
+    assert(
+      validate(metadata).some((error) =>
+        /publicContract must be an object/.test(error),
+      ),
+    );
+  });
+
+  it("requires violated cutover to use violation-specific evidence instead of public contract cases", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+
+    assert(
+      validate(metadata).some((error) =>
+        /violated apiContractCutover requires scopeResults\.coupler-api\.evidence\.publicContract null/.test(error),
+      ),
+    );
+  });
+
+  it("rejects false-pass fixtures across every violated cutover evidence field", () => {
+    for (const pathParts of apiContractCutoverViolationRequiredPaths) {
+      const fieldPath = pathParts.join(".");
+      const fixtureValue = pathParts.at(-1) === "failedRequirements" ||
+        pathParts.at(-1) === "affectedConsumerRefs"
+        ? ["pending"]
+        : "pending";
+      const metadata = buildMetadata({
+        scopes: ["docs", "contracts-package", "coupler-api"],
+        statuses: {
+          docs: "released",
+          "contracts-package": "released",
+          "coupler-api": "released",
+        },
+        apiContractCutover: violatedApiContractCutover(),
+      });
+      metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+      setNestedValue(metadata, pathParts, fixtureValue);
+
+      const errors = validate(metadata);
+
+      assert(
+        errors.some((error) => error.includes(fieldPath)),
+        `expected violated ${fieldPath} fixture to fail, got:\n${errors.join("\n")}`,
+      );
+    }
+  });
+
+  it("rejects affected consumer refs without an exact source and interface", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+    metadata.apiContractCutover.violation.affectedConsumerRefs = [
+      "previous-store@unknown:bootstrap",
+    ];
+
+    assert(
+      validate(metadata).some((error) =>
+        /affectedConsumerRefs\.0 must use consumer-id@commit-sha:interface/.test(error),
+      ),
+    );
+  });
+
+  it("rejects normal activation fields on a violated cutover", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+    metadata.apiContractCutover.activation = releasedApiContractCutover().activation;
+
+    assert(
+      validate(metadata).some((error) =>
+        /apiContractCutover has unknown key: activation/.test(error),
+      ),
     );
   });
 
@@ -1618,6 +1741,36 @@ function rollbackApiContractCutover() {
   return {
     ...releasedApiContractCutover(),
     status: "rollback",
+  };
+}
+
+function violatedApiContractCutover() {
+  return {
+    status: "violated",
+    contractArtifactSync: {
+      command: "pnpm check:contracts",
+      result: "contracts package exact match",
+      consumerPath: "Mobile/Admin package dependency",
+    },
+    violation: {
+      failedRequirements: [
+        "pre-deploy-activation-barrier",
+        "old-readable-bootstrap",
+      ],
+      affectedConsumerRefs: [
+        "previous-store@abcdef0:bootstrap",
+        "previous-admin@abcdef1:rest",
+      ],
+      detectedAt: "2026-07-09 11:00 KST post-deploy review",
+      observedEvidence:
+        "Tagged source and response comparison confirmed incompatible previous consumers",
+      unobservedScope:
+        "Live previous-client request volume and affected user count were not observed",
+      operationalDisposition:
+        "Current runtime remains active and previous clients are not rollback candidates",
+      followUpControl:
+        "Future contract changes require pre-deploy consumer inventory and old-readable bootstrap evidence",
+    },
   };
 }
 

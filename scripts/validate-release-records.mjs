@@ -11,7 +11,7 @@ import { createReleaseRecordModel } from "./release-record-model.mjs";
 import {
   allowedApiContractCutoverStatuses,
   allowedReleaseStatuses,
-  apiContractCutoverValueFields,
+  getApiContractCutoverValueFields,
   getNestedValue,
   isPlaceholderMirrorValue,
   versionMappingFieldDescriptors,
@@ -216,9 +216,12 @@ function validateApiContractCutoverGate(relativePath, source, releaseStatus, met
     errors.push(
       `${relativePath}: 허용되지 않은 API contract cutover 상태입니다: ${cutoverStatusMatch[1]}`,
     );
-  } else if (releaseStatus === "released" && cutoverStatusMatch[1] !== "released") {
+  } else if (
+    releaseStatus === "released" &&
+    !["released", "violated"].includes(cutoverStatusMatch[1])
+  ) {
     errors.push(
-      `${relativePath}: released 릴리스의 API contract cutover Gate는 released 상태여야 합니다.`,
+      `${relativePath}: released 릴리스의 API contract cutover Gate는 released 또는 violated 상태여야 합니다.`,
     );
   } else if (metadataCutover?.status && cutoverStatusMatch[1] !== metadataCutover.status) {
     errors.push(
@@ -234,7 +237,9 @@ function validateApiContractCutoverGate(relativePath, source, releaseStatus, met
     }
   }
 
-  for (const { label, metadataPath } of apiContractCutoverValueFields) {
+  for (const { label, metadataPath } of getApiContractCutoverValueFields(
+    metadataCutover?.status,
+  )) {
     const labelPattern = new RegExp(
       `^\\s*- ${escapeRegExp(label)}:\\s*(.+)$`,
       "m",
@@ -419,7 +424,7 @@ function formatComparableValue(value) {
 }
 
 function isTerminalApiContractCutoverStatus(status) {
-  return status === "released" || status === "rollback";
+  return status === "released" || status === "violated" || status === "rollback";
 }
 
 function validateListSection(relativePath, source, sectionTitle, itemPattern, errors) {
