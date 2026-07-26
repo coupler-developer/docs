@@ -37,6 +37,7 @@ flowchart LR
 | `key-wallet` | Key 지갑 | 회원 Key 잔액, 변동 원장과 프로필 열람 거래 | [매칭 Key 시스템](matching-key-system.md) |
 | `payment` | 결제 | 인앱결제 거래와 지급 결과 | [결제 시스템](payment-system.md) |
 | `legacy-meeting` | 기존 2:2 미팅 | 기존 2:2 행사, 참가, 후기와 별점 | [기존 2:2 그룹미팅 시스템](meeting-system.md) |
+| `group-meeting` | 그룹미팅 | 신규 n대n 행사, 신청, 참가, 이미지와 감사 이력 | [그룹미팅 시스템](group-meeting-system.md) |
 | `lounge` | 라운지 | 게시글, 댓글과 반응 | [라운지 시스템](lounge-system.md) |
 | `conversation` | 대화 | 상담·매칭·미팅 대화방, 참여자와 메시지 | [채팅 시스템](chat-system.md) |
 | `moderation` | 신고·제재 | 신고, 차단, 숨김과 패널티 | [신고·제재 시스템](moderation-system.md) |
