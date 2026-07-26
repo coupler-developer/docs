@@ -286,6 +286,7 @@ export const apiContractCutoverStatuses = [
   "pending",
   "ready",
   "released",
+  "violated",
   "rollback",
 ];
 
@@ -401,7 +402,7 @@ export const versionMappingFieldDescriptors = {
   ],
 };
 
-export const apiContractCutoverValueFields = [
+export const apiContractCutoverCommonValueFields = [
   {
     label: "명령",
     metadataPath: ["apiContractCutover", "contractArtifactSync", "command"],
@@ -418,6 +419,9 @@ export const apiContractCutoverValueFields = [
     label: "Mobile/Admin consumer path",
     metadataPath: ["apiContractCutover", "contractArtifactSync", "consumerPath"],
   },
+];
+
+const apiContractCutoverGateValueFields = [
   {
     label: "Activation case IDs",
     metadataPath: ["apiContractCutover", "activation", "caseIds"],
@@ -448,9 +452,66 @@ export const apiContractCutoverValueFields = [
   },
 ];
 
+export const apiContractCutoverValueFields = [
+  ...apiContractCutoverCommonValueFields,
+  ...apiContractCutoverGateValueFields,
+];
+
 export const apiContractCutoverRequiredPaths = apiContractCutoverValueFields.map(
   ({ metadataPath }) => metadataPath,
 );
+
+export const apiContractCutoverViolationValueFields = [
+  {
+    label: "실패 요구조건",
+    metadataPath: ["apiContractCutover", "violation", "failedRequirements"],
+  },
+  {
+    label: "영향 소비자 ref",
+    metadataPath: ["apiContractCutover", "violation", "affectedConsumerRefs"],
+  },
+  {
+    label: "발견 시점",
+    metadataPath: ["apiContractCutover", "violation", "detectedAt"],
+  },
+  {
+    label: "관측 근거",
+    metadataPath: ["apiContractCutover", "violation", "observedEvidence"],
+  },
+  {
+    label: "미관측 범위",
+    metadataPath: ["apiContractCutover", "violation", "unobservedScope"],
+  },
+  {
+    label: "운영 처분",
+    metadataPath: ["apiContractCutover", "violation", "operationalDisposition"],
+  },
+  {
+    label: "후속 통제",
+    metadataPath: ["apiContractCutover", "violation", "followUpControl"],
+  },
+];
+
+export const apiContractCutoverViolationRequiredPaths =
+  apiContractCutoverViolationValueFields.map(({ metadataPath }) => metadataPath);
+
+export const apiContractCutoverViolationFailedRequirements = new Set([
+  "consumer-inventory",
+  "current-consumer-smoke",
+  "pre-deploy-activation-barrier",
+  "old-readable-bootstrap",
+  "deterministic-product-rejection",
+  "client-rollback",
+]);
+
+export function getApiContractCutoverValueFields(status) {
+  return status === "violated"
+    ? [
+      ...apiContractCutoverCommonValueFields,
+      ...apiContractCutoverViolationValueFields,
+    ]
+    : apiContractCutoverValueFields;
+}
 
 export function isEmptyRefValue(value) {
   return value == null || (typeof value === "string" && emptyRefValues.has(value));

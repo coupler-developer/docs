@@ -111,6 +111,10 @@ Store 출시·NextPush 적용과 공개 API contract cutover는 서로 다른 �
    호환 불가능한 제품 요청은 이전 소비자가 파싱할 수 있는 응답으로 결정론적으로 거부한다. 이때
    `release-metadata.apiContractCutover`에는 inventory의 case ID를 참조하는 activation 장벽·순서와 client
    rollback을 기록하고, activation case에는 선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
+   이미 운영 반영된 뒤 이 사전 조건의 위반을 발견했고 당시 case를 복구할 수 없다면 정상 case ID를 사후
+   제조하지 않는다. API scope의 배포 결과와 분리된 `apiContractCutover.status: violated` 및 전용
+   `violation` 증빙으로 실패 요구조건, 영향 소비자 ref, 관측·미관측 범위, 운영 처분과 후속 통제를 기록한다.
+   이 처분은 정상 cutover Gate나 이후 릴리스의 호환성 증빙으로 사용할 수 없다.
 
 DB 변경은 계획 시 이전·현재·필요한 혼합 runtime set의 unit별 source ref/compatibility-config SHA/역할,
 변경된 read/write/state 경계, 시작·최종 schema와의 허용 조합, DB·queue·외부효과 표면을 선언한다.

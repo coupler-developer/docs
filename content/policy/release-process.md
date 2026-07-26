@@ -153,11 +153,19 @@
   `API cutover: Yes`이면
   `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package
   줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
+- 배포 뒤에 사전 activation 장벽 또는 old-readable bootstrap 위반을 발견해 당시 case를 복구할 수 없으면
+  과거 증빙을 사후 제조하거나 해당 릴리스를 영구 `in_progress`로 두지 않는다.
+  API scope의 배포 상태는 `released`로 유지하고 `apiContractCutover.status: violated`로 Gate 결과를 분리해
+  terminal 기록한다. 정상 Activation·rollback 필드를 재사용하지 않고 `violation`에 허용된 실패 요구조건,
+  `consumer-id@commit-sha:interface` 영향 소비자 ref, 발견 시점, 관측·미관측 범위, 운영 처분과 후속 통제를
+  구조화한다. 이는 Gate 통과가 아니며 이후 릴리스의 사전 조건이나 호환성 증빙으로 재사용하지 않는다.
 - `scopeResults.coupler-api.evidence.publicContract`는 release-scoped 소비자 inventory, API ref와 contract
   case를 소유하고 `runtimeRecovery`는 persisted/queued/external-effect 안전성과 복구 전략을 소유한다.
   previous-release 복구는 inventory의 모든 consumer-interface에 대한 이전 API 성공 rollback case
   exact-set을 요구한다. `apiContractCutover`는 이 case ID를 참조하는 activation/client rollback만
-  소유하며 activation에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다.
+  소유하며 activation에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다. 단, `violated`는 당시
+  public contract case를 복구할 수 없다는 처분이므로 `publicContract: null`과 위 `violation` 전용 구조를
+  함께 사용하고 Activation·rollback case ID를 만들지 않는다.
 - contracts-package `sourceRef`는 stable package를 실제 발행한 workflow source를 보존한다. 그 ref와
   `versionMapping.coupler-api.commit`이 다르면 `packages/contracts`의 양쪽 git tree SHA를
   `sourceTree.publishedSourceTree`와 `sourceTree.releaseSourceTree`에 기록하고 정확히 같아야 한다.
@@ -209,6 +217,9 @@
 - `released`: 포함 범위의 운영 반영/검증/서비스 태그/기록이 완료됐고, final PR merge 뒤 만들 docs 태그가 고정된 상태
 - `rolled_back`: 운영 반영 후 문제로 해당 릴리즈 기준점에서 되돌린 상태
 - `superseded`: 일부 대기 범위를 완료하지 않은 채 후속 릴리즈가 동일 또는 상위 범위를 대체해, 더 이상 해당 릴리즈를 완료 대상으로 추적하지 않는 상태
+- `violated`는 전체 릴리스 상태가 아니라 `apiContractCutover`의 terminal Gate 결과다. 이미
+  운영 반영된 API cutover에서 사전 Gate 위반을 사후 확인했을 때만 사용하며 릴리스 자체는 실제 scope 결과에
+  따라 `released`로 닫는다.
 - `superseded`로 닫을 때는 대체한 후속 릴리즈, 완료하지 않은 범위, 태그 생성 여부, 후속 추적 불필요 사유를 릴리즈 기록에 남긴다.
 - `released`, `rolled_back`, `superseded`로 닫힌 기록을 `planned`, `pending`, `in_progress`로 되돌리지 않는다.
   `main` 병합 뒤 기록은 내용과 상태를 재판정하지 않는다. 실제 후속 배포 또는 rollback 배포를 실행하면 그

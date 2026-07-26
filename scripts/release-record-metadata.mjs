@@ -2,10 +2,12 @@ import {
   allowedReleaseScopes,
   allowedApiContractCutoverStatuses,
   allowedReleaseStatuses,
+  apiContractCutoverViolationFailedRequirements,
   apiContractCutoverRequiredPaths,
   commitShaPattern,
   completedReleaseStatus,
   findReleasePlaceholderSignals,
+  getApiContractCutoverValueFields,
   getNestedValue,
   getRequiredRepoRefsForReleaseScopes,
   hasContractsPackageVersion,
@@ -292,12 +294,15 @@ function validateScopeResult(
     validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
     if (scopeName === "coupler-api") {
       const terminal = result.status === "released" || result.status === "rolled_back";
+      const publicContractTerminal =
+        terminal &&
+        metadata.apiContractCutover?.status !== "violated";
       validateApiPublicContractEvidence(
         result.evidence.publicContract,
         metadata,
         context,
         errors,
-        { terminal },
+        { terminal: publicContractTerminal },
       );
       validateApiRuntimeRecoveryEvidence(
         result.evidence.runtimeRecovery,
@@ -1360,26 +1365,32 @@ function validateApiContractCutoverMetadata(metadata, context, errors) {
     errors.push(`${context}: release-metadata apiContractCutover.status released requires scopeResults.coupler-api.status released`);
   }
   if (
+    cutover.status === "violated" &&
+    metadata.scopeResults?.["coupler-api"]?.status !== "released"
+  ) {
+    errors.push(`${context}: release-metadata apiContractCutover.status violated requires scopeResults.coupler-api.status released`);
+  }
+  if (
     isTerminalApiContractCutoverStatus(cutover.status) &&
     metadata.scopeResults?.["contracts-package"]?.status !== "released"
   ) {
     errors.push(`${context}: terminal apiContractCutover requires scopeResults.contracts-package.status released`);
   }
 
-  if (isTerminalApiContractCutoverStatus(cutover.status)) {
+  if (cutover.status === "violated") {
+    validateApiContractCutoverViolationFields(metadata, context, errors);
+  } else if (isTerminalApiContractCutoverStatus(cutover.status)) {
     validateTerminalApiContractCutoverFields(metadata, context, errors);
   }
 }
 
 function validateApiContractCutoverKeys(cutover, context, errors) {
+  const violated = cutover.status === "violated";
   validateExactObjectKeys({
     value: cutover,
-    allowedKeys: [
-      "status",
-      "contractArtifactSync",
-      "activation",
-      "rollback",
-    ],
+    allowedKeys: violated
+      ? ["status", "contractArtifactSync", "violation"]
+      : ["status", "contractArtifactSync", "activation", "rollback"],
     context,
     fieldPath: "apiContractCutover",
     errors,
@@ -1392,6 +1403,68 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     fieldPath: "apiContractCutover.contractArtifactSync",
     errors,
   });
+
+  if (violated) {
+    validateNestedObjectKeys({
+      value: cutover.violation,
+      allowedKeys: [
+        "failedRequirements",
+        "affectedConsumerRefs",
+        "detectedAt",
+        "observedEvidence",
+        "unobservedScope",
+        "operationalDisposition",
+        "followUpControl",
+      ],
+      context,
+      fieldPath: "apiContractCutover.violation",
+      errors,
+    });
+    validateClosedStringArray(
+      cutover.violation?.failedRequirements,
+      apiContractCutoverViolationFailedRequirements,
+      context,
+      "apiContractCutover.violation.failedRequirements",
+      errors,
+      { nonEmpty: true },
+    );
+    validateClosedStringArray(
+      cutover.violation?.affectedConsumerRefs,
+      null,
+      context,
+      "apiContractCutover.violation.affectedConsumerRefs",
+      errors,
+      { nonEmpty: true },
+    );
+    for (const [index, consumerRef] of (
+      Array.isArray(cutover.violation?.affectedConsumerRefs)
+        ? cutover.violation.affectedConsumerRefs
+        : []
+    ).entries()) {
+      if (
+        !/^[a-z0-9][a-z0-9-]*@[0-9a-f]{7,40}:(?:rest|websocket|bootstrap|version)$/i.test(
+          consumerRef,
+        )
+      ) {
+        errors.push(
+          `${context}: release-metadata apiContractCutover.violation.affectedConsumerRefs.${index} must use consumer-id@commit-sha:interface`,
+        );
+      }
+    }
+    for (const [fieldPath, value] of [
+      ["apiContractCutover.violation.detectedAt", cutover.violation?.detectedAt],
+      ["apiContractCutover.violation.observedEvidence", cutover.violation?.observedEvidence],
+      ["apiContractCutover.violation.unobservedScope", cutover.violation?.unobservedScope],
+      ["apiContractCutover.violation.operationalDisposition", cutover.violation?.operationalDisposition],
+      ["apiContractCutover.violation.followUpControl", cutover.violation?.followUpControl],
+    ]) {
+      if (!isNonEmptyString(value)) {
+        errors.push(`${context}: release-metadata ${fieldPath} must be a non-empty string`);
+      }
+    }
+    return;
+  }
+
   validateNestedObjectKeys({
     value: cutover.activation,
     allowedKeys: [
@@ -1862,12 +1935,53 @@ function validateTerminalApiContractCutoverStatus(metadata, context, errors) {
   }
 
   const apiStatus = metadata.scopeResults?.["coupler-api"]?.status;
-  if (apiStatus === completedReleaseStatus && cutover.status !== "released") {
-    errors.push(`${context}: released coupler-api scope requires apiContractCutover.status released`);
+  if (
+    apiStatus === completedReleaseStatus &&
+    !["released", "violated"].includes(cutover.status)
+  ) {
+    errors.push(`${context}: released coupler-api scope requires apiContractCutover.status released or violated`);
   }
 
   if (apiStatus === "rolled_back" && cutover.status !== "rollback") {
     errors.push(`${context}: rolled_back coupler-api scope requires apiContractCutover.status rollback`);
+  }
+}
+
+function validateApiContractCutoverViolationFields(metadata, context, errors) {
+  const publicContract =
+    metadata.scopeResults?.["coupler-api"]?.evidence?.publicContract;
+  if (publicContract !== null) {
+    errors.push(
+      `${context}: release-metadata violated apiContractCutover requires scopeResults.coupler-api.evidence.publicContract null and violation-specific evidence`,
+    );
+  }
+
+  for (const { metadataPath: pathParts } of getApiContractCutoverValueFields(
+    "violated",
+  )) {
+    const value = getNestedValue(metadata, pathParts);
+    if (
+      pathParts.at(-1) === "failedRequirements" ||
+      pathParts.at(-1) === "affectedConsumerRefs"
+    ) {
+      for (const [index, item] of (Array.isArray(value) ? value : []).entries()) {
+        validateConcreteEvidenceValue({
+          value: item,
+          context,
+          scopeName: "apiContractCutover",
+          fieldPath: `${pathParts.join(".")}.${index}`,
+          errors,
+        });
+      }
+      continue;
+    }
+    validateConcreteEvidenceValue({
+      value,
+      context,
+      scopeName: "apiContractCutover",
+      fieldPath: pathParts.join("."),
+      errors,
+    });
   }
 }
 
@@ -1953,7 +2067,11 @@ function validateTerminalApiContractCutoverFields(metadata, context, errors) {
 }
 
 function isTerminalApiContractCutoverStatus(status) {
-  return status === completedReleaseStatus || status === "rollback";
+  return (
+    status === completedReleaseStatus ||
+    status === "violated" ||
+    status === "rollback"
+  );
 }
 
 function validateStringArray(value, context, errors) {

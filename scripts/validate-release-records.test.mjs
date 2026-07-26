@@ -227,6 +227,70 @@ describe("validate release records metadata sync", () => {
     );
   });
 
+  it("passes when a released API records a structured violated cutover disposition", () => {
+    writeReleaseRecord({
+      releaseStatus: "released",
+      apiContractCutover: violatedCutoverMetadata(),
+      markdownCutoverStatus: "violated",
+      markdownCutoverValue: "post-deploy contract comparison",
+      markdownDocsCommit: "N/A",
+      markdownPublishedPackageValue:
+        "@coupler-developer/coupler-api-contracts@9.9.0",
+      pendingScopeLine: "N/A",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /릴리스 기록 검증 통과/);
+  });
+
+  it("fails when violated cutover markdown omits structured disposition evidence", () => {
+    writeReleaseRecord({
+      releaseStatus: "released",
+      apiContractCutover: violatedCutoverMetadata(),
+      markdownCutoverStatus: "violated",
+      markdownCutoverValue: "post-deploy contract comparison",
+      markdownPublishedPackageValue:
+        "@coupler-developer/coupler-api-contracts@9.9.0",
+      markdownViolationValues: {
+        observedEvidence: "different evidence",
+      },
+      pendingScopeLine: "N/A",
+    });
+
+    const result = runValidator();
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /API contract cutover Gate mirror가 release-metadata apiContractCutover\.violation\.observedEvidence 값을 포함하지 않습니다/,
+    );
+  });
+
+  it("fails when violated cutover markdown keeps placeholders", () => {
+    writeReleaseRecord({
+      releaseStatus: "released",
+      apiContractCutover: violatedCutoverMetadata(),
+      markdownCutoverStatus: "violated",
+      markdownCutoverValue: "post-deploy contract comparison",
+      markdownPublishedPackageValue:
+        "@coupler-developer/coupler-api-contracts@9.9.0",
+      markdownViolationValues: {
+        followUpControl: "pending",
+      },
+      pendingScopeLine: "N/A",
+    });
+
+    const result = runValidator();
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /terminal API contract cutover Gate mirror에 placeholder가 남아 있습니다: pending/,
+    );
+  });
+
   it("fails when rollback cutover markdown mirror keeps placeholders", () => {
     writeReleaseRecord({
       releaseStatus: "rolled_back",
@@ -486,6 +550,7 @@ function writeReleaseRecord({
   apiContractCutover,
   markdownCutoverStatus,
   markdownCutoverValue = "pending",
+  markdownViolationValues = {},
   markdownDocsCommit = "pending",
   markdownPublishedPackageValue = markdownCutoverValue,
   metadataDocsCommit,
@@ -506,6 +571,7 @@ function writeReleaseRecord({
       apiContractCutover,
       markdownCutoverStatus,
       markdownCutoverValue,
+      markdownViolationValues,
       markdownDocsCommit,
       markdownPublishedPackageValue,
       metadataDocsCommit,
@@ -525,6 +591,7 @@ function releaseRecordSource({
   apiContractCutover,
   markdownCutoverStatus,
   markdownCutoverValue,
+  markdownViolationValues,
   markdownDocsCommit,
   markdownPublishedPackageValue,
   metadataDocsCommit,
@@ -554,7 +621,11 @@ function releaseRecordSource({
         commit: metadataDocsCommit ?? (releaseStatus === "released" ? null : "pending"),
       },
       "coupler-api": {
-        tag: null,
+        tag:
+          releaseStatus === "released" &&
+          effectiveReleaseScopes.includes("coupler-api")
+            ? "v9.9.0"
+            : null,
         commit: effectiveReleaseScopes.some((scope) =>
           ["contracts-package", "db-migration"].includes(scope),
         )
@@ -611,7 +682,9 @@ function releaseRecordSource({
     effectiveReleaseScopes.some((scope) =>
       ["contracts-package", "db-migration"].includes(scope),
     )
-      ? "- `coupler-api`: 태그 `N/A`, 커밋 `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`"
+      ? "- `coupler-api`: 태그 `" +
+        (metadata.versionMapping["coupler-api"].tag ?? "N/A") +
+        "`, 커밋 `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`"
       : "- `coupler-api`: `N/A` (이번 릴리스 제외)",
     "- `coupler-admin-web`: `N/A` (이번 릴리스 제외)",
     "- `coupler-mobile-app`: Store `N/A`, 릴리스 태그 `N/A`, 커밋 `N/A`, NextPush `N/A`",
@@ -629,7 +702,48 @@ function releaseRecordSource({
     "- " + verificationNote,
     "",
     ...(includeCutoverGate
-      ? [
+      ? apiContractCutover?.status === "violated"
+        ? [
+          "### API contract cutover Gate",
+          "",
+          "- Cutover 상태: `" + markdownCutoverStatus + "`",
+          "- Contract artifact sync:",
+          "    - 명령: " + markdownCutoverValue,
+          "    - 결과: " + markdownCutoverValue,
+          "    - published package: " + markdownPublishedPackageValue,
+          "    - Mobile/Admin consumer path: " + markdownCutoverValue,
+          "- 사후 위반 처분:",
+          "    - 실패 요구조건: " + (
+            markdownViolationValues.failedRequirements ??
+            apiContractCutover.violation.failedRequirements.join(",")
+          ),
+          "    - 영향 소비자 ref: " + (
+            markdownViolationValues.affectedConsumerRefs ??
+            apiContractCutover.violation.affectedConsumerRefs.join(",")
+          ),
+          "    - 발견 시점: " + (
+            markdownViolationValues.detectedAt ??
+            apiContractCutover.violation.detectedAt
+          ),
+          "    - 관측 근거: " + (
+            markdownViolationValues.observedEvidence ??
+            apiContractCutover.violation.observedEvidence
+          ),
+          "    - 미관측 범위: " + (
+            markdownViolationValues.unobservedScope ??
+            apiContractCutover.violation.unobservedScope
+          ),
+          "    - 운영 처분: " + (
+            markdownViolationValues.operationalDisposition ??
+            apiContractCutover.violation.operationalDisposition
+          ),
+          "    - 후속 통제: " + (
+            markdownViolationValues.followUpControl ??
+            apiContractCutover.violation.followUpControl
+          ),
+          "",
+        ]
+        : [
           "### API contract cutover Gate",
           "",
           "- Cutover 상태: `" + markdownCutoverStatus + "`",
@@ -720,6 +834,36 @@ function rollbackCutoverMetadata() {
   };
 }
 
+function violatedCutoverMetadata() {
+  return {
+    status: "violated",
+    contractArtifactSync: {
+      command: "post-deploy contract comparison",
+      result: "post-deploy contract comparison",
+      consumerPath: "post-deploy contract comparison",
+    },
+    violation: {
+      failedRequirements: [
+        "pre-deploy-activation-barrier",
+        "old-readable-bootstrap",
+      ],
+      affectedConsumerRefs: [
+        "previous-store@abcdef0:bootstrap",
+        "previous-admin@abcdef1:rest",
+      ],
+      detectedAt: "2026-07-09 11:00 KST post-deploy review",
+      observedEvidence:
+        "Tagged source and response comparison confirmed incompatible previous consumers",
+      unobservedScope:
+        "Live previous-client request volume and affected user count were not observed",
+      operationalDisposition:
+        "Current runtime remains active and previous clients are not rollback candidates",
+      followUpControl:
+        "Future contract changes require pre-deploy consumer inventory and old-readable bootstrap evidence",
+    },
+  };
+}
+
 function defaultScopeResults(releaseScopes, apiContractCutover, releaseStatus) {
   return Object.fromEntries(
     releaseScopes.map((scopeName) => [
@@ -774,7 +918,10 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
     return {
       deployment: concrete ? "coupler-api production deployment evidence" : "pending",
       smoke: concrete ? "coupler-api production smoke evidence" : "pending",
-      publicContract: concrete ? apiPublicContractEvidence(Boolean(apiContractCutover)) : null,
+      publicContract:
+        concrete && apiContractCutover?.status !== "violated"
+          ? apiPublicContractEvidence(Boolean(apiContractCutover))
+          : null,
       runtimeRecovery: concrete
         ? {
             strategy: "forward-fix",
