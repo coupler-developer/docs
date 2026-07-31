@@ -10,6 +10,7 @@
 ## 목적
 
 - 매칭 상태, 키 소진/환불, 일정 제안, 사용자 시나리오의 기준 문서를 하나로 고정한다.
+- 라운지 인연찾기 게시글에서 시작한 매칭카드의 방향별 상태·Key·노출 기준을 고정한다.
 - 클럽매니저의 수동·자동 매칭 대상 범위를 전담·공유 배정 기준으로 고정한다.
 - 매칭 예약의 생성 계정별 운영 범위와 공통 예약 설정·cron 발송 경계를 고정한다.
 - `matching-fsm`, `matching-key-system`, `matching-schedule-algorithm`, `matching-flow`의 역할을 설명 문서로 정리한다.
@@ -25,6 +26,7 @@
 - 상위 기술 원칙: [엔지니어링 가드레일](engineering-guardrails.md)
 - 리뷰/증빙 기준: [코드 리뷰 정책](code-review-policy.md)
 - 매칭 상태 읽기/판정 SoT: 서버의 `t_match.match_status`
+- 인연찾기 출처·방향 판정 SoT: 서버의 `t_match.lounge_id`와 최초 `t_match_log.status`
 - 키 정산 SoT: 서버의 `t_member_key_log`, `t_member.key`
 - 일정 제안 검증 SoT: 서버 검증 로직
 - 클럽매니저 매칭 대상 판정 SoT: 서버가 확인한 로그인 관리자, 현재 회원-매니저 배정(`CHARGE`, `SHARE`)과 소속 클럽
@@ -75,6 +77,34 @@
 - 대표 진행 경로는 `PENDING -> FEMALE_WANT_SEE -> MALE_WANT_SEE -> FINAL_CONFIRM -> SEND_FAVOR_INFO -> SUGGEST_SCHEDULE -> OK_SCHEDULE -> SUGGEST_LOCATION/CHAT_OPEN -> REVIEW_REQUIRE -> SHARE_CONTRACT` 순서다.
 - 상태 도표와 예시 경로 시각화는 [매칭 FSM](../architecture/matching-fsm.md)에 두되, 충돌 시 이 문서가 우선한다.
 
+#### 인연찾기 카드 경로
+
+- 인연찾기 카드는 카테고리 12의 `MANAGER_ONLY` 게시글을 출처로 하며, 같은 전담 클럽매니저 배정 범위의
+  이성 회원 사이에서만 생성한다.
+- 자기 게시글, 휴면·직진만남 제한 회원, 지인·차단 관계, 이미 존재하는 일반/인연찾기 매칭 쌍은 거부한다.
+- 카드 생성 시 `lounge_id`를 보존한다. Admin 방향 표시와 방향별 환불처럼 기원 판정이 필요한 경로는
+  최초 매칭 로그 상태를 사용한다.
+
+| 발송 방향 | 최초 상태 | 최초 응답자 | 최초 만료 | 최초 수락 뒤 |
+| --- | --- | --- | --- | --- |
+| 남성 → 여성 | `PENDING` | 여성 | 전달 시점부터 3일 | `FEMALE_WANT_SEE`, 남성 응답 대기 |
+| 여성 → 남성 | `FEMALE_WANT_SEE` | 남성 | 전달 시점부터 3일 | `MALE_WANT_SEE`, 여성 최종컨펌 대기 |
+
+- 여성 → 남성 경로의 취소 후 비활성 카드는 아래 조회자에게 2일간 `On:Going`에 남긴다.
+
+| 취소 단계 | 취소 상태 | 2일 잔존 조회자 |
+| --- | --- | --- |
+| 남성 최초 응답 대기 | `MALE_PASS`, `CANCELED` | 카드를 보낸 여성 |
+| 여성 최종컨펌 대기 | `FEMALE_PASS`, `CONFIRM_NO_REPLY` | 먼저 수락한 남성 |
+
+- 현행 남성 `On:Going` 조회는 `lounge_id`, `female_key=0`, 취소 상태와 남은 만료시간으로 잔존을
+  판정한다. 따라서 남성 → 여성 카드에서 여성이 최초 3일 안에 직접 `FEMALE_PASS`하면 카드를 보낸
+  남성에게 최초 만료시각까지 비활성 카드가 남는다. `PENDING` 무응답으로 만료된 `CANCELED`는 남지 않는다.
+- App `For You`의 CMS/일반 1:1 카드 표시 상한은 10장이며 `lounge_id`가 있는 인연찾기 카드는 이 수에
+  포함하지 않는다.
+- Admin 로그는 인연찾기 여부와 발송 방향을 분리해 표시하며, 최초 상태 `PENDING`은 남성 → 여성,
+  `FEMALE_WANT_SEE`는 여성 → 남성으로 판정한다.
+
 ### 2) 키 소진/환불 기준
 
 - 키 차감/환불은 서버가 판단하고 `t_member_key_log`에 기록한다.
@@ -95,6 +125,11 @@
 | 남성 | 직진만남 | `-77` |
 | 공통 | 후기 작성 보상 | `+15` |
 
+- 인연찾기 카드 전달자는 방향과 관계없이 서버 설정 `t_setting.id = 26`의 `-5` Key를 사용한다.
+- 여성 → 남성 경로에서 남성의 최초 수락은 남성 본인 등급의 매칭 Key, 여성의 최종 수락은 여성 본인 등급의
+  매칭 Key를 사용한다. 서버가 응답한 금액과 다른 클라이언트 입력은 거부한다.
+- 카드 전달 Key 차감, `matching.match` 생성과 최초 상태 로그는 한 트랜잭션으로 처리한다. 카드 전달 푸시는
+  커밋 뒤 시도하며 푸시 실패로 완료된 트랜잭션을 되돌리지 않는다.
 - 큐레이터 제안 여성 프로필 무료 확인은 로그인 회원이 해당 매칭의 남성이고, `match_status=PENDING`,
   `curator_status=PENDING/MALE_WANT_SEE/FROM_CURATOR`, 프로필 요청(`video=0`)인 경우에만 적용한다.
 - 무료 확인 성공 시 서버는 해당 매칭의 여성 프로필 확인 상태를 `Y`로 기록하고 Key 잔액과 Key 원장은
@@ -112,6 +147,8 @@
 | `SCHEDULE_NOT_SELECTED` | 양측 결제 키의 50% 환불 |
 | `FEMALE_PASS`, `CHAT_ROOM_LEAVE`, `USER_BLAME`, `CHAT_3_DAYS_OVER` | 환불 없음 |
 
+- 여성 → 남성 인연찾기의 남성 환불은 `male_key`만 반환하고 프로필 열람 Key와 최초 카드 전달 Key는
+  포함하지 않는다. 남성 → 여성 인연찾기는 일반 1:1 환불 기준을 따른다.
 - 모든 키 변동은 `t_member_key_log`와 `t_member.key`를 함께 기준으로 판정한다.
 - 키 항목 예시와 로그 기록 방식은 [매칭 키 시스템](../architecture/matching-key-system.md)에 두되, 충돌 시 이 문서가 우선한다.
 
@@ -173,6 +210,9 @@
 - 예약 운영 테스트는 일반 클럽매니저의 조회·삭제·즉시 발송이 생성 계정별로 격리되고, 계정별 즉시 발송 뒤에도 공통 cron 예약 상태가 유지되며, cron·슈퍼어드민 전체 발송만 공통 상태를 해제하는지 검증한다.
 - 큐레이터 프로필 확인 테스트는 남성의 최초 무료 확인과 반복 확인의 멱등성, 일반 카드의 무료 요청 거절,
   여성의 남성 프로필 유료 열람 격리, `For you`와 `On:Ongoing` 양쪽 진입 경로의 동일 상태 반영을 검증한다.
+- 인연찾기 테스트는 두 방향의 최초 상태·3일 만료·전달 Key 트랜잭션, 역할별 수락 Key, 최초 로그 기반 방향,
+  CMS 카드 10장 집계 제외, 여성 → 남성 취소 상태별 조회자 비대칭 2일 잔존, 남성 → 여성 직접 패스의
+  최초 만료시각까지 잔존과 환불 범위를 검증한다.
 
 ### 7) 시나리오 문서 역할
 
@@ -184,6 +224,9 @@
 - 전환 목표: 상세 문서는 예시, 시퀀스, 구조 설명만 유지하고 상태 값, 환불 규칙, 일정 판정의 원문 SoT는 이 문서에만 둔다.
 - 클럽매니저 매칭·예약 범위 전환 완료 조건: 서버가 표의 경로별 시작 회원·상대 후보 범위와 생성 계정별 예약 운영 범위를 적용하고, 공통 예약 설정·cron 발송을 유지하며, Admin의 전담매니저 컬럼·지역×등급 필터와 대상 범위 회귀 테스트가 함께 반영된 상태다.
 - 일정 검증 drift 제거 조건: `coupler-api/lib/matching-schedule-parser.ts`가 허용 범위와 계약 형식을 벗어난 날짜 후보, 허용 범위 안의 `YYYY-MM-DD` 기준 중복 날짜를 감지하고, `coupler-api/controller/app/v1/match.ts`의 `addSchedule`이 저장 전에 `MATCHING_SCHEDULE_INVALID_DATE` 또는 `MATCHING_SCHEDULE_DUPLICATE_DATE`로 실패시키며, parser/controller 테스트가 같은 결론을 검증한다.
+- 인연찾기 경로 완료 조건: 서버가 두 발송 방향의 상태·Key·출처·환불·노출 규칙을 적용하고, Mobile이
+  방향별 알림을 해당 매칭 탭으로 연결하며, Admin이 최초 로그 상태로 방향을 표시하고 관련 회귀 테스트가
+  함께 반영된 상태다.
 - 상세 문서 정리 완료 조건: [매칭 FSM](../architecture/matching-fsm.md), [매칭 키 시스템](../architecture/matching-key-system.md), [매칭 일정 제안 알고리즘](../architecture/matching-schedule-algorithm.md), [채팅 시스템](../architecture/chat-system.md), [매칭 플로우](../flows/cross-project/matching-flow.md)가 상태/키/환불/일정 값 또는 API 요청 field를 새 규범으로 정의하지 않고 이 문서, Swagger, 코드 경계 링크 또는 예시/시각화 역할로만 설명한다.
 - 전환 추적: 본 절의 완료 조건과 해당 변경 PR/릴리즈 기록을 기준으로 추적한다. 완료 전 상세 문서의 값 표현이 이 문서와 충돌하면 이 문서를 우선한다.
 

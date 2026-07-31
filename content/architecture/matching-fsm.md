@@ -97,6 +97,8 @@ stateDiagram-v2
 
 ## 단계별 만료 시간
 
+아래 표는 일반 1:1 매칭의 기본값이다. 인연찾기 카드의 최초 만료는 `특수 경로`의 방향별 기준을 따른다.
+
 | 상태             | 만료 시간             | 만료 시 상태                    |
 | ---------------- | --------------------- | ------------------------------- |
 | PENDING          | 3시간                 | 카드 삭제                       |
@@ -108,6 +110,32 @@ stateDiagram-v2
 | CHAT_OPEN        | 3일                   | CHAT_3_DAYS_OVER (-110)         |
 
 ## 특수 경로
+
+### 인연찾기 카드
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : 남성 → 여성 카드 전달 (3일)
+    PENDING --> FEMALE_WANT_SEE : 여성 수락
+    [*] --> FEMALE_WANT_SEE : 여성 → 남성 카드 전달 (3일)
+    FEMALE_WANT_SEE --> MALE_WANT_SEE : 남성 수락
+    MALE_WANT_SEE --> FINAL_CONFIRM : 여성 최종수락
+```
+
+- 남성 → 여성은 `PENDING`, 여성 → 남성은 `FEMALE_WANT_SEE`를 최초 상태로 사용한다.
+- Admin 방향 표시와 방향별 환불처럼 기원 판정이 필요한 경로는 최초 매칭 로그 상태를 사용한다.
+- 여성 → 남성 경로는 취소 뒤 아래 조회자에게 비활성 카드를 2일간 보여 준다.
+
+| 취소 상태 | 2일 잔존 조회자 |
+| --- | --- |
+| 남성 응답 단계의 `MALE_PASS`, `CANCELED` | 카드를 보낸 여성 |
+| 여성 최종컨펌 단계의 `FEMALE_PASS`, `CONFIRM_NO_REPLY` | 먼저 수락한 남성 |
+
+현행 남성 `On:Going` 조회 조건 때문에 남성 → 여성 카드에서 여성이 최초 3일 안에 직접
+`FEMALE_PASS`하면 카드를 보낸 남성에게도 최초 만료시각까지 비활성 카드가 남는다. `PENDING` 무응답으로
+만료된 `CANCELED`는 남지 않는다.
+
+상태·Key·환불·노출의 정확한 판정은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
 ### 3일 채팅 (남성 전용)
 

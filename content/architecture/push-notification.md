@@ -13,6 +13,7 @@ Firebase Cloud Messaging 기반 푸시알림 아키텍처를 정리한 문서이
 [2.3.0 릴리스 실행 기록](../releases/v2.3.0.md)에 보존한다. 개별 FCM runtime·저장과 foreground 연결 smoke
 증빙은 [기술 부채 정리](../technical-debt/technical-debt.md)의
 `그룹미팅 FCM·실시간·scheduler 운영 smoke 증빙 미확인`에서 추적한다.
+인연찾기 86~89는 방향별 카드 전달·수락을 1:1 매칭 화면으로 연결한다.
 
 ## 논리 데이터 모델
 
@@ -183,6 +184,18 @@ APPROVED이면서 후기가 없는 참가자에게만 발송하므로 LEFT·CANC
 발신자의 다른 기기까지 포함한 현재 채팅 구성원에게 전달한다. foreground 표시와 WebSocket 연결 여부에 따른
 FCM 상태 갱신 보조 경로는 [푸시알림 운영 정책](../policy/push-notification-policy.md), 메시지 원본과 HTTP 복구는
 [채팅 시스템](chat-system.md)의 N:N 그룹미팅 채팅 절을 따른다.
+
+### 인연찾기 타입 (86-89)
+
+모든 `target`은 1:1 매칭 ID다. 설정·저장 기준과 정확한 발송 조건은
+[푸시알림 운영 정책](../policy/push-notification-policy.md)을 따른다.
+
+| 값 | 상수 | 수신자 | Mobile 이동 |
+| --- | --- | --- | --- |
+| 86 | `MATCH_FINDING_NEW_MALE_ARRIVE` | 여성 → 남성 카드 수신 남성 | `For You` |
+| 87 | `MATCH_FINDING_MALE_PROFILE_ACCEPTED` | 남성 수락을 받는 여성 | `On:Going` |
+| 88 | `MATCH_FINDING_MALE_TO_FEMALE_CARD_RECEIVED` | 남성 → 여성 카드 수신 여성 | `For You` |
+| 89 | `MATCH_FINDING_MALE_TO_FEMALE_ACCEPTED` | 여성 수락을 받는 남성 | `For You` |
 
 ## 발송 흐름
 

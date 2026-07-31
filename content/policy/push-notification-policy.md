@@ -46,13 +46,19 @@
 | `LOUNGE_NEW_COMMENT(38)` | `target: positive integer` | `count: non-negative integer`, `title: string` |
 | `LOUNGE_LIKE(68)` | `target: positive integer`, `count: non-negative integer` | 없음 |
 
+#### 인연찾기 `custom_data` 계약
+
+| FCM 타입 | 필수 payload | 선택 payload |
+| --- | --- | --- |
+| `MATCH_FINDING_*(86~89)` | `target: positive integer` | 없음 |
+
 ### 2) 발송 조건 통제
 
 - 사용자 알림 설정(`alarm_chat`, `alarm_match`, `alarm_event`)을 서버 발송 경로에서 일관되게 적용한다.
 
 | 대상 | 적용 조건 | 결과 |
 | --- | --- | --- |
-| 1:1 매칭 타입 12~30, 70, 71 | `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| 1:1 매칭 타입 12~30, 70, 71, 86~89 | `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `MATCH_NEW_CHAT(22)` | `alarm_chat = NO` 또는 `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `CONCIERGE_CHAT(67)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | 그룹미팅 77~81, 83~85 | `alarm_event = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
@@ -72,6 +78,20 @@
   [채팅 시스템](../architecture/chat-system.md)의 N:N 그룹미팅 채팅 절을 따른다.
 - 토큰 없음/발송 비활성 조건은 명시적으로 기록하고 스킵 사유를 남긴다.
 - 동일 이벤트의 다중 발송을 방지하기 위해 idempotency key 또는 중복 체크 키를 사용한다.
+
+#### 인연찾기 수신자와 이동 기준
+
+| 타입 | 발송 조건 | 수신자 | Mobile 이동 |
+| --- | --- | --- | --- |
+| `MATCH_FINDING_NEW_MALE_ARRIVE(86)` | 여성 → 남성 카드가 `FEMALE_WANT_SEE`로 생성됨 | 게시글 작성자 남성 | `For You` |
+| `MATCH_FINDING_MALE_PROFILE_ACCEPTED(87)` | 남성이 수락해 `MALE_WANT_SEE`로 전이됨 | 카드를 보낸 여성 | `On:Going` |
+| `MATCH_FINDING_MALE_TO_FEMALE_CARD_RECEIVED(88)` | 남성 → 여성 카드가 `PENDING`으로 생성됨 | 게시글 작성자 여성 | `For You` |
+| `MATCH_FINDING_MALE_TO_FEMALE_ACCEPTED(89)` | 여성이 수락해 `FEMALE_WANT_SEE`로 전이됨 | 카드를 보낸 남성 | `For You` |
+
+- 네 타입의 `target`은 생성된 1:1 매칭 ID다.
+- 86과 88은 카드 생성 트랜잭션 커밋 뒤 발송하며 CMS 일괄 카드의 1분 억제를 적용하지 않는다.
+- 네 타입은 모두 `alarm_match` 판정을 사용하고 표시 문구가 있으므로, 토큰 부재나 전송 비활성 상태에서도
+  설정 판정을 통과하면 `t_alarm`에 저장한다.
 
 #### 그룹미팅 채팅 개방 수신자 기준
 
@@ -134,7 +154,7 @@
 
 - [ ] 타입 ID 충돌/재사용 없이 문서와 코드가 동기화됐는가?
 - [ ] `alarm_chat`/`alarm_match`/`alarm_event`, 토큰 부재, 환경 조건 스킵이 일관되게 동작하는가?
-- [ ] 1:1 매칭 12~30·70·71과 그룹미팅 77~85가 폐쇄형 설정 매핑과 일치하는가?
+- [ ] 1:1 매칭 12~30·70·71·86~89와 그룹미팅 77~85가 폐쇄형 설정 매핑과 일치하는가?
 - [ ] `CONCIERGE_CHAT(67)`은 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고, WebSocket·FCM 상태
       갱신을 중복 적용하지 않는가?
 - [ ] `GROUP_MEETING_CHAT_MESSAGE(82)`는 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고,
