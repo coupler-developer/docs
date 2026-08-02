@@ -11,6 +11,12 @@ const docsRoot = path.dirname(scriptsRoot);
 const contentRoot = path.join(docsRoot, "content");
 const baseAgentsSource = fs.readFileSync(path.join(contentRoot, "AGENTS.md"), "utf8");
 const baseReadmeSource = fs.readFileSync(path.join(contentRoot, "README.md"), "utf8");
+const bootstrapFenceStart = baseReadmeSource.indexOf("```text");
+const bootstrapFenceEnd = baseReadmeSource.indexOf("```", bootstrapFenceStart + 7);
+const baseWorkspaceRootAgentsSource = baseReadmeSource.slice(
+  bootstrapFenceStart + 7,
+  bootstrapFenceEnd,
+);
 const baseTestingStrategySource = fs.readFileSync(
   path.join(contentRoot, "policy", "testing-strategy.md"),
   "utf8",
@@ -619,6 +625,22 @@ test("README bootstrap의 기존 작업 자동 전환을 거부한다", () => {
   assert.match(validate({ readmeSource }).join("\n"), /README workspace bootstrap 계약이 다릅니다/);
 });
 
+test("README와 같은 workspace root bootstrap을 허용한다", () => {
+  assert.deepEqual(validate({ workspaceRootAgentsSource: baseWorkspaceRootAgentsSource }), []);
+});
+
+test("workspace root bootstrap의 기존 작업 자동 전환을 거부한다", () => {
+  const workspaceRootAgentsSource = baseWorkspaceRootAgentsSource.replace(
+    "기존 작업 후보가 있어도 자동으로 전환하지 않는다",
+    "기존 작업 후보가 있으면 자동으로 전환한다",
+  );
+
+  assert.match(
+    validate({ workspaceRootAgentsSource }).join("\n"),
+    /workspace root AGENTS\.md bootstrap 계약이 다릅니다/,
+  );
+});
+
 test("README의 HTML 주석 안 bootstrap 예시를 거부한다", () => {
   const start = baseReadmeSource.indexOf("4. 워크스페이스 루트에 `AGENTS.md`를 만들고");
   const end = baseReadmeSource.indexOf("\n5. IDE에서", start);
@@ -660,6 +682,7 @@ function validate({
   agentsSource = baseAgentsSource,
   readmeSource = baseReadmeSource,
   testingStrategySource = baseTestingStrategySource,
+  workspaceRootAgentsSource = null,
   routeExists = (relativePath) => fs.existsSync(path.join(docsRoot, relativePath)),
   readRouteSource = readContent,
 } = {}) {
@@ -667,6 +690,7 @@ function validate({
     agentsSource,
     readmeSource,
     testingStrategySource,
+    workspaceRootAgentsSource,
     routeExists,
     readRouteSource,
   });
