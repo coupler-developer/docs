@@ -116,6 +116,9 @@
   워크스페이스 위치, 기존 작업 우선, reviewer 권한 Gate만 mirror할 수 있다.
 - bootstrap mirror의 모든 안전 규칙은 `content/AGENTS.md`에도 존재해야 하며, mirror만이 소유하는 작업 규칙을
   만들지 않는다.
+- 공용 workspace의 실제 root `AGENTS.md`는 README bootstrap 예시와 같은 계약을 유지한다. docs 검증이
+  Coupler workspace root를 확인할 수 있으면 실제 파일도 함께 비교하고, 독립 docs checkout처럼 root가 없으면
+  README와 `content/AGENTS.md`만 검증한다.
 - `content/AGENTS.md`는 세부 기술 MUST를 다시 정의하지 않고 필수 Core, 적용 신호, 판정 순서와 범위별
   단일 SoT를 연결한다.
 - 요청 유형, 권한 집합, 작업 범위, 실행 단계는 독립된 분류 축이다. 하나의 값이나 순차 권한 등급으로 합치지
@@ -280,7 +283,7 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
   retired 증빙과 PR base 대비 문서·route ID 보존은 문서 lifecycle 검증으로 자동 확인 가능해야 한다.
 - `content/AGENTS.md`의 Core 4, 요청 유형별 기본 동작·종료 조건, 독립 권한·요청 표현별 권한 경계,
   고위험 신호별 문서·필수 Gate, 상태별 허용 동작과 순서, 단계별 기준 재고정, 작업별 완료 증빙, README
-  bootstrap은 에이전트 작업흐름 검증으로 자동 확인 가능해야 한다.
+  bootstrap과 확인 가능한 실제 workspace root bootstrap은 에이전트 작업흐름 검증으로 자동 확인 가능해야 한다.
 - 자동 검증 대상 실행 절은 descriptor에서 생성한 전체 계약과 비교해 미인식 의미 문장을 fail-closed로
   거부한다. 고위험 라우팅은 신호, 문서 경로와 필수 Gate 안내를 포함한 대상 셀 전체를 정확 비교한다.
 - 본문이 실제로 설명·규범·시나리오·부채 역할을 지키는지는 의미 검토가 필요하므로 정규식 hard gate로

@@ -361,6 +361,7 @@ export const validateAgentWorkflow = ({
   agentsSource,
   readmeSource,
   testingStrategySource,
+  workspaceRootAgentsSource = null,
   routeExists = () => true,
   readRouteSource = () => "",
 }) => {
@@ -606,6 +607,12 @@ export const validateAgentWorkflow = ({
     normalizeWhitespace(REQUIRED_BOOTSTRAP_BLOCK)
   ) {
     errors.push("README workspace bootstrap 계약이 다릅니다.");
+  }
+  if (
+    workspaceRootAgentsSource !== null &&
+    normalizeWhitespace(workspaceRootAgentsSource) !== normalizeWhitespace(REQUIRED_BOOTSTRAP_BLOCK)
+  ) {
+    errors.push("workspace root AGENTS.md bootstrap 계약이 다릅니다.");
   }
   requireText(
     agentsSource,
@@ -1196,6 +1203,17 @@ if (isMainModule) {
   const docsRoot = process.cwd();
   const agentsPath = path.join(docsRoot, "content", "AGENTS.md");
   const readmePath = path.join(docsRoot, "content", "README.md");
+  const workspaceRootAgentsSource = [
+    path.resolve(docsRoot, "..", "AGENTS.md"),
+    path.resolve(docsRoot, "..", "..", "AGENTS.md"),
+  ]
+    .filter((candidate, index, candidates) => candidates.indexOf(candidate) === index)
+    .filter((candidate) =>
+      fs.existsSync(path.join(path.dirname(candidate), "docs", "content", "AGENTS.md")),
+    )
+    .filter((candidate) => fs.existsSync(candidate))
+    .map((candidate) => fs.readFileSync(candidate, "utf8"))
+    .at(0);
   const testingStrategyPath = path.join(
     docsRoot,
     "content",
@@ -1209,6 +1227,7 @@ if (isMainModule) {
     agentsSource: fs.readFileSync(agentsPath, "utf8"),
     readmeSource: fs.readFileSync(readmePath, "utf8"),
     testingStrategySource: fs.readFileSync(testingStrategyPath, "utf8"),
+    workspaceRootAgentsSource: workspaceRootAgentsSource ?? null,
     routeExists,
     readRouteSource,
   });

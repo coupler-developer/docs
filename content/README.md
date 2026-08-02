@@ -112,7 +112,8 @@
   저장소에 들어갈 수 있고 main 배포 Gate가 이후 배포만 차단한다.
 - `yarn validate:agent-workflow`는 새 세션의 Core 4 열람, 요청별 동작·종료 조건, 권한 경계,
   신호별 SoT·필수 Gate, 상태별 동작, 단계별 재고정, 완료 증빙, 검증 대상 절의 미인식 지시 부재와 workspace
-  bootstrap 안전 게이트를 검증한다.
+  bootstrap 안전 게이트를 검증한다. 공용 workspace에서 실행하면 실제 workspace root `AGENTS.md`도 README의
+  bootstrap 계약과 비교한다.
 - 작업 실행 계약을 의도적으로 바꿀 때는 `content/AGENTS.md`, validator descriptor와 반대 조건 회귀 테스트를
   같은 변경 단위에서 동기화한다. 검증 대상 절에 descriptor에 없는 지시를 추가하면 검증은 실패한다.
 - 문서 추가·이동·삭제 시 `document-lifecycle-registry.json`을 함께 갱신한다. 문서와 registry 항목을 동시에
