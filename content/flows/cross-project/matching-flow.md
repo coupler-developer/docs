@@ -9,7 +9,8 @@
 
 사용자가 매칭 카드를 받고 만남까지 진행하는 전체 플로우를 정리한 문서이다.
 상태값, 키 차감/환불, 일정 검증의 원문 SoT는 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
-요청 예시는 흐름 이해용이며, 실제 wire field는 `coupler-api/swagger/app/v1/match.yaml`과 `coupler-api/controller/app/v1/match.ts`를 기준으로 본다.
+단계별 입력은 흐름 이해에 필요한 의미만 설명한다. 실제 wire field는
+`coupler-api/swagger/app/v1/match.yaml`과 `coupler-api/controller/app/v1/match.ts`를 기준으로 본다.
 
 ## 참여 시스템
 
@@ -69,33 +70,33 @@ sequenceDiagram
 
 ## 단계별 상세
 
-### 1단계: 카드 응답 (`PENDING -> FEMALE_WANT_SEE -> MALE_WANT_SEE`)
+### 1단계: 카드 응답
 
 #### 여성 액션
 
-| 액션 | API | 결과 상태 | 비고 |
+| 액션 | API | 흐름 결과 | 비고 |
 |------|-----|----------|------|
-| 만남희망 | `POST /match/wantSee` | FEMALE_WANT_SEE (1) | 키 차감 기준은 정책 문서 참조 |
-| 패스 | `POST /match/pass` | FEMALE_PASS (-1) | 키 차감/환불 기준은 정책 문서 참조 |
-| 천천히 결정 | `POST /match/postpone` | PENDING (유지) | 키 차감 기준은 정책 문서 참조 |
+| 만남희망 | `POST /match/wantSee` | 남성 응답 단계로 진행 | 키 차감 기준은 정책 문서 참조 |
+| 패스 | `POST /match/pass` | 현재 매칭 종료 | 키 차감/환불 기준은 정책 문서 참조 |
+| 천천히 결정 | `POST /match/postpone` | 카드 응답 단계 유지 | 키 차감 기준은 정책 문서 참조 |
 
 #### 남성 액션
 
-| 액션 | API | 결과 상태 | 비고 |
+| 액션 | API | 흐름 결과 | 비고 |
 |------|-----|----------|------|
-| 만남희망 | `POST /match/wantSee` | MALE_WANT_SEE (2) | 등급별 키 차감 기준은 정책 문서 참조 |
-| 패스 | `POST /match/pass` | MALE_PASS (-2) | 환불 기준은 정책 문서 참조 |
-| 3일 채팅 | `POST /match/chat` | CHAT_OPEN (8) | 키 차감 기준은 정책 문서 참조 |
+| 만남희망 | `POST /match/wantSee` | 여성 최종컨펌 단계로 진행 | 등급별 키 차감 기준은 정책 문서 참조 |
+| 패스 | `POST /match/pass` | 현재 매칭 종료 | 환불 기준은 정책 문서 참조 |
+| 3일 채팅 | `POST /match/chat` | 채팅 단계로 바로 진행 | 키 차감 기준은 정책 문서 참조 |
 
-### 2단계: 최종컨펌 (MALE_WANT_SEE → SEND_FAVOR_INFO)
+### 2단계: 최종컨펌
 
 #### 여성 최종컨펌
 
 ```mermaid
 flowchart LR
-    A[MALE_WANT_SEE] -->|수락| B[FINAL_CONFIRM]
-    A -->|취소| C[FINAL_CONFIRM_CANCEL]
-    B -->|선호정보 전달| D[SEND_FAVOR_INFO]
+    A[남성 응답 완료] -->|수락| B[여성 최종컨펌 완료]
+    A -->|취소| C[현재 매칭 종료]
+    B -->|선호정보 전달| D[일정 조율 준비]
 ```
 
 - API: `POST /match/confirm`
@@ -103,57 +104,28 @@ flowchart LR
 
 #### 선호정보 전달
 
-```javascript
-// 요청 바디
-{
-  match: Number,
-  location: String,  // 선호 지역
-  meal: String,      // 선호 음식
-}
-```
-
+- 입력 의미: 대상 매칭, 선호 지역, 선호 음식
 - API: `POST /match/sendInfo`
 
-### 3단계: 일정 조율 (SEND_FAVOR_INFO → OK_SCHEDULE)
+### 3단계: 일정 조율
 
 #### 일정 제안
 
-```javascript
-// 요청 바디
-{
-  match: Number,
-  schedule: 'YYYY-MM-DD,YYYY-MM-DD,...',
-}
-```
-
+- 입력 의미: 대상 매칭과 제안 일정 후보
 - API: `POST /match/addSchedule`
 - 허용 개수/중복/범위/응답 만료 기준: [매칭 운영 정책](../../policy/matching-ops-policy.md)
 - 시퀀스 상세: [matching-schedule-algorithm.md](../../architecture/matching-schedule-algorithm.md)
 
 #### 일정 수락
 
-```javascript
-// 요청 바디
-{
-  id: Number,  // 선택한 일정 ID
-}
-```
-
+- 입력 의미: 선택한 일정
 - API: `POST /match/acceptSchedule`
 
-### 4단계: 만남 준비 (OK_SCHEDULE → CHAT_OPEN)
+### 4단계: 만남 준비
 
 #### 장소 결정
 
-```javascript
-// 요청 바디
-{
-  match: Number,
-  location: String,
-  address: String,
-}
-```
-
+- 입력 의미: 대상 매칭과 만남 장소
 - API: `POST /match/setLocation`
 - 카카오맵 API 활용: `GET /match/searchLocation`
 
@@ -168,22 +140,11 @@ flowchart LR
 | `POST /match/chat/leave` | 채팅방 나가기 |
 | `POST /match/chat/changeSchedule` | 일정 변경 |
 
-### 5단계: 만남 후 (CHAT_OPEN → REVIEW_REQUIRE)
+### 5단계: 만남 후
 
 #### 후기 작성
 
-```javascript
-// 요청 바디
-{
-  match: Number,
-  meet: 'Y' | 'N',
-  look: Number,
-  difficult: 'Y' | 'N',
-  happy: 'Y' | 'N',
-  comment: String,
-}
-```
-
+- 입력 의미: 대상 매칭, 만남 여부와 후기
 - API: `POST /match/writeReview`
 - 보상 기준은 [매칭 운영 정책](../../policy/matching-ops-policy.md)을 따른다.
 
