@@ -155,7 +155,7 @@ flowchart LR
 
 아래 값은 [그룹미팅 시스템](group-meeting-system.md)의 API 발송 계약에 반영됐다. Mobile 연결 계약은 신청·승인·
 확정 취소·행사 취소 77~79·81과 신청 완료 84를 행사 상세, 새 메시지·후기·채팅 개방 82·83·85를 채팅 이력으로
-연결한다. 확정 80은 과거 알림 재진입 호환용으로 소비하되 신규 확정에서는 발송하지 않는다. 모든 `target`은
+연결한다. 모집 마감 알림 80은 과거 알림 재진입 호환용으로 소비하되 신규 모집 마감에서는 발송하지 않는다. 모든 `target`은
 그룹미팅 행사 ID다.
 
 | 값 | 상수 | 의미 | Mobile 이동 |
@@ -163,7 +163,7 @@ flowchart LR
 | 77 | `GROUP_MEETING_APPLICATION_RECEIVED` | 신규 신청 | 행사 상세 |
 | 78 | `GROUP_MEETING_APPLICATION_APPROVED` | 신청 승인 | 행사 상세 |
 | 79 | `GROUP_MEETING_APPLICATION_CANCELED` | Admin 확정 취소(외부 환불 필요) | 행사 상세 |
-| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 과거 모임 확정 알림 호환 | 개방 시 채팅, 미개방 시 행사 상세 |
+| 80 | `GROUP_MEETING_EVENT_CONFIRMED` | 과거 모집 마감 알림 호환 | 개방 시 채팅, 미개방 시 행사 상세 |
 | 81 | `GROUP_MEETING_EVENT_CANCELED` | 행사 취소 | 행사 상세 |
 | 82 | `GROUP_MEETING_CHAT_MESSAGE` | 새 채팅 메시지 | 채팅 이력 |
 | 83 | `GROUP_MEETING_REVIEW_AVAILABLE` | 후기 작성 가능 | 채팅 이력 |

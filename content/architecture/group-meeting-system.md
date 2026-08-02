@@ -11,9 +11,9 @@
 참고하며 데이터, 상태, API, 알림 타입을 재사용하지 않는다. private 물리 스키마의 단일 기준은
 `coupler-api`의 migration, schema lock, DB native `COMMENT`다.
 
-## 범위와 확정 규칙
+## 범위와 모집 마감 규칙
 
-1차 범위는 `행사 생성 -> 공개 시작 -> 공개 활성·확정 운영 -> 신청·Admin 승인/확정 취소 -> 그룹 채팅 -> 종료 -> 후기`다.
+1차 범위는 `행사 생성 -> 공개 시작 -> 공개 활성·모집 마감 운영 -> 신청·Admin 승인/확정 취소 -> 그룹 채팅 -> 종료 -> 후기`다.
 
 - 구현 계약 범위: API, DB, Admin, Mobile, Docs
 - 운영 반영 기준점과 exact artifact는 [2.3.0 릴리스 실행 기록](../releases/v2.3.0.md)에 보존한다.
@@ -27,7 +27,7 @@
   수정할 수 있으며 상태 변경은 두 주체 모두 별도 전이 명령으로만 수행한다.
 - 남녀 정원은 각각 최소 2명이고 합계는 최대 20명이다. 반대 성별 최소값에서 파생되는 성별별 최대는
   18명이며 `10+10`, `18+2`, `7+5`를 허용하고 `11+10`은 거절한다.
-- 모임 확정에는 승인 인원 조건이 없다. 신청 수는 신청 접수가 가능한 동안 제한하지 않고 Admin 승인 시에만 성별 정원을
+- 모집 마감에는 승인 인원 조건이 없다. 신청 수는 신청 접수가 가능한 동안 제한하지 않고 Admin 승인 시에만 성별 정원을
   검사한다.
 - 신청 자체에는 Key를 차감하지 않는다. 외부 입금 확인은 Admin의 참여 승인으로 표현한다.
 - 현재 그룹미팅 채팅의 공개 프로필 조회는 무료다. 현재 호스트와 승인 참가자는 본인을 포함한 현재 구성원의
@@ -46,11 +46,11 @@
 - 운영 CMS는 `application_close_at = event_at`으로 저장한다. 해당 시각이 지나면 행사 상태를 바꾸지 않고
   `application_is_open = false`로 신청만 차단한다. 기한이 지난 OPEN에서 Admin이 신청 접수 재개를 명시하면
   같은 마감 시각 뒤에도 신규 신청을 다시 받을 수 있다.
-- `event_at`은 KST 기준 행사 시작 시각이다. 최초 확정으로 채팅을 초기화한 활성 행사는 정확히
+- `event_at`은 KST 기준 행사 시작 시각이다. 최초 모집 마감으로 채팅을 초기화한 활성 행사는 정확히
   `event_at + 24시간`부터 API의 조회·권한·
   쓰기 판정에서 FINISHED로 취급하며 후기 작성, 미작성 후기 신청 제한, 채팅 비활성화와 Admin 변경 제한은 cron
   실행 여부에 의존하지 않는다. 별도 실제 종료 시각(`end_at`)은 현재 모델에 없다.
-- 최초 확정은 승인 인원과 무관하게 채팅 principal·현재 승인 구성원·안내 메시지를 한 번만 초기화한다. 이후
+- 최초 모집 마감은 승인 인원과 무관하게 채팅 principal·현재 승인 구성원·안내 메시지를 한 번만 초기화한다. 이후
   OPEN·CONFIRMED 왕복은 채팅 구성원·메시지를 삭제하거나 다시 만들지 않는다.
 - 초기화된 채팅은 KST 기준 최신 `event_at`의 달력상 전날 오후 1시부터 열린다. 개방 여부는 API가 매 요청에서
   최신 행사 일시, 활성 상태와 현재 참여 자격으로 계산하므로 행사 일시 변경 시 개방·종료 경계를 다시 계산한다.
@@ -110,7 +110,7 @@ flowchart LR
 - 매니저와 Group Meeting 이용 자격을 충족한 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다
 - Admin은 DRAFT에서 모든 필드를, OPEN·CONFIRMED에서는 참가비·사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있다. OPEN에서 신청 접수 중일 때만 참가비·사진 공개도 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다
 - 종료한 N:N 행사에서 현재 APPROVED인 신청의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다
-- OPEN·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다
+- OPEN·CONFIRMED는 서로 전환할 수 있고 최초 모집 마감 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다
 - 채팅 초기화 뒤 승인된 참가자는 승인 안내 메시지부터 이력을 볼 수 있고 승인 전 메시지는 볼 수 없다
 - 최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다
 
@@ -123,11 +123,11 @@ flowchart LR
     | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
     | --- | --- | --- | --- | --- | --- | --- | --- |
     | `group-meeting.host` | 그룹미팅 호스트 | root | association | state | 클럽매니저 계정과 모바일 호스트 회원의 명시적 연결 | 민감 | 활성 행사가 없을 때 원천 계정 연결 해제 가능, 행사 이력은 보존 |
-    | `group-meeting.event` | 그룹미팅 행사 | root | entity | state | 공개·신청 접수·확정·종료와 공개 행사 정보 | 민감 | 삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리 |
+    | `group-meeting.event` | 그룹미팅 행사 | root | entity | state | 공개·신청 접수·모집 마감·종료와 공개 행사 정보 | 민감 | 삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리 |
     | `group-meeting.detail-version` | 행사 상세 이미지 버전 | child | entity | snapshot | 긴 상세 이미지 원본과 변환 상태 | 내부 | 현재 버전 유지, 실패·교체 버전 정리 가능 |
     | `group-meeting.detail-slice` | 행사 상세 이미지 조각 | child | entity | snapshot | 상세 이미지 버전의 표시용 조각 | 내부 | 상위 버전 정리 시 파일과 함께 정리 |
     | `group-meeting.application` | 그룹미팅 신청 | child | association | state | 신청·승인·확정 취소·채팅 자격 종료 | 민감 | 행사 종료 뒤 신청 당시 별칭과 상태를 비식별 이력으로 보존 가능 |
-    | `group-meeting.participant` | 그룹미팅 참여자 | child | association | state | 확정 채팅 참여 자격과 읽음 경계 | 내부 | 자격 종료 뒤에도 메시지 문맥을 위해 보존 가능 |
+    | `group-meeting.participant` | 그룹미팅 참여자 | child | association | state | 승인된 채팅 참여 자격과 읽음 경계 | 내부 | 자격 종료 뒤에도 메시지 문맥을 위해 보존 가능 |
     | `group-meeting.review` | 그룹미팅 후기 | child | entity | history | 종료 행사 후기와 보상 연결 | 민감 | 개인정보 정리 시 자유문 비식별화, 보상 이력 보존 |
     | `group-meeting.action-history` | 그룹미팅 행위 이력 | child | entity | history | 상태 변경과 중요 운영 행위의 행위자·사유 | 내부 | append-only 감사 이력으로 보존 |
 
@@ -164,7 +164,7 @@ flowchart LR
     | `GROUP-MEETING-INV-007` | `group-meeting.host` | 매니저와 Group Meeting 이용 자격을 충족한 모바일 회원은 각각 최대 하나의 호스트 연결만 가지며 행사 생성 전에 연결이 유효해야 한다 | 이 문서 |
     | `GROUP-MEETING-INV-008` | `group-meeting.event` | Admin은 DRAFT에서 모든 필드를, OPEN·CONFIRMED에서는 참가비·사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있다. OPEN에서 신청 접수 중일 때만 참가비·사진 공개도 변경할 수 있고 FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만 수정할 수 있다 | 이 문서 |
     | `GROUP-MEETING-INV-009` | `group-meeting.application` | 종료한 N:N 행사에서 현재 APPROVED인 신청의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다 | 이 문서 |
-    | `GROUP-MEETING-INV-010` | `group-meeting.event` | OPEN·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다 | 이 문서 |
+    | `GROUP-MEETING-INV-010` | `group-meeting.event` | OPEN·CONFIRMED는 서로 전환할 수 있고 최초 모집 마감 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다 | 이 문서 |
     | `GROUP-MEETING-INV-011` | `group-meeting.participant` | 채팅 초기화 뒤 승인된 참가자는 승인 안내 메시지부터 이력을 볼 수 있고 승인 전 메시지는 볼 수 없다 | 이 문서 |
     | `GROUP-MEETING-INV-012` | `group-meeting.review` | 최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다 | 이 문서 |
 
@@ -178,14 +178,14 @@ flowchart LR
 | --- | --- | --- |
 | 0 | DRAFT | 행사 정보 작성 중 |
 | 1 | OPEN | 행사가 공개된 활성 운영 상태, 신청 접수 여부와 독립 |
-| 3 | CONFIRMED | 모임 확정 표시, 최초 진입 시 채팅 초기화 |
+| 3 | CONFIRMED | 모집 마감 표시, 최초 진입 시 채팅 초기화 |
 | 4 | FINISHED | 행사 종료, 후기 가능 |
 | -1 | CANCELED | 행사 취소 |
 | -2 | DELETED | 공개 전 삭제 |
 
-Admin에서 `POST /admin/group-meetings/{event_id}/confirm`을 실행하는 버튼의 노출명은 `모집 마감`이다.
-이는 신청 접수 여부만 변경하는 동작이 아니라 CONFIRMED 전이이며, 상태·감사 이력의 노출명은 `모임 확정`을
-유지한다.
+Admin에서 `POST /admin/group-meetings/{event_id}/confirm`을 실행하는 버튼과 `CONFIRMED(3)` 상태·감사 이력의
+한국어 노출명은 모두 `모집 마감`이다. `CONFIRMED`, `EVENT_CONFIRMED`, `/confirm`은 배포된 기술 식별자로
+유지하며 별도의 한국어 제품명으로 사용하지 않는다.
 
 최초 공개는 `DRAFT -> OPEN`이며 ready 상세 이미지가 필요하다. 이후 활성 운영 상태는
 `OPEN <-> CONFIRMED`로 전환할 수 있다. DRAFT는 DELETED, OPEN·CONFIRMED는 CANCELED로 종료할 수 있고,
@@ -251,20 +251,20 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
   부호는 fallback하지 않고 전체 transaction을 실패시킨다.
 - 알림은 원천 transaction commit 뒤 기존 `sendFCMPush()` 한 경로에서만 발송·저장한다. 그룹미팅 코드가
   `t_alarm`을 직접 추가하지 않는다.
-- 행사당 채팅은 하나이며 최초 확정 시각으로 초기화 여부만 기록한다. OPEN·CONFIRMED 왕복은 채팅
+- 행사당 채팅은 하나이며 최초 모집 마감 시각으로 초기화 여부만 기록한다. OPEN·CONFIRMED 왕복은 채팅
   principal·구성원·메시지를 변경하지 않는다. 송신 가능 여부는 유효 행사 상태와 KST 기준 최신 행사 일시의
   전날 오후 1시 개방 경계, 참가자 자격은 신청 상태에서 매 요청 판정한다. FINISHED·CANCELED 채팅 이력은
   읽기 전용으로 유지한다.
 - 채팅 메시지는 `USER`와 `SYSTEM`의 tagged union이다. `USER`만 채팅 구성원과 client idempotency key를
   가지며 Mobile 전송 API로 생성한다. `SYSTEM`은 sender 없이 서버 상태 전이와 연결된 action log를 원천으로
   같은 transaction에서 한 번만 생성한다.
-- `EVENT_CONFIRMED`는 최초 확정에서만 채팅 구성원과 개방 전 대기 카드를 생성하고 전날 오후 1시 개방 시각을
+- `EVENT_CONFIRMED`는 최초 모집 마감에서만 채팅 구성원과 개방 전 대기 카드를 생성하고 전날 오후 1시 개방 시각을
   안내한다. `PARTICIPANT_JOINED`는 채팅 초기화 뒤 승인 참가자의 이력 노출 하한과 합류 안내,
   `PARTICIPANT_CANCELED`는 Admin의 승인 확정 취소, `PARTICIPANT_LEFT`는 참가자의 명시적 퇴장,
   `EVENT_FINISHED`는 행사 종료, `EVENT_CANCELED`는 초기화된 채팅이 있는 활성 행사 취소와 함께 기록한다.
   후기 완료는 신청 상태나 시스템 메시지를 변경하지 않고, 채팅 생성 전 행사 취소에는 시스템 메시지를 만들지 않는다.
 - 시스템 메시지는 메시지 목록과 채팅 목록의 `last_message`에 같은 DTO로 노출하고 다른 구성원에게 unread로
-  계산한다. 행사 확정·취소 FCM과 채팅 이력은 역할이 다르므로 시스템 메시지 생성만으로 별도 채팅 FCM이나
+  계산한다. 모집 마감·행사 취소 FCM과 채팅 이력은 역할이 다르므로 시스템 메시지 생성만으로 별도 채팅 FCM이나
   `t_alarm`을 중복 생성하지 않는다. transaction commit 뒤 현재 구성원에게 payload 없는
   `chat:unread:invalidated`를 best-effort로 보내 Mobile 전역 unread snapshot 재조회를 유도한다.
 
@@ -301,7 +301,7 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
 실제로 한 번 commit된 경우에만 발송한다. 기존 2:2 신고 알림이나 라우트를 N:N에 재사용하지 않는다.
 Mobile은 신청·승인·확정 취소·행사 취소 알림 77~79·81과 신청 완료 84를 행사 상세로 연결하고, 새 메시지·후기·
 채팅 개방 알림 82·83·85를 채팅 이력으로 연결한다. 호환용 `GROUP_MEETING_EVENT_CONFIRMED(80)`은 기존 알림
-재진입만 지원하고 신규 확정 시 발송하지 않는다. `GROUP_MEETING_CHAT_OPENED(85)`는 행사 전날 KST 13시에
+재진입만 지원하고 신규 모집 마감 시 발송하지 않는다. `GROUP_MEETING_CHAT_OPENED(85)`는 행사 전날 KST 13시에
 호스트와 현재 APPROVED 참가자에게 경계당 한 번 발송하며 행사 일시 변경으로 경계가 바뀌면 새 경계에서 다시
 계산한다. 채팅이 열린 뒤 Admin이 참가자를 새로 승인하면 해당 참가자에게 승인 알림 78과 채팅 개방 알림 85를
 함께 발송한다. 이 보충 알림은 새 승인자만 대상으로 하며 같은 경계의 기존 구성원에게 다시 발송하지 않는다.
