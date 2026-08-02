@@ -293,7 +293,6 @@
 - [Kakao 네이티브 로그인 플로우](flows/cross-project/kakao-native-login-flow.md) - React Native 브리지, Kakao 네이티브 SDK, Coupler API 토큰 재검증
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
 - [API 계약 변경 모바일 릴리즈 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - 소비자 inventory, `API cutover`, DB runtime/schema 조합에 따른 Mobile 배포 절차
-- [API 계약 cutover 최종 리뷰](flows/cross-project/api-contract-cutover-final-review.md) - 2026-07-12 API/Admin/Mobile source package 정렬 리뷰 기록
 - [릴리즈 자동화 파이프라인](flows/cross-project/release-automation-pipeline.md) - 릴리즈 gate 순서와 read-only preflight 자동화 기준
 - [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차

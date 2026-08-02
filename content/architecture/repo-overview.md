@@ -4,11 +4,42 @@
 
 - 역할: `설명`
 - 문서 종류: `architecture`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 레포 책임은 이 문서, 기술·운영 세부 기준은 각 행의 연결 문서
 - 기준 성격: `as-is`
 
-- 현재 범위에서는 워크스페이스 구조와 각 레포지토리의 역할 설명에 집중하며, 별도 규범 문서는 두지 않는다.
+## 목적
 
-- **`coupler-admin-web`**: CRA 기반 어드민 프론트엔드. 개발은 `yarn start`(포트 8000)로 CRA 개발 서버를 사용하고, 운영은 `yarn build` 결과물(`build/`)을 정적 파일로 배포해 `nginx`가 서빙한다. 운영에서 `react-scripts start` 또는 `pm2`로 CRA 개발 서버를 직접 띄우지 않는다. 상세 실행 절차는 `flows/cross-project/admin-web-production-deploy-flow.md`를 따른다. MobX와 React 상태 기반 목록 컴포넌트, Chart.js를 사용해 운영 지표와 회원 관리 UI를 제공한다. 목록 API 계약 cutover 상태는 `technical-debt/technical-debt.md`에서 추적한다.
-- **`coupler-api`**: Express + MySQL + TypeScript 백엔드. `app.ts` 진입점에서 REST API, i18n, Firebase Admin 연동을 제공하며, 도메인 로직은 controller와 lib/usecase 계층에 분산되어 있고 응답 경계는 DTO 기반으로 관리합니다. 심사 상태 판정은 `v_member_review_status` 단일 기준을 사용하며 cron/알림 자동화를 운영합니다.
-- **`coupler-mobile-app`**: React Native 클라이언트. NextPush(CodePush) OTA 업데이트는 현재 `Production` label만 사용합니다. Agora, Notifee, Kakao 연동 등 다양한 네이티브 모듈을 포함하며 README에 명시된 iOS/Android별 빌드 패치가 필요합니다. Kakao 로그인의 React Native 브리지, 네이티브 SDK, Coupler API 토큰 재검증 경계는 [Kakao 네이티브 로그인 플로우](../flows/cross-project/kakao-native-login-flow.md)를 참고합니다.
+- 공용 workspace의 네 레포 책임과 다음에 읽을 문서를 한 곳에서 연결한다.
+
+## 범위
+
+- 레포별 안정적인 책임과 교차 레포 경계를 설명한다.
+- 실행 명령, 배포 경로, 현재 package·runtime·release 상태는 소유 policy, flow, release 기록을 따른다.
+
+## 상위 규범 문서
+
+- 공통 기술·클라이언트/서버 책임은 [엔지니어링 가드레일](../policy/engineering-guardrails.md)을 따른다.
+- 문서 역할과 동기화 책임은 [문서 거버넌스 정책](../policy/document-governance-policy.md)을 따른다.
+
+## 레포 책임
+
+| 레포 | 책임 | 먼저 볼 문서 |
+| --- | --- | --- |
+| `coupler-api` | 서버 비즈니스 판정, API 계약과 데이터 저장 경계 | [엔지니어링 가드레일](../policy/engineering-guardrails.md), [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md) |
+| `coupler-admin-web` | 관리자 운영 화면과 서버가 허용한 운영 액션의 표시·입력 | [관리자 권한](admin-permission.md), [Admin 운영 배포 런북](../flows/cross-project/admin-web-production-deploy-flow.md) |
+| `coupler-mobile-app` | 사용자 화면, 입력 전달과 네이티브 기능 연동 | [Mobile to-be 아키텍처](mobile-app-to-be.md), [Kakao 네이티브 로그인 플로우](../flows/cross-project/kakao-native-login-flow.md) |
+| `docs` | 교차 레포 policy·architecture·flow·릴리스 증빙과 agent routing | [문서 거버넌스 정책](../policy/document-governance-policy.md), [Workspace AGENTS](../AGENTS.md) |
+
+## 교차 레포 경계
+
+- Admin과 Mobile은 API가 공개한 계약을 소비하며, 계약의 생성·발행·소비 경계는
+  [API 클라이언트 계약 패키지 정책](../policy/api-client-contract-package-policy.md)이 설명한다.
+- 비즈니스 판정의 서버 단일 기준과 클라이언트 경계는
+  [엔지니어링 가드레일](../policy/engineering-guardrails.md)을 따른다.
+- 다중 레포 변경의 적용 순서와 검증은 연결된 policy, flow와 release 기록에서 소유한다.
+
+## 관련 문서
+
+- [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
+- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [테스트/CI 전략](../policy/testing-strategy.md)

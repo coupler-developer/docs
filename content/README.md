@@ -13,6 +13,21 @@
 | `technical-debt/` | 우선순위 기반 미해결 기술 부채 관리 | 어떤 문제와 후속 조치가 남았는가  |
 | `templates/`      | 신규 문서 작성용 표준 템플릿      | 정책·아키텍처 문서를 어떻게 시작하는가 |
 
+## 어디서 시작할까
+
+| 하려는 일 | 시작 문서 | 다음 문서 |
+| --- | --- | --- |
+| 새 작업·리뷰·상태 확인 | [Workspace AGENTS](AGENTS.md) | 요청 신호에 연결된 policy와 architecture |
+| 레포 책임과 연결 관계 파악 | [레포지토리 요약](architecture/repo-overview.md) | 각 레포 행의 도메인 문서 |
+| 회원·심사·관리자 권한 | [회원 심사 시스템](architecture/member-review-system.md), [관리자 권한](architecture/admin-permission.md) | [회원 심사 정책](policy/member-review-policy.md), [보안/접근통제 정책](policy/security-access-control-policy.md) |
+| 1:1 매칭·Key·일정 | [매칭 시스템](architecture/matching-system.md) | [매칭 운영 정책](policy/matching-ops-policy.md), [매칭 FSM](architecture/matching-fsm.md) |
+| 그룹미팅·라운지·채팅 | [그룹미팅 시스템](architecture/group-meeting-system.md), [라운지 시스템](architecture/lounge-system.md), [채팅 시스템](architecture/chat-system.md) | 각 문서 상단의 충돌 시 우선 문서 |
+| API 계약·논리 데이터 모델 | [API 공통 응답 계약](policy/api-response-contract-policy.md), [논리 데이터 모델 인덱스](architecture/logical-data-model-index.md) | [API 계약 패키지 정책](policy/api-client-contract-package-policy.md), [논리 데이터 모델 정책](policy/logical-data-model-policy.md) |
+| 배포·릴리즈 | [배포/릴리즈 프로세스](policy/release-process.md) | [운영 배포 런북](flows/cross-project/production-deploy-command-runbook.md) |
+| docs 작성·구조 변경 | [문서 거버넌스 정책](policy/document-governance-policy.md) | [GitHub의 `content/templates/`](https://github.com/coupler-developer/docs/tree/main/content/templates) |
+
+첫 문서를 연 뒤에는 상단의 `충돌 시 우선 문서`와 `관련 문서`를 따라가며 판정 책임별 단일 SoT를 확인한다.
+
 ## 개발환경 구성
 
 1. 공용 워크스페이스 폴더를 만든다.
@@ -106,10 +121,3 @@
   만든다.
 - `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
 - `yarn verify`는 `yarn validate:docs`를 통해 공통 정적 검증, Markdown lint, MkDocs strict build를 순서대로 실행한다.
-
-## 모바일 에뮬레이터 주의사항 (iOS)
-
-- iOS Simulator에서 소프트웨어 키보드가 내려가 있을 때는 입력 필드를 먼저 터치(클릭)해야 터치 이벤트 기반 포커스가 정상 동작한다.
-- `Command + K`는 소프트웨어 키보드 표시/숨김 토글이다.
-- 하드웨어 키보드 연결(`I/O > Keyboard > Connect Hardware Keyboard`)이 켜져 있으면 입력이 하드웨어 키보드 경로로 처리되어, 터치 이벤트 기반 동작(포커스/키보드 노출 트리거) 재현이 기대와 다를 수 있다.
-- [Apple Simulator 문서](https://developer.apple.com/library/archive/documentation/IDEs/Conceptual/iOS_Simulator_Guide/InteractingwithiOSandwatchOS/InteractingwithiOSandwatchOS.html)

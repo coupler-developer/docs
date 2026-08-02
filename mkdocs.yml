@@ -57,71 +57,80 @@ nav:
   - Home: README.md
   - Workspace AGENTS: AGENTS.md
   - Architecture:
-      - 레포지토리 요약: architecture/repo-overview.md
-      - 논리 데이터 모델 인덱스: architecture/logical-data-model-index.md
-      - 예정 논리 데이터 모델 인덱스: architecture/logical-data-model-planned-index.md
-      - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md
-      - 회원 라이프사이클: architecture/member-lifecycle.md
-      - 회원 심사 시스템: architecture/member-review-system.md
-      - 클럽매니저 시스템: architecture/club-manager-system.md
-      - 매칭 시스템: architecture/matching-system.md
-      - 매칭 키 시스템: architecture/matching-key-system.md
-      - 매칭 스케줄 알고리즘: architecture/matching-schedule-algorithm.md
-      - 기존 2대2 그룹미팅 시스템: architecture/meeting-system.md
-      - 그룹미팅 시스템: architecture/group-meeting-system.md
-      - 라운지 시스템: architecture/lounge-system.md
-      - 채팅 시스템: architecture/chat-system.md
-      - 신고·제재 시스템: architecture/moderation-system.md
-      - 결제 시스템: architecture/payment-system.md
-      - 푸시 알림: architecture/push-notification.md
-      - 고객지원 시스템: architecture/support-system.md
-      - 관리자 권한: architecture/admin-permission.md
-      - 플랫폼 기준정보 시스템: architecture/platform-config-system.md
-      - 분석 시스템: architecture/analytics-system.md
-      - 크론 작업: architecture/cron-jobs.md
-      - 업로드/미디어 시스템: architecture/upload-media-system.md
-      - 테스트용 개발 데이터 시스템: architecture/development-test-data-system.md
-  - FSM:
-      - 회원 심사 FSM: architecture/member-review-fsm.md
-      - 매칭 FSM: architecture/matching-fsm.md
+      - 시작과 공통 모델:
+          - 레포지토리 요약: architecture/repo-overview.md
+          - 논리 데이터 모델 인덱스: architecture/logical-data-model-index.md
+          - 예정 논리 데이터 모델 인덱스: architecture/logical-data-model-planned-index.md
+          - coupler-mobile-app to-be 아키텍처: architecture/mobile-app-to-be.md
+      - 회원과 관리:
+          - 회원 라이프사이클: architecture/member-lifecycle.md
+          - 회원 심사 시스템: architecture/member-review-system.md
+          - 회원 심사 FSM: architecture/member-review-fsm.md
+          - 클럽매니저 시스템: architecture/club-manager-system.md
+          - 관리자 권한: architecture/admin-permission.md
+      - 매칭과 커뮤니케이션:
+          - 매칭 시스템: architecture/matching-system.md
+          - 매칭 FSM: architecture/matching-fsm.md
+          - 매칭 키 시스템: architecture/matching-key-system.md
+          - 매칭 스케줄 알고리즘: architecture/matching-schedule-algorithm.md
+          - 기존 2대2 그룹미팅 시스템: architecture/meeting-system.md
+          - 그룹미팅 시스템: architecture/group-meeting-system.md
+          - 라운지 시스템: architecture/lounge-system.md
+          - 채팅 시스템: architecture/chat-system.md
+          - 신고·제재 시스템: architecture/moderation-system.md
+          - 결제 시스템: architecture/payment-system.md
+      - 플랫폼과 운영:
+          - 푸시 알림: architecture/push-notification.md
+          - 고객지원 시스템: architecture/support-system.md
+          - 플랫폼 기준정보 시스템: architecture/platform-config-system.md
+          - 분석 시스템: architecture/analytics-system.md
+          - 크론 작업: architecture/cron-jobs.md
+          - 업로드/미디어 시스템: architecture/upload-media-system.md
+          - 테스트용 개발 데이터 시스템: architecture/development-test-data-system.md
   - Policy:
-      - Git 브랜치 전략: policy/git-branch-strategy.md
-      - Git 동기화/Rebase 실행 정책: policy/git-sync-rebase-policy.md
-      - 커밋 메시지 컨벤션: policy/commit-convention.md
-      - 배포 태그 정책: policy/release-tag-policy.md
-      - 배포/릴리즈 프로세스: policy/release-process.md
-      - 로그 정책: policy/log-policy.md
-      - API 공통 응답 계약 정책: policy/api-response-contract-policy.md
-      - API 에러 계약 정책: policy/api-error-contract-policy.md
-      - API 조회·동작 설계 정책: policy/api-operation-design-policy.md
-      - API 클라이언트 계약 패키지 정책: policy/api-client-contract-package-policy.md
-      - 보안/접근통제 정책: policy/security-access-control-policy.md
-      - 결제 운영 정책: policy/payment-ops-policy.md
-      - 매칭 운영 정책: policy/matching-ops-policy.md
-      - 회원 심사 단일 정책: policy/member-review-policy.md
-      - 회원가입 응답 계약: policy/signup-response-contract.md
-      - 푸시알림 운영 정책: policy/push-notification-policy.md
-      - 마케팅 앱 이벤트 정책: policy/marketing-app-events-policy.md
-      - 데이터 거버넌스 정책: policy/data-governance-policy.md
-      - 테스트용 개발 데이터 정책: policy/development-test-data-policy.md
-      - 서비스 용어 정책: policy/service-terminology-policy.md
-      - 코드 리뷰 정책: policy/code-review-policy.md
-      - DB Migration Gate 정책: policy/db-migration-gate-policy.md
-      - 논리 데이터 모델 정책: policy/logical-data-model-policy.md
-      - 문서 거버넌스 정책: policy/document-governance-policy.md
-      - 엔지니어링 가드레일: policy/engineering-guardrails.md
-      - 테스트/CI 전략: policy/testing-strategy.md
+      - 개발 워크플로:
+          - Git 브랜치 전략: policy/git-branch-strategy.md
+          - Git 동기화/Rebase 실행 정책: policy/git-sync-rebase-policy.md
+          - 커밋 메시지 컨벤션: policy/commit-convention.md
+          - 코드 리뷰 정책: policy/code-review-policy.md
+          - 엔지니어링 가드레일: policy/engineering-guardrails.md
+          - 테스트/CI 전략: policy/testing-strategy.md
+          - 로그 정책: policy/log-policy.md
+      - API와 데이터:
+          - API 공통 응답 계약 정책: policy/api-response-contract-policy.md
+          - API 에러 계약 정책: policy/api-error-contract-policy.md
+          - API 조회·동작 설계 정책: policy/api-operation-design-policy.md
+          - API 클라이언트 계약 패키지 정책: policy/api-client-contract-package-policy.md
+          - DB Migration Gate 정책: policy/db-migration-gate-policy.md
+          - 논리 데이터 모델 정책: policy/logical-data-model-policy.md
+          - 데이터 거버넌스 정책: policy/data-governance-policy.md
+      - 도메인과 운영:
+          - 보안/접근통제 정책: policy/security-access-control-policy.md
+          - 결제 운영 정책: policy/payment-ops-policy.md
+          - 매칭 운영 정책: policy/matching-ops-policy.md
+          - 회원 심사 단일 정책: policy/member-review-policy.md
+          - 회원가입 응답 계약: policy/signup-response-contract.md
+          - 푸시알림 운영 정책: policy/push-notification-policy.md
+          - 마케팅 앱 이벤트 정책: policy/marketing-app-events-policy.md
+          - 테스트용 개발 데이터 정책: policy/development-test-data-policy.md
+          - 서비스 용어 정책: policy/service-terminology-policy.md
+      - 릴리즈와 문서:
+          - 배포 태그 정책: policy/release-tag-policy.md
+          - 배포/릴리즈 프로세스: policy/release-process.md
+          - 문서 거버넌스 정책: policy/document-governance-policy.md
   - Flows:
-      - Kakao 네이티브 로그인 플로우: flows/cross-project/kakao-native-login-flow.md
-      - 매칭 플로우: flows/cross-project/matching-flow.md
-      - API 계약 변경 모바일 릴리즈 플로우: flows/cross-project/api-contract-mobile-release-flow.md
-      - API 계약 cutover 최종 리뷰: flows/cross-project/api-contract-cutover-final-review.md
-      - 릴리즈 자동화 파이프라인: flows/cross-project/release-automation-pipeline.md
-      - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
-      - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
-      - 테스트용 개발 데이터 운영 흐름: flows/cross-project/development-test-data-flow.md
-      - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
-      - Firebase Apple SDK 설치 경로 전환 흐름: flows/cross-project/firebase-apple-sdk-migration-flow.md
+      - 제품 흐름:
+          - Kakao 네이티브 로그인 플로우: flows/cross-project/kakao-native-login-flow.md
+          - 매칭 플로우: flows/cross-project/matching-flow.md
+      - 계약과 릴리즈:
+          - API 계약 변경 모바일 릴리즈 플로우: flows/cross-project/api-contract-mobile-release-flow.md
+          - 릴리즈 자동화 파이프라인: flows/cross-project/release-automation-pipeline.md
+          - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
+          - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
+      - 개발 운영:
+          - 테스트용 개발 데이터 운영 흐름: flows/cross-project/development-test-data-flow.md
+          - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
+          - Firebase Apple SDK 설치 경로 전환 흐름: flows/cross-project/firebase-apple-sdk-migration-flow.md
   - Releases:
       - 2.3.0 릴리스 실행 기록: releases/v2.3.0.md
       - 2.2.7 릴리스 실행 기록: releases/v2.2.7.md
