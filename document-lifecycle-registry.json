@@ -165,8 +165,11 @@
     },
     {
       "id": "flows.cross-project.api-contract-cutover-final-review",
-      "lifecycle": "active",
+      "lifecycle": "retired",
+      "noReplacementReason": "일회성 리뷰 결과는 연결 PR과 Git 이력에 보존되며 재사용 가능한 문서 책임이 없다.",
       "path": "flows/cross-project/api-contract-cutover-final-review.md",
+      "retiredAt": "2026-08-02",
+      "retirementReason": "날짜·PR·완료 결과를 담은 리뷰 기록을 활성 실행 flow와 SoT 폐쇄 탐색에서 제거했다.",
       "routing": "closure"
     },
     {
