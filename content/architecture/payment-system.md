@@ -32,6 +32,7 @@ flowchart LR
 - 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다
 - 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다
 - 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다
+- 활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다
 
 <!-- markdownlint-disable MD046 -->
 
@@ -57,6 +58,7 @@ flowchart LR
     | `PAYMENT-INV-001` | `payment.purchase` | 동일 플랫폼 거래 식별자는 한 번만 지급 처리한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
     | `PAYMENT-INV-002` | `payment.purchase` | 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
     | `PAYMENT-INV-003` | `payment.purchase` | 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
+    | `PAYMENT-INV-004` | `payment.purchase` | 활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
 
@@ -82,6 +84,21 @@ flowchart LR
 | App Store | `POST /member/purchase/apple` | O |
 | OneStore | `POST /member/purchase/onestore` | X |
 
+## 구매 회원 자격
+
+구매 자격은 [결제 운영 정책](../policy/payment-ops-policy.md)에 따라 API가 회원 생애주기와
+[회원 심사 상태 조회 모델](member-review-system.md)의 회원 레벨을 함께 판정한다.
+
+| 회원 생애주기 | 회원 레벨 | 구매 |
+| --- | --- | --- |
+| `PENDING`, `NORMAL` | `GENERAL_MEMBER`, `SEMI_MEMBER`, `FULL_MEMBER`, `SPECIAL_MEMBER` | 허용 |
+| `PENDING` | `PRE_MEMBER` | 차단 |
+| `REJECTED`, `HOLD`, `BLOCK`, `LEAVE` | 모든 레벨 | 차단 |
+| 모든 생애주기 | 허용 목록 밖 또는 누락 | 차단 |
+
+일반회원·준회원은 소개글 승인 전까지 회원 생애주기가 `PENDING`일 수 있으므로 생애주기 상태만으로 구매
+자격을 판정하지 않는다.
+
 ## 결제 처리 흐름
 
 ```mermaid
@@ -91,6 +108,7 @@ sequenceDiagram
     participant DB as MySQL
 
     App->>API: POST /member/purchase/{platform}
+    API->>API: 구매 회원 자격 검증
     API->>API: 파라미터 검증
     API->>DB: 중복 거래 확인 (order_id)
     alt 중복
@@ -143,6 +161,7 @@ flowchart LR
 
 | 항목 | 상태 |
 |------|------|
+| 구매 회원 자격 | ✅ 구현됨 |
 | 거래 중복성 검증 | ✅ 구현됨 |
 | 파라미터 필수 여부 | ✅ 구현됨 |
 | 상품 존재 여부 | ✅ 구현됨 |
