@@ -2493,6 +2493,13 @@
       "ownerDocument": "content/architecture/payment-system.md"
     },
     {
+      "id": "PAYMENT-INV-004",
+      "relatedEntityId": "payment.purchase",
+      "statement": "활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다",
+      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
       "id": "PLATFORM-CONFIG-INV-001",
       "relatedEntityId": "platform-config.setting",
       "statement": "금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다",
