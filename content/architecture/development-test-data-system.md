@@ -241,8 +241,9 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - 앱 설정, 약관, 별칭, 공지, 가입 메시지, 장소처럼 여러 시나리오가 공유하는 데이터다.
 - 누락 여부와 계약을 검증하며 기존 값을 자동 수정하지 않는다.
 - 필요한 기준정보가 없거나 계약과 다르면 해당 suite를 중단하고 migration 또는 data repair 필요성을 보고한다.
-- N:N 그룹미팅은 namespace owner와 분리된 발행 CMS 관리자 `meenseek`, 해당 관리자의 호스트 연결, 로그인 가능한
-  기존 QA 회원 Toto·dummy-female·m1·m2와 각 회원의 `CHARGE` 또는 `SHARE` 배정을 외부 기준정보로 사용한다.
+- N:N 그룹미팅은 namespace owner와 분리된 기존 QA 발행 CMS 관리자를
+  `GROUP_MEETING_HOST_MANAGER_USER_ID` 계약으로 식별한다. 해당 관리자의 호스트 연결, 로그인 가능한 기존 QA
+  회원 Toto·dummy-female·m1·m2와 각 회원의 `CHARGE` 또는 `SHARE` 배정을 외부 기준정보로 사용한다.
   plan·apply claim 전·verify·upgrade 전환 전에는 read-only로 검사하고 생성 transaction에서는 다시 검사해 잠근다.
 
 ### 2) Actor pool
@@ -355,7 +356,9 @@ TypeScript 문법이나 model import만으로 실제 DB 변경을 증명하지 �
 - 채팅이 초기화된 활성·종료 채팅방의 호스트·승인 참여자·본인 무료 프로필 조회 조건과 사진 공개 분기를 검증하고,
   N:N 프로필 열람 행과 Key 차감 원장이 생성되지 않는지 확인
 - 상세 이미지의 `pending`, `processing`, `ready`, `failed`, `discarded` 상태와 event 연결·미연결 reset 소유권
-- `meenseek` 발행 CMS 관리자·호스트와 네 QA 회원의 `CHARGE`/`SHARE` 배정, 각 회원에게 공개 상태 행사 exact set이 Mobile 전체 목록 범위로 노출되는지, namespace idempotency key와 registry row ref가 모두 일치하는지 검증
+- `GROUP_MEETING_HOST_MANAGER_USER_ID`가 가리키는 발행 CMS 관리자·호스트와 네 QA 회원의
+  `CHARGE`/`SHARE` 배정, 각 회원에게 공개 상태 행사 exact set이 Mobile 전체 목록 범위로 노출되는지,
+  namespace idempotency key와 registry row ref가 모두 일치하는지 검증
 
 이 suite는 `t_group_meeting_*`와 신고 대상 namespace 합성 참가자의 `t_penalty_log`·`meet_block_date`만 대상으로 하며 `meeting-all`의 기존 2:2 데이터와 기존 QA 기준 회원의 회원 상태·패널티·매니저 배정을 만들거나 reset하지 않는다.
 

@@ -82,7 +82,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 2. `active`로 기존 namespace의 owner·suite·scope·상태·유지 종료일을 확인한다.
 3. namespace, owner, 유지 종료일, reference time을 정한다.
 4. 안전 모듈 test와 Admin `check:dev-data-routes`를 실행하고, `coverage`로 component route와 API scenario catalog의 exact set을 확인한다.
-5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root, 적용 scenario와 suite별 외부 기준정보 계약을 write 없이 확인한다. N:N 그룹미팅은 `meenseek` 발행 관리자·호스트와 Toto·dummy-female·m1·m2의 `CHARGE`/`SHARE` 배정을 포함한다.
+5. `plan`이 namespace, environment, DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root, 적용 scenario와 suite별 외부 기준정보 계약을 write 없이 확인한다. N:N 그룹미팅은 `GROUP_MEETING_HOST_MANAGER_USER_ID`가 가리키는 발행 관리자·호스트와 Toto·dummy-female·m1·m2의 `CHARGE`/`SHARE` 배정을 포함한다.
 6. 작업자가 DB identity, namespace, suite, registry·schema version, scope 충돌, scenario·외부 기준정보 목록, cron fence와 외부 호출 0건 계획을 검토한다.
 7. `apply`가 registry를 초기화한 뒤 namespace advisory lock을 획득하고 외부 기준정보를 다시 검사한다. 이후 shared registry mutex 안에서 fence·active record 전체 snapshot, 기존 active 상호 간 scope, 새 요청의 overlapping scope와 active cron lease 0건을 확인한 뒤 global fence와 active record를 ETag 조건부로 생성한다.
 8. 개발 환경 `/admin/cron/*` 공통 target fence는 `planning`·`applying`·`resetting`과 fenced `cleaned` finalization 대기를 maintenance `SKIP`으로 처리한다. 안정 상태에서는 정상 개발 target을 처리하고 active namespace의 합성 target만 제외하며, registry·소유권을 확인할 수 없으면 handler 전에 fail-closed한다.
@@ -114,7 +114,7 @@ DEV_DATA_ASSET_ROOT="$DEV_DATA_ASSET_ROOT" pnpm --dir coupler-api data-feed rese
 | 회원 | 단계 상태, 회원 등급, 생애주기, Admin 큐, 회원별 프로필 3장·고유 대표 이미지·선택 영상 경로가 같은 결론 |
 | 매칭 | 상태, 일정, 채팅, 후기, 신고, 키 잔액과 원장 일치 |
 | 기존 그룹미팅 | 주최자 포함 멤버십, 승인 성별 인원수, 원본·Admin join 채팅 건수, 후기, 신고, 패널티 목록 노출 |
-| N:N 그룹미팅 | `meenseek` 발행 관리자·호스트와 Toto·dummy-female·m1·m2 `CHARGE`/`SHARE` 기준정보, 네 계정의 공개 행사 목록 exact set, 행사·취소 진입 exhaustive set, `persisted_status`·`effective_status`·`chat_initialized` 축, Toto·dummy-female 기본 승인 신청과 m1·m2 3인·4인 분기, 최초 모집 마감 뒤 재개 OPEN·CONFIRMED 재진입과 OPEN 신청 접수 재개를 포함한 상태별 채팅 멤버십, 전날 13시 개방 및 시작 +24시간 종료의 1초 전·정각·1초 후와 marker, 행사·이미지·상태 action·신청/승인·취소/퇴장·메시지·후기/신고의 인과 순서와 미래 row 0건, 활성 초기화·종료·초기화 후 취소 방의 기준 참여자·호스트·관리자 삭제 메시지·읽음 위치, 최초 모집 마감 뒤 승인자의 과거 이력 공개 경계, 후기 뒤 `APPROVED` 유지와 명시적 `LEFT` 후기 제외, 신고 상태·미처리 filter·합성 대상 패널티의 Admin 목록 노출, 초기화·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
+| N:N 그룹미팅 | `GROUP_MEETING_HOST_MANAGER_USER_ID` 발행 관리자·호스트와 Toto·dummy-female·m1·m2 `CHARGE`/`SHARE` 기준정보, 네 계정의 공개 행사 목록 exact set, 행사·취소 진입 exhaustive set, `persisted_status`·`effective_status`·`chat_initialized` 축, Toto·dummy-female 기본 승인 신청과 m1·m2 3인·4인 분기, 최초 모집 마감 뒤 재개 OPEN·CONFIRMED 재진입과 OPEN 신청 접수 재개를 포함한 상태별 채팅 멤버십, 전날 13시 개방 및 시작 +24시간 종료의 1초 전·정각·1초 후와 marker, 행사·이미지·상태 action·신청/승인·취소/퇴장·메시지·후기/신고의 인과 순서와 미래 row 0건, 활성 초기화·종료·초기화 후 취소 방의 기준 참여자·호스트·관리자 삭제 메시지·읽음 위치, 최초 모집 마감 뒤 승인자의 과거 이력 공개 경계, 후기 뒤 `APPROVED` 유지와 명시적 `LEFT` 후기 제외, 신고 상태·미처리 filter·합성 대상 패널티의 Admin 목록 노출, 초기화·종료 무료 프로필 조회 조건과 관련 저장·Key 차감 0건, 정원·고아 0건 |
 | 라운지 | 카테고리·접근, 댓글 tree, tombstone, 신고·패널티 노출 |
 | 결제·매출 | 거래 합계, 회원 key, key log, 일·주·월 집계 일치 |
 | 통계 | 원천 사건과 dashboard·상세 통계 bucket 일치 |
