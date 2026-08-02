@@ -414,89 +414,47 @@ coverage entry는 다음 축을 가진다.
 | verifier | 호출할 Admin API와 기대 row·상태 |
 | reason | `live-only`의 합성 불가 이유·대체 검증 또는 `non-data`의 제외 이유·권한 검증 |
 
-검증은 다음 누락을 모두 실패시킨다.
+실제 화면 모집단과 누락·stale 판정은 typed route descriptor와 exact-set coverage test에서 생성한다. 이 문서에는
+시점에 따라 바뀌는 commit, route 수, 탭 목록을 고정하지 않는다. 분류·데이터·UI render의 필수 판정과 완료
+기준은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)의 `관리자 시스템 전체 coverage`를
+따른다.
 
-- Admin component route에 coverage entry 또는 `non-data` 근거가 없음
-- 삭제된 route가 manifest에 남음
-- scenario ID가 API catalog에 없음
-- 일반 매니저와 super admin 결과 차이를 분류하지 않음
-- route의 주요 filter 중 어느 것도 row를 반환하지 않음
-- `live-only`인데 이유나 대체 검증이 없음
-- API 결과는 있지만 browser smoke에서 row·card·상세 연결이 보이지 않음
-- 렌더 예외, console error, 인증·권한 redirect 불일치가 발생함
+## UI·상태·DB 변경 감지 연결
 
-분류 coverage, 데이터 coverage, UI render coverage를 각각 계산한다. 모든 component route의 분류 coverage가 100%여야 하며, `data-surface` route의 데이터와 UI render coverage도 각각 100%여야 한다.
+typed SoT는 같은 repository의 typecheck·exact-set test와 연결하고, repository·DB 경계는 runtime contract
+gate로 연결한다. 필수 Gate와 완료 판정은 [테스트/CI 전략](../policy/testing-strategy.md)과
+[테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을 따른다.
 
-### 현재 관리자 탭 baseline
-
-2026-07-19 `coupler-admin-web` `origin/main` `ce62445198deb0f86608382c25a72ecaaa048f0a`의 `src/config/page-route.tsx`를 기준으로 component가 연결된 route는 총 55개다.
-
-- sidebar가 사용하는 `getFilteredRouteList(true, false)`의 `Menu` leaf 52개는 모두 `data-surface`다.
-- `Extra`의 `/member/detail/:id` 1개도 `data-surface`이며 member suite의 anchor actor로 검증한다.
-- `Extra`의 `/login`, `/manager/change_pwd` 2개는 feeder 데이터 대상이 아닌 `non-data`다. 기존 QA 관리자 인증과 권한 redirect smoke만 수행한다.
-
-따라서 현재 모집단은 component route 55개, 데이터 화면 53개, `non-data` 2개다. 아래 표는 52개 sidebar 데이터 탭을 설명하며, 이후 실제 모집단은 typed route descriptor와 exact-set coverage test가 자동 판정한다.
-
-| 영역 | 화면 수 | 데이터가 보여야 하는 화면 |
-| --- | ---: | --- |
-| 대시보드 | 1 | 대시보드 |
-| 회원 | 12 | 일반회원 심사 신청·합격, 준회원 심사 신청·합격, 정회원 심사 신청, 정상 회원, 전체 회원, 심사항목 반려, 프로필 변경 신청, 심사 거절, 회원 상태, 초대 내역 |
-| 컨시어지 | 1 | 컨시어지 목록 |
-| 매칭 | 16 | 예약, 남성 큐레이터 제안, 큐레이터 목록, 여성 매칭 생성, 전체, 시도, 여성 수락, 남성 수락, 최종 수락, 만남일 결정, 만남 당일, 후기 단계, 후기 완료, 신고, 취소, 3일 채팅 |
-| 기존 그룹미팅 | 5 | 목록, 채팅, 후기, 신고, 패널티 |
-| N:N 그룹미팅 | 1 | 행사 상태별 목록, 미처리 filter, 상세 신청·채팅·신고·후기·프로필 열람 연결과 공용 미팅 패널티 목록 |
-| 라운지 | 4 | 게시글, 댓글, 신고, 패널티 |
-| 결제·매출 | 2 | 결제 로그, 매출 통계 |
-| 통계 | 3 | 로그인, 가입, 시간대별 통계 |
-| 설정 | 6 | 앱 버전, 서비스 설정, 약관, 별칭, 공지, 가입 메시지 |
-| 매니저 | 1 | 매니저 목록 |
-
-52개 sidebar 탭과 회원 상세 1개, 총 53개 데이터 화면은 `live-only` 대상이 아니다. 각 화면은 `scenario-backed` 또는 `reference-backed`로 분류되고 API 결과와 실제 렌더 결과를 가져야 한다.
-
-주석 처리된 추천인, 진행중 매칭, 매칭 후기, 매칭 장소, 결제 랭킹, 매칭 통계, 고객지원 route는 현재 노출 모집단에서 제외한다. 이 route 중 하나가 다시 활성화되면 Admin coverage 테스트가 새 entry와 scenario를 요구해야 한다.
-
-## UI·상태·DB 변경 시 실패 방식
-
-의도적으로 syntax error를 만들지 않는다. 변경된 SoT와 연결된 typecheck·exact-set test·runtime contract gate가 수정해야 할 계약을 구체적으로 보고하며 실패하게 한다.
-
-| 변경 | 기대 실패 | 함께 갱신할 대상 |
+| 변경 | 감지 신호 | 연결 계약 |
 | --- | --- | --- |
 | component route 추가 | `DataRouteId` exact map missing entry | route kind, coverage entry, scenario, browser smoke |
-| route 삭제 | coverage excess/stale entry | coverage와 smoke 제거, 필요 없는 scenario 검토 |
+| route 삭제 | coverage excess/stale entry | coverage entry, browser smoke, scenario catalog |
 | path·filter·권한 변경 | route descriptor snapshot·API/UI smoke 실패 | verifier, audience, filter expectation |
 | 상태 상수 추가 | exhaustive branch map typecheck 실패 | obligation과 정상 시나리오 |
-| 상태 상수 삭제 | stale obligation·scenario test 실패 | catalog와 연결 route 정리 |
+| 상태 상수 삭제 | stale obligation·scenario test 실패 | scenario catalog와 연결 route |
 | table·column·view 변경 | schema fingerprint·DB contract 실패 | builder, ownership query, verifier, scenario version |
 | FK 변경 | reset-plan contract 실패 | FK-safe 삭제 순서와 orphan verifier |
 
 - typecheck 실패는 같은 repository의 `AdminRouteId -> ScreenAudit`, `DataRouteId -> CoverageEntry`, 서버 상태 type -> obligation 결합에 사용한다.
 - API catalog와 Admin은 source import로 강결합하지 않는다. workspace gate가 API의 read-only catalog JSON과 Admin coverage JSON을 생성해 exact-set으로 비교한다.
 - DB 전체 schema hash를 사용하지 않고 feeder 관련 contract만 비교해 무관한 migration 때문에 실패하지 않게 한다.
-- 삭제된 UI나 상태를 feeder가 계속 만들지 않도록 stale entry도 missing entry와 같은 hard failure로 취급한다.
+- missing과 stale을 함께 감지해 삭제된 UI나 상태를 feeder가 계속 생성하는 drift를 막는다.
 
-## Repository 품질 게이트 연결
+## Repository 검증 연결
 
-새 파일이 기존 명령에서 빠지면 type·syntax·lint 실패가 CI에 전달되지 않으므로 구현 PR에서 package script 범위를 함께 바꾼다.
-
-- `coupler-api`의 현재 `tsconfig.json`은 `**/*.ts`를 포함하므로 `tools/dev-data`도 기본 `typecheck` 대상이다.
-- API `lint`와 `format`의 명시 경로에는 `tools`를 추가하고, dev-data test는 기존 `__tests__` Jest gate에 포함한다.
-- Admin의 route descriptor와 static coverage test는 `src` 아래에 두어 기존 typecheck·lint·format·Jest gate를 그대로 사용한다.
-- Admin `e2e`는 `tsconfig.e2e.json`과 Playwright config를 추가하고, 표준 `verify`의 leaf 또는 별도 필수
-  `test:dev-data-ui`가 이를 모두 실행하게 한다.
-- API·Admin 중 필요한 repository가 없거나 catalog JSON 생성이 실패하면 workspace contract gate를 skip하지 않고 실패한다.
-- 구현 완료 근거에는 API typecheck·lint·format·Jest, Admin typecheck·lint·format·Jest·Playwright, workspace catalog exact-set 결과를 모두 남긴다.
+API 생성 엔진과 Admin descriptor·browser smoke는 각 repository의 표준 정적 검증·테스트 범위에 연결하고,
+workspace contract gate가 두 catalog를 비교한다. 필수 명령, skip 판정과 완료 증빙은
+[테스트/CI 전략](../policy/testing-strategy.md)과 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을
+따른다.
 
 ## 공유 개발계 cron fence
 
-- `routes/admin/cron.ts`의 공통 경계는 access·destructive guard 뒤, execution policy와 handler 전에 개발 환경 Run Registry의 fence index와 active record를 함께 확인한다.
-- `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기는 변경·정리 구간이다. cron handler를 시작하지 않고 `x-dev-cron-result: maintenance` 성공 응답을 반환하며 dispatcher는 이를 `SKIP`으로 기록한다.
-- `applied`, `failed`, `cleanup_failed`는 안정 상태다. active namespace key로 합성 회원 root와 연결 meeting을 조회하고 14개 cron job에 `REAL_ONLY` 정책을 적용한다. 정상 개발 데이터는 기존 도메인 로직으로 처리하고 합성 member·match·meeting·reservation·profile target은 변경하지 않는다.
-- Run Registry 소유권이 없는 합성 root, 유효하지 않은 fence·active record·active scope 집합, 읽을 수 없는 registry는 handler 전에 실패한다. cron은 feeder와 같은 contract parser를 사용하며 소유권을 추측하거나 전체 개발 데이터를 실행 대상으로 되돌리지 않는다.
-- cron 진입은 같은 registry mutex 안에서 job별 lease를 생성한다. handler가 반환한 promise가 끝날 때까지 lease를 유지하고 같은 job의 중복 호출은 `already-running` `SKIP`으로 처리한다.
-- feeder의 새 claim과 `applying`·`resetting` 상태 전환은 같은 mutex 안에서 active cron lease 0건을 확인한다. 따라서 cron과 합성 데이터 DB 변경 중 하나만 먼저 시작할 수 있다.
-- production에서는 target policy를 별도로 만들지 않고 기존 `ALL_TARGETS` 동작을 유지한다. production startup은 `DEV_CRON_*` 또는 feeder·registry enable 설정이 하나라도 있으면 실패한다.
-- run이 만료돼도 active 소유권 index를 자동 해제하지 않는다. reset 또는 소유권 reconciliation 완료 뒤에만 해제한다.
-- 회귀 테스트는 14개 handler 모두의 target 경계, 정상 개발 target 유지, 합성 target 제외, maintenance·중복 실행 `SKIP`, lease 경쟁 차단을 확인한다.
+- Admin cron 공통 경계는 feeder와 같은 Run Registry parser를 사용해 fence·active generation·소유권을 읽는다.
+- 합성 데이터 변경 구간에는 handler 대신 maintenance 결과를 반환하고, 안정 구간에는 정상 개발 target만 기존
+  도메인 로직으로 처리한다.
+- registry mutex와 job lease가 cron 실행과 합성 데이터 변경을 직렬화한다. 상태별 허용 동작, 운영 환경 차단,
+  복구와 검증 기준은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과
+  [개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다.
 
 ## Admin browser smoke 구현
 
@@ -519,26 +477,14 @@ coverage entry는 다음 축을 가진다.
 
 ## Apply, generation upgrade와 reset 모델
 
-- `active`는 DB 접속 없이 현재 namespace별 owner·suite·scope·상태·유지 종료일·만료 여부·검증 count를 출력한다.
-- `plan`은 변경 없이 DB identity, schema fingerprint, registry 상태, overlapping active scope, 기존 namespace root, 적용 scenario, suite별 외부 기준정보 계약과 외부 write 0건을 출력한다. 실제 생성 건수는 apply의 mutation counter로 기록한다.
-- `apply`는 namespace claim 전에 기준정보를 검증하고, 각 builder transaction에서 필요한 외부 기준정보를 다시 검사해 잠근 뒤 의존성 순서로 scenario를 실행한다.
-- 새 namespace claim은 registry mutex 안에서 overlapping active scope를 다시 검사한다. `plan` 뒤 다른 실행이 먼저 claim하면 후속 apply는 DB write 전에 실패한다.
-- claim은 scope 검사 전에 fence와 active record의 양방향 정합성을 확인한다. fence-only 또는 unfenced active 부분 상태는 자동 보정하지 않고 reconciliation 대상으로 실패시킨다.
-- 같은 owner·suite·catalog/schema version·reference time의 기존 namespace는 prepared 상태를 reconciliation하고 완료 scenario를 유지한다.
-- `upgrade`는 요청 suite가 active suite와 정확히 같고 source가 `applied`이며 모든 source row reference를 소유하고 외부 기준정보가 유효한지 generation 전환 전에 preflight한다. candidate transaction에서도 해당 기준정보를 다시 검사해 잠근다. 도메인 suite로 `cms-all` 일부만 갱신하는 경로는 없다.
-- source는 generation-level 합성 `t_member` reference exact set을 필수로 가진다. 기록이 없거나 scenario row reference·DB의 namespace 합성 회원 exact set과 다르면 자동 채택·보정하지 않고 중단한다.
-- candidate는 generation을 1 증가시키고 새 run/asset key, current catalog/schema와 요청 reference/expiry를 가진다. asset은 `uploads/dev-data/{namespace}/generations/{runId}/`에 stage한다.
-- 한 DB transaction 안에서 source 전체를 reset하고 active suite의 current scenario 전체를 생성한 뒤 asset·DB verifier와 candidate registry prepare까지 마친다. DB commit 전에는 다른 연결이 source 전체를 계속 보고, commit 뒤에는 candidate 전체만 본다.
-- DB commit 뒤 candidate active pointer를 promote하고 다시 검증한 뒤 inactive generation asset과 legacy namespace-level `profiles/`·`videos/`를 정리한다. 순차 전체 reset 뒤 apply하는 `reapply`와 단일 scenario 교체 경로는 두지 않는다.
-- `building` journal의 target catalog/schema 또는 서울 기준 reference/expiry 날짜가 현재 요청과 다르면 source 소유권 전체를 증명한 뒤 abort하고 재실행한다. `prepared` 이후에는 DB 소유권 결과를 먼저 복구하며 혼합 결과는 journal과 maintenance fence를 유지한다.
-- `reset`은 기록된 asset root와 현재 경로의 exact match를 확인한 뒤 registry를 `resetting`으로 조건부 전환하고 namespace lock을 획득한다. asset root가 없거나 현재 경로와 다르면 자동 채택·보정하지 않고 DB·asset write 전에 중단한다.
-- DB child·root 삭제와 DB 잔존 검증은 하나의 트랜잭션에서 수행하며 실패 시 전부 rollback하고 registry를 `failed`로 남겨 active 소유권 index를 유지한다.
-- DB commit 뒤 namespace asset을 삭제한다. asset 삭제는 같은 key에 반복 실행해도 성공하는 idempotent 작업이어야 한다.
-- asset 삭제가 실패하면 registry를 `cleanup_failed`로 기록하고 active 소유권 index를 유지한다. 같은 reset 명령은 DB 0건을 확인한 뒤 asset 정리부터 안전하게 재시도한다.
-- DB·asset 잔존 0건을 확인한 뒤에만 active record를 history로 이동하고 `cleaned`로 종료한다.
-- history 저장 재조회와 global fence namespace 제거가 모두 끝나야 reset 성공이다. registry finalization 실패는 DB·asset을 재생성하지 않고 finalization만 재시도한다.
-- 일반 reset은 기준정보를 제거하지 않는다.
-- reset 뒤 root 0건, 생성 child orphan 0건, namespace asset 0건을 완료 조건으로 사용한다.
+- 최초 apply는 namespace가 소유하는 generation을 만들고 active pointer에 연결한다.
+- upgrade는 source가 계속 조회되는 동안 candidate DB·asset을 준비하고, 검증된 candidate를 원자적으로 active
+  generation으로 교체한다. Run Registry와 cutover journal의 row reference가 장애 후 source·candidate 판정을
+  연결한다.
+- reset은 active generation이 소유한 DB·asset만 정리하고 history finalization으로 끝난다.
+- 명령별 preflight, 허용 상태 전이, 실패 복구와 완료 조건은
+  [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과
+  [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)을 따른다.
 
 ## 비포함 / 금지
 
