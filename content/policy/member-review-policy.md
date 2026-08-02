@@ -222,7 +222,6 @@ Mobile에서 심사 제출 전에 적용하는 미디어 선택/Crop 기준은 �
 - 최초 신청 이외 심사 단계 권한 완료 조건: 일반 클럽매니저의 현재 `CHARGE` 회원은 단계별 허용 상태에서만
   조회·승인·반려되고, `SHARE`·무배정·타 전담 회원의 직접 상세/승인/반려 요청은 거부되며 역할·배정별
   Admin·API 테스트가 같은 결론을 검증한 상태다.
-- `request_origin` fallback(`coalesce`) 로직은 개발 DB 기준 제거 완료이며, 재도입을 금지한다.
 - 큐 중복(동일 요청이 2개 큐에 동시 노출) 0건을 전환 완료 조건으로 둔다.
 
 ## 심사 상태 동기화 호출 정책
@@ -309,19 +308,19 @@ CMS 회원정보 저장은 닉네임처럼 필수 인증과 무관한 필드를 
 - 자동 정책 재기준화나 기존 회원 일괄 이관이 제품 요구로 확정되기 전까지 이 절은 현행 호환·운영 판정으로
   유지한다. 해당 자동화가 확정되면 별도 구현 범위와 제거 가능한 호환 조건을 추적한다.
 
-## API 에러 적용 현황 (`MEMBER`)
+## API 에러 계약 (`MEMBER`)
 
 공통 응답 envelope은 [API 공통 응답 계약 정책](api-response-contract-policy.md)을, 실패 `ErrorData`는 [API 에러 계약 정책](api-error-contract-policy.md)을 단일 SoT(단일 기준)로 따른다.
-이 문서는 도메인 적용 상태와 도메인별 `error_code` 예시만 기록한다.
+이 문서는 도메인 적용 범위와 도메인별 `error_code` 예시만 기록한다.
 
-적용 범위(1차):
+적용 범위:
 
 - `POST /app/member/request-review/auth`
 - `POST /app/member/deleteAuth`
 
-현재 상태:
+응답 계약:
 
-- API 서버는 descriptor-first `ErrorData` 응답 경계 적용 상태다.
+- API 서버는 descriptor-first `ErrorData` 응답 경계를 사용한다.
 - 실패 응답은 공통 응답 envelope의 `{ ok: false, error: ErrorData }`와 `request_id`를 사용한다.
 - Mobile/Admin 공통 실패 처리와 릴리즈 근거 연결은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스` 잔여 범위로 추적한다.
 

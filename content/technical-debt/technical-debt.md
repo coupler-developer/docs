@@ -192,7 +192,8 @@
 ## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
 - 현상: API catalog v13과 N:N scenario v10 계약은 독립 lifecycle·채팅 이력 경계, 3인·4인 참여 분기와
-  `meenseek` 발행 관리자 기준정보 검증을 포함하지만 공유 개발계 `qa-cms-20260716`은 generation 4·catalog v11
+  `GROUP_MEETING_HOST_MANAGER_USER_ID` 발행 관리자 기준정보 검증을 포함하지만 공유 개발계
+  `qa-cms-20260716`은 generation 4·catalog v11
   `cms-all`이다. 기존 generation은 verifier, 단일 active namespace,
   transition·cron lease 0건, dispatcher와 API smoke를 통과했다([API #160](https://github.com/coupler-developer/coupler-api/pull/160)).
   실제 DB 서버 식별값은 비어 있지 않은지만 확인해 allowlist와 결합되지 않고, Admin route coverage는 audience·
