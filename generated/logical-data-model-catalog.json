@@ -398,7 +398,7 @@
       "lifecycleRole": "root",
       "entityShape": "entity",
       "recordRole": "state",
-      "responsibility": "공개·신청 접수·확정·종료와 공개 행사 정보",
+      "responsibility": "공개·신청 접수·모집 마감·종료와 공개 행사 정보",
       "classification": "민감",
       "lifecycle": "삭제·취소·종료 상태로 보존, 공개 이미지는 정책에 따라 정리"
     },
@@ -424,7 +424,7 @@
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "responsibility": "확정 채팅 참여 자격과 읽음 경계",
+      "responsibility": "승인된 채팅 참여 자격과 읽음 경계",
       "classification": "내부",
       "lifecycle": "자격 종료 뒤에도 메시지 문맥을 위해 보존 가능"
     },
@@ -2243,7 +2243,7 @@
     {
       "id": "GROUP-MEETING-INV-010",
       "relatedEntityId": "group-meeting.event",
-      "statement": "OPEN·CONFIRMED는 서로 전환할 수 있고 최초 확정 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다",
+      "statement": "OPEN·CONFIRMED는 서로 전환할 수 있고 최초 모집 마감 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },

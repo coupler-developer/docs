@@ -338,17 +338,17 @@ TypeScript 문법이나 model import만으로 실제 DB 변경을 증명하지 �
 
 ### N:N 그룹미팅 `group-meeting-all`
 
-- 초안, 삭제, 공개 활성, 신청 접수 기한 경과 OPEN, 확정, 종료, 취소 저장 상태와 저장 `CONFIRMED`·실효 `FINISHED` 시간 분기, 공개 활성·확정 취소 진입 상태
-- 신청, 승인, 승인 취소, 채팅방 탈퇴와 참여 가능한 모든 행사의 기준 여성 참여자 `tt@test.com`(`Toto`)·`dummy-female@coupler.dev`, 신청 접수 기한 경과 OPEN 3인 분기의 `m1@dev`, 확정 왕복·종료 4인 분기의 `m1@dev`·`m2@coupler`
-- 행사 확정·종료·취소와 참여자 입장·승인 취소·탈퇴 시스템 메시지
-- `persisted_status`·`effective_status`·`chat_initialized` 축과 최초 확정 뒤 재개 OPEN·CONFIRMED 재진입,
+- 초안, 삭제, 공개 활성, 신청 접수 기한 경과 OPEN, 모집 마감, 종료, 취소 저장 상태와 저장 `CONFIRMED`·실효 `FINISHED` 시간 분기, 공개 활성·확정 취소 진입 상태
+- 신청, 승인, 승인 취소, 채팅방 탈퇴와 참여 가능한 모든 행사의 기준 여성 참여자 `tt@test.com`(`Toto`)·`dummy-female@coupler.dev`, 신청 접수 기한 경과 OPEN 3인 분기의 `m1@dev`, OPEN·CONFIRMED 왕복·종료 4인 분기의 `m1@dev`·`m2@coupler`
+- 모집 마감·행사 종료·취소와 참여자 입장·승인 취소·탈퇴 시스템 메시지
+- `persisted_status`·`effective_status`·`chat_initialized` 축과 최초 모집 마감 뒤 재개 OPEN·CONFIRMED 재진입,
   OPEN 신청 접수 재개, FINISHED, 초기화 후 CANCELED 조합의 상태별 채팅 멤버십
 - 전날 오후 1시 개방 경계와 시작 +24시간 종료 경계 사이에 배치한 활성 초기화 방과 종료·취소 읽기 전용 방에서
   두 기준 참여자의 일반 채팅, 호스트 채팅, 관리자 삭제 채팅, 비어 있음·설정됨 읽음 위치, 채팅 초기화·개방 알림
   marker와 파생 개방 여부
 - 개방·종료 1초 전·정각·1초 후 파생 상태, 신청·승인 마감 전 시각, 행사 생성·ready 상세 이미지·상태 action·
   신청/승인·상태별 취소/퇴장·채팅 멤버/메시지·후기/신고 action의 인과 순서와 기준 시각 이후 row 0건
-- 확정 뒤 승인된 참여자의 입장 안내 메시지를 과거 이력 공개 경계로 저장하고, 그보다 앞선 메시지가 실제로 존재하는지 검증
+- 모집 마감 뒤 승인된 참여자의 입장 안내 메시지를 과거 이력 공개 경계로 저장하고, 그보다 앞선 메시지가 실제로 존재하는지 검증
 - 프로필 열람 공개·비공개, 후기 성공·실패와 후기 뒤에도 `APPROVED`가 유지되는지, 명시적 퇴장 `LEFT`의 후기 제외,
   두 기준 참여자가 신고자인 대기·처리·기각 신고와 미처리 filter
 - 신고 대상 namespace 합성 참가자의 1일·7일·30일 패널티와 기존 QA 기준 회원 패널티 변경 0건
