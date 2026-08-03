@@ -132,6 +132,7 @@ nav:
           - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
           - Firebase Apple SDK 설치 경로 전환 흐름: flows/cross-project/firebase-apple-sdk-migration-flow.md
   - Releases:
+      - 2.4.0 릴리스 실행 기록: releases/v2.4.0.md
       - 2.3.0 릴리스 실행 기록: releases/v2.3.0.md
       - 2.2.7 릴리스 실행 기록: releases/v2.2.7.md
       - 2.2.6 릴리스 실행 기록: releases/v2.2.6.md
