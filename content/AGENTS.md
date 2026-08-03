@@ -302,6 +302,7 @@
 
 ### Releases
 
+- [2.4.0 릴리스 실행 기록](releases/v2.4.0.md) - DB/API/Admin, Mobile Store 2.4.0 (102), NextPush 통합 릴리스 준비 기록
 - [2.3.0 릴리스 실행 기록](releases/v2.3.0.md) - DB/API/Admin, Mobile Store 2.3.0 (101), NextPush 통합 릴리스 진행 기록
 - [2.2.7 릴리스 실행 기록](releases/v2.2.7.md) - contracts 0.1.5 기준 API/Admin/Mobile NextPush 운영 배포 기록
 - [2.2.6 릴리스 실행 기록](releases/v2.2.6.md) - contracts package 0.1.2 발행과 Admin/Mobile 소비자 dependency bump 준비 기록
