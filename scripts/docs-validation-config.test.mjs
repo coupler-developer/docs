@@ -4,6 +4,12 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  FULL_TASK_IDS,
+  STATIC_TASK_IDS,
+  VALIDATION_TASKS,
+} from "./docs-validation-runner.mjs";
+
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const docsRoot = path.dirname(scriptsRoot);
 const packageJson = JSON.parse(
@@ -57,13 +63,36 @@ const documentLifecycleValidator = fs.readFileSync(
   path.join(docsRoot, "scripts", "validate-document-lifecycle.mjs"),
   "utf8",
 );
+const runnerScript = "node scripts/docs-validation-runner.mjs";
+const taskScript = (taskId) => `${runnerScript} task ${taskId}`;
+const expectedStaticTaskIds = [
+  "test:release-preflight",
+  "test:docs-structure",
+  "test:agent-workflow",
+  "test:document-lifecycle",
+  "test:logical-data-model",
+  "test:technical-debt",
+  "test:docs-validation-runner",
+  "test:docs-validation-config",
+  "validate:docs-structure",
+  "validate:document-lifecycle",
+  "validate:agent-workflow",
+  "validate:logical-data-model",
+  "validate:technical-debt",
+  "validate:release-records",
+  "validate:api-error-docs",
+];
 
 test("local validation and full CI use the same static gate runner", () => {
   assert.equal(
     packageJson.scripts["validate:docs"],
-    "yarn validate:docs-static && yarn lint:md && yarn build:docs",
+    `${runnerScript} full`,
   );
-  assert.equal(packageJson.scripts.verify, "yarn validate:docs");
+  assert.equal(packageJson.scripts.verify, `${runnerScript} full`);
+  assert.equal(
+    packageJson.scripts["validate:docs-static"],
+    `${runnerScript} static`,
+  );
   assert.match(
     workflow,
     /- name: Validate full docs static gates\n\s+if: steps\.validation_mode\.outputs\.mode == 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: yarn validate:docs-static/,
@@ -79,6 +108,25 @@ test("local validation and full CI use the same static gate runner", () => {
   assert.match(
     testingStrategy,
     /문서 공통 정적 검증\(로컬·full CI\): `yarn validate:docs-static`/,
+  );
+});
+
+test("the runner owns the exact static and full task sets", () => {
+  assert.deepEqual(STATIC_TASK_IDS, expectedStaticTaskIds);
+  assert.deepEqual(
+    new Set(FULL_TASK_IDS),
+    new Set([...expectedStaticTaskIds, "lint:md", "build:docs"]),
+  );
+  assert.equal(FULL_TASK_IDS.length, expectedStaticTaskIds.length + 2);
+
+  for (const taskId of new Set([...FULL_TASK_IDS, "validate:docs-sensitive"])) {
+    assert.ok(VALIDATION_TASKS[taskId], `missing runner task: ${taskId}`);
+    assert.equal(packageJson.scripts[taskId], taskScript(taskId));
+  }
+
+  assert.match(
+    testingStrategy,
+    /단일 `docs-validation-runner`가 폐쇄형 leaf 목록과 최대 2개 병렬\s+실행을 소유한다/,
   );
 });
 
@@ -98,20 +146,14 @@ test("verification aliases cannot drift from CI", () => {
 test("agent workflow validation is part of the shared static gate", () => {
   assert.equal(
     packageJson.scripts["validate:agent-workflow"],
-    "node scripts/validate-agent-workflow.mjs",
+    taskScript("validate:agent-workflow"),
   );
   assert.equal(
     packageJson.scripts["test:agent-workflow"],
-    "node --test scripts/validate-agent-workflow.test.mjs",
+    taskScript("test:agent-workflow"),
   );
-  assert.match(
-    packageJson.scripts["validate:docs-static"],
-    /yarn validate:agent-workflow/,
-  );
-  assert.match(
-    packageJson.scripts["validate:docs-static"],
-    /yarn test:agent-workflow/,
-  );
+  assert.ok(STATIC_TASK_IDS.includes("validate:agent-workflow"));
+  assert.ok(STATIC_TASK_IDS.includes("test:agent-workflow"));
   assert.match(
     testingStrategy,
     /에이전트 작업흐름 검증\(로컬\): `yarn validate:agent-workflow`/,
@@ -125,20 +167,14 @@ test("agent workflow validation is part of the shared static gate", () => {
 test("document lifecycle validation is wired for local, full, and lightweight PR gates", () => {
   assert.equal(
     packageJson.scripts["validate:document-lifecycle"],
-    "node scripts/validate-document-lifecycle.mjs",
+    taskScript("validate:document-lifecycle"),
   );
   assert.equal(
     packageJson.scripts["test:document-lifecycle"],
-    "node --test scripts/validate-document-lifecycle.test.mjs",
+    taskScript("test:document-lifecycle"),
   );
-  assert.match(
-    packageJson.scripts["validate:docs-static"],
-    /yarn validate:document-lifecycle/,
-  );
-  assert.match(
-    packageJson.scripts["validate:docs-static"],
-    /yarn test:document-lifecycle/,
-  );
+  assert.ok(STATIC_TASK_IDS.includes("validate:document-lifecycle"));
+  assert.ok(STATIC_TASK_IDS.includes("test:document-lifecycle"));
   assert.match(
     workflow,
     /- name: Install Node dependencies\n\s+run: yarn install --frozen-lockfile/,
@@ -263,7 +299,7 @@ test("lightweight release validation remains separate from the full runner", () 
   );
   assert.equal(
     packageJson.scripts["validate:docs-sensitive"],
-    "node scripts/validate-docs-structure.mjs --sensitive-only",
+    taskScript("validate:docs-sensitive"),
   );
   assert.match(
     testingStrategy,

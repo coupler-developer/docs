@@ -34,6 +34,10 @@
 - `test:ci`, `verify:ci`, `ci:test`, `ci:verify`처럼 로컬과 CI의 표준 Gate를 나누는 별칭을 금지한다.
 - CI는 병렬화를 위해 `verify`의 leaf 명령을 job으로 나눌 수 있지만, package script와 workflow 계약 테스트가
   `verify`의 정확한 구성, 전체 leaf coverage, 금지 별칭 부재를 함께 고정해야 한다.
+- docs의 `verify`와 `validate:docs-static`은 단일 `docs-validation-runner`가 폐쇄형 leaf 목록과 최대 2개 병렬
+  실행을 소유한다. 개별 package script도 같은 runner의 task ID를 사용하며, runner 계약 테스트가 full/static
+  집합의 exact coverage, 중복 task 0건, 동시 실행 상한과 실패 후 신규 task 중단을 고정한다. 병렬화는 실행
+  순서만 바꾸며 Gate의 입력, 실패 조건과 증빙 범위를 줄이지 않는다.
 - 테스트 파일 확장자와 계약 의존성 형식처럼 로컬에서 판정 가능한 규칙은 `test` 또는 `verify`에 포함하고,
   workflow inline 전용 검사로 중복 소유하지 않는다.
 - DB migration 실제 재생, PR base/current-tree 비교, release native visual처럼 외부 서비스나 event 문맥이
@@ -210,6 +214,7 @@
 - 문서 lifecycle 검증 테스트(로컬): `yarn test:document-lifecycle`
 - 에이전트 작업흐름 검증(로컬): `yarn validate:agent-workflow`
 - 에이전트 작업흐름 검증 테스트(로컬): `yarn test:agent-workflow`
+- docs 검증 runner 계약 테스트(로컬): `yarn test:docs-validation-runner`
 - 논리 데이터 모델 검증(로컬): `yarn validate:logical-data-model`
 - 논리 데이터 모델 검증 테스트(로컬): `yarn test:logical-data-model`
 - 기술부채 인벤토리 검증(로컬): `yarn validate:technical-debt`
