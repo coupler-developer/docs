@@ -282,6 +282,15 @@ DB scope에서만 허용하고, catalog·ledger compatibility·entry count를 �
 이 처분은 실행 방식이나 표준 절차의 예외가 아니며 `v2.3.0` 운영 DB의 추가 write·migration 재실행을
 허용하지 않는다.
 
+`v2.4.0`의 migration 98·99는 긴급 운영 대응으로 canonical dev/prod plan·execution 생성 전에 운영 적용이
+끝난 단일 과거 실행이다. 이 릴리스만 `db-migration-emergency-completion-evidence/v1`로 닫을 수 있다.
+증빙은 API `v2.4.0` source ref, 현재 production DB identity·schema fingerprint, catalog와 sealed ledger
+compatibility checksum, catalog 26/26 resolved·pending/gap 0, migration 98·99의 exact file/checksum·ledger와
+live postcondition, 사전 backup digest, writer fence·resume smoke, canonical execution이 없으며 사후 생성하지
+않았다는 한계를 release metadata 안에 함께 고정한다. 검증기는 위 값을 `v2.4.0`의 `released` DB scope에만
+허용하며 다른 version, rollback 또는 신규 migration에 재사용하지 않는다. 이 처분은 이미 끝난 98·99를
+재실행하거나 일반 maintenance 절차를 바꾸는 권한이 아니다.
+
 `main`에 이미 병합된 모든 릴리스 기록은 불투명한 역사적 최종본이다. DB evidence의 schema·상태·내용을
 파싱하거나 현재 계약으로 재검증하지 않고, 파일 전체의 경로·blob 불변성만 확인한다.
 

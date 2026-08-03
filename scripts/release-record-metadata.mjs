@@ -320,6 +320,7 @@ function validateScopeResult(
       ...validateMaintenanceDbMigrationEvidence({
         evidence: result.evidence,
         version: metadata.version,
+        apiSourceRef: metadata.versionMapping?.["coupler-api"]?.commit,
         terminal,
         scopeStatus: result.status,
         readArtifact,

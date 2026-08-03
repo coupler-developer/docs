@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  dbMigrationEmergencyCompletionEvidenceSchema,
   dbMigrationMaintenanceEvidenceSchema,
   dbMigrationPrecanonicalTransitionEvidenceSchema,
   sha256Hex,
@@ -9,6 +10,7 @@ import {
 } from "./db-migration-maintenance-artifacts.mjs";
 
 const version = "v9.9.0";
+const v240ApiSourceRef = "299abc63d0c4cebaaff9f27a9f1484e0ef82c9db";
 
 function evidenceFor(source = "evidence\n") {
   const sha256 = sha256Hex(source);
@@ -85,6 +87,57 @@ function transitionEvidence() {
     },
     readArtifact: (artifactPath) =>
       artifactPath.endsWith("plan.json") ? devPlanSource : devExecutionSource,
+  };
+}
+
+function emergencyCompletionEvidence() {
+  return {
+    schema: dbMigrationEmergencyCompletionEvidenceSchema,
+    version: "v2.4.0",
+    apiSourceRef: v240ApiSourceRef,
+    verifiedAt: "2026-08-03T17:29:40.000Z",
+    catalogState: {
+      catalogPath: "db/schema/schema-contract.json",
+      catalogSha256: "c1afce7707a25cd8e7003eb9dedae85695ad646d51321e0f3bd16db12a8af66a",
+      ledgerCompatibilityPath: "db/schema/ledger-compatibility.json",
+      ledgerCompatibilitySha256:
+        "b3f7b274bb82ff3a0d18541eec0e3c46a66395fb59ea902606fc1e1ab9346fe9",
+      catalogEntryCount: 26,
+      appliedCount: 25,
+      supersededCount: 1,
+      resolvedCount: 26,
+      pendingCount: 0,
+      adjudicableLedgerGapCount: 0,
+    },
+    prodState: {
+      databaseIdentitySha256:
+        "fda77e0b97d327b13e2e215f170204c441143a6159d95d8e65acc6d1381b8b69",
+      schemaFingerprintSha256:
+        "607387544c052a59c960cf1fc34540497b9d438176d4d28ad4fd9c0a61ea5efe",
+      migrations: [
+        {
+          file: "db/migrations/98_expand_match_lounge_source.sql",
+          sha256: "37b81efdf3e5154def46d891cd56b9ae6f0f1686f0f554480164e14100b7f57f",
+          ledger: "applied",
+          postcondition: "passed",
+        },
+        {
+          file: "db/migrations/99_expand_match_finding_send_card_setting.sql",
+          sha256: "3f1b9bd74c6a6d95804bb73643916d883c1c24832dead8ee0792fb8d72c405ab",
+          ledger: "applied",
+          postcondition: "passed",
+        },
+      ],
+    },
+    historicalExecution: {
+      backupSha256: "949b81ce249212d0df8b47e9f1a1878028dc5a2c5d138ccc01d8978ee3cd5315",
+      writerFenceEvidence: "2026-08-04 KST API와 cron을 중지한 뒤 migration 98·99를 실행했다.",
+      resumeSmokeEvidence:
+        "ledger·postcondition 확인 뒤 API와 cron을 재개하고 내부·외부 smoke를 통과했다.",
+      canonicalExecution: "unavailable-not-recreated",
+    },
+    limitation:
+      "긴급 실행 전에 canonical dev/prod plan·execution을 만들지 못했으며 현재 상태 검증으로 과거 execution event를 사후 제조하지 않는다.",
   };
 }
 
@@ -297,5 +350,95 @@ describe("maintenance DB migration artifact reference format", () => {
     assert(errors.some((error) => /verifiedAt must be an ISO-8601 UTC timestamp/.test(error)));
     assert(errors.some((error) => /prodDisposition has unknown key: unexpected/.test(error)));
     assert(errors.some((error) => /prodDisposition is missing key: historicalEvidence/.test(error)));
+  });
+
+  it("allows only the exact v2.4.0 emergency completion evidence", () => {
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: emergencyCompletionEvidence(),
+        version: "v2.4.0",
+        apiSourceRef: v240ApiSourceRef,
+        terminal: true,
+        scopeStatus: "released",
+        context: "db migration evidence",
+      }),
+      [],
+    );
+  });
+
+  it("rejects reusing the v2.4.0 emergency completion for another release or state", () => {
+    const wrongVersion = validateMaintenanceDbMigrationEvidence({
+      evidence: emergencyCompletionEvidence(),
+      version: "v2.4.1",
+      apiSourceRef: v240ApiSourceRef,
+      terminal: true,
+      scopeStatus: "released",
+      context: "db migration evidence",
+    });
+    assert(wrongVersion.some((error) => /allowed only for v2\.4\.0/.test(error)));
+
+    for (const [terminal, scopeStatus] of [
+      [false, "in_progress"],
+      [true, "rolled_back"],
+    ]) {
+      const errors = validateMaintenanceDbMigrationEvidence({
+        evidence: emergencyCompletionEvidence(),
+        version: "v2.4.0",
+        apiSourceRef: v240ApiSourceRef,
+        terminal,
+        scopeStatus,
+        context: "db migration evidence",
+      });
+      assert(errors.some((error) => /allowed only for the released DB migration scope/.test(error)));
+    }
+  });
+
+  it("rejects every drift from the sealed v2.4.0 emergency completion", () => {
+    const mutations = [
+      (evidence) => {
+        evidence.unexpected = true;
+      },
+      (evidence) => {
+        delete evidence.limitation;
+      },
+      (evidence) => {
+        evidence.catalogState.pendingCount = 1;
+      },
+      (evidence) => {
+        evidence.prodState.migrations.reverse();
+      },
+      (evidence) => {
+        evidence.prodState.migrations[0].sha256 = "f".repeat(64);
+      },
+      (evidence) => {
+        evidence.historicalExecution.backupSha256 = "f".repeat(64);
+      },
+    ];
+    for (const mutate of mutations) {
+      const evidence = emergencyCompletionEvidence();
+      mutate(evidence);
+      const errors = validateMaintenanceDbMigrationEvidence({
+        evidence,
+        version: "v2.4.0",
+        apiSourceRef: v240ApiSourceRef,
+        terminal: true,
+        scopeStatus: "released",
+        context: "db migration evidence",
+      });
+      assert(errors.some((error) => /must match the sealed v2\.4\.0/.test(error)));
+    }
+
+    const unbound = emergencyCompletionEvidence();
+    unbound.apiSourceRef = "a".repeat(40);
+    const unboundErrors = validateMaintenanceDbMigrationEvidence({
+      evidence: unbound,
+      version: "v2.4.0",
+      apiSourceRef: v240ApiSourceRef,
+      terminal: true,
+      scopeStatus: "released",
+      context: "db migration evidence",
+    });
+    assert(unboundErrors.some((error) => /apiSourceRef must match/.test(error)));
+    assert(unboundErrors.some((error) => /must match the sealed v2\.4\.0/.test(error)));
   });
 });
