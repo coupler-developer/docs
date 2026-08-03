@@ -136,12 +136,10 @@
   catalog/ledger/postcondition을 read-only로 검증하고 과거 execution을 사후 제조하지 않으며,
   `db-migration` scope가 `released`일 때만 사용한다. 후속 릴리스와 rollback 증빙에는 이 예외를 재사용하지
   않는다.
-- 긴급 운영 대응으로 canonical artifact보다 먼저 migration 98·99가 적용된 `v2.4.0`만
-  `db-migration-emergency-completion-evidence/v1`의 일회성 완료 처분을 허용한다. API release ref와 현재
-  production catalog·ledger·schema·98·99 postcondition, backup과 fence/resume 사실, canonical execution
-  부재를 release metadata의 closed shape로 고정하고 과거 plan/execution을 사후 생성하지 않는다. 이 schema는
-  `v2.4.0`의 `released` DB scope 외에는 실패하며 일반 신규 migration, rollback 또는 후속 릴리스에 재사용하지
-  않는다.
+- `v2.4.0` DB scope의 migration 98·99 긴급 완료 처분만
+  `db-migration-emergency-completion-evidence/v1`을 허용한다. 누락된 plan/execution은 사후 제조하지 않고
+  다른 릴리스·rollback에 재사용하지 않으며, 상세 증빙 조건은
+  [DB Migration Gate 정책](db-migration-gate-policy.md)을 따른다.
 - Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 exact
   artifact 경로·bytes SHA-256만 묶는다. 과거 기록과 DB artifact는 schema·상태·증빙을 읽지 않고 경로·blob
   불변성만 확인한다.
