@@ -32,7 +32,6 @@ import {
   sha256Hex,
   validateMaintenanceDbMigrationEvidence,
 } from "./db-migration-maintenance-artifacts.mjs";
-import { isAuthorizedPublishedReleaseRepair } from "./published-release-repair.mjs";
 
 const docsRoot = process.cwd();
 const releasesRoot = path.join(docsRoot, "content", "releases");
@@ -57,7 +56,6 @@ const forbiddenPatterns = [
 ];
 const errors = [];
 const releaseMetadataByVersion = new Map();
-const authorizedPublishedReleaseRepairPaths = new Set();
 let baseRef = null;
 try {
   baseRef = resolveBaseRef(process.argv.slice(2));
@@ -66,11 +64,7 @@ try {
 }
 
 if (baseRef) {
-  validatePublishedReleaseImmutability(
-    baseRef,
-    authorizedPublishedReleaseRepairPaths,
-    errors,
-  );
+  validatePublishedReleaseImmutability(baseRef, errors);
 }
 
 if (fs.existsSync(releasesRoot)) {
@@ -81,11 +75,7 @@ if (fs.existsSync(releasesRoot)) {
 
     const tag = entry.name.replace(/\.md$/, "");
     const relativePath = path.posix.join("content", "releases", entry.name);
-    if (
-      baseRef &&
-      gitObjectExists(`${baseRef}:${relativePath}`) &&
-      !authorizedPublishedReleaseRepairPaths.has(relativePath)
-    ) {
+    if (baseRef && gitObjectExists(`${baseRef}:${relativePath}`)) {
       continue;
     }
     const absolutePath = path.join(releasesRoot, entry.name);
@@ -765,11 +755,7 @@ function resolveBaseRef(argv) {
   return null;
 }
 
-function validatePublishedReleaseImmutability(
-  baseRef,
-  authorizedRepairPaths,
-  validationErrors,
-) {
+function validatePublishedReleaseImmutability(baseRef, validationErrors) {
   const changedPaths = git([
     "diff",
     "--name-only",
@@ -784,18 +770,6 @@ function validatePublishedReleaseImmutability(
       releaseRecordPattern.test(releasePath) &&
       gitObjectExists(`${baseRef}:${releasePath}`)
     ) {
-      const baseSource = readGitBlob(`${baseRef}:${releasePath}`);
-      const currentSource = readWorkingTreeRegularFile(releasePath);
-      if (
-        isAuthorizedPublishedReleaseRepair({
-          releasePath,
-          baseSource,
-          currentSource,
-        })
-      ) {
-        authorizedRepairPaths.add(releasePath);
-        continue;
-      }
       validationErrors.push(
         `${releasePath}: a release record already present in the base ref is final and immutable; it cannot be modified, deleted, renamed, or replaced`,
       );
@@ -813,29 +787,6 @@ function validatePublishedReleaseImmutability(
         `${releasePath}: DB migration evidence already present in the base ref, or owned by a release record there, is final and immutable; it cannot be added, modified, deleted, renamed, or replaced`,
       );
     }
-  }
-}
-
-function readGitBlob(objectName) {
-  try {
-    return execFileSync("git", ["show", objectName], {
-      cwd: docsRoot,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch {
-    return null;
-  }
-}
-
-function readWorkingTreeRegularFile(relativePath) {
-  const absolutePath = path.join(docsRoot, relativePath);
-  try {
-    if (!fs.lstatSync(absolutePath).isFile()) {
-      return null;
-    }
-    return fs.readFileSync(absolutePath);
-  } catch {
-    return null;
   }
 }
 
