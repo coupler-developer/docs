@@ -60,6 +60,8 @@ function executionFor(
     failedRef = null,
     malformedFailure = false,
     terminalizedFailure = false,
+    ledgerOnlyFailure = false,
+    adjudicatedFailure = false,
     migrationEventData = [],
   } = {},
 ) {
@@ -151,20 +153,48 @@ function executionFor(
       },
     },
   ];
+  let failedTerminalEvent;
+  if (adjudicatedFailure) {
+    failedTerminalEvent = {
+      type: "migration-outcome-adjudicated",
+      data: {
+        ref: failedRef,
+        outcome: "postcondition-failed-ledger-missing",
+        postconditionSha256: "1".repeat(64),
+        adjudicationResult: {
+          procedureRef: "db-migration-outcome-adjudication/v1",
+          resultRef: "result/failed-postcondition",
+        },
+        resolution: "append-only-recovery-required",
+      },
+    };
+  } else if (malformedFailure) {
+    failedTerminalEvent = { type: "migration-failed", data: {} };
+  } else {
+    failedTerminalEvent = {
+      type: "migration-failed",
+      data: {
+        ref: failedRef,
+        phase: ledgerOnlyFailure ? "ledger" : "sql-or-postcondition",
+        errorSha256: "e".repeat(64),
+        resolution: ledgerOnlyFailure
+          ? "ledger-only-repair"
+          : "append-only-recovery-required",
+      },
+    };
+  }
   const failedEventData = [
     completedEventData[0],
     { type: "migration-started", data: { ref: failedRef } },
-    {
-      type: "migration-failed",
-      data: malformedFailure
-        ? {}
-        : {
-            ref: failedRef,
-            phase: "sql-or-postcondition",
-            errorSha256: "e".repeat(64),
-            resolution: "append-only-recovery-required",
+    ...(ledgerOnlyFailure
+      ? [
+          {
+            type: "migration-sql-succeeded",
+            data: { ref: failedRef, postconditionSha256: "1".repeat(64) },
           },
-    },
+        ]
+      : []),
+    failedTerminalEvent,
   ];
   const eventData = completed
     ? completedEventData
@@ -248,6 +278,8 @@ function canonicalArchive({
   invalidRecoveryPending = false,
   malformedFailedExecution = false,
   terminalizedFailedExecution = false,
+  ledgerOnlyFailedExecution = false,
+  adjudicatedFailedExecution = false,
   prodFailedAliasesDev = false,
 } = {}) {
   const files = new Map();
@@ -277,6 +309,8 @@ function canonicalArchive({
       failedRef: failedTargetRef,
       malformedFailure: malformedFailedExecution,
       terminalizedFailure: terminalizedFailedExecution,
+      ledgerOnlyFailure: ledgerOnlyFailedExecution,
+      adjudicatedFailure: adjudicatedFailedExecution,
     });
     const failedExecutionPath = `${failedHistoryRoot}/execution.jsonl`;
     failedExecutionRef = artifactRef(
@@ -981,12 +1015,52 @@ describe("maintenance DB migration root evidence", () => {
       });
       assert(
         errors.some((error) =>
-          /v3 migration failure shape|failed pending migration without database completion/.test(
+          /v3 migration failure shape|unresolved causal SQL or postcondition failure/.test(
             error,
           ),
         ),
       );
     }
+  });
+
+  it("rejects a ledger-only failure as append-only recovery history", () => {
+    const archive = canonicalArchive({
+      withRecoveryHistory: true,
+      ledgerOnlyFailedExecution: true,
+    });
+    const errors = validateMaintenanceDbMigrationEvidence({
+      evidence: canonicalEvidence(archive.prodPlanRef, archive.prodExecutionRef),
+      version,
+      apiSourceRef,
+      scopeStatus: "released",
+      readArtifact: archive.readArtifact,
+      listArtifacts: archive.listArtifacts,
+      context: "db migration evidence",
+    });
+
+    assert(
+      errors.some((error) => /unresolved causal SQL or postcondition failure/.test(error)),
+    );
+  });
+
+  it("accepts an adjudicated postcondition failure as append-only recovery history", () => {
+    const archive = canonicalArchive({
+      withRecoveryHistory: true,
+      adjudicatedFailedExecution: true,
+    });
+
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: canonicalEvidence(archive.prodPlanRef, archive.prodExecutionRef),
+        version,
+        apiSourceRef,
+        scopeStatus: "released",
+        readArtifact: archive.readArtifact,
+        listArtifacts: archive.listArtifacts,
+        context: "db migration evidence",
+      }),
+      [],
+    );
   });
 
   it("rejects recovery history from a different environment", () => {
