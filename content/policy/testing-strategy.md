@@ -222,7 +222,7 @@
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리즈 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
-    DB migration maintenance artifact의 고정 경로, 실제 bytes SHA-256, 환경별 plan/execution 두 파일 제한과
+    DB migration maintenance root graph의 고정 경로, 실제 bytes SHA-256, plan/execution 결속, orphan 거부와
     과거 릴리스 파일의 최종 트리 불변성 테스트를 이 runner에 포함한다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`

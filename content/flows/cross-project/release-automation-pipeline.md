@@ -77,6 +77,12 @@
 
 ## 메인 흐름
 
+DB migration을 포함하면 개발계에서 API executor로 plan/apply를 완료하고 immutable dev pair와 도달 가능한
+failed-history를 보존한 상태가 이 릴리스 흐름의 입력이다. 이 입력 준비는 docs PR이나 preflight를 요구하지
+않는다. 운영 실행이 같은 작업 세션에 이어지지 않으면 release record 없는 completed dev checkpoint PR로
+그 graph만 먼저 `main`에 보존하고 version을 예약한다. 후속 release record가 이 graph를 소비하기 전까지 다른
+용도로 같은 version을 사용하지 않는다.
+
 ### 0) Scope Gate
 
 1. 목표 버전과 릴리즈 상태 초안을 고정한다.
@@ -90,7 +96,10 @@
 2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채운다.
 3. 배포 시작 기준점은 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
    반영한다.
-4. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
+4. DB migration은 운영 당일 completed dev pair를 API repo-relative runtime path로 복원하고 live production
+   DB에서 fresh prod plan을 만든다. dev pair·prod plan·도달 가능한
+   failed-history를 canonical archive에 보존한 뒤 prod plan/null을 `in_progress` root로 둔다.
+5. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
 
 ### 2) Static Preflight Gate
 
@@ -99,8 +108,8 @@
 2. preflight는 정책과 공통 schema/derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
 3. 미병합 `pending | in_progress` 기록만 입력으로 사용하고 `PASS` 결과와 실행 로그를 릴리즈 기록에 남긴다.
    실패하면 원인을 수정하고 다시 실행한다.
-4. DB migration에서 dev execution 또는 prod plan을 추가해 PR head가 바뀌면 다음 환경 실행 전에 새 head로
-   이 Gate를 다시 통과한다.
+4. DB migration은 완료된 dev pair를 참조하는 prod plan을 canonical root로 고정한 현재 PR head로 운영 실행
+   전에 이 Gate를 통과한다. 이 Gate는 개발계 executor 실행의 선행조건이 아니다.
 5. preflight는 원격 최신성 확인을 위한 fetch/tag 조회만 수행하며 배포성 side effect를 실행하지 않는다.
 
 ### 3) Clean Main Gate
@@ -137,11 +146,9 @@
 ### 6) Deploy Evidence Gate
 
 1. 포함된 범위만 운영 반영한다.
-2. DB migration은 모든 writer를 중지한 유지보수 구간에서만 실행한다. 최초 dev plan을 같은 PR에 고정하고
-   preflight를 통과한 뒤 개발계를 실행한다. 완료된 dev plan/execution에 결속된 prod plan을 생성해 같은
-   미병합 PR에 추가하고, 새 head의 preflight를 다시 통과한 뒤 운영계를 실행한다.
-   [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)을 적용하고 환경별 `plan.json`,
-   `execution.jsonl`만 scope result에 남긴다.
+2. DB migration은 Static Preflight Gate가 고정한 prod plan root만 입력으로 사용하고, 모든 writer를 중지한
+   유지보수 구간에서 운영계를 실행한다. [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)을
+   적용하고 완료된 prod execution을 canonical archive와 릴리스 기록에 추가한다.
 3. API, Admin, Mobile Store, Mobile NextPush는 같은 릴리즈 정책의 scope별 terminal evidence 계약에 따라 배포
    기준점, smoke와 rollback 증빙을 남긴다.
 4. DB 변경과 서비스 배포가 함께 있으면 `writer/effect producer 중지 -> drain/backup -> durable FENCED ->

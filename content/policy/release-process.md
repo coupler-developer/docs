@@ -104,9 +104,9 @@
 - `docs` 버전은 릴리스 기록 번호로 사용하고, 서비스 레포의 실제 배포 버전은 `버전 매핑`으로 별도 고정한다.
 - 신규 릴리스 기록은 실제 새 배포 범위를 기록한 최종본으로 한 번 병합한다. `main`에 이미 존재하는 릴리스
   기록은 상태와 무관하게 파일 전체가 불투명한 최종본이며 이후 수정·삭제·이름 변경·대체하지 않는다.
-- 병합된 DB migration 릴리스의 `content/releases/evidence/db-migrations/<version>/` 파일도 같은 최종본에
-  포함된다. 내용을 현재 계약으로 다시 읽지 않고, 기존 파일의 변경·삭제·이름 변경·대체와 해당 버전 경로의
-  사후 추가를 모두 금지한다.
+- `main`에 들어간 개별 DB migration evidence 파일은 즉시 불변이다. release record가 이미 병합된 version에는
+  새 evidence도 추가하지 않는다. 단, release record 없는 completed dev checkpoint version은 기존 dev bytes를
+  바꾸지 않은 채 이후 prod evidence와 그 dev graph를 소비하는 최종 release record를 한 번 추가할 수 있다.
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
 - `버전 매핑`에는 아래 기준점을 함께 기록한다.
     - `docs` 기록 버전/태그
@@ -126,28 +126,23 @@
 - `docs` scope의 `released` 판정은 최종 릴리즈 기록이 병합 가능한 상태로 확정되고 `versionMapping.docs.tag`에 병합 후 생성할 docs tag가 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
 - `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
-- 신규 `db-migration` evidence는 개발계·운영계의 `plan.json`과 `execution.jsonl` 두 파일씩만 참조한다.
-  증빙은 `dev plan → dev execution → prod plan → prod execution`의 연속된 prefix만 허용한다.
-  최초 `pending`에서는 dev plan과 SHA-256만 고정하고, 개발계 완료 뒤 dev execution에 결속된 prod plan을
-  같은 미병합 PR에 추가한다. 변경된 PR head의 preflight를 다시 통과한 뒤 운영계를 실행하며, terminal
-  상태에서는 네 파일의 실제 bytes checksum과 DB ledger 완료가 일치해야 한다.
-- 단, canonical executor 도입 전에 운영 migration이 완료된 `v2.3.0`만
-  `db-migration-precanonical-transition-evidence/v1`의 일회성 운영 처분을 허용한다. 현재 live
-  catalog/ledger/postcondition을 read-only로 검증하고 과거 execution을 사후 제조하지 않으며,
-  `db-migration` scope가 `released`일 때만 사용한다. 후속 릴리스와 rollback 증빙에는 이 예외를 재사용하지
-  않는다.
-- `v2.4.0` DB scope의 migration 98·99 긴급 완료 처분만
-  `db-migration-emergency-completion-evidence/v1`을 허용한다. 누락된 plan/execution은 사후 제조하지 않고
-  다른 릴리스·rollback에 재사용하지 않으며, 상세 증빙 조건은
+- 신규 `db-migration` canonical evidence는 현재 단계의 root plan과 nullable execution 한 쌍만 직접
+  참조한다. `planned`는 null/null, `pending`은 dev plan/null 또는 completed dev pair, `in_progress`는 완료된
+  dev pair를 내부에 묶은 prod plan/null, terminal은 prod plan/execution을 root로 둔다. 개발계 완료 뒤 root를 prod plan으로
+  전진시킨 같은 미병합 PR에서 preflight를 통과한 뒤 운영계를 실행한다. 검증기는 root에서 dev·failed
+  이력까지 따라가 실제 bytes SHA-256과 execution의 environment/plan 결속을 확인하고 도달할 수 없는
+  artifact를 거부한다.
+- Canonical chain 없이 이미 적용된 작업은 같은 v1의 `kind: violation`으로만 사실과 한계를 남긴다. 이 형식은
+  실행·개발계에서 운영계로의 전환·rollback 또는 API `runtimeRecovery.stateSafety`의 근거가 아니며, 상세 조건은
   [DB Migration Gate 정책](db-migration-gate-policy.md)을 따른다.
-- Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 exact
-  artifact 경로·bytes SHA-256만 묶는다. 과거 기록과 DB artifact는 schema·상태·증빙을 읽지 않고 경로·blob
-  불변성만 확인한다.
+- Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 root
+  artifact graph, bytes SHA-256과 plan/execution envelope만 묶는다. 과거 기록과 DB artifact는
+  schema·상태·증빙을 읽지 않고 경로·blob 불변성만 확인한다.
 - `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
 - `rolled_back`은 사유만으로 닫지 않는다. descriptor가 전용 rollback evidence를 정의하면 그것을 사용하고,
   정의하지 않은 `contracts-package`, `mobile-store`, `mobile-nextpush`, `docs`는
-  `scopeResults.<scope>.rollbackEvidence`에 실제 되돌림 결과를 기록한다. `db-migration`은 dev/prod
-  maintenance execution artifact를 rollback 증빙으로 사용한다.
+  `scopeResults.<scope>.rollbackEvidence`에 실제 되돌림 결과를 기록한다. `db-migration`은 dev 이력에 결속된
+  terminal prod maintenance execution artifact를 rollback 증빙으로 사용한다.
 - 릴리즈 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
 - SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리즈 자동화 변경과 함께 기록한다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `release-metadata.extraRepoRefs`에 canonical repo name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
@@ -187,19 +182,19 @@
 - terminal evidence hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다.
   `planned`/`pending`/`in_progress`의 아직 도달하지 않은 후속 artifact와 준비 중 placeholder,
   `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 완료 증빙으로 요구하지 않는다.
-  단, 이미 존재하는 구조화 artifact의 closed shape·환경 순서·bytes SHA와 미병합 PR preflight 기준점은
-  다음 운영성 실행의 admission invariant로 fail-closed 검증한다.
+  단, 이미 존재하는 구조화 artifact의 closed shape·환경 순서·bytes SHA는 fail-closed 검증하고, 미병합 PR
+  preflight 기준점은 운영계 실행의 admission invariant로 사용한다.
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck한다. 실패나 사실 오류는 기존 기록을 바꾸지 않고 이슈·장애 기록에서 추적한다. 실제 새 배포가 없으면 정정용 릴리스 기록을 만들지 않는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리즈는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
-- 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
+- 운영 배포 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
   `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
   head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
   metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
   `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB
-  migration scope는 canonical executor가 단계별로 만든 연속된 artifact prefix와 같은 PR head의 exact
-  SHA-256을 확인한다. dev execution 또는 prod plan을 추가해 PR head가 바뀌면 다음 환경 실행 전에
-  preflight를 다시 통과해야 한다.
+  migration scope는 canonical executor가 만든 현재 root와 거기서 도달하는 artifact graph의 exact SHA-256을
+  확인한다. 운영 실행 전에는 완료된 dev pair를 참조하는 prod plan이 root인 현재 PR head로 preflight를
+  통과해야 한다.
 - 서비스 버전 매핑은 원격 annotated 태그가 확정되기 전에는 해당 레포의 현재 `origin/main`과 정확히
   일치해야 한다. 배포·검증 뒤 원격 annotated 태그와 commit이 같은 기준점으로 고정되면 그 태그가 불변
   릴리스 기준이 되며, 후속 작업으로 `main`이 전진해도 이미 배포된 commit을 새 `main`으로 바꾸지 않는다.
@@ -235,9 +230,13 @@
   시나리오, rollback 기준이 고정되어 운영 배포를 시작할 수 있는 상태다. 자동 검증은 PR 내부 커밋의 상태
   순서나 과거 snapshot을 검사하지 않고 현재 최종본만 검증한다.
 - `in_progress`는 일부 범위가 이미 끝났지만 외부 승인이나 후속 범위가 남아 단일 실행에서 바로 `released`로 전환할 수 없는 장기 릴리스에 사용한다.
-- DB migration scope는 최초 dev plan을 `pending`에 고정하고 개발계 실행을 시작한 뒤 `in_progress`로
-  진행할 수 있다. dev execution 뒤 생성한 prod plan이 같은 PR head에 결속되고 preflight가 다시 통과하기
-  전에는 운영 DB 실행으로 넘어가지 않는다.
+- 개발계 migration은 API executor로 먼저 실행하고 immutable dev plan/execution을 보존할 수 있다. 운영 준비
+  시 그 pair를 참조하는 prod plan을 root로 `in_progress` 기록에 고정하고, 같은 PR head의 preflight를
+  통과하기 전에는 운영 DB 실행으로 넘어가지 않는다. 릴리스 기록을 개발계 실행 전에 열었다면 dev plan/null,
+  실행 뒤에는 completed dev pair의 `pending` 단계를 사용할 수 있지만 docs PR과 preflight는 개발계 실행의
+  선행조건이 아니다. 운영까지의 간격이 길면 release record 없이 dev graph만 먼저 `main`에 checkpoint로
+  병합한다. 같은 version의 release record PR은 그 exact graph를 참조하는 canonical prod plan root로
+  소비하고 운영 완료 전까지 미병합 상태로 유지한다.
 - Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
 - Store 승인, 운영 출시, 기본 smoke, 모바일 릴리즈 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
 - 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
@@ -290,8 +289,8 @@
 - [ ] 포함·제외 scope와 `N/A` 근거가 release metadata와 사람이 읽는 mirror에서 일치하는가?
 - [ ] 전체 상태가 scope 결과에서 파생된 상태와 일치하고, 허용되지 않은 역전이나 기준점 변경이 없는가?
 - [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
-- [ ] DB migration 증빙이 환경 순서의 연속된 prefix이고 변경된 PR head마다 다음 환경 실행 전 preflight를
-      다시 통과했는가?
+- [ ] DB migration root가 현재 단계와 일치하고 dev·failed 이력까지 모두 도달 가능하며, 운영 실행 전 prod
+      plan root를 담은 현재 PR head의 preflight를 통과했는가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [배포 태그 정책](release-tag-policy.md), Gate 순서는 릴리즈 자동화 파이프라인, 명령과
       rollback은 운영 배포 명령어 런북을 단일 기준으로 사용하는가?

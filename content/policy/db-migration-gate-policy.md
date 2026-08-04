@@ -39,7 +39,7 @@ marker, Gate별 N/A 표는 신규 migration 계약이 아니다.
 | migration별 검증 | 해당 migration의 setup/check fixture와 SQL 자체의 pre/postcondition |
 | 환경별 적용 완료 | 각 DB의 `schema_migrations` ledger |
 | baseline 교체 권한과 원본 | base-owned capture authority |
-| 운영 실행 기록 | 환경별 `plan.json`, `execution.jsonl` |
+| 운영 실행 기록 | 환경별 root pair와 root에서 도달하는 immutable failed-history pair |
 
 `main`에 이미 병합된 migration SQL 전체는 수정하거나 삭제하지 않는다. baseline에 포함돼도 SQL, checksum,
 catalog entry와 ledger row를 보존한다.
@@ -264,40 +264,54 @@ backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PI
 - 운영계: `content/releases/evidence/db-migrations/<version>/prod/plan.json`,
   `execution.jsonl`
 
-릴리스 metadata의 증빙은 `dev plan → dev execution → prod plan → prod execution` 순서의 연속된
-prefix만 허용하고, 존재하는 파일의 repo-relative path와 실제 bytes SHA-256을 기록한다. 최초 `pending`은
-dev plan만 고정할 수 있다. 개발계 execution을 완료한 뒤에만 그 dev plan/execution bytes SHA를 참조하는
-prod plan을 생성·추가하고, 변경된 미병합 PR head에서 preflight를 다시 통과한 뒤 운영계를 실행한다.
-`pending`과 `in_progress`에서는 아직 도달하지 않은 후속 artifact를 `null`로 두며, `released` 또는
-`rolled_back`에서는 네 파일이 모두 존재해야 한다.
+릴리스 metadata의 `kind: canonical` 증빙은 현재 단계의 root `plan`과 nullable `execution` 한 쌍만 직접
+참조한다. `planned`는 `plan: null, execution: null`, `pending`은 dev plan과 nullable dev execution,
+`in_progress`는 완료된 dev plan/execution을 내부에서 참조하는 prod plan과 `execution: null`,
+`released | rolled_back`은 그 prod plan과 완료된 prod execution을 기록한다. `pending`의 dev execution이
+있으면 `service-completed`로 끝난 완전한 pair여야 하며 partial·failed execution은 허용하지 않는다.
+개발계 execution을 완료한 뒤에만 prod plan을 생성하고, root를 prod plan으로 전진시킨 미병합 PR
+head에서 preflight를 통과한 뒤 운영계를 실행한다. 개발계 plan/execution 생성과 실행은 API executor가
+자체 안전 Gate로 수행하며, docs PR이나 preflight를 선행조건으로 요구하지 않는다. 검증기는 root execution의
+environment와 `planSha256`, prod plan 내부 dev pair와 복구 plan 내부 failed pair를 실제 archive bytes/SHA까지
+따라가며,
+root에서 도달할 수 없는 같은 버전의 artifact를 거부한다. dev/prod root와 도달 가능한 failed-history는
+보존하지만 metadata에 같은 참조를 중복 기록하지 않는다. 후속 릴리스로 대체된 `superseded` scope는
+마지막으로 도달한 dev 또는 prod root pair를 그대로 보존하며, 이를 운영 실행이나 완료 증빙으로 재사용하지
+않는다.
 
-`v2.3.0`은 canonical executor 도입 전에 운영 migration이 이미 완료된 전환 릴리스이므로 단 한 번
-`db-migration-precanonical-transition-evidence/v1`을 허용한다. 이 schema는 개발계 canonical
-plan/execution을 그대로 요구하고 운영 plan/execution은 `null`로 보존한다. 대신 `prodDisposition`에
-현재 canonical catalog·ledger compatibility SHA, 운영 DB identity·schema fingerprint, 전체 catalog
-resolved count, pending/adjudicable gap 0건, migration 91 live postcondition, 과거 작업자 보관 증빙과
-canonical execution을 사후 생성하지 않았다는 한계를 기록한다. 검증기는 이 처분을 `v2.3.0`의 `released`
-DB scope에서만 허용하고, catalog·ledger compatibility·entry count를 개발계 canonical plan과 결속한다.
-후속 릴리스는 이 schema를 재사용할 수 없으며 표준 네 artifact 없이는 DB scope를 terminal로 닫지 않는다.
-이 처분은 실행 방식이나 표준 절차의 예외가 아니며 `v2.3.0` 운영 DB의 추가 write·migration 재실행을
-허용하지 않는다.
+개발계 완료와 운영 실행 사이가 현재 작업 세션보다 길면 완료된 dev root pair와 그 root에서 도달 가능한
+failed-history만 release record 없는 checkpoint PR로 먼저 `main`에 병합한다. 이 PR은 같은 evidence schema를
+재사용하며 별도 checkpoint manifest를 만들지 않는다. 검증기는 신규 no-record evidence를 completed dev
+graph로 검증하고, `main`에 들어간 각 artifact의 수정·삭제·교체와 같은 version의 추가 no-record artifact를
+거부한다. checkpoint의 version은 배타적으로 예약된다. 운영 전환을 취소하거나 catalog·migration bytes,
+ledger compatibility, runtime contract가 달라져 기존 dev pair가 prod plan을 통과하지 못하면 그 version을
+재사용하지 않고 더 높은 version에서 개발계 검증을 다시 수행한다. 같은 version의 최초 release record는
+`db-migration` canonical prod plan root로 이 checkpoint를 소비해야 하며 scope 누락, `kind: violation`, 다른 dev bytes를
+허용하지 않는다. checkpoint PR에는 release record를 넣지 않고, prod plan을 담은 release record PR은 운영
+완료 전까지 미병합 상태로 유지한다.
 
-`v2.4.0`의 migration 98·99는 긴급 운영 대응으로 canonical dev/prod plan·execution 생성 전에 운영 적용이
-끝난 단일 과거 실행이다. 이 릴리스만 `db-migration-emergency-completion-evidence/v1`로 닫을 수 있다.
-증빙은 API `v2.4.0` source ref, 현재 production DB identity·schema fingerprint, catalog와 sealed ledger
-compatibility checksum, catalog 26/26 resolved·pending/gap 0, migration 98·99의 exact file/checksum·ledger와
-live postcondition, 사전 backup digest, writer fence·resume smoke, canonical execution이 없으며 사후 생성하지
-않았다는 한계를 release metadata 안에 함께 고정한다. 검증기는 위 값을 `v2.4.0`의 `released` DB scope에만
-허용하며 다른 version, rollback 또는 신규 migration에 재사용하지 않는다. 이 처분은 이미 끝난 98·99를
-재실행하거나 일반 maintenance 절차를 바꾸는 권한이 아니다.
+`pending` dev root는 metadata/checkpoint 검증에는 유효하지만 운영 preflight admission은 아니다. 운영 실행
+직전에는 `in_progress` canonical prod plan/null root만 허용한다. `main`에 checkpoint가 있으면 preflight도
+그 version의 모든 dev·failed-history bytes를 현재 PR과 byte-for-byte 비교하고 최초 record가
+`in_progress | released | rolled_back` canonical prod root로 소비하는지 확인한다. DB scope가 이미
+`released | rolled_back`이고 다른 scope만 남은 뒤의 preflight는 완료된 prod graph를 보존한 채 계속할 수
+있다. 더 높은 version은 이전 version의 dev root pair를 복사할 수 없고 새 개발계 실행으로 다시 검증한다.
+
+Canonical chain 없이 이미 실행된 작업은 같은 v1의 `kind: violation`으로만 사실을 기록한다. 이는 실행 경로가
+아니며 이미 적용된 `released` scope에만 허용하고 `pending | in_progress | rolled_back`, 운영 실행 승인,
+개발계에서 운영계로의 전환 또는 `runtimeRecovery.stateSafety` 근거로 사용할 수 없다. release/API ref, 검증
+시각, production DB identity·schema fingerprint, catalog와 ledger compatibility checksum, 전체 catalog
+resolved·pending/gap 0,
+대상 migration의 exact file/checksum·ledger·live postcondition, 사전 backup digest, writer fence·resume smoke,
+canonical execution을 사후 제조하지 않았다는 한계를 모두 기록해야 한다.
 
 `main`에 이미 병합된 모든 릴리스 기록은 불투명한 역사적 최종본이다. DB evidence의 schema·상태·내용을
 파싱하거나 현재 계약으로 재검증하지 않고, 파일 전체의 경로·blob 불변성만 확인한다.
 
-Canonical maintenance executor는 plan/execution의 의미, live DB 결과와 재개 가능 여부를 검증한다. Docs
-검증은 이 의미 검증을 복제하지 않고 신규 릴리스 기록이 참조한 네 regular file의 고정 경로와 실제 bytes
-SHA-256만 확인한다. 따라서 경로와 SHA-256만으로 실행 완료를 새로 추론하지 않고, executor가 완료한
-execution을 정확히 묶는 역할만 한다.
+Canonical maintenance executor는 plan/execution의 의미, live DB 결과와 재개 가능 여부를 검증한다. Docs는
+migration 의미나 live DB 판정을 복제하지 않는다. 신규 기록의 root graph가 가리키는 regular file의
+경로·bytes SHA-256, plan/execution envelope 결속과 완료 event만 확인해 executor가 검증한 이력을 정확히
+묶는다.
 
 ## 완료 조건
 
@@ -307,7 +321,7 @@ execution을 정확히 묶는 역할만 한다.
       supersededRefs[].ref + pendingRefs`로 exact partition하고 adjudicable gap은 pending subset인가?
 - [ ] 이전·현재·필요한 혼합 runtime, 변경 경계, 상태 표면, 허용 phase와 복구 전략이 plan에 선언됐는가?
 - [ ] 같은 catalog/runtime-contract SHA의 개발계 완료 뒤 운영계를 실행했는가?
-- [ ] 릴리스 증빙이 dev plan부터 연속된 prefix이고 prod plan 추가 뒤 변경된 PR head의 preflight를 다시
+- [ ] 완료된 dev pair를 참조하는 prod plan이 현재 root이며, 운영 실행 전 그 미병합 PR head의 preflight를
       통과했는가?
 - [ ] sealed gap은 후행 ledger evidence와 live postcondition으로 별도 판정·ledger-only repair했고,
       나머지 pending ref는 순서대로 postcondition과 ledger를 완료했는가?
@@ -316,7 +330,8 @@ execution을 정확히 묶는 역할만 한다.
 - [ ] 복구했다면 target의 새 RESUMED marker와 fresh 시작 watermark 뒤에 runtime을 열었는가?
 - [ ] post-resume rollback을 허용했다면 수락 write·queue·외부효과의 무손실 보존 증빙이 있는가?
 - [ ] 전체 postcheck, 재기동과 현재 완전 릴리즈 smoke가 완료됐는가?
-- [ ] 환경별 산출물이 plan과 execution 두 개뿐인가?
+- [ ] 환경별 root가 `plan.json`/`execution.jsonl` 한 쌍이고, 복구 이력은
+      `history/<failed-plan-sha256>/`의 도달 가능한 immutable pair만 존재하는가?
 
 ## 연결 문서
 
