@@ -361,6 +361,257 @@ describe("validate release records metadata sync", () => {
 });
 
 describe("published release record immutability", () => {
+  it("accepts a completed dev pair as a standalone durable checkpoint", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence({ completed: true });
+    commitAll("completed dev checkpoint");
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("requires a higher version to run a fresh dev checkpoint instead of copying one", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    writePendingMaintenanceEvidence({ completed: true, version: "v9.8.0" });
+    commitAll("earlier version checkpoint");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence({ completed: true, version: "v9.9.0" });
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /new version must be requalified in dev.*v9\.8\.0/);
+  });
+
+  it("rejects same-PR DB artifacts when the new release record omits the DB scope", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence();
+    writeReleaseRecord({
+      apiContractCutover: null,
+      includeCutoverGate: false,
+    });
+    commitAll("unowned partial dev evidence");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /same-version DB migration artifacts require a canonical db-migration scope/,
+    );
+  });
+
+  it("validates an untracked standalone checkpoint during local verification", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence();
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /standalone completed dev checkpoint requires both dev\/plan\.json and dev\/execution\.jsonl/,
+    );
+  });
+
+  it("rejects a standalone checkpoint reached through an ancestor symlink", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence({ completed: true });
+    const evidenceRoot = path.join(
+      tempRoot,
+      "content",
+      "releases",
+      "evidence",
+      "db-migrations",
+    );
+    const versionRoot = path.join(evidenceRoot, "v9.9.0");
+    const targetRoot = path.join(evidenceRoot, "checkpoint-target");
+    fs.renameSync(versionRoot, targetRoot);
+    fs.symlinkSync("checkpoint-target", versionRoot, "dir");
+    commitAll("symlinked checkpoint");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /standalone completed dev checkpoint requires both dev\/plan\.json and dev\/execution\.jsonl|vMAJOR\.MINOR\.PATCH namespace/,
+    );
+  });
+
+  it("rejects malformed evidence namespace roots instead of leaving them mutable", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeOpaqueDbMigrationEvidence("checkpoint-target", "dev", "plan.json", "opaque\n");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /DB migration evidence must be stored under a vMAJOR\.MINOR\.PATCH namespace/);
+  });
+
+  it("rejects incomplete or extra standalone checkpoint artifacts", () => {
+    for (const fixture of ["plan-only", "partial-execution", "extra-artifact"]) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
+      initGitRepository();
+      fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+      commitAll("baseline");
+      const baseRef = git(["rev-parse", "HEAD"]);
+      const evidence = writePendingMaintenanceEvidence({ completed: fixture !== "plan-only" });
+      if (fixture === "partial-execution") {
+        const executionPath = path.join(tempRoot, evidence.execution.path);
+        const firstEvent = fs.readFileSync(executionPath, "utf8").split("\n")[0];
+        fs.writeFileSync(executionPath, `${firstEvent}\n`);
+      }
+      if (fixture === "extra-artifact") {
+        writeOpaqueDbMigrationEvidence(
+          "v9.9.0",
+          "prod",
+          "plan.json",
+          "unbound production plan\n",
+        );
+      }
+      commitAll(`invalid checkpoint ${fixture}`);
+
+      const result = runValidator(baseRef);
+
+      assert.notEqual(result.status, 0, fixture);
+      assert.match(
+        result.stderr,
+        /requires both dev\/plan\.json and dev\/execution\.jsonl|must prove phase-fenced.*service-completed|contains orphan artifacts/,
+      );
+    }
+  });
+
+  it("requires the first release record for a checkpoint version to consume canonical DB evidence", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    writePendingMaintenanceEvidence({ completed: true });
+    commitAll("completed dev checkpoint");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeReleaseRecord({
+      apiContractCutover: null,
+      includeCutoverGate: false,
+    });
+    commitAll("release record missing DB scope");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /is reserved by a standalone dev checkpoint and must include the db-migration scope/,
+    );
+  });
+
+  it("does not let violation evidence consume a standalone dev checkpoint", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    writePendingMaintenanceEvidence({ completed: true });
+    commitAll("completed dev checkpoint");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writeReleaseRecord({
+      releaseStatus: "released",
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      metadataReleaseScopes: ["docs", "db-migration"],
+      metadataScopeResults: {
+        docs: { status: "released", summary: "docs released", evidence: {} },
+        "db-migration": {
+          status: "released",
+          summary: "invalid violation substitution",
+          evidence: {
+            schema: "db-migration-maintenance-evidence/v1",
+            kind: "violation",
+            violation: {},
+          },
+        },
+      },
+      scopeTargetLine: "`docs`, `coupler-api`",
+      pendingScopeLine: "N/A",
+      markdownDocsCommit: "N/A",
+    });
+    commitAll("invalid checkpoint disposition");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /must consume its standalone dev checkpoint through a canonical prod plan root/,
+    );
+  });
+
+  it("allows an unpublished release record to advance the exact dev checkpoint to a prod plan", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const evidence = writePendingMaintenanceEvidence({ completed: true });
+    commitAll("completed dev checkpoint");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    const prodEvidence = writeProdPlanForCheckpoint(evidence);
+    writeReleaseRecord({
+      releaseStatus: "in_progress",
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      metadataReleaseScopes: ["docs", "db-migration"],
+      metadataScopeResults: {
+        docs: { status: "in_progress", summary: "docs pending", evidence: {} },
+        "db-migration": {
+          status: "in_progress",
+          summary: "fresh prod plan binds the completed dev checkpoint",
+          evidence: prodEvidence,
+        },
+      },
+      scopeTargetLine: "`docs`, `coupler-api`",
+      pendingScopeLine: "운영 maintenance 준비",
+      verificationNote: "fresh prod plan binds the completed dev checkpoint SHA-256",
+    });
+    commitAll("unpublished release preparation");
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("keeps a standalone dev checkpoint immutable before the release record exists", () => {
+    initGitRepository();
+    fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
+    commitAll("baseline");
+    const evidence = writePendingMaintenanceEvidence({ completed: true });
+    commitAll("completed dev checkpoint");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    fs.writeFileSync(path.join(tempRoot, evidence.plan.path), "rewritten plan bytes\n");
+    commitAll("rewrite checkpoint");
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /DB migration evidence already present in the base ref.*is final and immutable/,
+    );
+  });
+
   it("does not parse or revalidate an unchanged release record already present at base", () => {
     initGitRepository();
     writeOpaqueRelease("v1.0.0.md", "historical bytes are intentionally opaque\n");
@@ -370,6 +621,19 @@ describe("published release record immutability", () => {
     const result = runValidator(baseRef);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("rejects untracked DB evidence added to a version whose release is already published", () => {
+    initGitRepository();
+    writeOpaqueRelease("v9.9.0.md", "historical bytes are intentionally opaque\n");
+    commitAll("published release");
+    const baseRef = git(["rev-parse", "HEAD"]);
+    writePendingMaintenanceEvidence({ completed: true });
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /published release cannot receive new untracked or tracked DB migration evidence/);
   });
 
   it("rejects editing a release record already present at base", () => {
@@ -449,7 +713,7 @@ describe("published release record immutability", () => {
       assert.notEqual(result.status, 0);
       assert.match(
         result.stderr,
-        /DB migration evidence for a release already present in the base ref is final and immutable/,
+        /DB migration evidence already present in the base ref.*is final and immutable/,
       );
       assert.doesNotMatch(result.stderr, /release-metadata block is required/);
     }
@@ -472,7 +736,7 @@ describe("published release record immutability", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stderr,
-      /DB migration evidence for a release already present in the base ref is final and immutable/,
+      /DB migration evidence already present in the base ref.*is final and immutable/,
     );
     assert.doesNotMatch(result.stderr, /release-metadata block is required/);
   });
@@ -1066,8 +1330,7 @@ function apiPublicContractEvidence(cutover) {
   };
 }
 
-function writePendingMaintenanceEvidence() {
-  const version = "v9.9.0";
+function writePendingMaintenanceEvidence({ completed = false, version = "v9.9.0" } = {}) {
   const root = path.join(
     tempRoot,
     "content",
@@ -1076,21 +1339,231 @@ function writePendingMaintenanceEvidence() {
     "db-migrations",
     version,
   );
-  const devPlan = Buffer.from('{"environment":"dev"}\n');
+  const devPlan = Buffer.from(`${JSON.stringify({
+    schema: "db-migration-maintenance-plan/v3",
+    environment: "dev",
+    createdAt: "2026-08-04T00:00:00.000Z",
+    apiSourceRef: "a".repeat(40),
+    databaseIdentitySha256: "b".repeat(64),
+    catalog: { path: "db/schema/schema-contract.json", sha256: "c".repeat(64) },
+    ledgerCompatibility: {
+      path: "db/schema/ledger-compatibility.json",
+      sha256: "d".repeat(64),
+    },
+    appliedRefs: [],
+    recoveredRefs: [],
+    baselineRefs: [],
+    supersededRefs: [],
+    adjudicableLedgerGapRefs: [],
+    pendingRefs: [],
+    devPlan: null,
+    devExecution: null,
+    failedPlan: null,
+    failedExecution: null,
+    runtimeContract: {},
+  }, null, 2)}\n`);
+  const planSha256 = createHash("sha256").update(devPlan).digest("hex");
   fs.mkdirSync(path.join(root, "dev"), { recursive: true });
   fs.writeFileSync(path.join(root, "dev", "plan.json"), devPlan);
+  let execution = null;
+  if (completed) {
+    const devExecution = completedMaintenanceExecution("dev", planSha256);
+    fs.writeFileSync(path.join(root, "dev", "execution.jsonl"), devExecution);
+    execution = {
+      path: `content/releases/evidence/db-migrations/${version}/dev/execution.jsonl`,
+      sha256: createHash("sha256").update(devExecution).digest("hex"),
+    };
+  }
   return {
     schema: "db-migration-maintenance-evidence/v1",
-    dev: {
-      plan: {
-        path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
-        sha256: createHash("sha256").update(devPlan).digest("hex"),
-      },
-      execution: null,
+    kind: "canonical",
+    plan: {
+      path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
+      sha256: planSha256,
     },
-    prod: {
-      plan: null,
-      execution: null,
-    },
+    execution,
   };
+}
+
+function writeProdPlanForCheckpoint(devEvidence) {
+  const version = "v9.9.0";
+  const prodPlan = Buffer.from(`${JSON.stringify({
+    schema: "db-migration-maintenance-plan/v3",
+    environment: "prod",
+    createdAt: "2026-08-05T00:00:00.000Z",
+    apiSourceRef: "a".repeat(40),
+    databaseIdentitySha256: "e".repeat(64),
+    catalog: { path: "db/schema/schema-contract.json", sha256: "c".repeat(64) },
+    ledgerCompatibility: {
+      path: "db/schema/ledger-compatibility.json",
+      sha256: "d".repeat(64),
+    },
+    appliedRefs: [],
+    recoveredRefs: [],
+    baselineRefs: [],
+    supersededRefs: [],
+    adjudicableLedgerGapRefs: [],
+    pendingRefs: [],
+    devPlan: {
+      path: `.runtime/db-migrations/${version}/dev/plan.json`,
+      sha256: devEvidence.plan.sha256,
+    },
+    devExecution: {
+      path: `.runtime/db-migrations/${version}/dev/execution.jsonl`,
+      sha256: devEvidence.execution.sha256,
+    },
+    failedPlan: null,
+    failedExecution: null,
+    runtimeContract: {},
+  }, null, 2)}\n`);
+  const prodRoot = path.join(
+    tempRoot,
+    "content",
+    "releases",
+    "evidence",
+    "db-migrations",
+    version,
+    "prod",
+  );
+  fs.mkdirSync(prodRoot, { recursive: true });
+  fs.writeFileSync(path.join(prodRoot, "plan.json"), prodPlan);
+  return {
+    schema: "db-migration-maintenance-evidence/v1",
+    kind: "canonical",
+    plan: {
+      path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
+      sha256: createHash("sha256").update(prodPlan).digest("hex"),
+    },
+    execution: null,
+  };
+}
+
+function closedWriterInventory(runtimeSet) {
+  const [unit] = runtimeSet.units;
+  return [
+    {
+      state: "present",
+      id: `${unit.id}-writer`,
+      kind: unit.kind,
+      runtimeUnitId: unit.id,
+      sourceRef: unit.sourceRef,
+      compatibilityConfigSha256: unit.compatibilityConfigSha256,
+      owner: "API owner",
+      stopEvidence: "writer stopped",
+      verificationEvidence: "writer stop verified",
+      sideEffectStopEvidence: "side effects stopped",
+    },
+    ...["admin", "websocket", "cron", "worker", "direct-sql"].map((kind) => ({
+      state: "absent",
+      kind,
+      owner: `${kind} owner`,
+      reason: `${kind} is not deployed`,
+      verificationEvidence: `${kind} absence verified`,
+    })),
+  ];
+}
+
+function evidenceResult(name) {
+  return { procedureRef: `procedure/${name}`, resultRef: `result/${name}` };
+}
+
+function completedMaintenanceExecution(environment, planSha256) {
+  const runtimeSet = {
+    id: `${environment}-next`,
+    release: "next",
+    units: [
+      {
+        id: `${environment}-next-api`,
+        kind: "api",
+        sourceRef: "a".repeat(40),
+        compatibilityConfigSha256: "6".repeat(64),
+        roles: ["db-reader", "db-writer"],
+      },
+    ],
+  };
+  const startMixture = {
+    mixtureId: `${environment}-start`,
+    runtimeSet,
+    schemaState: "plan-start",
+    schemaFingerprintSha256: "4".repeat(64),
+  };
+  const finalMixture = {
+    mixtureId: `${environment}-next-final`,
+    runtimeSet,
+    schemaState: "plan-final",
+    schemaFingerprintSha256: "5".repeat(64),
+  };
+  const eventData = [
+    {
+      type: "phase-fenced",
+      data: {
+        tlsCipher: "TLS_AES_256_GCM_SHA384",
+        writerInventorySha256: "9".repeat(64),
+        writers: closedWriterInventory(runtimeSet),
+        backup: { ref: "backup/dev/example", sha256: "a".repeat(64) },
+        sessions: 0,
+        transactions: 0,
+        mixture: startMixture,
+      },
+    },
+    {
+      type: "database-completed",
+      data: { catalogSha256: "c".repeat(64), ledgerCount: 1 },
+    },
+    { type: "lock-released", data: {} },
+    {
+      type: "fenced-smoke-completed",
+      data: {
+        mixture: finalMixture,
+        mode: "read-only",
+        modeEvidence: {
+          mode: "read-only",
+          readOnlyAccessEvidence: "read-only access verified",
+        },
+        smokeResult: evidenceResult("fenced-smoke"),
+        surfaceResiduals: [],
+      },
+    },
+    { type: "lock-released", data: {} },
+    {
+      type: "phase-resumed",
+      data: {
+        mixture: finalMixture,
+        resumeEvidence: "writers resumed",
+        startWatermarks: [],
+      },
+    },
+    { type: "lock-released", data: {} },
+    {
+      type: "service-completed",
+      data: {
+        activeMixture: finalMixture,
+        restartEvidence: "runtime restarted",
+        smokeEvidence: "smoke passed",
+        recoveryReadinessEvidence: "recovery readiness verified",
+        runningRuntimeSha256: "7".repeat(64),
+        runningUnits: [
+          {
+            runtimeUnitId: `${environment}-next-api`,
+            kind: "api",
+            sourceRef: "a".repeat(40),
+            compatibilityConfigSha256: "6".repeat(64),
+            observationEvidence: "runtime source and config observed",
+          },
+        ],
+        runtimeContractSha256: createHash("sha256")
+          .update(`${JSON.stringify({}, null, 2)}\n`)
+          .digest("hex"),
+      },
+    },
+  ];
+  const events = eventData.map((event, index) => ({
+    schema: "db-migration-maintenance-event/v3",
+    sequence: index + 1,
+    at: new Date(Date.UTC(2026, 7, 4, 0, 0, index)).toISOString(),
+    environment,
+    planSha256,
+    ...event,
+  }));
+  return Buffer.from(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
 }

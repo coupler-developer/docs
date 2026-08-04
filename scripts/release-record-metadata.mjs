@@ -28,6 +28,7 @@ import {
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
 import {
+  isTerminalCanonicalMaintenanceEvidence,
   validateMaintenanceDbMigrationEvidence,
 } from "./db-migration-maintenance-artifacts.mjs";
 
@@ -72,7 +73,7 @@ export function validateReleaseMetadata(
   context,
   expectedVersion,
   errors,
-  { readArtifact } = {},
+  { readArtifact, listArtifacts } = {},
 ) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
@@ -100,7 +101,7 @@ export function validateReleaseMetadata(
 
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
-  validateScopeResults(metadata, context, errors, { readArtifact });
+  validateScopeResults(metadata, context, errors, { readArtifact, listArtifacts });
   validateVersionMapping(metadata.versionMapping, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
@@ -224,7 +225,7 @@ function validateExtraRepoRefs(metadata, context, errors) {
   });
 }
 
-function validateScopeResults(metadata, context, errors, { readArtifact }) {
+function validateScopeResults(metadata, context, errors, { readArtifact, listArtifacts }) {
   const scopeResults = metadata.scopeResults;
   const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
 
@@ -251,7 +252,7 @@ function validateScopeResults(metadata, context, errors, { readArtifact }) {
       scopeResults[scopeName],
       context,
       errors,
-      { readArtifact },
+      { readArtifact, listArtifacts },
     );
   }
 }
@@ -262,7 +263,7 @@ function validateScopeResult(
   result,
   context,
   errors,
-  { readArtifact },
+  { readArtifact, listArtifacts },
 ) {
   const descriptor = releaseScopeDescriptors[scopeName];
   if (!descriptor) {
@@ -315,15 +316,14 @@ function validateScopeResult(
   }
 
   if (scopeName === "db-migration" && result.evidence) {
-    const terminal = result.status === "released" || result.status === "rolled_back";
     errors.push(
       ...validateMaintenanceDbMigrationEvidence({
         evidence: result.evidence,
         version: metadata.version,
         apiSourceRef: metadata.versionMapping?.["coupler-api"]?.commit,
-        terminal,
         scopeStatus: result.status,
         readArtifact,
+        listArtifacts,
         context: `${context}: release-metadata scopeResults.db-migration.evidence`,
       }),
     );
@@ -1202,13 +1202,16 @@ function validateApiRuntimeRecoveryEvidence(
       errors.push(`${context}: release-metadata ${fieldPath}.stateSafety must reference an included db-migration scope`);
     }
     const dbResult = metadata.scopeResults?.["db-migration"];
+    const dbEvidence = dbResult?.evidence;
+    const terminalCanonicalExecution = isTerminalCanonicalMaintenanceEvidence(
+      dbEvidence,
+      metadata.version,
+    );
     if (
-      terminal &&
       (!["released", "rolled_back"].includes(dbResult?.status) ||
-        !dbResult?.evidence?.dev?.execution ||
-        !dbResult?.evidence?.prod?.execution)
+        !terminalCanonicalExecution)
     ) {
-      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety requires terminal dev/prod DB maintenance executions`);
+      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety requires a terminal canonical prod DB maintenance execution`);
     }
   } else if (stateSafety.source === "application-evidence") {
     validateExactObjectKeys({

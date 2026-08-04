@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   getMetadataMappingBasis,
   knownRepoNames,
@@ -24,8 +25,12 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
+import { dbMigrationMaintenanceEvidenceSchema } from "./db-migration-maintenance-artifacts.mjs";
 
 const docsRoot = process.cwd();
+const validateReleaseRecordsScript = fileURLToPath(
+  new URL("./validate-release-records.mjs", import.meta.url),
+);
 const errors = [];
 const preflightReleaseStatuses = new Set(["pending", "in_progress"]);
 let args = {};
@@ -55,6 +60,9 @@ if (
     `--pending-ref requires release-metadata status pending or in_progress, got ${releaseRecord.status ?? "unknown"}`,
   );
 }
+if (releaseRecord && args.pendingRef) {
+  validateDbMigrationOperationalAdmission(releaseRecord, errors);
+}
 const preflightRepoNames = releaseRecord
   ? resolvePreflightRepoNames(args.include, releaseRecord, errors)
   : new Set();
@@ -72,6 +80,7 @@ const repoStates = releaseRecord
 
 if (releaseRecord) {
   inspectReleaseRecord(releaseRecord, repoStates, errors);
+  validatePendingReleaseTransition(args.pendingRef, repoStates, errors);
 }
 
 printReport({
@@ -533,6 +542,7 @@ function readReleaseRecord(version, errors, pendingRef) {
     validateReleaseMetadata(metadata, version, version, errors, {
       readArtifact: (relativePath) =>
         readPendingReleaseArtifact(pendingRef, relativePath),
+      listArtifacts: (prefix) => listPendingReleaseArtifacts(pendingRef, prefix),
     });
   }
 
@@ -566,6 +576,10 @@ function readReleaseRecord(version, errors, pendingRef) {
 }
 
 function readPendingReleaseArtifact(pendingRef, relativePath) {
+  return readGitReleaseArtifact(pendingRef, relativePath);
+}
+
+function readGitReleaseArtifact(ref, relativePath) {
   if (
     typeof relativePath !== "string" ||
     path.isAbsolute(relativePath) ||
@@ -579,7 +593,7 @@ function readPendingReleaseArtifact(pendingRef, relativePath) {
   try {
     treeEntry = git(docsRoot, [
       "ls-tree",
-      pendingRef,
+      ref,
       "--",
       relativePath,
     ]);
@@ -594,12 +608,100 @@ function readPendingReleaseArtifact(pendingRef, relativePath) {
     return null;
   }
   try {
-    return execFileSync("git", ["show", `${pendingRef}:${relativePath}`], {
+    return execFileSync("git", ["show", `${ref}:${relativePath}`], {
       cwd: docsRoot,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch {
     return null;
+  }
+}
+
+function listPendingReleaseArtifacts(pendingRef, prefix) {
+  return listGitReleaseArtifacts(pendingRef, prefix);
+}
+
+function listGitReleaseArtifacts(ref, prefix) {
+  if (
+    typeof prefix !== "string" ||
+    !prefix.startsWith("content/releases/evidence/db-migrations/") ||
+    !prefix.endsWith("/") ||
+    path.posix.normalize(prefix) !== prefix
+  ) {
+    return null;
+  }
+  try {
+    const output = git(docsRoot, [
+      "ls-tree",
+      "-r",
+      "--name-only",
+      ref,
+      "--",
+      prefix,
+    ]);
+    return output
+      .split("\n")
+      .filter((relativePath) => relativePath.startsWith(prefix))
+      .sort();
+  } catch {
+    return null;
+  }
+}
+
+function validateDbMigrationOperationalAdmission(releaseRecord, validationErrors) {
+  const dbResult = releaseRecord.metadata?.scopeResults?.["db-migration"];
+  const hasDbScope = releaseRecord.metadata?.releaseScopes?.includes("db-migration") || dbResult;
+  if (!hasDbScope) {
+    return;
+  }
+
+  const expectedProdPlanPath =
+    `content/releases/evidence/db-migrations/${releaseRecord.version}/prod/plan.json`;
+  if (["planned", "pending"].includes(dbResult?.status)) {
+    validationErrors.push(
+      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan root with null execution`,
+    );
+    return;
+  }
+  if (
+    dbResult?.status === "in_progress" &&
+    (dbResult?.evidence?.schema !== dbMigrationMaintenanceEvidenceSchema ||
+      dbResult?.evidence?.kind !== "canonical" ||
+      dbResult?.evidence?.plan?.path !== expectedProdPlanPath ||
+      dbResult?.evidence?.execution !== null)
+  ) {
+    validationErrors.push(
+      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan root with null execution`,
+    );
+    return;
+  }
+}
+
+function validatePendingReleaseTransition(pendingRef, repoStates, validationErrors) {
+  const docsState = repoStates.find((state) => state.name === "docs");
+  if (
+    !pendingRef ||
+    !docsState?.clean ||
+    docsState.originMainFull === null ||
+    resolveLocalCommit(docsRoot, "HEAD") !== pendingRef
+  ) {
+    return;
+  }
+  try {
+    execFileSync(
+      process.execPath,
+      [validateReleaseRecordsScript, "--base-ref", "origin/main"],
+      {
+        cwd: docsRoot,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+  } catch (error) {
+    const details = String(error?.stderr || error?.stdout || error?.message || "").trim();
+    validationErrors.push(
+      `docs: pending release transition validation failed${details ? `: ${details}` : ""}`,
+    );
   }
 }
 
