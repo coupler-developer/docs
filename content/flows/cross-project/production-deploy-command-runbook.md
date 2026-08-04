@@ -154,8 +154,63 @@ Credential, host와 DB identity 원문은 릴리스 기록에 평문으로 넣�
 
 ### 3. Plan과 실행
 
-API 저장소의 maintenance executor로 먼저 개발계 `plan.json`을 생성한다. 최초 릴리스 기록에는 dev plan만
-고정하고 dev execution과 prod plan/execution은 `null`로 둔 채 같은 PR head의 preflight를 통과한다.
+API 저장소의 maintenance executor로 개발계 plan/apply를 수행하고 immutable dev plan/execution을 보존한다.
+개발계 실행에는 docs PR이나 preflight를 선행하지 않는다. 릴리스 기록을 먼저 열어야 하면 `planned`의
+null/null, dev plan/null 또는 completed dev pair인 `pending`을 사용할 수 있지만 선택 사항이다.
+
+명령은 `coupler-api` 저장소 root에서 실행한다. 대상 환경의 `DB_MIGRATION_HOST`,
+`DB_MIGRATION_USER`, `DB_MIGRATION_PASSWORD`, `DB_MIGRATION_DATABASE`, `DB_MIGRATION_SSL_CA_FILE`,
+`DB_MIGRATION_EXPECTED_IDENTITY_SHA256`와 필요 시 `DB_MIGRATION_PORT`를 승인된 secret source로 주입한다.
+값 자체를 셸 이력이나 docs에 기록하지 않는다. 개발계의 정상 실행 순서는 다음과 같다.
+
+```bash
+MIGRATION_VERSION=vX.Y.Z
+MIGRATION_ROOT=".runtime/db-migrations/${MIGRATION_VERSION}"
+
+pnpm db:migration:maintenance -- plan \
+  --environment dev \
+  --plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --runtime-contract "${MIGRATION_ROOT}/inputs/runtime-contract.json"
+
+pnpm db:migration:maintenance -- apply \
+  --environment dev \
+  --plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
+  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
+  --runtime-mixture DEV_PLAN_START_MIXTURE_ID \
+  --backup-ref DEV_BACKUP_REF \
+  --backup-sha256 DEV_BACKUP_MANIFEST_SHA256
+
+pnpm db:migration:maintenance -- fenced-smoke \
+  --environment dev \
+  --plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
+  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
+  --runtime-mixture DEV_FINAL_MIXTURE_ID \
+  --proof "${MIGRATION_ROOT}/inputs/dev-fenced-smoke-proof.json"
+
+pnpm db:migration:maintenance -- resume \
+  --environment dev \
+  --plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
+  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
+  --runtime-mixture DEV_FINAL_MIXTURE_ID \
+  --surface-watermarks "${MIGRATION_ROOT}/inputs/dev-surface-watermarks.json" \
+  --resume-evidence DEV_RESUME_EVIDENCE_REF
+
+pnpm db:migration:maintenance -- complete \
+  --environment dev \
+  --plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
+  --runtime-mixture DEV_FINAL_MIXTURE_ID \
+  --running-runtime-inventory "${MIGRATION_ROOT}/inputs/dev-running-runtime-inventory.json" \
+  --restart-evidence DEV_RESTART_EVIDENCE_REF \
+  --smoke-evidence DEV_SMOKE_EVIDENCE_REF \
+  --recovery-readiness-evidence DEV_RECOVERY_READINESS_EVIDENCE_REF
+```
+
+`MIGRATION_VERSION`과 대문자 placeholder는 실제 승인값으로 바꾼다. `complete`가
+`service-completed`를 기록하기 전에는 dev execution을 완료 checkpoint로 취급하지 않는다.
 Plan은 catalog 전체를
 `appliedRefs + recoveredRefs[].ref + baselineRefs + supersededRefs[].ref + pendingRefs`로 exact
 partition하고 pending 순서를 고정해야 한다. `adjudicableLedgerGapRefs`는 pending의 exact subset이며
@@ -176,6 +231,52 @@ mutation 전에 실패하는 leading query 또는 stored routine guard다. lock 
 outcome event에 귀속한다. 실패·중단 또는 부분 적용을 완료 ledger로 기록하지 않는다.
 모든 execution event의 environment와 `planSha256`이 현재 plan과 정확히 일치해야 하며 다른 plan의 완료
 execution을 fast path나 재진입 근거로 사용하지 않는다.
+
+#### 개발계 완료와 운영 실행 사이가 긴 경우
+
+시간 간격 자체에는 제한을 두지 않는다. 개발계 완료 직후 아래 두 root 파일과 dev plan에서 도달 가능한
+failed-history를 docs canonical path에 byte-for-byte 복사하고 SHA-256을 대조한다.
+
+- `content/releases/evidence/db-migrations/<version>/dev/plan.json`
+- `content/releases/evidence/db-migrations/<version>/dev/execution.jsonl`
+
+운영을 같은 작업 세션에서 진행하지 않으면 이 evidence만 넣은 checkpoint PR에서 `yarn verify`를 통과시켜
+`main`에 병합한다. release record와 prod artifact는 넣지 않는다. 이 병합으로 version이 예약되고 dev graph는
+수정·삭제·교체할 수 없게 된다. 운영 전환을 취소하거나 prod plan이 catalog, migration bytes,
+ledger compatibility 또는 runtime contract 불일치로 dev pair를 거부하면 이 version을 재사용하지 않고 더 높은
+version에서 개발계 검증부터 다시 시작한다.
+
+며칠 또는 몇 달 뒤 운영을 준비할 때는 최신 docs `main`의 dev root bytes를 `coupler-api` root 아래
+`.runtime/db-migrations/<version>/dev/`로 복원한다. dev plan의 failed artifact ref가 있으면 canonical
+`history/<failed-plan-sha256>/` bytes도 plan에 기록된 API-relative path로 복원한다. 복원 과정에서 JSON을 다시
+직렬화하거나 execution 줄을 합치지 않는다. 각 ref의 SHA-256이 복원한 bytes와 다르면 중단한다.
+
+운영 plan은 과거에 미리 만들어 두지 않고 운영 당일 live production DB에서 새로 만든다. 최종 API 40자
+source ref를 checkout하고, dev plan의 `runtimeContract`와 동일한 JSON 입력을 준비한 뒤 다음 명령을 실행한다.
+
+```bash
+MIGRATION_VERSION=vX.Y.Z
+MIGRATION_ROOT=".runtime/db-migrations/${MIGRATION_VERSION}"
+
+pnpm db:migration:maintenance -- plan \
+  --environment prod \
+  --plan "${MIGRATION_ROOT}/prod/plan.json" \
+  --runtime-contract "${MIGRATION_ROOT}/inputs/prod-runtime-contract.json" \
+  --dev-plan "${MIGRATION_ROOT}/dev/plan.json" \
+  --dev-execution "${MIGRATION_ROOT}/dev/execution.jsonl"
+```
+
+executor가 dev pair의 bytes SHA, 완료 event, catalog, ledger compatibility와 runtime contract를 다시 확인한다.
+성공한 fresh prod plan을 docs canonical prod path에 복사하고, 같은 version의 release record를
+`in_progress`·prod plan/null root로 작성한 미병합 PR head에서 preflight를 통과시킨다. 그 뒤 운영계에서도
+위의 `apply -> fenced-smoke -> resume -> complete` 순서와 동일한 필수 옵션을 사용하되 `--environment prod`,
+prod plan/execution 및 운영 inventory·backup·evidence만 입력한다. 완료된 prod execution을 canonical path와
+terminal release record에 추가한 뒤에만 해당 PR을 병합한다.
+
+운영 execution event가 하나도 생성되기 전에 live production 상태가 바뀌어 prod plan이 stale해지면 API의
+기존 immutable plan 파일을 덮어쓰지 않는다. 새 runtime path에 fresh plan을 만들고 미병합 docs PR의 canonical
+prod plan bytes/root를 교체한 뒤 preflight부터 다시 실행한다. execution event가 이미 생성됐다면 다른 plan으로
+갈아끼우지 않고 기존 execution의 재진입 또는 failed-history에 결속된 recovery 절차만 사용한다.
 
 Plan에 `adjudicableLedgerGapRefs`가 있으면 `apply`로 해당 SQL을 실행하지 않는다. 같은 writer
 inventory·identity·drain·exclusive lock·backup 조건에서 `adjudicate-ledger-gap`을 먼저 실행해 sealed gap,
@@ -209,10 +310,10 @@ pnpm db:migration:maintenance -- repair-ledger \
 
 개발계의 전체 postcheck와 execution 완료 전에는 운영계를 시작하지 않는다. 운영 plan은 개발계 plan과
 execution의 bytes SHA를 함께 참조하고, execution을 해당 개발계 plan의 환경별 partition과
-`planSha256`으로 검증한 뒤 catalog/runtime-contract SHA가 같은지 확인한다. dev execution과 생성된 prod
-plan을 릴리스 기록의 연속된 artifact prefix로 추가해 같은 미병합 PR에 push하고, 변경된 40자 head의
-preflight를 다시 통과한 뒤에만 운영 maintenance로 진입한다. 운영 maintenance 명령은 live DB에 진입할
-때마다 이 pair를 다시 검증한다.
+`planSha256`으로 검증한 뒤 catalog/runtime-contract SHA가 같은지 확인한다. 완료된 dev pair와 생성된 prod
+plan을 canonical archive에 보존하고, prod plan/null을 릴리스 기록의 root로 한 미병합 PR에 push한다. 그
+40자 head의 preflight를 통과한 뒤에만 운영 maintenance로 진입한다. 운영 maintenance 명령은 live DB에 진입할
+때마다 prod plan 내부의 dev pair를 다시 검증한다.
 
 ### 4. 재기동과 산출물
 
@@ -228,14 +329,21 @@ compatibility-config SHA가 active mixture와 일치하는 running inventory까�
 없으면 snapshot/PITR rollback 대신 forward fix 또는 통제된 lossless reconciliation을 사용한다. API 계약도
 깨질 때만 별도 `apiContractCutover` 장벽을 함께 적용한다.
 
-환경별 산출물은 다음 두 개뿐이다.
+환경별 현재 root pair는 다음 두 경로를 사용한다.
 
 - `content/releases/evidence/db-migrations/<version>/<environment>/plan.json`
 - `content/releases/evidence/db-migrations/<version>/<environment>/execution.jsonl`
 
-릴리스 metadata에는 `dev plan → dev execution → prod plan → prod execution` 순서로 도달한 파일의 경로와
-실제 bytes SHA-256을 기록하고, 아직 도달하지 않은 후속 파일은 `null`로 둔다. terminal에서는 네 파일을
-모두 기록한다. 별도 Gate 로그, 서명 bundle, trust/frontier 파일을 만들지 않는다.
+복구 plan이 참조하는 immutable failed pair는 다음 경로에 보존한다.
+
+- `content/releases/evidence/db-migrations/<version>/<environment>/history/<failed-plan-sha256>/plan.json`
+- `content/releases/evidence/db-migrations/<version>/<environment>/history/<failed-plan-sha256>/execution.jsonl`
+
+dev/prod root pair와 도달 가능한 failed-history pair는 archive에 보존한다. 릴리스 metadata에는 현재 단계
+root의 경로와 실제 bytes SHA-256만 기록한다.
+`pending`은 dev plan/null 또는 completed dev pair, `in_progress`는 dev pair를 내부에서 참조하는 prod
+plan/null, terminal은 prod plan/execution이다. 검증기는 prod plan의 dev pair와 복구 plan의 failed pair를 archive bytes까지 따라가고
+도달할 수 없는 파일을 거부한다. 별도 Gate 로그, 서명 bundle, trust/frontier 파일을 만들지 않는다.
 
 SQL 성공 후 ledger 기록만 실패한 경우에는 DB identity, checksum과 postcondition을 다시 확인한 뒤
 ledger-only repair를 수행한다. `started` 뒤 outcome event가 끊겼으면 같은 SQL을 재실행하지 않고 fresh

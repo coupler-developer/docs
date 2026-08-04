@@ -84,7 +84,8 @@
 - `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
 - `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는
   `release-metadata/v2`로 둔다.
-- `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은 로컬/작업 브랜치 변경만으로 `v2`, `v3`, `v4`처럼 올리지 않는다.
+- `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은
+  로컬/작업 브랜치 변경만으로 임의로 올리지 않는다.
 - 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
 - `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
 - `releaseScopes`는 실제 릴리즈 surface의 단일 SoT다. 값은 `db-migration`, `contracts-package`, `coupler-api`, `coupler-admin-web`, `mobile-store`, `mobile-nextpush`, `docs` 중에서 고르고, 항상 `docs`를 포함한다.
@@ -255,36 +256,36 @@ activation에서 `deterministic-rejection`으로 기록한다.
 }
 ```
 
-DB-backed `stateSafety`는 `db-migration` scope가 `released | rolled_back`이고 dev/prod execution artifact가
-모두 실제 bytes SHA와 결속된 경우에만 terminal API 증빙으로 쓸 수 있다. API client rollback만 수행하고
-API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기록하지 않는다.
+DB-backed `stateSafety`는 `db-migration` scope가 `released | rolled_back`이고 canonical terminal prod
+execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우에만 terminal API 증빙으로 쓸 수 있다.
+`kind: violation`은 이 근거가 될 수 없다. API client rollback만 수행하고 API runtime을 유지했다면
+`coupler-api.status`를 `rolled_back`으로 기록하지 않는다.
 
 - `coupler-admin-web`를 `released`로 닫을 때는 `scopeResults.coupler-admin-web.evidence.deployment`, `smoke`, `rollback`과 `versionMapping.coupler-admin-web.tag`를 concrete 값으로 채운다.
 - `contracts-package`를 `released`로 닫을 때는 `scopeResults.contracts-package.evidence.publishedPackage`,
   `workflow`, `sourceRef`를 concrete 값으로 채운다. `publishedPackage`는 package/version 식별자만,
   `sourceRef`는 `versionMapping.coupler-api.commit`과 같은 40자 SHA만 쓴다.
-- 신규 `db-migration` evidence는 아래 maintenance 형식만 사용한다. 환경별 산출물은 실행기가 만든
-  `plan.json`과 `execution.jsonl` 두 개뿐이다.
-- 증빙은 `dev plan → dev execution → prod plan → prod execution` 순서의 연속된 prefix로 채운다.
-  최초 `pending`에서는 dev plan만 고정하고 나머지는 `null`로 둔다. 개발계 완료 뒤 dev execution과 그것을
-  참조해 생성한 prod plan을 추가하고, 변경된 미병합 PR head에서 preflight를 다시 통과한 뒤 운영계를
-  실행한다. `released` 또는 `rolled_back`으로 닫을 때는 네 파일의 경로와 실제 SHA-256을 모두 채운다.
+- 신규 `db-migration` evidence는 아래 canonical root 형식을 사용한다. 환경별 archive는 현재 root
+  `plan.json`/`execution.jsonl`과 root에서 도달하는
+  `history/<failed-plan-sha256>/plan.json|execution.jsonl`만 보존하고, metadata는 현재 단계의 한 쌍만 직접
+  참조한다.
+- 첫 plan 전 `planned`에서는 `plan: null, execution: null`을 둔다. `pending`에서는 dev plan/null 또는
+  `service-completed`로 끝난 dev plan/execution pair를 둔다. 개발계 완료 뒤 그 pair를 내부에서 참조하는 prod plan으로 root를 전진시키고
+  `in_progress`로 바꾼다. 그 미병합 PR head에서 preflight를 통과한 뒤 운영계를 실행하며,
+  `released | rolled_back`에서는 같은 prod plan과 완료된 prod execution을 기록한다.
+- Canonical chain 없이 이미 적용된 과거 작업은 정책의 `kind: violation` 조건으로만 기록하며 이 template을
+  운영 실행 우회 수단으로 사용하지 않는다.
 - 과거 릴리스 기록은 불투명한 최종본이므로 열어 고치거나 현재 DB evidence 계약으로 재검증하지 않는다.
 
 ```json
 {
   "schema": "db-migration-maintenance-evidence/v1",
-  "dev": {
-    "plan": {
-      "path": "content/releases/evidence/db-migrations/vX.Y.Z/dev/plan.json",
-      "sha256": "<64-character-sha256>"
-    },
-    "execution": null
+  "kind": "canonical",
+  "plan": {
+    "path": "content/releases/evidence/db-migrations/vX.Y.Z/dev/plan.json",
+    "sha256": "<64-character-sha256>"
   },
-  "prod": {
-    "plan": null,
-    "execution": null
-  }
+  "execution": null
 }
 ```
 
@@ -296,8 +297,8 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
 - `released` 또는 `rolled_back` scope의 완료/rollback 증적은 실제 workflow, Gate, smoke, artifact, rollback 기준 같은 concrete 증빙으로 채우며 `N/A - <사유>`로 대체하지 않는다.
 - `rolled_back` scope는 `rollbackReason`을 기록한다. scope descriptor에 전용 rollback evidence가 없는
   `contracts-package`, `mobile-store`, `mobile-nextpush`, `docs`는 실제 되돌림 결과를
-  `rollbackEvidence`에도 기록한다. `db-migration`은 dev/prod maintenance execution artifact가 이 역할을
-  소유하므로 별도 `rollbackEvidence`를 만들지 않는다.
+  `rollbackEvidence`에도 기록한다. `db-migration`은 dev 이력에 결속된 terminal prod maintenance execution
+  root가 이 역할을 소유하므로 별도 `rollbackEvidence`를 만들지 않는다.
 - `preflightRepoNames`는 `docs + releaseScopes.requiredRepoRefs + extraRepoRefs`로 계산한다.
 - `preflightRepoNames`가 `docs`뿐인 릴리스 기록은 서비스 repo workspace 없이 docs-only preflight를 실행할 수 있다.
 - 서비스 레포가 `preflightRepoNames`에 포함되면 preflight 실행 시 해당 repo가 있는 workspace root가 필요하다.
@@ -316,16 +317,23 @@ API runtime을 유지했다면 `coupler-api.status`를 `rolled_back`으로 기�
 - 후속 릴리스가 대기 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
 - 전체 `released` 상태에는 `대기 범위` 값을 비우거나 `N/A`로 적는다.
 - `planned`/`pending`/`in_progress` 상태에서는 아직 확인 전인 값에 `pending`, `미생성` 같은 placeholder를 쓸 수 있다.
-- 각 환경의 운영성 실행 전에 원격 기준점에서
-  `yarn release:preflight --pending-ref <40자 commit SHA>`를 실행한다. dev execution이나 prod plan을
-  추가해 PR head가 바뀌면 새 40자 SHA로 다시 실행한다. 자동 검증은 PR 내부의 상태 커밋 순서나 과거
+- 개발계 migration은 API executor로 먼저 실행하고 dev plan/execution을 보존할 수 있다. 운영 실행 전에는
+  그 pair를 참조하는 prod plan/null을 root로 한 원격 PR 기준점에서
+  `yarn release:preflight --pending-ref <40자 commit SHA>`를 한 번 실행한다. 개발계 실행 전에 `pending`
+  기록을 열 수 있지만 docs PR과 preflight는 선행조건이 아니다. 자동 검증은 PR 내부의 상태 커밋 순서나 과거
   snapshot을 판정 근거로 사용하지 않는다.
+- 운영까지의 간격이 길면 completed dev root와 도달 가능한 failed-history만 넣은 checkpoint PR을 release
+  record 없이 먼저 `main`에 병합한다. 이 version은 예약되며 기존 bytes를 바꾸거나 다른 용도로 재사용하지
+  않는다. 운영 당일 docs `main`의 exact bytes를 API `.runtime` path로 복원하고 fresh prod plan을 만든다.
+  같은 version의 최초 release record는 이 dev graph를 참조하는 `db-migration` canonical prod plan root로
+  소비해야 한다.
 - 릴리즈 기록은 최종본으로 한 번만 `main`에 병합한다. `main`에 존재하는 기록은 불투명한 역사 기록으로서
   수정·삭제·이름 변경·대체할 수 없고 내용도 현재 계약으로 재검증하지 않는다. 오탈자·잘못된 증빙·실패·
   rollback 설명만을 고치기 위한 새 릴리스 기록도 만들지 않는다. 새 기록은 실제 새 배포 또는 DB migration
   실행이 있을 때만 작성한다.
-- 병합된 DB migration 기록이 참조하는 같은 버전의 evidence 파일도 최종본이다. 기존 파일을 바꾸거나
-  삭제·이름 변경·대체하지 않고 해당 버전 evidence 경로에 파일을 사후 추가하지 않는다.
+- `main`의 개별 DB migration evidence 파일은 즉시 불변이다. 병합된 release record가 있는 version에는 파일을
+  사후 추가하지 않는다. no-record dev checkpoint version에는 기존 dev bytes를 그대로 둔 채 prod evidence와
+  이를 소비하는 최종 release record만 나중에 한 번 추가할 수 있다.
 - `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안 공유가 필요한 경우에만 선택적으로 사용하며 배포 시작 기준이 아니다.
 - `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
 - `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
