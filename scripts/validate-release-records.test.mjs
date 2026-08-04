@@ -7,8 +7,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  isAuthorizedPublishedReleaseRepair,
+  publishedReleaseRepairAuthorization,
+} from "./published-release-repair.mjs";
+
 const testFilePath = fileURLToPath(import.meta.url);
 const scriptsRoot = path.dirname(testFilePath);
+const docsRoot = path.resolve(scriptsRoot, "..");
 const validateScript = path.join(scriptsRoot, "validate-release-records.mjs");
 const releaseRecordTemplate = path.resolve(
   scriptsRoot,
@@ -33,6 +39,73 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
+});
+
+describe("one-time published release repair authorization", () => {
+  it("binds the exact interrupted and repaired v2.4.0 blobs", () => {
+    const baseSource = execFileSync(
+      "git",
+      [
+        "show",
+        "3577da89b562280aaada57c2eb52684e4ff9069f:content/releases/v2.4.0.md",
+      ],
+      { cwd: docsRoot },
+    );
+    const currentSource = fs.readFileSync(
+      path.join(docsRoot, publishedReleaseRepairAuthorization.releasePath),
+    );
+
+    assert.equal(
+      createHash("sha256").update(baseSource).digest("hex"),
+      publishedReleaseRepairAuthorization.baseSha256,
+    );
+    assert.equal(
+      createHash("sha256").update(currentSource).digest("hex"),
+      publishedReleaseRepairAuthorization.repairedSha256,
+    );
+    assert.equal(
+      isAuthorizedPublishedReleaseRepair({
+        releasePath: publishedReleaseRepairAuthorization.releasePath,
+        baseSource,
+        currentSource,
+      }),
+      true,
+    );
+  });
+
+  it("rejects every path or byte change outside the exact repair", () => {
+    const baseSource = execFileSync(
+      "git",
+      [
+        "show",
+        "3577da89b562280aaada57c2eb52684e4ff9069f:content/releases/v2.4.0.md",
+      ],
+      { cwd: docsRoot },
+    );
+    const currentSource = fs.readFileSync(
+      path.join(docsRoot, publishedReleaseRepairAuthorization.releasePath),
+    );
+
+    for (const fixture of [
+      {
+        releasePath: "content/releases/v2.4.1.md",
+        baseSource,
+        currentSource,
+      },
+      {
+        releasePath: publishedReleaseRepairAuthorization.releasePath,
+        baseSource: Buffer.concat([baseSource, Buffer.from("mutation")]),
+        currentSource,
+      },
+      {
+        releasePath: publishedReleaseRepairAuthorization.releasePath,
+        baseSource,
+        currentSource: Buffer.concat([currentSource, Buffer.from("mutation")]),
+      },
+    ]) {
+      assert.equal(isAuthorizedPublishedReleaseRepair(fixture), false);
+    }
+  });
 });
 
 describe("validate release records metadata sync", () => {
