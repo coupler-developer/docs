@@ -847,17 +847,65 @@ function validateExecutionEnvelope({
     const failedPendingRefs = Array.isArray(failedPlan?.pendingRefs)
       ? failedPlan.pendingRefs.filter(isMigrationRef)
       : [];
-    const hasBoundFailure = events.some(
-      (event) =>
-        event?.type === "migration-failed" &&
-        isPlainObject(event.data) &&
-        isMigrationRef(event.data.ref) &&
-        failedPendingRefs.some((ref) => sameMigrationRef(ref, event.data.ref)),
+    const hasCausalPendingFailure = failedPendingRefs.some((ref) =>
+      failedExecutionHasCausalTargetFailure(events, ref),
     );
-    if (!hasBoundFailure || events.some((event) => event?.type === "database-completed")) {
-      errors.push(`${context} must prove a failed pending migration without database completion`);
+    if (
+      !hasCausalPendingFailure ||
+      events.some((event) => event?.type === "database-completed")
+    ) {
+      errors.push(
+        `${context} must prove one unresolved causal SQL or postcondition failure for a pending migration`,
+      );
     }
   }
+}
+
+function failedExecutionHasCausalTargetFailure(events, targetRef) {
+  const exactTarget = (event) => sameMigrationRefData(event?.data?.ref, targetRef);
+  return events.some((event, failureIndex) => {
+    if (!exactTarget(event) || !eventProvesSqlOrPostconditionFailure(event, targetRef)) {
+      return false;
+    }
+    let startIndex = -1;
+    for (let index = failureIndex - 1; index >= 0; index -= 1) {
+      const candidate = events[index];
+      if (candidate?.type === "migration-started" && exactTarget(candidate)) {
+        startIndex = index;
+        break;
+      }
+    }
+    if (startIndex < 0) {
+      return false;
+    }
+    const terminalBeforeFailure = events
+      .slice(startIndex + 1, failureIndex)
+      .some(
+        (candidate) =>
+          exactTarget(candidate) &&
+          (candidate?.type === "migration-failed" ||
+            candidate?.type === "migration-outcome-adjudicated" ||
+            migrationResolutionTypes.has(candidate?.type)),
+      );
+    const resolvedAfterFailure = events
+      .slice(failureIndex + 1)
+      .some(
+        (candidate) =>
+          candidate?.type === "database-completed" ||
+          (exactTarget(candidate) && migrationResolutionTypes.has(candidate?.type)),
+      );
+    return !terminalBeforeFailure && !resolvedAfterFailure;
+  });
+}
+
+function eventProvesSqlOrPostconditionFailure(event, targetRef) {
+  return (
+    sameMigrationRefData(event?.data?.ref, targetRef) &&
+    ((event?.type === "migration-failed" &&
+      event.data.phase === "sql-or-postcondition") ||
+      (event?.type === "migration-outcome-adjudicated" &&
+        event.data.outcome === "postcondition-failed-ledger-missing"))
+  );
 }
 
 function validateCompletedExecutionHistory({ events, plan, context, errors }) {
