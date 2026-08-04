@@ -991,7 +991,66 @@ describe("release metadata scope results", () => {
 
     assert(
       validate(metadata).some((error) =>
-        /requires terminal dev\/prod DB maintenance executions/.test(error),
+        /requires a terminal canonical prod DB maintenance execution/.test(error),
+      ),
+    );
+  });
+
+  it("does not accept violation evidence as terminal API recovery state safety", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "db-migration", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "db-migration": "released",
+        "coupler-api": "released",
+      },
+    });
+    metadata.scopeResults["db-migration"].evidence = {
+      schema: "db-migration-maintenance-evidence/v1",
+      kind: "violation",
+      violation: {},
+    };
+    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.stateSafety = {
+      source: "db-maintenance-execution",
+      scope: "db-migration",
+    };
+
+    assert(
+      validate(metadata).some((error) =>
+        /requires a terminal canonical prod DB maintenance execution/.test(error),
+      ),
+    );
+  });
+
+  it("does not accept violation evidence as non-terminal API recovery state safety", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "db-migration", "coupler-api"],
+      statuses: {
+        docs: "in_progress",
+        "contracts-package": "released",
+        "db-migration": "released",
+        "coupler-api": "in_progress",
+      },
+      status: "in_progress",
+    });
+    metadata.scopeResults["db-migration"].evidence = {
+      schema: "db-migration-maintenance-evidence/v1",
+      kind: "violation",
+      violation: {},
+    };
+    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery = {
+      strategy: "forward-fix",
+      stateSafety: {
+        source: "db-maintenance-execution",
+        scope: "db-migration",
+      },
+      previousReleaseCaseIds: [],
+    };
+
+    assert(
+      validate(metadata).some((error) =>
+        /requires a terminal canonical prod DB maintenance execution/.test(error),
       ),
     );
   });
@@ -1127,7 +1186,7 @@ describe("release metadata scope results", () => {
     }
   });
 
-  it("allows new maintenance DB migration records with the exact four artifact references", () => {
+  it("allows new maintenance DB migration records with one terminal prod root pair", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1146,9 +1205,9 @@ describe("release metadata scope results", () => {
         "db-migration": "released",
       },
     });
-    metadata.scopeResults["db-migration"].evidence.dev.plan.path =
+    metadata.scopeResults["db-migration"].evidence.plan.path =
       `content/releases/evidence/db-migrations/${version}/dev/../dev/plan.json`;
-    metadata.scopeResults["db-migration"].evidence.prod.extra = {
+    metadata.scopeResults["db-migration"].evidence.extra = {
       path: "extra",
       sha256: checksum,
     };
@@ -1157,17 +1216,17 @@ describe("release metadata scope results", () => {
       readArtifact: () => Buffer.from("different bytes\n"),
     });
     assert(
-      validationErrors.some((error) => /dev\.plan\.path must be/.test(error)),
+      validationErrors.some((error) => /evidence\.plan\.path must be/.test(error)),
     );
     assert(
-      validationErrors.some((error) => /prod has unknown key: extra/.test(error)),
+      validationErrors.some((error) => /evidence has unknown key: extra/.test(error)),
     );
     assert(
       validationErrors.some((error) => /sha256 does not match artifact bytes/.test(error)),
     );
   });
 
-  it("allows a dev-only pending plan and requires all four artifacts at terminal status", () => {
+  it("allows a planned or completed dev root while pending and requires prod execution at terminal status", () => {
     const pendingMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1178,10 +1237,14 @@ describe("release metadata scope results", () => {
     });
     assert.deepEqual(validate(pendingMetadata), []);
 
-    pendingMetadata.scopeResults["db-migration"].evidence.dev.plan = null;
+    pendingMetadata.scopeResults["db-migration"].evidence.execution =
+      maintenanceArtifactRef("dev", "execution.jsonl");
+    assert.deepEqual(validate(pendingMetadata), []);
+
+    pendingMetadata.scopeResults["db-migration"].evidence.plan = null;
     assert(
       validate(pendingMetadata).some((error) =>
-        /dev\.plan must be an artifact reference/.test(error),
+        /evidence\.plan must be an artifact reference/.test(error),
       ),
     );
 
@@ -1192,15 +1255,15 @@ describe("release metadata scope results", () => {
         "db-migration": "released",
       },
     });
-    releasedMetadata.scopeResults["db-migration"].evidence.prod.execution = null;
+    releasedMetadata.scopeResults["db-migration"].evidence.execution = null;
     assert(
       validate(releasedMetadata).some((error) =>
-        /prod\.execution must be an artifact reference/.test(error),
+        /evidence\.execution must be an artifact reference/.test(error),
       ),
     );
   });
 
-  it("accepts the dev-completed and prod-planned prefixes but rejects gaps", () => {
+  it("requires an in-progress DB scope to advance its root to the prod plan", () => {
     const inProgressMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1209,17 +1272,13 @@ describe("release metadata scope results", () => {
       },
       status: "in_progress",
     });
+    assert.deepEqual(validate(inProgressMetadata), []);
+
     const evidence = inProgressMetadata.scopeResults["db-migration"].evidence;
-    evidence.dev.execution = maintenanceArtifactRef("dev", "execution.jsonl");
-    assert.deepEqual(validate(inProgressMetadata), []);
-
-    evidence.prod.plan = maintenanceArtifactRef("prod", "plan.json");
-    assert.deepEqual(validate(inProgressMetadata), []);
-
-    evidence.dev.execution = null;
+    evidence.plan = maintenanceArtifactRef("dev", "plan.json");
     assert(
       validate(inProgressMetadata).some((error) =>
-        /prod\.plan has a missing predecessor/.test(error),
+        /evidence\.plan\.path must be .*prod\/plan\.json/.test(error),
       ),
     );
   });
@@ -1663,38 +1722,19 @@ function evidenceFor(scopeName, status) {
   }
 
   if (scopeName === "db-migration") {
-    return concrete ? releasedDbMigrationEvidence() : plannedDbMigrationEvidence();
+    return dbMigrationEvidence(status);
   }
 
   return {};
 }
 
-function plannedDbMigrationEvidence() {
+function dbMigrationEvidence(status) {
+  const environment = status === "planned" ? null : status === "pending" ? "dev" : "prod";
   return {
     schema: "db-migration-maintenance-evidence/v1",
-    dev: {
-      plan: maintenanceArtifactRef("dev", "plan.json"),
-      execution: null,
-    },
-    prod: {
-      plan: null,
-      execution: null,
-    },
-  };
-}
-
-function releasedDbMigrationEvidence() {
-  return {
-    schema: "db-migration-maintenance-evidence/v1",
-    dev: maintenanceEnvironmentEvidence("dev", true),
-    prod: maintenanceEnvironmentEvidence("prod", true),
-  };
-}
-
-function maintenanceEnvironmentEvidence(environment, terminal) {
-  return {
-    plan: maintenanceArtifactRef(environment, "plan.json"),
-    execution: terminal
+    kind: "canonical",
+    plan: environment ? maintenanceArtifactRef(environment, "plan.json") : null,
+    execution: ["released", "rolled_back"].includes(status)
       ? maintenanceArtifactRef(environment, "execution.jsonl")
       : null,
   };

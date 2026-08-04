@@ -27,12 +27,17 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
+import {
+  dbMigrationMaintenanceEvidenceSchema,
+  sha256Hex,
+  validateMaintenanceDbMigrationEvidence,
+} from "./db-migration-maintenance-artifacts.mjs";
 
 const docsRoot = process.cwd();
 const releasesRoot = path.join(docsRoot, "content", "releases");
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
 const dbMigrationEvidencePattern =
-  /^content\/releases\/evidence\/db-migrations\/(v\d+\.\d+\.\d+)\//;
+  /^content\/releases\/evidence\/db-migrations\/(v\d+\.\d+\.\d+)(?:\/|$)/;
 const requiredSections = [
   "목적",
   "범위",
@@ -50,6 +55,7 @@ const forbiddenPatterns = [
   /이 문서가 포함된/,
 ];
 const errors = [];
+const releaseMetadataByVersion = new Map();
 let baseRef = null;
 try {
   baseRef = resolveBaseRef(process.argv.slice(2));
@@ -74,8 +80,15 @@ if (fs.existsSync(releasesRoot)) {
     }
     const absolutePath = path.join(releasesRoot, entry.name);
     const source = fs.readFileSync(absolutePath, "utf8");
-    validateReleaseRecord(relativePath, source, tag, errors);
+    const metadata = validateReleaseRecord(relativePath, source, tag, errors);
+    if (metadata) {
+      releaseMetadataByVersion.set(tag, metadata);
+    }
   }
+}
+
+if (baseRef) {
+  validateChangedDbMigrationEvidenceOwnership(baseRef, releaseMetadataByVersion, errors);
 }
 
 if (errors.length > 0) {
@@ -136,6 +149,7 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
   validateListSection(relativePath, source, "검증 근거", /^- /, errors);
   validateApiContractCutoverGate(relativePath, source, releaseStatus, metadata, errors);
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
+  return metadata;
 }
 
 function readReleaseMetadata(relativePath, source, tag, errors) {
@@ -143,10 +157,220 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
   if (metadata) {
     validateReleaseMetadata(metadata, relativePath, tag, errors, {
       readArtifact: readWorkingTreeReleaseArtifact,
+      listArtifacts: listWorkingTreeReleaseArtifacts,
     });
+    validateBaseDevCheckpointBinding(relativePath, metadata, errors);
   }
 
   return metadata;
+}
+
+function validateChangedDbMigrationEvidenceOwnership(
+  baseRef,
+  metadataByVersion,
+  validationErrors,
+) {
+  const changedPaths = git([
+    "diff",
+    "--name-only",
+    "--no-renames",
+    baseRef,
+    "--",
+    "content/releases/evidence/db-migrations",
+  ]).split("\n").filter(Boolean);
+  const untrackedPaths = git([
+    "ls-files",
+    "--others",
+    "--",
+    "content/releases/evidence/db-migrations",
+  ]).split("\n").filter(Boolean);
+  const evidencePaths = [...new Set([...changedPaths, ...untrackedPaths])];
+  for (const artifactPath of evidencePaths) {
+    if (!dbMigrationEvidencePattern.test(artifactPath)) {
+      validationErrors.push(
+        `${artifactPath}: DB migration evidence must be stored under a vMAJOR.MINOR.PATCH namespace`,
+      );
+    }
+  }
+  const versions = new Set(
+    evidencePaths
+      .map((artifactPath) => artifactPath.match(dbMigrationEvidencePattern)?.[1] ?? null)
+      .filter(Boolean),
+  );
+
+  for (const version of versions) {
+    const releasePath = `content/releases/${version}.md`;
+    if (gitObjectExists(`${baseRef}:${releasePath}`)) {
+      validationErrors.push(
+        `${releasePath}: a published release cannot receive new untracked or tracked DB migration evidence`,
+      );
+      continue;
+    }
+    validateCrossVersionDevPairUniqueness(version, validationErrors);
+    const metadata = metadataByVersion.get(version);
+    if (metadata) {
+      const dbResult = metadata.scopeResults?.["db-migration"];
+      if (
+        !metadata.releaseScopes?.includes("db-migration") ||
+        dbResult?.evidence?.kind !== "canonical"
+      ) {
+        validationErrors.push(
+          `${releasePath}: same-version DB migration artifacts require a canonical db-migration scope in the release record`,
+        );
+      }
+      continue;
+    }
+
+    const checkpointRoot = `content/releases/evidence/db-migrations/${version}`;
+    const planPath = `${checkpointRoot}/dev/plan.json`;
+    const executionPath = `${checkpointRoot}/dev/execution.jsonl`;
+    const planSource = readWorkingTreeReleaseArtifact(planPath);
+    const executionSource = readWorkingTreeReleaseArtifact(executionPath);
+    const context = `${checkpointRoot}: standalone completed dev checkpoint`;
+    if (planSource === null || executionSource === null) {
+      validationErrors.push(
+        `${context} requires both dev/plan.json and dev/execution.jsonl`,
+      );
+      continue;
+    }
+
+    validationErrors.push(
+      ...validateMaintenanceDbMigrationEvidence({
+        evidence: {
+          schema: dbMigrationMaintenanceEvidenceSchema,
+          kind: "canonical",
+          plan: { path: planPath, sha256: sha256Hex(planSource) },
+          execution: { path: executionPath, sha256: sha256Hex(executionSource) },
+        },
+        version,
+        apiSourceRef: null,
+        scopeStatus: "pending",
+        readArtifact: readWorkingTreeReleaseArtifact,
+        listArtifacts: listWorkingTreeReleaseArtifacts,
+        context,
+      }),
+    );
+  }
+}
+
+function validateCrossVersionDevPairUniqueness(version, validationErrors) {
+  const evidenceRoot = "content/releases/evidence/db-migrations/";
+  const planPath = `${evidenceRoot}${version}/dev/plan.json`;
+  const executionPath = `${evidenceRoot}${version}/dev/execution.jsonl`;
+  const planSource = readWorkingTreeReleaseArtifact(planPath);
+  const executionSource = readWorkingTreeReleaseArtifact(executionPath);
+  if (planSource === null || executionSource === null) {
+    return;
+  }
+  const artifactPaths = listWorkingTreeReleaseArtifacts(evidenceRoot);
+  if (artifactPaths === null) {
+    validationErrors.push(
+      `${evidenceRoot}: DB migration evidence inventory must contain only regular files and directories`,
+    );
+    return;
+  }
+  const otherVersions = new Set(
+    artifactPaths
+      .map((artifactPath) => artifactPath.match(dbMigrationEvidencePattern)?.[1] ?? null)
+      .filter((candidate) => candidate && candidate !== version),
+  );
+  const planSha256 = sha256Hex(planSource);
+  const executionSha256 = sha256Hex(executionSource);
+  for (const otherVersion of otherVersions) {
+    const otherPlan = readWorkingTreeReleaseArtifact(
+      `${evidenceRoot}${otherVersion}/dev/plan.json`,
+    );
+    const otherExecution = readWorkingTreeReleaseArtifact(
+      `${evidenceRoot}${otherVersion}/dev/execution.jsonl`,
+    );
+    if (
+      otherPlan !== null &&
+      otherExecution !== null &&
+      sha256Hex(otherPlan) === planSha256 &&
+      sha256Hex(otherExecution) === executionSha256
+    ) {
+      validationErrors.push(
+        `${evidenceRoot}${version}: a new version must be requalified in dev; it cannot reuse the exact ${otherVersion} dev checkpoint pair`,
+      );
+    }
+  }
+}
+
+function validateBaseDevCheckpointBinding(relativePath, metadata, validationErrors) {
+  if (!baseRef || gitObjectExists(`${baseRef}:${relativePath}`)) {
+    return;
+  }
+  const version = metadata.version;
+  if (typeof version !== "string") {
+    return;
+  }
+  const checkpointRoot = `content/releases/evidence/db-migrations/${version}/dev`;
+  const hasPlan = gitObjectExists(`${baseRef}:${checkpointRoot}/plan.json`);
+  const hasExecution = gitObjectExists(`${baseRef}:${checkpointRoot}/execution.jsonl`);
+  if (!hasPlan && !hasExecution) {
+    return;
+  }
+  if (!hasPlan || !hasExecution) {
+    validationErrors.push(
+      `${relativePath}: base contains an incomplete standalone dev checkpoint for ${version}`,
+    );
+    return;
+  }
+
+  const dbResult = metadata.scopeResults?.["db-migration"];
+  if (!metadata.releaseScopes?.includes("db-migration") || !dbResult) {
+    validationErrors.push(
+      `${relativePath}: release version ${version} is reserved by a standalone dev checkpoint and must include the db-migration scope`,
+    );
+    return;
+  }
+  const expectedProdPlanPath =
+    `content/releases/evidence/db-migrations/${version}/prod/plan.json`;
+  if (
+    !["in_progress", "released", "rolled_back"].includes(dbResult.status) ||
+    dbResult.evidence?.kind !== "canonical" ||
+    dbResult.evidence?.plan?.path !== expectedProdPlanPath
+  ) {
+    validationErrors.push(
+      `${relativePath}: release version ${version} must consume its standalone dev checkpoint through a canonical prod plan root`,
+    );
+  }
+}
+
+function listWorkingTreeReleaseArtifacts(prefix) {
+  if (
+    typeof prefix !== "string" ||
+    !prefix.startsWith("content/releases/evidence/db-migrations/") ||
+    !prefix.endsWith("/") ||
+    path.posix.normalize(prefix) !== prefix
+  ) {
+    return null;
+  }
+  const inspectedRoot = inspectWorkingTreeEvidencePath(prefix.slice(0, -1), "directory");
+  if (inspectedRoot.status === "missing") {
+    return [];
+  }
+  if (inspectedRoot.status !== "ok") {
+    return null;
+  }
+  const artifacts = [];
+  let invalidEntry = false;
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        invalidEntry = true;
+      } else if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.isFile()) {
+        artifacts.push(path.relative(docsRoot, absolutePath).split(path.sep).join("/"));
+      } else {
+        invalidEntry = true;
+      }
+    }
+  };
+  visit(inspectedRoot.absolutePath);
+  return invalidEntry ? null : artifacts.sort();
 }
 
 function readWorkingTreeReleaseArtifact(relativePath) {
@@ -159,19 +383,64 @@ function readWorkingTreeReleaseArtifact(relativePath) {
   ) {
     return null;
   }
-  const absolutePath = path.resolve(docsRoot, relativePath);
-  const docsPrefix = `${path.resolve(docsRoot)}${path.sep}`;
-  if (!absolutePath.startsWith(docsPrefix)) {
+  const inspected = inspectWorkingTreeEvidencePath(relativePath, "file");
+  if (inspected.status !== "ok") {
     return null;
   }
   try {
-    if (!fs.lstatSync(absolutePath).isFile()) {
-      return null;
-    }
-    return fs.readFileSync(absolutePath);
+    return fs.readFileSync(inspected.absolutePath);
   } catch {
     return null;
   }
+}
+
+function inspectWorkingTreeEvidencePath(relativePath, expectedKind) {
+  const evidenceRoot = "content/releases/evidence/db-migrations";
+  if (
+    typeof relativePath !== "string" ||
+    path.isAbsolute(relativePath) ||
+    relativePath.includes("\\") ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    (relativePath !== evidenceRoot && !relativePath.startsWith(`${evidenceRoot}/`))
+  ) {
+    return { status: "invalid" };
+  }
+
+  let absolutePath = path.resolve(docsRoot);
+  for (const component of relativePath.split("/")) {
+    absolutePath = path.join(absolutePath, component);
+    let stat;
+    try {
+      stat = fs.lstatSync(absolutePath);
+    } catch (error) {
+      return { status: error?.code === "ENOENT" ? "missing" : "invalid" };
+    }
+    if (stat.isSymbolicLink()) {
+      return { status: "invalid" };
+    }
+  }
+
+  let stat;
+  try {
+    stat = fs.lstatSync(absolutePath);
+    const realEvidenceRoot = fs.realpathSync(path.resolve(docsRoot, evidenceRoot));
+    const realPath = fs.realpathSync(absolutePath);
+    if (
+      realPath !== realEvidenceRoot &&
+      !realPath.startsWith(`${realEvidenceRoot}${path.sep}`)
+    ) {
+      return { status: "invalid" };
+    }
+  } catch {
+    return { status: "invalid" };
+  }
+  if (
+    (expectedKind === "file" && !stat.isFile()) ||
+    (expectedKind === "directory" && !stat.isDirectory())
+  ) {
+    return { status: "invalid" };
+  }
+  return { status: "ok", absolutePath };
 }
 
 function validateScopeMetadataSync(relativePath, source, releaseModel, errors) {
@@ -515,7 +784,7 @@ function validatePublishedReleaseImmutability(baseRef, validationErrors) {
       gitObjectExists(`${baseRef}:${publishedRecordPath}`)
     ) {
       validationErrors.push(
-        `${releasePath}: DB migration evidence for a release already present in the base ref is final and immutable; it cannot be added, modified, deleted, renamed, or replaced`,
+        `${releasePath}: DB migration evidence already present in the base ref, or owned by a release record there, is final and immutable; it cannot be added, modified, deleted, renamed, or replaced`,
       );
     }
   }
