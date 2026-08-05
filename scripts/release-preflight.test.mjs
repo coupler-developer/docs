@@ -489,6 +489,123 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /Result: PASS/);
   });
 
+  it("accepts independently tagged Android and iOS Store sources on different commits", () => {
+    const workspace = createWorkspace();
+    const androidCommit = git(workspace.mobileRoot, ["rev-parse", "HEAD"]);
+    git(workspace.mobileRoot, ["tag", "-a", "v9.9.0", "-m", "Android 9.9.0", androidCommit]);
+    git(workspace.mobileRoot, ["push", "origin", "refs/tags/v9.9.0"]);
+    fs.writeFileSync(path.join(workspace.mobileRoot, "IOS_991.md"), "# iOS 9.9.1 source\n");
+    const iosCommit = commitAndPush(workspace.mobileRoot, "add iOS 9.9.1 source");
+    git(workspace.mobileRoot, ["tag", "-a", "v9.9.1", "-m", "iOS 9.9.1", iosCommit]);
+    git(workspace.mobileRoot, ["push", "origin", "refs/tags/v9.9.1"]);
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/platform-store-release"]);
+    writePendingRelease(workspace.docsRoot, {
+      status: "in_progress",
+      mobileStoreMapping: {
+        android: {
+          versionBuild: "9.9.0 (900)",
+          releaseTag: "v9.9.0",
+          commit: androidCommit,
+          sourceStatus: "verified",
+          limitation: null,
+        },
+        ios: {
+          versionBuild: "9.9.1 (900)",
+          releaseTag: "v9.9.1",
+          commit: iosCommit,
+          sourceStatus: "verified",
+          limitation: null,
+        },
+      },
+    });
+    const pendingRef = commit(workspace.docsRoot, "record split Store source refs");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/platform-store-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("accepts the current Store source commit before its release tag exists", () => {
+    const workspace = createWorkspace();
+    const mobileCommit = git(workspace.mobileRoot, ["rev-parse", "HEAD"]);
+    git(workspace.docsRoot, ["checkout", "-b", "docs/pretag-store-release"]);
+    writePendingRelease(workspace.docsRoot, {
+      status: "in_progress",
+      mobileStoreMapping: {
+        android: {
+          versionBuild: "9.9.0 (900)",
+          releaseTag: null,
+          commit: mobileCommit,
+          sourceStatus: "verified",
+          limitation: null,
+        },
+        ios: null,
+      },
+    });
+    const pendingRef = commit(workspace.docsRoot, "record pre-tag Store source");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/pretag-store-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("rejects a Store platform tag and commit that resolve to different sources", () => {
+    const workspace = createWorkspace();
+    const taggedCommit = git(workspace.mobileRoot, ["rev-parse", "HEAD"]);
+    git(workspace.mobileRoot, ["tag", "-a", "v9.9.0", "-m", "Android 9.9.0", taggedCommit]);
+    git(workspace.mobileRoot, ["push", "origin", "refs/tags/v9.9.0"]);
+    fs.writeFileSync(path.join(workspace.mobileRoot, "AFTER_ANDROID_TAG.md"), "# Later source\n");
+    const differentCommit = commitAndPush(workspace.mobileRoot, "advance after Android tag");
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/mismatched-store-source"]);
+    writePendingRelease(workspace.docsRoot, {
+      status: "in_progress",
+      mobileStoreMapping: {
+        android: {
+          versionBuild: "9.9.0 (900)",
+          releaseTag: "v9.9.0",
+          commit: differentCommit,
+          sourceStatus: "verified",
+          limitation: null,
+        },
+        ios: null,
+      },
+    });
+    const pendingRef = commit(workspace.docsRoot, "record mismatched Store source refs");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/mismatched-store-source"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /store\.android tag와 commit이 같은 기준점을 가리켜야 합니다/);
+  });
+
   it("still rejects an untagged historical service ref after main advances", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
@@ -581,10 +698,15 @@ function writePendingRelease(
     dbMigrationStatus = status,
     dbMigrationStage = "dev-planned",
     devPlanCreatedAt = "2026-08-04T00:00:00.000Z",
+    mobileStoreMapping = null,
     version = "v9.9.0",
   } = {},
 ) {
-  const releaseScopes = dbMigration ? ["docs", "db-migration"] : ["docs"];
+  const releaseScopes = dbMigration
+    ? ["docs", "db-migration"]
+    : mobileStoreMapping
+      ? ["docs", "mobile-store"]
+      : ["docs"];
   const scopeResults = {
     docs: {
       status,
@@ -695,9 +817,26 @@ function writePendingRelease(
       },
     };
   }
+  if (mobileStoreMapping) {
+    scopeResults["mobile-store"] = {
+      status,
+      summary: `mobile-store ${status}`,
+      evidence: {
+        submission: "pending",
+        approval: "pending",
+        release: "pending",
+        smoke: "pending",
+        artifact: "pending",
+        submittedMarkers: {
+          android: null,
+          ios: null,
+        },
+      },
+    };
+  }
 
   const metadata = {
-    schema: "release-metadata/v2",
+    schema: "release-metadata/v3",
     version,
     status,
     releaseScopes,
@@ -707,16 +846,27 @@ function writePendingRelease(
       "coupler-api": { tag: apiTag, commit: apiRef },
       "coupler-admin-web": { tag: null, commit: null },
       "coupler-mobile-app": {
-        store: null,
-        releaseTag: null,
-        commit: null,
+        store: mobileStoreMapping ?? {
+          android: null,
+          ios: null,
+        },
         nextPush: null,
+        commit: null,
       },
     },
     scopeResults,
     apiContractCutover: null,
   };
-  const targetRepos = dbMigration ? "`docs`, `coupler-api`" : "`docs`";
+  const targetRepos = dbMigration
+    ? "`docs`, `coupler-api`"
+    : mobileStoreMapping
+      ? "`docs`, `coupler-mobile-app`"
+      : "`docs`";
+  const mobileStoreValue = (platform, key) =>
+    mobileStoreMapping?.[platform]?.[key] ?? "N/A";
+  const mobileMappingMirror = mobileStoreMapping
+    ? `- \`coupler-mobile-app\`: Android Store \`${mobileStoreValue("android", "versionBuild")}\`, Android 릴리스 태그 \`${mobileStoreValue("android", "releaseTag")}\`, Android 커밋 \`${mobileStoreValue("android", "commit")}\`, Android source \`${mobileStoreValue("android", "sourceStatus")}\`, iOS Store \`${mobileStoreValue("ios", "versionBuild")}\`, iOS 릴리스 태그 \`${mobileStoreValue("ios", "releaseTag")}\`, iOS 커밋 \`${mobileStoreValue("ios", "commit")}\`, iOS source \`${mobileStoreValue("ios", "sourceStatus")}\`, NextPush \`N/A\`, NextPush 커밋 \`N/A\``
+    : "- `coupler-mobile-app`: Android Store `N/A`, Android 릴리스 태그 `N/A`, Android 커밋 `N/A`, Android source `N/A`, iOS Store `N/A`, iOS 릴리스 태그 `N/A`, iOS 커밋 `N/A`, iOS source `N/A`, NextPush `N/A`, NextPush 커밋 `N/A`";
   const releaseRoot = path.join(docsRoot, "content", "releases");
   fs.mkdirSync(releaseRoot, { recursive: true });
   fs.writeFileSync(
@@ -766,7 +916,7 @@ function writePendingRelease(
       `- \`docs\`: 기록 버전 \`${version}\`, 태그 \`N/A\`, 커밋 \`pending\``,
       `- \`coupler-api\`: 태그 \`${apiTag ?? "N/A"}\`, 커밋 \`${apiRef ?? "N/A"}\``,
       "- `coupler-admin-web`: `N/A`",
-      "- `coupler-mobile-app`: Store `N/A`, 릴리스 태그 `N/A`, 커밋 `N/A`, NextPush `N/A`",
+      mobileMappingMirror,
       "",
       "## 롤백 기준",
       "",

@@ -110,11 +110,12 @@
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
 - `버전 매핑`에는 아래 기준점을 함께 기록한다.
     - `docs` 기록 버전/태그
-    - `coupler-mobile-app` Store version/build, 릴리스 태그/커밋, 제출 마커 태그, NextPush label과 대상 Store binary
+    - `coupler-mobile-app` Android/iOS별 Store version/build와 릴리스 태그/커밋, 제출 마커 태그,
+      NextPush label과 대상 Store binary
     - `coupler-api` 태그/커밋 또는 `N/A` 사유
     - `coupler-admin-web` 태그/커밋 또는 `N/A` 사유
 - 신규 릴리스 기록의 작성 계약은 `release-metadata` block 하나다. 자동화의 기계 판정 SoT는 여기서 한 번 계산한 derived model이며, `버전 매핑`과 Gate 섹션은 사람이 읽는 mirror다. 자동화가 본문 자유 문장을 포함 신호로 해석하지 않게 작성한다.
-- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v2`다.
+- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v3`다.
 - `release-metadata`의 모든 하위 object는 작성 계약에 정의된 key만 허용한다. 새 nested key가 필요하면 descriptor 또는 cutover required path에 연결하고 unknown key fail-closed 테스트를 함께 갱신한다.
 - `release-metadata.releaseScopes`는 실제 릴리즈 surface의 단일 SoT이며 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
@@ -124,7 +125,10 @@
   `released | rolled_back | superseded`로 terminal일 때만 파생한다. `planned | pending | in_progress`
   scope가 하나라도 남으면 전체는 `in_progress`이며 최종 기록으로 닫지 않는다.
 - `docs` scope의 `released` 판정은 최종 릴리즈 기록이 병합 가능한 상태로 확정되고 `versionMapping.docs.tag`에 병합 후 생성할 docs tag가 고정됐다는 뜻이다. 실제 origin tag, GitHub Release, `docs-site-vX.Y.Z.tar.gz` artifact는 final PR merge 뒤 확인하는 운영 postcheck이며, tag push 전 `scopeResults.docs.evidence` hard gate로 요구하지 않는다.
-- `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`, `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일 git tag를 요구하지 않는다.
+- `release-tag`는 metadata scope로 쓰지 않는다. 서비스 태그 요구는 `released`가 된 `docs`, `coupler-api`,
+  `coupler-admin-web`, `mobile-store` scope에서 파생하며, `mobile-store`는 platform별 `verified` source에만
+  실제 Store version과 같은 태그를 요구한다. `mobile-nextpush`는 NextPush-only 정책에 따라 기본적으로 모바일
+  git tag를 요구하지 않는다.
 - `superseded` scope는 완료 증적을 억지로 채우지 않는다. 대신 `supersededBy`, `incompleteReason`, `tagStatus`를 구조화해 어떤 후속 릴리스가 어떤 미완료 범위를 대체했고 태그를 만들지 않았는지 기록한다.
 - 신규 `db-migration` canonical evidence는 현재 단계의 root plan과 nullable execution 한 쌍만 직접
   참조한다. `planned`는 null/null, `pending`은 dev plan/null 또는 completed dev pair, `in_progress`는 완료된
@@ -178,7 +182,23 @@
 - DB에는 별도 `Compatible | Cutover` metadata를 만들지 않는다. DB migration plan/execution이 runtime
   조합·phase·상태 표면·복구를 소유하고 Docs는 artifact 경로와 bytes SHA-256만 묶는다. 공개 API도
   깨질 때만 API Gate를 함께 채운다.
-- `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label을 문자열로 적거나 미적용 시 `null`로 둔다. `released`, `rolled_back`, `superseded` 상태에서는 `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
+- `versionMapping.coupler-mobile-app.nextPush`는 기존 단일 계약을 유지한다. app/deployment/label/target
+  문자열과 exact source 40자 `commit`을 함께 기록하고 미적용 시 둘 다 `null`로 둔다. terminal 상태에서는
+  `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
+- `release-metadata/v3`의 Mobile Store 기준은 `versionMapping.coupler-mobile-app.store.android|ios`로
+  분리한다. 포함하지 않은 platform은 `null`이며, 정상 source는 `sourceStatus: verified`, 실제 platform
+  version, 정확한 40자 commit, `limitation: null`을 함께 가져야 한다. nonterminal preflight에서는
+  `releaseTag: null`로 현재 `origin/main` commit을 검증하고, `released`로 닫을 때 실제 platform version과 같은
+  annotated tag를 필수로 고정한다. 이미 Store
+  반영이 끝난 뒤 원본 archive와 exact source를 복구할 수 없는 과거 예외만
+  `sourceStatus: unavailable-historical`로 기록하며 tag·commit은 `null`로 두고 한계를 구체적으로 적는다.
+  이 예외는 rollback 기준이나 다음 릴리스의 source 증빙으로 재사용하지 않는다. 하나의 terminal
+  `mobile-store` scope에는 최소 하나의 `verified` platform source가 있어야 한다.
+- `release-metadata/v3`의 `scopeResults.mobile-store.evidence.submittedMarkers.android|ios`는 platform별
+  submission provenance를 소유한다. 정상 공통 또는 platform별 submission-time marker와 artifact SHA-256이 있으면 `verified`로
+  tag·commit·artifact digest·이관/삭제 증빙을 닫는다. 과거 제출에서 원래 marker나 artifact hash가 없으면
+  `unavailable-historical`로 두고 tag·commit·artifact/evidence를 `null`로 유지한 채 한계만 기록한다. 출시 뒤
+  사후 생성한 marker는 `verified` 완료 증빙으로 계산하지 않는다.
 - terminal evidence hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다.
   `planned`/`pending`/`in_progress`의 아직 도달하지 않은 후속 artifact와 준비 중 placeholder,
   `releaseScopes`에서 제외한 범위, 사람이 읽는 참고 증빙의 세부 형식은 완료 증빙으로 요구하지 않는다.

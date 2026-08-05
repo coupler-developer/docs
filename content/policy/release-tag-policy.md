@@ -54,6 +54,13 @@
 - 릴리즈 기록 문서에 제출 마커 태그 이름, tag commit SHA, artifact/hash 요약, 삭제 여부를 남기기 전에는 `submitted/*` 태그를 삭제하지 않는다.
 - NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 새로 만들지 않는다. 스토어 binary 배포 또는 릴리즈 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다.
 - 기존 native version 태그와 다른 커밋에 같은 버전 태그를 다시 만들지 않는다.
+- Android와 iOS의 실제 Store version이 다르면 하나의 모바일 태그로 통합하지 않는다. 각 platform mapping은
+  실제 version과 같은 태그와 exact source commit을 사용한다.
+- 이미 출시된 platform의 원본 archive와 exact source를 복구할 수 없으면 추정 커밋에 태그를 사후 생성하지
+  않는다. `release-metadata/v3`의 `unavailable-historical`과 구체적인 한계로만 닫고, 확인 가능한 다른
+  platform 태그를 해당 platform의 근거로만 사용한다.
+- 출시 뒤 사후 생성한 `submitted/*` 태그는 원래 submission-time marker가 아니다. 이런 태그의 object나
+  commit을 정상 제출 증빙으로 이관하지 않고 platform별 `unavailable-historical` 한계에만 기록한다.
 
 ## 증빙/추적
 
