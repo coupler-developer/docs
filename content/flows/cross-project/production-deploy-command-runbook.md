@@ -161,56 +161,38 @@ null/null, dev plan/null 또는 completed dev pair인 `pending`을 사용할 수
 명령은 `coupler-api` 저장소 root에서 실행한다. 대상 환경의 `DB_MIGRATION_HOST`,
 `DB_MIGRATION_USER`, `DB_MIGRATION_PASSWORD`, `DB_MIGRATION_DATABASE`, `DB_MIGRATION_SSL_CA_FILE`,
 `DB_MIGRATION_EXPECTED_IDENTITY_SHA256`와 필요 시 `DB_MIGRATION_PORT`를 승인된 secret source로 주입한다.
-값 자체를 셸 이력이나 docs에 기록하지 않는다. 개발계의 정상 실행 순서는 다음과 같다.
+값 자체를 셸 이력이나 docs에 기록하지 않는다. 정상 경로는 저수준 executor를 직접 이어 붙이지 않고
+workflow wrapper 한 명령을 사용한다.
 
 ```bash
 MIGRATION_VERSION=vX.Y.Z
-MIGRATION_ROOT=".runtime/db-migrations/${MIGRATION_VERSION}"
 
-pnpm db:migration:maintenance -- plan \
-  --environment dev \
-  --plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --runtime-contract "${MIGRATION_ROOT}/inputs/runtime-contract.json"
-
-pnpm db:migration:maintenance -- apply \
-  --environment dev \
-  --plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
-  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
-  --runtime-mixture DEV_PLAN_START_MIXTURE_ID \
-  --backup-ref DEV_BACKUP_REF \
-  --backup-sha256 DEV_BACKUP_MANIFEST_SHA256
-
-pnpm db:migration:maintenance -- fenced-smoke \
-  --environment dev \
-  --plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
-  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
-  --runtime-mixture DEV_FINAL_MIXTURE_ID \
-  --proof "${MIGRATION_ROOT}/inputs/dev-fenced-smoke-proof.json"
-
-pnpm db:migration:maintenance -- resume \
-  --environment dev \
-  --plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
-  --writer-inventory "${MIGRATION_ROOT}/inputs/dev-writer-inventory.json" \
-  --runtime-mixture DEV_FINAL_MIXTURE_ID \
-  --surface-watermarks "${MIGRATION_ROOT}/inputs/dev-surface-watermarks.json" \
-  --resume-evidence DEV_RESUME_EVIDENCE_REF
-
-pnpm db:migration:maintenance -- complete \
-  --environment dev \
-  --plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --execution "${MIGRATION_ROOT}/dev/execution.jsonl" \
-  --runtime-mixture DEV_FINAL_MIXTURE_ID \
-  --running-runtime-inventory "${MIGRATION_ROOT}/inputs/dev-running-runtime-inventory.json" \
-  --restart-evidence DEV_RESTART_EVIDENCE_REF \
-  --smoke-evidence DEV_SMOKE_EVIDENCE_REF \
-  --recovery-readiness-evidence DEV_RECOVERY_READINESS_EVIDENCE_REF
+pnpm db:migration:workflow -- dev-run "${MIGRATION_VERSION}"
 ```
 
-`MIGRATION_VERSION`과 대문자 placeholder는 실제 승인값으로 바꾼다. `complete`가
-`service-completed`를 기록하기 전에는 dev execution을 완료 checkpoint로 취급하지 않는다.
+wrapper는 없으면 `inputs/runtime-contract.json`으로 dev plan을 만들고, 기존 executor의
+`apply -> fenced-smoke -> resume -> complete`를 고정 순서로 호출한다. 시작 writer inventory는
+`inputs/dev-writer-inventory.json`, 각 FENCED smoke 대상 조합은
+`inputs/dev-writer-inventory-<mixture-id>.json`과
+`inputs/dev-fenced-smoke-proof-<mixture-id>.json`, 재개·완료 입력은
+`inputs/dev-surface-watermarks.json`과 `inputs/dev-running-runtime-inventory.json`을 사용한다. wrapper가
+중지한 단계에서 fresh evidence를 파일에 반영한 뒤 Enter를 입력한다.
+
+backup과 단계별 외부 evidence ref는 환경별로 분리한 `DB_MIGRATION_<DEV|PROD>_BACKUP_REF`,
+`DB_MIGRATION_<DEV|PROD>_BACKUP_SHA256`, `DB_MIGRATION_<DEV|PROD>_RESUME_EVIDENCE`,
+`DB_MIGRATION_<DEV|PROD>_RESTART_EVIDENCE`, `DB_MIGRATION_<DEV|PROD>_SMOKE_EVIDENCE`,
+`DB_MIGRATION_<DEV|PROD>_RECOVERY_READINESS_EVIDENCE`로 주입한다. 공용값이나 반대 환경 값을 fallback으로
+사용하지 않는다. `complete`가 `service-completed`를 기록하고
+wrapper가 dev plan/execution과 도달 가능한 history를 docs canonical path에 exact/no-clobber로 보존하기
+전에는 완료 checkpoint로 취급하지 않는다. 기존 `db:migration:maintenance` 명령은 중단·불명확 outcome,
+ledger gap, repair, recovery의 판정과 수동 복구에만 사용한다. workflow wrapper가 실패한 단계를 추측해
+건너뛰거나 새 execution을 만들지 않는다. `RESUMED` 전 partial execution은 같은 저수준 순서를 재호출하고
+executor가 live ledger·identity·postcondition으로 재진입 가능성을 판정하며, 불명확 outcome이나 recovery
+상태는 수동 판정 경로로 중단한다. canonical next-release `RESUMED`가 이미 durable하면 `complete`만
+재진입하되, 뒤따르는 `lock-released` event가 없으면 writer를 다시 fence·drain하고 동일 `resume`를 호출해
+해제 event를 보강한 뒤 live ledger·schema·running inventory를 재검증한다. 이때 writer inventory만 fresh하게
+갱신하고 surface watermarks와 resume evidence는 기존 `phase-resumed` event의 값과 exact하게 일치해야 한다.
+
 Plan은 catalog 전체를
 `appliedRefs + recoveredRefs[].ref + baselineRefs + supersededRefs[].ref + pendingRefs`로 exact
 partition하고 pending 순서를 고정해야 한다. `adjudicableLedgerGapRefs`는 pending의 exact subset이며
@@ -234,8 +216,8 @@ execution을 fast path나 재진입 근거로 사용하지 않는다.
 
 #### 개발계 완료와 운영 실행 사이가 긴 경우
 
-시간 간격 자체에는 제한을 두지 않는다. 개발계 완료 직후 아래 두 root 파일과 dev plan에서 도달 가능한
-failed-history를 docs canonical path에 byte-for-byte 복사하고 SHA-256을 대조한다.
+시간 간격 자체에는 제한을 두지 않는다. 성공한 `dev-run`은 아래 두 root 파일과 dev plan에서 도달 가능한
+failed-history를 docs canonical path에 byte-for-byte 게시하고 SHA-256을 대조한다.
 
 - `content/releases/evidence/db-migrations/<version>/dev/plan.json`
 - `content/releases/evidence/db-migrations/<version>/dev/execution.jsonl`
@@ -246,32 +228,33 @@ failed-history를 docs canonical path에 byte-for-byte 복사하고 SHA-256을 �
 ledger compatibility 또는 runtime contract 불일치로 dev pair를 거부하면 이 version을 재사용하지 않고 더 높은
 version에서 개발계 검증부터 다시 시작한다.
 
-며칠 또는 몇 달 뒤 운영을 준비할 때는 최신 docs `main`의 dev root bytes를 `coupler-api` root 아래
-`.runtime/db-migrations/<version>/dev/`로 복원한다. dev plan의 failed artifact ref가 있으면 canonical
-`history/<failed-plan-sha256>/` bytes도 plan에 기록된 API-relative path로 복원한다. 복원 과정에서 JSON을 다시
-직렬화하거나 execution 줄을 합치지 않는다. 각 ref의 SHA-256이 복원한 bytes와 다르면 중단한다.
+며칠 또는 몇 달 뒤 운영을 준비할 때 `prod-prepare`는 최신 docs `main`의 dev root bytes와 도달 가능한
+failed-history를 `coupler-api`의 plan에 기록된 API-relative path로 복원한다. 복원 과정에서 JSON을 다시
+직렬화하거나 execution 줄을 합치지 않으며, 각 ref의 SHA-256이 다르면 중단한다.
 
 운영 plan은 과거에 미리 만들어 두지 않고 운영 당일 live production DB에서 새로 만든다. 최종 API 40자
-source ref를 checkout하고, dev plan의 `runtimeContract`와 동일한 JSON 입력을 준비한 뒤 다음 명령을 실행한다.
+source ref를 checkout한 뒤 다음 명령을 실행한다. wrapper는 최신 docs canonical dev graph를 byte-for-byte
+복원하고 SHA와 완료 상태를 검증하며, 동일 runtime contract와 dev pair를 참조하는 fresh prod plan만 만든다.
 
 ```bash
 MIGRATION_VERSION=vX.Y.Z
-MIGRATION_ROOT=".runtime/db-migrations/${MIGRATION_VERSION}"
-
-pnpm db:migration:maintenance -- plan \
-  --environment prod \
-  --plan "${MIGRATION_ROOT}/prod/plan.json" \
-  --runtime-contract "${MIGRATION_ROOT}/inputs/prod-runtime-contract.json" \
-  --dev-plan "${MIGRATION_ROOT}/dev/plan.json" \
-  --dev-execution "${MIGRATION_ROOT}/dev/execution.jsonl"
+pnpm db:migration:workflow -- prod-prepare "${MIGRATION_VERSION}"
 ```
 
 executor가 dev pair의 bytes SHA, 완료 event, catalog, ledger compatibility와 runtime contract를 다시 확인한다.
 성공한 fresh prod plan을 docs canonical prod path에 복사하고, 같은 version의 release record를
 `in_progress`·prod plan/null root로 작성한 미병합 PR head에서 preflight를 통과시킨다. 그 뒤 운영계에서도
-위의 `apply -> fenced-smoke -> resume -> complete` 순서와 동일한 필수 옵션을 사용하되 `--environment prod`,
-prod plan/execution 및 운영 inventory·backup·evidence만 입력한다. 완료된 prod execution을 canonical path와
-terminal release record에 추가한 뒤에만 해당 PR을 병합한다.
+운영 입력 파일과 evidence 환경변수를 dev와 같은 이름 규칙의 `prod-*`로 준비하고 다음 한 명령을 실행한다.
+
+```bash
+pnpm db:migration:workflow -- prod-run "${MIGRATION_VERSION}"
+```
+
+`prod-run`은 docs preflight, runtime/canonical prod plan의 full SHA와 bytes 일치, TTY에서
+`APPLY <version> <full-plan-sha256>` 승인을 차례로 확인한다. 승인 직후 plan SHA를 다시 확인한 다음에만 기존
+executor의 `apply -> fenced-smoke -> resume -> complete`를 호출한다. 이미 canonical `RESUMED`인 동일
+execution의 완료 재진입은 `COMPLETE <version> <full-plan-sha256>`를 별도로 승인한다. 완료된 prod execution을
+canonical path와 terminal release record에 추가한 뒤에만 해당 PR을 병합한다.
 
 운영 execution event가 하나도 생성되기 전에 live production 상태가 바뀌어 prod plan이 stale해지면 API의
 기존 immutable plan 파일을 덮어쓰지 않는다. 새 runtime path에 fresh plan을 만들고 미병합 docs PR의 canonical
@@ -314,6 +297,12 @@ execution의 bytes SHA를 함께 참조하고, execution을 해당 개발계 pla
 plan을 canonical archive에 보존하고, prod plan/null을 릴리스 기록의 root로 한 미병합 PR에 push한다. 그
 40자 head의 preflight를 통과한 뒤에만 운영 maintenance로 진입한다. 운영 maintenance 명령은 live DB에 진입할
 때마다 prod plan 내부의 dev pair를 다시 검증한다.
+
+#### 선택: 상태 조회와 중단 후 재진입
+
+`status`는 정상 실행의 선행 Gate가 아니다. 중단 뒤 현재 event를 확인할 때만
+`pnpm db:migration:workflow -- status "${MIGRATION_VERSION}" <dev|prod>`를 사용하고, 같은
+`dev-run` 또는 `prod-run`을 다시 호출해 동일 execution에 재진입한다.
 
 ### 4. 재기동과 산출물
 
