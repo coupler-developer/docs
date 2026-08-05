@@ -125,6 +125,26 @@ curl -I https://cms.ritzy.fourhundred.co.kr
 DB migration은 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의 절차만 사용한다.
 서비스가 쓰기를 계속하는 상태에서는 실행하지 않는다.
 
+### 0. 신규 migration source 준비 확인
+
+이 런북은 신규 SQL 작성 자체를 다루지 않는다. 처음 수행하는 작업자는 writer를 중지하기 전에 아래를
+완료한다.
+
+1. `coupler-api`의
+   [`db/schema/README.md` 신규 migration 절](https://github.com/coupler-developer/coupler-api/blob/main/db/schema/README.md#신규-migration)을
+   처음부터 끝까지 따른다.
+2. migration SQL, catalog, check fixture, postcondition과 해당 시 schema lock·논리 mapping을 같은 API PR에
+   준비하고 `pnpm verify`를 통과시킨다.
+3. migration SQL만 `db/migrations`에 두고 fixture·postcondition·실행 입력을 그 폴더에 섞지 않는다.
+
+하나라도 끝나지 않았으면 writer 중지 단계로 진입하지 않는다. 실행 시점의
+`.runtime/db-migrations/<version>/inputs/runtime-contract.json`은 wrapper가 자동 생성하지 않는다. migration
+작성자와 runtime unit owner가 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의
+runtime 계약을 함께 고정하고, 필요한 값이나 검증 procedure를 확정할 수 없으면 `BLOCKED`로 종료한다. 이전
+version의 입력을 복사해 근거를 대신하지 않는다. writer inventory·smoke proof·watermark·running inventory는
+아래 `Plan과 실행` 절의 해당 단계에서 fresh evidence로 준비한다. plan은 live pending migration의
+postcondition 누락을 SQL 실행 전에 다시 차단한다.
+
 ### 1. Writer inventory와 중지
 
 환경별로 아래 writer/effect producer의 실제 runtime unit, source ref/compatibility-config SHA, owner,
