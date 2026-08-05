@@ -302,6 +302,7 @@
 
 ### Releases
 
+- [2.4.1 릴리스 실행 기록](releases/v2.4.1.md) - Android 2.4.0·iOS 2.4.1 Store 결과와 source 한계 기록
 - [2.4.0 릴리스 실행 기록](releases/v2.4.0.md) - 운영 DB migration 98·99 재검증과 canonical execution 부재 기록
 - [2.3.0 릴리스 실행 기록](releases/v2.3.0.md) - DB/API/Admin, Mobile Store 2.3.0 (101), NextPush 통합 릴리스 진행 기록
 - [2.2.7 릴리스 실행 기록](releases/v2.2.7.md) - contracts 0.1.5 기준 API/Admin/Mobile NextPush 운영 배포 기록

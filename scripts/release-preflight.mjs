@@ -543,6 +543,7 @@ function readReleaseRecord(version, errors, pendingRef) {
       readArtifact: (relativePath) =>
         readPendingReleaseArtifact(pendingRef, relativePath),
       listArtifacts: (prefix) => listPendingReleaseArtifacts(pendingRef, prefix),
+      requireCurrentSchema: true,
     });
   }
 
@@ -855,17 +856,25 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
   }
 
   validateResolvedBasisConsistency(state.name, resolvedRefs, errors);
-  const hasResolvedAnnotatedOriginTag = resolvedRefs.some(
-    (ref) => ref.type === "tag",
-  );
-  if (
-    policy.refMustEqualCurrentOriginMain &&
-    !(
-      policy.annotatedOriginTagFreezesHistoricalRef &&
-      hasResolvedAnnotatedOriginTag
-    )
-  ) {
-    validateResolvedBasisMatchesOriginMain(state.name, state.originMainFull, resolvedRefs, errors);
+  if (policy.refMustEqualCurrentOriginMain) {
+    const frozenGroups = policy.annotatedOriginTagFreezesHistoricalRef
+      ? new Set(
+          resolvedRefs
+            .filter((ref) => ref.type === "tag")
+            .map((ref) => ref.group ?? "default"),
+        )
+      : new Set();
+    const refsRequiringCurrentOrigin = resolvedRefs.filter(
+      (ref) =>
+        !ref.frozenArtifact &&
+        !frozenGroups.has(ref.group ?? "default"),
+    );
+    validateResolvedBasisMatchesOriginMain(
+      state.name,
+      state.originMainFull,
+      refsRequiringCurrentOrigin,
+      errors,
+    );
   }
 }
 
@@ -964,19 +973,24 @@ function gitCommitIsAncestor(repoRoot, ancestor, descendant) {
 }
 
 function validateResolvedBasisConsistency(repoName, resolvedRefs, errors) {
-  if (resolvedRefs.length <= 1) {
-    return;
+  const refsByGroup = new Map();
+  for (const ref of resolvedRefs) {
+    const group = ref.group ?? "default";
+    refsByGroup.set(group, [...(refsByGroup.get(group) ?? []), ref]);
   }
-
-  const commits = new Set(resolvedRefs.map((ref) => ref.commit));
-  if (commits.size <= 1) {
-    return;
+  for (const [group, groupedRefs] of refsByGroup) {
+    if (groupedRefs.length <= 1) {
+      continue;
+    }
+    const commits = new Set(groupedRefs.map((ref) => ref.commit));
+    if (commits.size <= 1) {
+      continue;
+    }
+    const refs = groupedRefs
+      .map((ref) => `${ref.type} ${ref.value} -> ${ref.commit.slice(0, 12)}`)
+      .join(", ");
+    errors.push(`${repoName}: 버전 매핑 ${group} tag와 commit이 같은 기준점을 가리켜야 합니다: ${refs}`);
   }
-
-  const refs = resolvedRefs
-    .map((ref) => `${ref.type} ${ref.value} -> ${ref.commit.slice(0, 12)}`)
-    .join(", ");
-  errors.push(`${repoName}: 버전 매핑 tag와 commit이 같은 기준점을 가리켜야 합니다: ${refs}`);
 }
 
 function git(repoRoot, args) {

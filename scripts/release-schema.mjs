@@ -1,4 +1,15 @@
-export const releaseMetadataSchema = "release-metadata/v2";
+export const legacyReleaseMetadataSchema = "release-metadata/v2";
+export const releaseMetadataSchema = "release-metadata/v3";
+export const supportedReleaseMetadataSchemas = new Set([
+  legacyReleaseMetadataSchema,
+  releaseMetadataSchema,
+]);
+
+export const mobileStorePlatforms = ["android", "ios"];
+export const mobileStoreSourceStatuses = new Set([
+  "verified",
+  "unavailable-historical",
+]);
 
 export const releaseMetadataTopLevelKeys = new Set([
   "schema",
@@ -401,6 +412,49 @@ export const versionMappingFieldDescriptors = {
     },
   ],
 };
+
+const mobilePlatformVersionMappingFieldDescriptors = [
+  ...mobileStorePlatforms.flatMap((platform) => {
+    const label = platform === "android" ? "Android" : "iOS";
+    return [
+      {
+        path: ["store", platform, "versionBuild"],
+        mirrorLabelPattern: new RegExp(`${label} Store`),
+      },
+      {
+        path: ["store", platform, "releaseTag"],
+        mirrorLabelPattern: new RegExp(`${label} 릴리스\\s+태그`),
+      },
+      {
+        path: ["store", platform, "commit"],
+        mirrorLabelPattern: new RegExp(`${label} 커밋`),
+      },
+      {
+        path: ["store", platform, "sourceStatus"],
+        mirrorLabelPattern: new RegExp(`${label} source`),
+      },
+    ];
+  }),
+  {
+    path: ["nextPush"],
+    mirrorLabelPattern: /NextPush(?!\s+커밋)/,
+  },
+  {
+    path: ["commit"],
+    mirrorLabelPattern: /NextPush\s+커밋/,
+  },
+];
+
+export function getVersionMappingFieldDescriptors(schema, repoName) {
+  if (schema === releaseMetadataSchema && repoName === "coupler-mobile-app") {
+    return mobilePlatformVersionMappingFieldDescriptors;
+  }
+
+  return (versionMappingFieldDescriptors[repoName] ?? []).map((descriptor) => ({
+    ...descriptor,
+    path: [descriptor.key],
+  }));
+}
 
 export const apiContractCutoverCommonValueFields = [
   {

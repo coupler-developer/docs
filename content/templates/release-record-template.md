@@ -2,7 +2,7 @@
 
 ```release-metadata
 {
-  "schema": "release-metadata/v2",
+  "schema": "release-metadata/v3",
   "version": "vX.Y.Z",
   "status": "pending",
   "releaseScopes": [
@@ -23,10 +23,12 @@
       "commit": null
     },
     "coupler-mobile-app": {
-      "store": null,
-      "releaseTag": null,
-      "commit": null,
-      "nextPush": null
+      "store": {
+        "android": null,
+        "ios": null
+      },
+      "nextPush": null,
+      "commit": null
     }
   },
   "scopeResults": {
@@ -75,7 +77,7 @@
 - `docs`: 기록 버전 `vX.Y.Z`, 태그 `vX.Y.Z 또는 N/A`, 커밋 `pending 또는 N/A`
 - `coupler-api`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha`
 - `coupler-admin-web`: 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha`
-- `coupler-mobile-app`: Store `version (build) 또는 N/A`, 릴리스 태그 `vX.Y.Z 또는 N/A`, 커밋 `sha 또는 N/A`, NextPush `label 또는 N/A`
+- `coupler-mobile-app`: Android Store `version (build) 또는 N/A`, Android 릴리스 태그 `vX.Y.Z 또는 N/A`, Android 커밋 `sha 또는 N/A`, Android source `verified 또는 unavailable-historical`, iOS Store `version (build) 또는 N/A`, iOS 릴리스 태그 `vX.Y.Z 또는 N/A`, iOS 커밋 `sha 또는 N/A`, iOS source `verified 또는 unavailable-historical`, NextPush `app/deployment/label/target 또는 N/A`, NextPush 커밋 `sha 또는 N/A`
 - `coupler-mobile-app` 제출 마커 태그:
 - 제출 마커 증빙 이관/삭제:
 
@@ -83,11 +85,22 @@
 
 - `대상`, `포함 범위`, `제외 범위`는 빈칸으로 두지 않고 이번 릴리스의 실제 범위를 적는다.
 - `release-metadata` block은 preflight가 읽는 작성 계약이다. JSON 문법을 지키고 `schema`는
-  `release-metadata/v2`로 둔다.
+  `release-metadata/v3`로 둔다.
 - `release-metadata.schema` 버전은 병합된 최신 계약과 일치해야 한다. 아직 `main`에 합쳐지지 않은
   로컬/작업 브랜치 변경만으로 임의로 올리지 않는다.
 - 자동화의 기계 판정 SoT는 `release-metadata`에서 한 번 계산한 derived model이다. Markdown 본문은 사람이 읽는 mirror이며 본문 자유 문장이 새 포함 범위나 cutover 포함 신호가 되지 않게 작성한다.
 - `release-metadata` 하위 object에는 템플릿과 descriptor가 정의한 key만 쓴다. 임의 nested key로 별도 상태/증빙 축을 만들지 않는다.
+- Mobile Store mapping은 `store.android`와 `store.ios`를 별도로 둔다. 포함하지 않은 플랫폼은 `null`이다.
+  정상 source는 `sourceStatus: verified`, 정확한 40자 `commit`, `limitation: null`을 사용한다. nonterminal
+  preflight에서는 `releaseTag: null`로 현재 `origin/main`을 검증하고, `released` 전환 때 실제 platform version과
+  같은 annotated `releaseTag`를 고정한다. 이미 출시됐지만 archive/source를 복구할 수 없는 과거 예외만
+  `sourceStatus: unavailable-historical`, `releaseTag: null`, `commit: null`, 구체적인 `limitation`을 사용한다.
+- Mobile NextPush는 기존 단일 계약을 유지한다. `nextPush`에는 app/deployment/label/target 문자열을,
+  `commit`에는 exact source 40자 SHA를 기록하며 미적용 시 둘 다 `null`로 둔다.
+- Mobile Store scope의 `submittedMarkers.android|ios`는 `verified` 또는 `unavailable-historical` closed
+  shape를 사용한다. `verified`는 공통 또는 platform별 submission tag, exact commit, artifact SHA-256, 이관·삭제 증빙과
+  `limitation: null`을 요구한다. 원래 marker/hash가 없는 과거 예외는 tag·commit·artifact/evidence를 모두
+  `null`로 두고 구체적인 `limitation`만 기록한다. 사후 생성 marker를 `verified`로 바꾸지 않는다.
 - `releaseScopes`는 실제 릴리즈 surface의 단일 SoT다. 값은 `db-migration`, `contracts-package`, `coupler-api`, `coupler-admin-web`, `mobile-store`, `mobile-nextpush`, `docs` 중에서 고르고, 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 직접 쓰지 않고 `releaseScopes` descriptor에서 파생한다.
 - `scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. 각 key는 `releaseScopes`와 정확히 일치해야 하며, scope별 `status`는 `planned`, `pending`, `in_progress`, `released`, `rolled_back`, `superseded` 중 하나다.
@@ -143,7 +156,7 @@ API+최종 DB 호환 근거로 계산하지 않는다. NextPush 실패 시 nativ
       "generation": "current",
       "artifact": {
         "kind": "store-builds",
-        "mappingRef": "<versionMapping.coupler-mobile-app.store>",
+        "mappingRef": "Android X.Y.Z (build); iOS X.Y.Z (build)",
         "iosVersionBuild": "X.Y.Z (build)",
         "androidVersionBuild": "X.Y.Z (build)"
       },
@@ -289,7 +302,7 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 }
 ```
 
-- `mobile-store`를 `released`로 닫을 때는 `scopeResults.mobile-store.evidence.submission`, `approval`, `release`, `smoke`, `artifact`, `submittedMarkers`와 `versionMapping.coupler-mobile-app.releaseTag`를 concrete 값으로 채운다.
+- `mobile-store`를 `released`로 닫을 때는 `scopeResults.mobile-store.evidence.submission`, `approval`, `release`, `smoke`, `artifact`, `submittedMarkers`와 포함 platform의 `verified` source mapping을 concrete 값으로 채운다.
 - `mobile-nextpush`를 `released`로 닫을 때는 `scopeResults.mobile-nextpush.evidence.app`, `productionLabel`, `targetBinary`, `uploadedAt`, `rollout`, `mandatory`, `disabled`를 concrete 값으로 채운다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `extraRepoRefs`에 `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 중 canonical name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
 - `포함 범위`와 `제외 범위`는 사람이 읽는 실행 계약이다. 배포 범위(`DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`)별로 완료/제외를 구분한다.
@@ -302,7 +315,7 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 - `preflightRepoNames`는 `docs + releaseScopes.requiredRepoRefs + extraRepoRefs`로 계산한다.
 - `preflightRepoNames`가 `docs`뿐인 릴리스 기록은 서비스 repo workspace 없이 docs-only preflight를 실행할 수 있다.
 - 서비스 레포가 `preflightRepoNames`에 포함되면 preflight 실행 시 해당 repo가 있는 workspace root가 필요하다.
-- preflight 검증 대상 릴리즈 기록에서 `preflightRepoNames`에 포함된 서비스 레포의 `versionMapping` ref는 릴리스 상태와 무관하게 실행 시점의 현재 `origin/main` 기준점과 같아야 한다.
+- preflight 검증 대상 서비스 ref는 확인된 annotated tag가 없으면 실행 시점의 현재 `origin/main`과 같아야 한다. annotated tag와 commit이 일치하면 그 불변 릴리스 기준점을 허용한다.
 - `docs`의 릴리즈 기준점은 `versionMapping.docs.tag`와 실제 docs tag commit으로 확인한다. 릴리즈 기록 문서 안의 `versionMapping.docs.commit`에는 자기 자신을 안정적으로 가리키는 concrete SHA를 적지 않는다.
 - `docs` scope가 `released`이면 `versionMapping.docs.tag`를 목표 버전으로 고정한다. 실제 origin annotated tag는 final PR merge 뒤 병합된 main 커밋에 생성하고 postcheck하며, tag commit은 `origin/main` 계보에 있어야 한다.
 - `preflightRepoNames`에 포함된 서비스 레포는 `versionMapping`에 확인 가능한 `tag`/`releaseTag` 또는
@@ -311,7 +324,7 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 - 서비스 레포 태그를 적으면 origin에서 확인 가능한 annotated tag여야 하며, 태그와 커밋 SHA를 함께 적을 때는 둘이 같은 커밋을 가리켜야 한다.
 - `docs` 태그는 릴리스 기록과 Release Note 기준점이고, 서비스 레포 태그를 대체하지 않는다.
 - Mobile Store 제출, Mobile Store 출시, Mobile NextPush 배포는 각각 별도 상태와 증빙으로 적는다.
-- `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label 문자열 또는 `null`만 쓴다. NextPush가 없으면 `null`로 두고 Markdown mirror에는 `N/A` 사유를 적는다.
+- `versionMapping.coupler-mobile-app.nextPush`는 NextPush app/deployment/label/target 문자열 또는 `null`만 쓴다. NextPush가 있으면 `commit`에 exact source SHA를 함께 적고, 없으면 둘 다 `null`로 두며 Markdown mirror에는 `N/A`를 적는다.
 - Store 심사 중이거나 NextPush 적용 전이면 해당 scope와 전체 상태를 `released`로 닫지 않는다.
 - Store 심사/승인/출시처럼 외부 대기가 있는 범위는 제출 마커와 대기 범위를 남기고 `planned`, `pending`, `in_progress` 중 실제 단계에 맞는 상태로 유지한다. Store 승인, 운영 출시, 기본 smoke, 모바일 릴리스 태그, 제출 마커 증빙 이관/삭제가 끝난 뒤에만 `mobile-store` scope를 `released`로 닫는다.
 - 후속 릴리스가 대기 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.

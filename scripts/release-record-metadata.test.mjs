@@ -1313,6 +1313,156 @@ describe("release metadata scope results", () => {
     );
   });
 
+  it("accepts platform-specific Store versions with an explicit historical source gap", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("allows a verified Store commit without a tag before terminal release", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "in_progress",
+        "mobile-store": "in_progress",
+      },
+      status: "in_progress",
+    });
+    usePlatformStoreMapping(metadata);
+    metadata.status = "in_progress";
+    metadata.scopeResults.docs.status = "in_progress";
+    metadata.scopeResults["mobile-store"].status = "in_progress";
+    metadata.versionMapping.docs.tag = null;
+    metadata.versionMapping["coupler-mobile-app"].store.android.releaseTag = null;
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("accepts either the common or platform-specific submission marker name", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    assert.deepEqual(validate(metadata), []);
+
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.tag =
+      "submitted/android-9.9.0-900";
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("requires v3 for a newly authored release while retaining v2 parser compatibility", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs"],
+      statuses: {
+        docs: "released",
+      },
+    });
+
+    assert.deepEqual(validate(metadata), []);
+    assert(
+      validate(metadata, { requireCurrentSchema: true }).some((error) =>
+        /new release-metadata schema must be release-metadata\/v3/.test(error),
+      ),
+    );
+  });
+
+  it("binds a current API Store consumer to both v3 platform versions", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    const currentStore = metadata.scopeResults["coupler-api"].evidence.publicContract.consumers
+      .find(({ id }) => id === "current-store");
+    currentStore.artifact.mappingRef = "Android 9.9.0 (900); iOS 9.9.1 (900)";
+    currentStore.artifact.androidVersionBuild = "9.9.0 (900)";
+    currentStore.artifact.iosVersionBuild = "9.9.1 (900)";
+
+    assert.deepEqual(validate(metadata), []);
+
+    currentStore.artifact.iosVersionBuild = "9.9.0 (900)";
+    assert(
+      validate(metadata).some((error) =>
+        /iosVersionBuild must match .*store\.ios\.versionBuild/.test(error),
+      ),
+    );
+  });
+
+  it("rejects a tag or commit claim for an unavailable historical Store source", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    metadata.versionMapping["coupler-mobile-app"].store.ios.releaseTag = "v9.9.1";
+    metadata.versionMapping["coupler-mobile-app"].store.ios.commit = mobileCommit;
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) => /unavailable-historical .* must not claim a release tag or commit/.test(error)),
+    );
+  });
+
+  it("does not count a retrospective marker as verified submission provenance", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    const iosMarker = metadata.scopeResults["mobile-store"].evidence.submittedMarkers.ios;
+    iosMarker.tag = "submitted/ios-9.9.1-900";
+    iosMarker.commit = mobileCommit;
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) => /unavailable-historical .*\.tag must be null/.test(error)),
+    );
+    assert(
+      errors.some((error) => /unavailable-historical .*\.commit must be null/.test(error)),
+    );
+  });
+
+  it("requires at least one verified platform source for a terminal Store scope", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    metadata.versionMapping["coupler-mobile-app"].store.android = null;
+
+    const errors = validate(metadata);
+
+    assert(
+      errors.some((error) => /requires at least one verified platform source/.test(error)),
+    );
+  });
+
   it("allows released Mobile NextPush without a mobile release tag", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "mobile-nextpush"],
@@ -1608,6 +1758,52 @@ function versionMappingFor(statuses) {
       nextPush: statuses["mobile-nextpush"] === "released" ? "Production v99 target 9.9.0 (900)" : null,
     },
   };
+}
+
+function usePlatformStoreMapping(metadata) {
+  metadata.schema = "release-metadata/v3";
+  metadata.versionMapping["coupler-mobile-app"] = {
+    store: {
+      android: {
+        versionBuild: "9.9.0 (900)",
+        releaseTag: "v9.9.0",
+        commit: mobileCommit,
+        sourceStatus: "verified",
+        limitation: null,
+      },
+      ios: {
+        versionBuild: "9.9.1 (900)",
+        releaseTag: null,
+        commit: null,
+        sourceStatus: "unavailable-historical",
+        limitation: "The released archive and exact source were not retained; no source tag is claimed.",
+      },
+    },
+    nextPush: null,
+    commit: null,
+  };
+  if (metadata.scopeResults["mobile-store"]) {
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers = {
+      android: {
+        status: "verified",
+        tag: "submitted/mobile-9.9.0-900",
+        commit: mobileCommit,
+        artifactSha256: "a".repeat(64),
+        evidence: "Android submission marker and artifact digest migrated",
+        deletedEvidence: "Android submission marker deleted after evidence migration",
+        limitation: null,
+      },
+      ios: {
+        status: "unavailable-historical",
+        tag: null,
+        commit: null,
+        artifactSha256: null,
+        evidence: null,
+        deletedEvidence: null,
+        limitation: "The original iOS submission marker and artifact digest were not retained.",
+      },
+    };
+  }
 }
 
 function scopeResult(scopeName, status) {

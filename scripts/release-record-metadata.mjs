@@ -18,12 +18,15 @@ import {
   isSemverTag,
   isSubmittedMarkerTag,
   knownRepoNames,
+  mobileStorePlatforms,
+  mobileStoreSourceStatuses,
   recordRepoName,
   releaseScopeDescriptors,
   releaseMetadataSchema,
   releaseMetadataRequiredTopLevelKeys,
   releaseMetadataTopLevelKeys,
   semverTagPattern,
+  supportedReleaseMetadataSchemas,
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
@@ -73,15 +76,17 @@ export function validateReleaseMetadata(
   context,
   expectedVersion,
   errors,
-  { readArtifact, listArtifacts } = {},
+  { readArtifact, listArtifacts, requireCurrentSchema = false } = {},
 ) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
     return;
   }
 
-  if (metadata.schema !== releaseMetadataSchema) {
+  if (!supportedReleaseMetadataSchemas.has(metadata.schema)) {
     errors.push(`${context}: release-metadata schema must be ${releaseMetadataSchema}`);
+  } else if (requireCurrentSchema && metadata.schema !== releaseMetadataSchema) {
+    errors.push(`${context}: new release-metadata schema must be ${releaseMetadataSchema}`);
   }
 
   validateTopLevelKeys(metadata, context, errors);
@@ -102,7 +107,7 @@ export function validateReleaseMetadata(
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
   validateScopeResults(metadata, context, errors, { readArtifact, listArtifacts });
-  validateVersionMapping(metadata.versionMapping, context, errors);
+  validateVersionMapping(metadata.versionMapping, metadata.schema, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
   validateReleaseCompletionState(metadata, context, errors);
@@ -156,7 +161,41 @@ export function getMetadataMappingBasis(metadata, repoName) {
     };
   }
 
-  for (const tagValue of [repoMapping.tag, repoMapping.releaseTag]) {
+  const platformMappings =
+    metadata?.schema === releaseMetadataSchema && repoName === "coupler-mobile-app"
+      ? mobileStorePlatforms
+        .map((platform) => ({ platform, ...repoMapping.store?.[platform] }))
+        .filter((mapping) => mapping?.sourceStatus === "verified")
+      : [];
+  const usesPlatformMapping =
+    metadata?.schema === releaseMetadataSchema && repoName === "coupler-mobile-app";
+  const tagValues = usesPlatformMapping
+    ? platformMappings.map((mapping) => ({
+        value: mapping.releaseTag,
+        group: `store.${mapping.platform}`,
+        frozenArtifact: false,
+      }))
+    : [
+        { value: repoMapping.tag, group: "default", frozenArtifact: false },
+        { value: repoMapping.releaseTag, group: "default", frozenArtifact: false },
+      ];
+  const commitValues = usesPlatformMapping
+    ? [
+        ...platformMappings.map((mapping) => ({
+          value: mapping.commit,
+          group: `store.${mapping.platform}`,
+          frozenArtifact: false,
+        })),
+        {
+          value: repoMapping.nextPush ? repoMapping.commit : null,
+          group: "nextPush",
+          frozenArtifact: false,
+        },
+      ]
+    : [{ value: repoMapping.commit, group: "default", frozenArtifact: false }];
+
+  for (const tagRef of tagValues) {
+    const tagValue = tagRef.value;
     if (isEmptyRefValue(tagValue)) {
       continue;
     }
@@ -165,18 +204,22 @@ export function getMetadataMappingBasis(metadata, repoName) {
       tags.push({
         type: "tag",
         value: tagValue,
+        group: tagRef.group,
+        frozenArtifact: tagRef.frozenArtifact,
       });
     }
   }
 
-  if (
-    typeof repoMapping.commit === "string" &&
-    commitShaPattern.test(repoMapping.commit)
-  ) {
-    commits.push({
-      type: "commit",
-      value: repoMapping.commit.toLowerCase(),
-    });
+  for (const commitRef of commitValues) {
+    const commitValue = commitRef.value;
+    if (typeof commitValue === "string" && commitShaPattern.test(commitValue)) {
+      commits.push({
+        type: "commit",
+        value: commitValue.toLowerCase(),
+        group: commitRef.group,
+        frozenArtifact: commitRef.frozenArtifact,
+      });
+    }
   }
 
   return {
@@ -290,8 +333,8 @@ function validateScopeResult(
   if (!result.evidence || typeof result.evidence !== "object" || Array.isArray(result.evidence)) {
     errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence must be a JSON object`);
   } else if (scopeName !== "db-migration") {
-    validateScopeEvidenceKeys(scopeName, result.evidence, context, errors);
-    validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
+    validateScopeEvidenceKeys(metadata, scopeName, result.evidence, context, errors);
+    validateScopeEvidenceShape(metadata, scopeName, result.evidence, context, errors);
     validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
     if (scopeName === "coupler-api") {
       const terminal = result.status === "released" || result.status === "rolled_back";
@@ -389,7 +432,7 @@ function validateScopeResultKeys(scopeName, result, context, errors) {
   }
 }
 
-function validateScopeEvidenceKeys(scopeName, evidence, context, errors) {
+function validateScopeEvidenceKeys(metadata, scopeName, evidence, context, errors) {
   const expectedKeys = getExpectedScopeEvidenceKeys(scopeName);
   for (const key of expectedKeys) {
     if (!Object.hasOwn(evidence, key)) {
@@ -404,7 +447,15 @@ function validateScopeEvidenceKeys(scopeName, evidence, context, errors) {
   }
 }
 
-function validateScopeEvidenceShape(scopeName, evidence, context, errors) {
+function validateScopeEvidenceShape(metadata, scopeName, evidence, context, errors) {
+  if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
+    validatePlatformSubmittedMarkersShape(
+      evidence.submittedMarkers,
+      context,
+      "scopeResults.mobile-store.evidence.submittedMarkers",
+      errors,
+    );
+  }
   const seenPaths = new Set();
   for (const descriptor of [
     ...(releaseScopeDescriptors[scopeName]?.releasedEvidence ?? []),
@@ -416,6 +467,13 @@ function validateScopeEvidenceShape(scopeName, evidence, context, errors) {
     }
 
     const relativePath = descriptor.metadataPath.slice(evidenceIndex + 1);
+    if (
+      metadata.schema === releaseMetadataSchema &&
+      scopeName === "mobile-store" &&
+      relativePath[0] === "submittedMarkers"
+    ) {
+      continue;
+    }
     const fieldPath = `scopeResults.${scopeName}.evidence.${relativePath.join(".")}`;
     if (seenPaths.has(fieldPath)) {
       continue;
@@ -556,7 +614,7 @@ function allowedValuesHas(allowedValues, value) {
   return allowedValues.includes(value);
 }
 
-function validateVersionMapping(versionMapping, context, errors) {
+function validateVersionMapping(versionMapping, schema, context, errors) {
   if (!versionMapping || typeof versionMapping !== "object" || Array.isArray(versionMapping)) {
     errors.push(`${context}: release-metadata versionMapping must be a JSON object`);
     return;
@@ -578,11 +636,16 @@ function validateVersionMapping(versionMapping, context, errors) {
       continue;
     }
 
-    validateRepoMapping(repoName, repoMapping, context, errors);
+    validateRepoMapping(repoName, repoMapping, schema, context, errors);
   }
 }
 
-function validateRepoMapping(repoName, repoMapping, context, errors) {
+function validateRepoMapping(repoName, repoMapping, schema, context, errors) {
+  if (schema === releaseMetadataSchema && repoName === "coupler-mobile-app") {
+    validatePlatformMobileMapping(repoMapping, context, errors);
+    return;
+  }
+
   validateExactObjectKeys({
     value: repoMapping,
     allowedKeys: (versionMappingFieldDescriptors[repoName] ?? []).map(({ key }) => key),
@@ -594,6 +657,112 @@ function validateRepoMapping(repoName, repoMapping, context, errors) {
   for (const descriptor of versionMappingFieldDescriptors[repoName] ?? []) {
     validateRepoMappingValue(repoName, repoMapping, descriptor, context, errors);
   }
+}
+
+function validatePlatformMobileMapping(repoMapping, context, errors) {
+  const fieldPath = "versionMapping.coupler-mobile-app";
+  validateExactObjectKeys({
+    value: repoMapping,
+    allowedKeys: ["store", "nextPush", "commit"],
+    context,
+    fieldPath,
+    errors,
+  });
+
+  if (repoMapping.store !== null) {
+    if (!repoMapping.store || typeof repoMapping.store !== "object" || Array.isArray(repoMapping.store)) {
+      errors.push(`${context}: release-metadata ${fieldPath}.store must be an object or null`);
+    } else {
+      validateExactObjectKeys({
+        value: repoMapping.store,
+        allowedKeys: mobileStorePlatforms,
+        context,
+        fieldPath: `${fieldPath}.store`,
+        errors,
+      });
+      for (const platform of mobileStorePlatforms) {
+        validateMobileStorePlatformMapping(
+          repoMapping.store[platform],
+          platform,
+          context,
+          errors,
+        );
+      }
+    }
+  }
+
+  if (repoMapping.nextPush !== null && !isNonEmptyString(repoMapping.nextPush)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.nextPush must be a string or null`);
+  }
+  if (repoMapping.nextPush === null && repoMapping.commit !== null) {
+    errors.push(`${context}: release-metadata ${fieldPath}.commit must be null when nextPush is null`);
+  }
+  if (repoMapping.nextPush !== null && !isFullCommitSha(repoMapping.commit)) {
+    errors.push(`${context}: release-metadata ${fieldPath}.commit must be a full 40-character commit SHA when nextPush is present`);
+  }
+}
+
+function validateMobileStorePlatformMapping(mapping, platform, context, errors) {
+  const fieldPath = `versionMapping.coupler-mobile-app.store.${platform}`;
+  if (mapping === null) {
+    return;
+  }
+  if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
+    errors.push(`${context}: release-metadata ${fieldPath} must be an object or null`);
+    return;
+  }
+
+  validateExactObjectKeys({
+    value: mapping,
+    allowedKeys: [
+      "versionBuild",
+      "releaseTag",
+      "commit",
+      "sourceStatus",
+      "limitation",
+    ],
+    context,
+    fieldPath,
+    errors,
+  });
+
+  if (typeof mapping.versionBuild !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(mapping.versionBuild)) {
+    errors.push(`${context}: ${fieldPath}.versionBuild must be "X.Y.Z (build)"`);
+  }
+  if (!mobileStoreSourceStatuses.has(mapping.sourceStatus)) {
+    errors.push(`${context}: ${fieldPath}.sourceStatus is not allowed: ${mapping.sourceStatus}`);
+    return;
+  }
+
+  if (mapping.sourceStatus === "verified") {
+    if (mapping.releaseTag !== null && !isSemverTag(mapping.releaseTag)) {
+      errors.push(`${context}: verified ${fieldPath}.releaseTag must be a release tag or null before terminal release`);
+    }
+    if (!isFullCommitSha(mapping.commit)) {
+      errors.push(`${context}: verified ${fieldPath} requires a full 40-character commit SHA`);
+    }
+    if (mapping.limitation !== null) {
+      errors.push(`${context}: verified ${fieldPath}.limitation must be null`);
+    }
+    const expectedTag = typeof mapping.versionBuild === "string"
+      ? `v${mapping.versionBuild.split(" ")[0]}`
+      : null;
+    if (expectedTag && mapping.releaseTag !== null && mapping.releaseTag !== expectedTag) {
+      errors.push(`${context}: verified ${fieldPath}.releaseTag must match versionBuild: ${expectedTag}`);
+    }
+    return;
+  }
+
+  if (mapping.releaseTag !== null || mapping.commit !== null) {
+    errors.push(`${context}: unavailable-historical ${fieldPath} must not claim a release tag or commit`);
+  }
+  validateConcreteEvidenceValue({
+    value: mapping.limitation,
+    context,
+    scopeName: "mobile-store",
+    fieldPath: `${fieldPath}.limitation`,
+    errors,
+  });
 }
 
 function validateRepoMappingValue(repoName, repoMapping, descriptor, context, errors) {
@@ -695,21 +864,14 @@ function validateConsumerArtifact(
         errors.push(`${context}: release-metadata ${consumerPath}.artifact.${key} must be "X.Y.Z (build)"`);
       }
     }
-    if (
-      terminal &&
-      current &&
-      (typeof metadata.versionMapping?.["coupler-mobile-app"]?.store !== "string" ||
-        !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(
-          metadata.versionMapping["coupler-mobile-app"].store,
-        ))
-    ) {
-      errors.push(`${context}: terminal current mobile-store consumer requires versionMapping.coupler-mobile-app.store`);
-    } else if (
-      terminal &&
-      current &&
-      artifact.mappingRef !== metadata.versionMapping["coupler-mobile-app"].store
-    ) {
-      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.store`);
+    if (terminal && current) {
+      validateCurrentMobileStoreConsumerMapping(
+        artifact,
+        metadata,
+        context,
+        consumerPath,
+        errors,
+      );
     }
     return;
   }
@@ -751,12 +913,14 @@ function validateConsumerArtifact(
         }
       }
     }
-    if (
-      terminal &&
-      current &&
-      artifact.mappingRef !== metadata.versionMapping?.["coupler-mobile-app"]?.nextPush
-    ) {
-      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.nextPush`);
+    if (terminal && current) {
+      validateCurrentMobileNextPushConsumerMapping(
+        artifact,
+        metadata,
+        context,
+        consumerPath,
+        errors,
+      );
     }
     return;
   }
@@ -788,6 +952,55 @@ function validateConsumerArtifact(
     ) {
       errors.push(`${context}: release-metadata ${consumerPath}.artifact.artifactRef must match versionMapping.coupler-admin-web.commit`);
     }
+  }
+}
+
+function validateCurrentMobileNextPushConsumerMapping(
+  artifact,
+  metadata,
+  context,
+  consumerPath,
+  errors,
+) {
+  const nextPush = metadata.versionMapping?.["coupler-mobile-app"]?.nextPush;
+  if (artifact.mappingRef !== nextPush) {
+    errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.nextPush`);
+  }
+}
+
+function validateCurrentMobileStoreConsumerMapping(
+  artifact,
+  metadata,
+  context,
+  consumerPath,
+  errors,
+) {
+  const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
+  if (metadata.schema !== releaseMetadataSchema) {
+    if (typeof store !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(store)) {
+      errors.push(`${context}: terminal current mobile-store consumer requires versionMapping.coupler-mobile-app.store`);
+    } else if (artifact.mappingRef !== store) {
+      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.store`);
+    }
+    return;
+  }
+
+  const androidVersionBuild = store?.android?.versionBuild;
+  const iosVersionBuild = store?.ios?.versionBuild;
+  if (!androidVersionBuild || !iosVersionBuild) {
+    errors.push(`${context}: terminal current mobile-store consumer requires Android and iOS platform mappings`);
+    return;
+  }
+
+  const expectedMappingRef = `Android ${androidVersionBuild}; iOS ${iosVersionBuild}`;
+  if (artifact.mappingRef !== expectedMappingRef) {
+    errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must equal ${expectedMappingRef}`);
+  }
+  if (artifact.androidVersionBuild !== androidVersionBuild) {
+    errors.push(`${context}: release-metadata ${consumerPath}.artifact.androidVersionBuild must match versionMapping.coupler-mobile-app.store.android.versionBuild`);
+  }
+  if (artifact.iosVersionBuild !== iosVersionBuild) {
+    errors.push(`${context}: release-metadata ${consumerPath}.artifact.iosVersionBuild must match versionMapping.coupler-mobile-app.store.ios.versionBuild`);
   }
 }
 
@@ -1122,10 +1335,11 @@ function validateApiPublicContractEvidence(
       ({ surface, generation }) => surface === "mobile-nextpush" && generation === "current",
     );
     const nextPushMapping = metadata.versionMapping?.["coupler-mobile-app"]?.nextPush;
+    const hasCurrentNextPushMapping = !isEmptyRefValue(nextPushMapping);
     if (
       currentNextPush &&
-      ((isEmptyRefValue(nextPushMapping) && currentNextPush.state !== "absent") ||
-        (!isEmptyRefValue(nextPushMapping) && currentNextPush.state !== "present"))
+      ((!hasCurrentNextPushMapping && currentNextPush.state !== "absent") ||
+        (hasCurrentNextPushMapping && currentNextPush.state !== "present"))
     ) {
       errors.push(`${context}: release-metadata ${fieldPath}.consumers current mobile-nextpush presence must match versionMapping.coupler-mobile-app.nextPush`);
     }
@@ -1661,7 +1875,31 @@ function validateScopeRepoRefEvidence(metadata, context, scopeName, errors) {
 function validateReleasedScopeEvidence(metadata, context, scopeName, errors) {
   const descriptor = releaseScopeDescriptors[scopeName];
   for (const evidence of descriptor?.releasedEvidence ?? []) {
+    if (
+      metadata.schema === releaseMetadataSchema &&
+      scopeName === "mobile-store" &&
+      evidence.valueType === "mobileStore"
+    ) {
+      validateTerminalPlatformMobileStoreMapping(metadata, context, errors);
+      continue;
+    }
     validateScopeEvidenceValue(metadata, context, scopeName, evidence, errors);
+  }
+}
+
+function validateTerminalPlatformMobileStoreMapping(metadata, context, errors) {
+  const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
+  const mappings = mobileStorePlatforms
+    .map((platform) => [platform, store?.[platform]])
+    .filter(([, mapping]) => mapping !== null && mapping !== undefined);
+
+  if (mappings.length === 0) {
+    errors.push(`${context}: terminal mobile-store scope requires at least one platform mapping`);
+    return;
+  }
+
+  if (!mappings.some(([, mapping]) => mapping?.sourceStatus === "verified")) {
+    errors.push(`${context}: terminal mobile-store scope requires at least one verified platform source`);
   }
 }
 
@@ -1669,6 +1907,19 @@ function validateReleasedScopeTagEvidence(metadata, context, scopeName, errors) 
   const descriptor = releaseScopeDescriptors[scopeName];
   const repoName = descriptor?.releaseTagRepo;
   if (!repoName) {
+    return;
+  }
+
+  if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
+    const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
+    for (const platform of mobileStorePlatforms) {
+      const mapping = store?.[platform];
+      if (mapping?.sourceStatus === "verified" && !isSemverTag(mapping.releaseTag)) {
+        errors.push(
+          `${context}: released mobile-store scope requires a release tag for verified ${platform} source`,
+        );
+      }
+    }
     return;
   }
 
@@ -1727,7 +1978,17 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
       return;
     }
   } else if (evidence.valueType === "submittedMarkers") {
-    validateSubmittedMarkers(value, context, scopeName, fieldPath, errors);
+    if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
+      validatePlatformSubmittedMarkers(
+        value,
+        metadata,
+        context,
+        fieldPath,
+        errors,
+      );
+    } else {
+      validateSubmittedMarkers(value, context, scopeName, fieldPath, errors);
+    }
     return;
   } else if (evidence.valueType === "concreteEvidence") {
     validateConcreteEvidenceValue({ value, context, scopeName, fieldPath, errors });
@@ -1848,6 +2109,46 @@ function validateSubmittedMarkersShape(value, context, fieldPath, errors) {
   }
 }
 
+function validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push(`${context}: release-metadata ${fieldPath} must be an object`);
+    return;
+  }
+  validateExactObjectKeys({
+    value,
+    allowedKeys: mobileStorePlatforms,
+    context,
+    fieldPath,
+    errors,
+  });
+  for (const platform of mobileStorePlatforms) {
+    const marker = value[platform];
+    const markerPath = `${fieldPath}.${platform}`;
+    if (marker === null) {
+      continue;
+    }
+    if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
+      errors.push(`${context}: release-metadata ${markerPath} must be an object or null`);
+      continue;
+    }
+    validateExactObjectKeys({
+      value: marker,
+      allowedKeys: [
+        "status",
+        "tag",
+        "commit",
+        "artifactSha256",
+        "evidence",
+        "deletedEvidence",
+        "limitation",
+      ],
+      context,
+      fieldPath: markerPath,
+      errors,
+    });
+  }
+}
+
 function validateSubmittedMarkers(value, context, scopeName, fieldPath, errors) {
   if (!Array.isArray(value)) {
     errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an array`);
@@ -1890,6 +2191,82 @@ function validateSubmittedMarkers(value, context, scopeName, fieldPath, errors) 
       context,
       scopeName,
       fieldPath: `${markerPath}.deletedEvidence`,
+      errors,
+    });
+  }
+}
+
+function validatePlatformSubmittedMarkers(value, metadata, context, fieldPath, errors) {
+  validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return;
+  }
+
+  const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
+  for (const platform of mobileStorePlatforms) {
+    const mapping = store?.[platform];
+    const marker = value[platform];
+    const markerPath = `${fieldPath}.${platform}`;
+    if (!mapping) {
+      if (marker !== null) {
+        errors.push(`${context}: ${markerPath} must be null when the Store platform is excluded`);
+      }
+      continue;
+    }
+    if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
+      errors.push(`${context}: terminal mobile-store evidence requires ${markerPath}`);
+      continue;
+    }
+    if (!mobileStoreSourceStatuses.has(marker.status)) {
+      errors.push(`${context}: ${markerPath}.status is not allowed: ${marker.status}`);
+      continue;
+    }
+
+    if (marker.status === "verified") {
+      const versionBuildMatch = mapping.versionBuild?.match(/^(\d+\.\d+\.\d+)\s+\((\d+)\)$/);
+      const expectedTags = versionBuildMatch
+        ? new Set([
+            `submitted/mobile-${versionBuildMatch[1]}-${versionBuildMatch[2]}`,
+            `submitted/${platform}-${versionBuildMatch[1]}-${versionBuildMatch[2]}`,
+          ])
+        : new Set();
+      if (!expectedTags.has(marker.tag)) {
+        errors.push(`${context}: verified ${markerPath}.tag must match the common or platform submission marker`);
+      }
+      if (!isFullCommitSha(marker.commit) || marker.commit !== mapping.commit) {
+        errors.push(`${context}: verified ${markerPath}.commit must match the platform source commit`);
+      }
+      if (typeof marker.artifactSha256 !== "string" || !/^[0-9a-f]{64}$/i.test(marker.artifactSha256)) {
+        errors.push(`${context}: verified ${markerPath}.artifactSha256 must be a SHA-256 digest`);
+      }
+      for (const key of ["evidence", "deletedEvidence"]) {
+        validateConcreteEvidenceValue({
+          value: marker[key],
+          context,
+          scopeName: "mobile-store",
+          fieldPath: `${markerPath}.${key}`,
+          errors,
+        });
+      }
+      if (marker.limitation !== null) {
+        errors.push(`${context}: verified ${markerPath}.limitation must be null`);
+      }
+      if (mapping.sourceStatus !== "verified") {
+        errors.push(`${context}: verified ${markerPath} requires a verified platform source`);
+      }
+      continue;
+    }
+
+    for (const key of ["tag", "commit", "artifactSha256", "evidence", "deletedEvidence"]) {
+      if (marker[key] !== null) {
+        errors.push(`${context}: unavailable-historical ${markerPath}.${key} must be null`);
+      }
+    }
+    validateConcreteEvidenceValue({
+      value: marker.limitation,
+      context,
+      scopeName: "mobile-store",
+      fieldPath: `${markerPath}.limitation`,
       errors,
     });
   }

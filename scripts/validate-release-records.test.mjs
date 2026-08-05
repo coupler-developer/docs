@@ -874,7 +874,7 @@ function releaseRecordSource({
       ? "`docs`, `coupler-api`"
       : "`docs`");
   const metadata = {
-    schema: "release-metadata/v2",
+    schema: "release-metadata/v3",
     version: "v9.9.0",
     status: releaseStatus,
     releaseScopes: effectiveReleaseScopes,
@@ -901,10 +901,12 @@ function releaseRecordSource({
         commit: null,
       },
       "coupler-mobile-app": {
-        store: null,
-        releaseTag: null,
-        commit: null,
+        store: {
+          android: null,
+          ios: null,
+        },
         nextPush: null,
+        commit: null,
       },
     },
     scopeResults: metadataScopeResults

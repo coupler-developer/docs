@@ -13,8 +13,8 @@ import {
   allowedReleaseStatuses,
   getApiContractCutoverValueFields,
   getNestedValue,
+  getVersionMappingFieldDescriptors,
   isPlaceholderMirrorValue,
-  versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
 import {
   parseReleaseStatus,
@@ -158,6 +158,7 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
     validateReleaseMetadata(metadata, relativePath, tag, errors, {
       readArtifact: readWorkingTreeReleaseArtifact,
       listArtifacts: listWorkingTreeReleaseArtifacts,
+      requireCurrentSchema: Boolean(baseRef),
     });
     validateBaseDevCheckpointBinding(relativePath, metadata, errors);
   }
@@ -597,11 +598,12 @@ function validateVersionMappingMirrorSync(relativePath, lines, metadata, errors)
       continue;
     }
 
-    for (const descriptor of versionMappingFieldDescriptors[repoName] ?? []) {
+    for (const descriptor of getVersionMappingFieldDescriptors(metadata.schema, repoName)) {
+      const fieldPath = descriptor.path ?? [descriptor.key];
       validateVersionMappingMirrorValue({
         relativePath,
-        metadataPath: ["versionMapping", repoName, descriptor.key],
-        metadataValue: repoMapping[descriptor.key],
+        metadataPath: ["versionMapping", repoName, ...fieldPath],
+        metadataValue: getNestedValue(repoMapping, fieldPath),
         markdownValue: extractBacktickValue(line, descriptor.mirrorLabelPattern),
         errors,
       });
