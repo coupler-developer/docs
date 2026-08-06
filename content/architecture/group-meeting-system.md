@@ -338,9 +338,11 @@ unread 절을 따른다.
 - `group-meeting.host` 연결과 `t_member_manager_assignment`의 클럽 배정은 책임이 다르다. 전자는 Admin
   매니저와 모바일 호스트 회원을 연결해 작성 행사와 로그인 호스트를 식별하고, 후자는 일반 회원의 전담
   `CHARGE`·공유 `SHARE` 클럽을 기록해 목록·상세 노출 범위를 판정한다.
-- Mobile 전체 목록은 호출 회원의 `CHARGE` 또는 `SHARE` 매니저가 주최한 행사만 반환한다. 활성 상태
-  `OPEN`·`CONFIRMED`를 최근 등록 순으로 먼저, 비활성 상태 `FINISHED`·`CANCELED`를 최근 등록
-  순으로 다음에 배치한다. 직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
+- Mobile 전체 목록은 호출 회원의 `CHARGE` 또는 `SHARE` 매니저가 주최한 행사만 반환한다. 화면에 내려주는
+  현재 상태 기준으로 `OPEN` 모집 중, `CONFIRMED` 모집 마감, `FINISHED`·`CANCELED` 순서로 묶는다.
+  `OPEN`·`CONFIRMED` 묶음은 가까운 행사 일시(`event_at ASC`) 순으로, `FINISHED`·`CANCELED` 묶음은
+  최근 행사 일시(`event_at DESC`) 순으로 정렬한다. 같은 행사 일시 안에서는 최근 생성글(`created_at DESC`,
+  `id DESC`)을 먼저 노출한다. 직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
 - 채팅방 진입은 `GET /group-meetings/{event_id}/chat` 한 건으로 행사, 호출자 `self`, 승인 구성원
   `members`와 익명 공개 프로필, 최초 메시지 page, 종료 후기 상태, 읽기 전용 여부를 구조화해 반환한다.
   `chat_member_id`는 내 메시지 판별과 신고 대상, 참가자의 `application_id`는 기존 앱의 무료 프로필 조회
