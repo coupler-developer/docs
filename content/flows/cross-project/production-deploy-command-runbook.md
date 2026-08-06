@@ -42,12 +42,13 @@
 - 릴리즈 기록에서 범위와 입력값을 확정하고, 각 블록이 요구하는 변수를 실행 shell에 먼저 설정한다.
 - 각 코드 블록은 독립 실행 단위다. 블록 전체를 한 shell에서 실행하며, 실패하면 이후 명령을 실행하지 않는다.
 - 값이 없거나 각 블록에 명시된 exact commit·`origin/main`·checkout 검사가 실패하면 중단한다.
-- 변경 명령은 preflight가 `PASS`한 뒤 포함 범위의 블록 하나만 실행한다.
+- 운영 변경은 현재 PR head의 preflight가 `PASS`한 뒤 실행한다. DB `dev-run`·`prod-prepare`는 preflight 입력
+  준비 단계이며 `prod-run`은 예외가 아니다.
 
 ## 공통 사전 확인
 
-워크스페이스 상대경로를 사용하는 각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. 열린 docs PR의
-원격 head를 기준으로 preflight를 실행한다.
+각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. DB는 `prod-prepare` 뒤, 다른 범위는 준비 완료 뒤 열린
+docs PR의 원격 head로 아래 운영 preflight를 실행한다.
 
 ```bash
 set -euo pipefail
@@ -74,12 +75,21 @@ yarn release:preflight \
 
 ## DB Migration 포함 시
 
-DB 안전 조건과 완료 판정은 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)만 따른다.
-모든 writer/effect producer 중지, drain, backup과 runtime 계약을 충족하지 못하면 실행하지 않는다.
+DB 안전·완료·실패 복구는 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)과 executor가
+판정한다. 저수준 SQL을 실행하지 말고 아래 표에서 위부터 처음 맞는 한 행만 수행한다.
 
-`dev-run`(미완료 시) → `prod-prepare` → prod plan을 릴리즈 기록에 반영 → preflight 재통과 → `prod-run`
-순서를 지킨다. 한 번에 `DB_ACTION` 하나만 실행한다. 중단 뒤 `status-prod`는 원래 실행 commit의 checkout에서
-사용하며 최신 `origin/main`으로 전환하지 않는다.
+| 처음 맞는 상태 | 다음 작업 |
+| --- | --- |
+| prod execution이 `service-completed` | DB 명령 없이 evidence를 최종화한다. |
+| prod execution이 있으나 미완료 | 원래 실행 commit에서 `DB_ACTION=status-prod` 후 정책의 실패 복구를 따른다. |
+| immutable checkpoint의 version·catalog·runtime contract가 불일치 | 기존 version을 재사용하지 않고 더 높은 version에서 `DB_ACTION=dev-run`한다. |
+| prod plan이 있고 동일 PR head preflight가 `PASS`했으며 입력이 불변 | `DB_ACTION=prod-run` |
+| prod plan이 있으나 위 `PASS` 조건이 아님 | prod plan/null root를 기록·push하고 preflight를 실행한다. |
+| prod plan이 없고 같은 version의 canonical completed dev pair가 archive에 있음 | exact bytes 복원·검증을 위해 `DB_ACTION=prod-prepare` |
+| prod plan이 없고 canonical completed dev pair가 archive에 없음 | `DB_ACTION=dev-run`으로 안전 재진입·archive한다. 거부되면 정책의 실패 복구를 따른다. |
+
+아래 블록의 clean/commit/HEAD/`origin/main` 검사가 실패하면 DB 명령 없이 입력을 정정하고 표를 다시 판정한다.
+`status-prod`는 원래 실행 commit을 사용하므로 현재 `origin/main`과 비교하지 않는다.
 
 ```bash
 set -euo pipefail
