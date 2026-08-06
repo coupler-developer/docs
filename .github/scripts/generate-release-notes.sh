@@ -2,16 +2,24 @@
 set -euo pipefail
 
 CURRENT_TAG="${1:-}"
+TARGET_REF="${2:-}"
 
-if [[ -z "${CURRENT_TAG}" ]]; then
-  echo "Usage: $0 <tag>" >&2
+if [[ -z "${CURRENT_TAG}" || "$#" -gt 2 ]]; then
+  echo "Usage: $0 <tag> [target-ref]" >&2
   exit 1
 fi
 
-if ! git rev-parse -q --verify "refs/tags/${CURRENT_TAG}" >/dev/null; then
-  echo "Tag not found: ${CURRENT_TAG}" >&2
+if [[ -z "${TARGET_REF}" ]]; then
+  TARGET_REF="refs/tags/${CURRENT_TAG}"
+  if ! git rev-parse -q --verify "${TARGET_REF}^{commit}" >/dev/null; then
+    echo "Tag not found: ${CURRENT_TAG}" >&2
+    exit 1
+  fi
+elif ! git rev-parse -q --verify "${TARGET_REF}^{commit}" >/dev/null; then
+  echo "Target ref not found: ${TARGET_REF}" >&2
   exit 1
 fi
+TARGET_COMMIT="$(git rev-parse "${TARGET_REF}^{commit}")"
 
 REPO_SLUG="${GITHUB_REPOSITORY:-}"
 RELEASE_RECORD_PATH="content/releases/${CURRENT_TAG}.md"
@@ -26,12 +34,12 @@ if [[ -f "${RELEASE_RECORD_PATH}" ]]; then
 fi
 
 PREV_TAG=""
-if git rev-parse -q --verify "${CURRENT_TAG}^" >/dev/null; then
-  PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' "${CURRENT_TAG}^" 2>/dev/null || true)"
+if git rev-parse -q --verify "${TARGET_COMMIT}^" >/dev/null; then
+  PREV_TAG="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' "${TARGET_COMMIT}^" 2>/dev/null || true)"
 fi
 
 if [[ -n "${PREV_TAG}" ]]; then
-  RANGE="${PREV_TAG}..${CURRENT_TAG}"
+  RANGE="${PREV_TAG}..${TARGET_COMMIT}"
   BASE_TEXT="이 릴리스는 \`${PREV_TAG}\` 대비 사용자 관점 변경사항을 정리했습니다."
   if [[ -n "${REPO_SLUG}" ]]; then
     COMPARE_URL="https://github.com/${REPO_SLUG}/compare/${PREV_TAG}...${CURRENT_TAG}"
@@ -39,8 +47,8 @@ if [[ -n "${PREV_TAG}" ]]; then
     COMPARE_URL="(GITHUB_REPOSITORY 미설정: compare URL 생략)"
   fi
 else
-  ROOT_COMMIT="$(git rev-list --max-parents=0 "${CURRENT_TAG}" | tail -n1)"
-  RANGE="${CURRENT_TAG}"
+  ROOT_COMMIT="$(git rev-list --max-parents=0 "${TARGET_COMMIT}" | tail -n1)"
+  RANGE="${TARGET_COMMIT}"
   BASE_TEXT="첫 릴리스라 이전 태그가 없어, 초기 기준 대비 변경사항을 정리했습니다."
   if [[ -n "${REPO_SLUG}" ]]; then
     COMPARE_URL="https://github.com/${REPO_SLUG}/compare/${ROOT_COMMIT}...${CURRENT_TAG}"
@@ -204,7 +212,7 @@ print_changes() {
 user_changes=()
 internal_changes=()
 
-while IFS= read -r subject; do
+while IFS= read -r subject || [[ -n "${subject}" ]]; do
   [[ -z "${subject}" ]] && continue
 
   cleaned="$(clean_subject "${subject}")"
@@ -227,7 +235,7 @@ if [[ -n "${RELEASE_RECORD_LINK}" ]]; then
 
   printf '## 통합 버전 기록\n'
   printf -- '- %s\n\n' "${RELEASE_RECORD_LINK}"
-  printf -- '- docs tag commit: `%s`\n\n' "$(git rev-list -n 1 "${CURRENT_TAG}")"
+  printf -- '- docs tag commit: `%s`\n\n' "${TARGET_COMMIT}"
 
   print_release_record_section "버전 매핑" "버전 매핑" "버전 매핑 문서화 필요" optional
 
