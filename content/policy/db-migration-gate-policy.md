@@ -104,7 +104,7 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 
 ## 표준 절차
 
-공개 운영 진입점은 API package의 `db:migration:workflow` 하나다. 정상 실행과 outcome 판정·ledger repair·
+공개 운영 진입점은 API package의 `db:migration` 하나다. 정상 실행과 outcome 판정·ledger repair·
 복구는 이 workflow의 normal/`incident` action으로만 시작하며, 내부 typed executor 파일을 CLI로 직접
 실행하지 않는다.
 
