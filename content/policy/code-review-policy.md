@@ -44,8 +44,8 @@
 - 상위 공통 기술 원칙과 기술 이행 유형별 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다. API/DB/테스트 등 세부 판정은 가드레일의 `단일 SoT와 우선순위` 표에 연결된 범위별 문서를 따른다.
 - 페이지/use-case 조회 집계와 증분 조회·동작 명령·전송 경계는 [API 조회·동작 설계 정책](api-operation-design-policy.md)을 단일 기준으로 사용한다.
 - 테스트 범위/전략은 [테스트/CI 전략](testing-strategy.md)을 단일 기준으로 사용한다.
-- 배포 태그와 스토어 제출 마커 태그 기준은 [배포 태그 정책](release-tag-policy.md)을 단일 기준으로 사용한다.
-- 릴리즈 기록 절차는 [배포/릴리즈 프로세스](release-process.md)를 단일 기준으로 사용한다.
+- 릴리스 태그와 스토어 제출 마커 태그 기준은 [릴리스 태그 정책](release-tag-policy.md)을 단일 기준으로 사용한다.
+- 릴리스 기록 절차는 [릴리스 프로세스](release-process.md)를 단일 기준으로 사용한다.
 - 본 문서는 리뷰 운영 절차와 근거/증빙 요구사항을 다룬다.
 
 ## PR 작성 가이드
@@ -91,7 +91,7 @@
 - 다중 레포 문서 최종 상태: 관련 PR 전체 병합 후 source main version·기능 상태, 선행 PR과 merge order,
   브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과
 - 운영 증빙 적용 여부: legacy 경로를 실제 제거하는 변경인지, 결정론적 요청 차단·release-scoped
-  consumer case·릴리즈 기록 적용/N/A 근거
+  consumer case·릴리스 기록 적용/N/A 근거
 
 ## 문서 동기화
 
@@ -130,7 +130,7 @@
 - [ ] 테스트 변경 여부(`추가`/`갱신`/`미변경`)와 근거 기록
 - [ ] 문서 동기화 점검(필요 시 업데이트, 불필요 시 근거 명시)
 - [ ] docs 신규 문서 작성/구조 개편 시 `content/templates/` 템플릿 기반 작성 여부 확인 (예외 시 근거 명시)
-- [ ] 문서/릴리즈 기록에 개인 사용자명·개인 개발 장비 절대경로가 없고, 공유 환경 경로는
+- [ ] 문서/릴리스 기록에 개인 사용자명·개인 개발 장비 절대경로가 없고, 공유 환경 경로는
   [문서 거버넌스 정책](document-governance-policy.md)의 운영 flow/runbook 예외를 충족하는지 확인
 - [ ] policy를 추가·수정·삭제하면 [문서 거버넌스 정책](document-governance-policy.md)의 `정책 Composition Gate` 증빙과 **Policy Composition / Lifecycle Consistency Reviewer** 판정을 기록
 - [ ] [테스트/CI 전략](testing-strategy.md)의 공통 품질 게이트 검증 완료 + 실행 명령/결과 링크 첨부 (`N/A` 항목은 미적용 근거 명시)
@@ -148,10 +148,10 @@
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 다중 레포 최종 상태 문서가 관련 PR 전체 병합 후에도 사실이고, branch-local version·`main 병합 대기`를
   `as-is` 문서나 기술부채의 최종 상태로 남기지 않았으며 선행 PR과 merge order가 기록됐는지 확인
-- [ ] 배포 태그 또는 스토어 제출 마커 태그 변경이 있으면 [배포 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
-- [ ] 릴리즈 기록·자동화 변경이면 [배포/릴리즈 프로세스](release-process.md)의 적용 절과 체크리스트,
+- [ ] 릴리스 태그 또는 스토어 제출 마커 태그 변경이 있으면 [릴리스 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
+- [ ] 릴리스 기록·자동화 변경이면 [릴리스 프로세스](release-process.md)의 적용 절과 체크리스트,
   공통 release schema/derived model, 전환 검증 결과를 확인
-- [ ] 릴리즈 schema·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
+- [ ] 릴리스 schema·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
   같은 변경에서 검증되는지 확인
 - [ ] GitHub 원격 상태 또는 `gh` 인증을 확인했다면 아래 `GitHub 원격 상태 확인과 gh 인증 판정` 기준을 적용했는지 확인한다.
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
@@ -208,12 +208,12 @@
   상태 전이, 트랜잭션, 서버 단일 판정, 도메인/error 분류 체계(taxonomy),
   [API 에러 계약 정책](api-error-contract-policy.md) 준수를 확인한다.
 - **Senior Frontend / Client**: Mobile/Admin UI 상태, API 호출 경계, 실패 응답 분기 기준, 로컬 상태와 서버 상태 혼용, 클라이언트 로컬 subset과 서버 분류 체계(taxonomy)의 충돌 여부, 디자인 토큰, React Native `StyleSheet.create` 신규 key의 `lowerCamelCase` 준수를 확인한다.
-- **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리즈 증빙, 태그/제출 마커 정책 준수, PR별 cutover
+- **QA / Release**: 위험도 분류, 테스트/CI, 수동 검증, 릴리스 증빙, 태그/제출 마커 정책 준수, PR별 cutover
   필요성/현재 제거 가능 여부와 같은 event·ref·baseline·산출물에서 동일 Gate가 불필요하게 반복되는지
   확인한다. 서로 다른 신뢰 경계의 재검증과 validator 회귀 테스트는 별도 증빙으로 구분한다.
-- 릴리즈 기록/자동화 변경 리뷰에서는 `release-metadata`를 기계 판정 SoT로 둔다. 본문 자유 문장 검색, validator별 중복 상수, metadata와 Markdown mirror의 불일치, cutover 없는 `N/A` 설명을 Gate 포함 신호로 처리하는 변경은 finding으로 기록한다.
-- 릴리즈 자동화 hard gate 변경 리뷰에서는 “이 조건이 없으면 완료되지 않은 릴리즈가 terminal 상태로 닫히는가”를 먼저 확인한다. 답이 아니면 hard gate가 아니라 작성 기준 또는 checklist로 낮춘다.
-- 릴리즈 자동화 리뷰는 자유 문장의 진위 전체를 validator로 증명하라고 요구하지 않는다. 차단 finding은 descriptor, schema, ref 조회, placeholder 판정처럼 결정적으로 검증 가능한 계약 불일치나 실제로 통과하는 잘못된 fixture가 있을 때만 남긴다.
+- 릴리스 기록/자동화 변경 리뷰에서는 `release-metadata`를 기계 판정 SoT로 둔다. 본문 자유 문장 검색, validator별 중복 상수, metadata와 Markdown mirror의 불일치, cutover 없는 `N/A` 설명을 Gate 포함 신호로 처리하는 변경은 finding으로 기록한다.
+- 릴리스 자동화 hard gate 변경 리뷰에서는 “이 조건이 없으면 완료되지 않은 릴리스가 terminal 상태로 닫히는가”를 먼저 확인한다. 답이 아니면 hard gate가 아니라 작성 기준 또는 checklist로 낮춘다.
+- 릴리스 자동화 리뷰는 자유 문장의 진위 전체를 validator로 증명하라고 요구하지 않는다. 차단 finding은 descriptor, schema, ref 조회, placeholder 판정처럼 결정적으로 검증 가능한 계약 불일치나 실제로 통과하는 잘못된 fixture가 있을 때만 남긴다.
 
 ### 검증 전 독립 최종 리뷰 체크포인트
 
@@ -249,10 +249,10 @@
 
 - 원격 `git push`, PR 생성, 기존 PR 브랜치 갱신, 태그 push 전에는 마지막 파일 변경 이후 push 대상 범위를 고정하고 자체 리뷰를 수행한다.
 - branch push 범위는 `git status`, `git diff`, `git diff --cached`, upstream 대비 미push 커밋 목록(`git log @{u}..HEAD` 또는 base branch 비교)으로 확인한다.
-- tag push 범위는 태그 대상 커밋, 릴리즈/제출 마커 의미, 관련 릴리즈 기록과 preview 검증 결과로 확인한다.
+- tag push 범위는 태그 대상 커밋, 릴리스/제출 마커 의미, 관련 릴리스 기록과 preview 검증 결과로 확인한다.
 - push 전 보고에는 리뷰 범위, 열린 Finding, 마지막 변경 이후 검증, 문서 동기화, 최종 판정을 포함한다.
 - 열린 Finding이 있거나 최종 판정이 `No Findings`가 아니면 push하지 않는다. 예외가 필요하면 위험, 미검증 범위, 되돌림 기준을 먼저 기록하고 사용자 승인을 받아야 한다.
-- CI, GitHub Actions, secret, package registry, 권한, 배포, 릴리즈 자동화 변경은 외부 영향 범위와 비코드 설정 필요 여부를 함께 리뷰한다.
+- CI, GitHub Actions, secret, package registry, 권한, 배포, 릴리스 자동화 변경은 외부 영향 범위와 비코드 설정 필요 여부를 함께 리뷰한다.
 - force push, 태그 삭제, 원격 브랜치 삭제처럼 원격 이력을 바꾸는 작업은 일반 push 게이트와 별개로 명시 승인을 받아야 한다.
 
 ### PR reviewer 요청 승인 게이트
@@ -297,7 +297,7 @@
   Finding으로 판정한다.
 - 하위 호환 변경, contract cutover와 운영 legacy cutover는
   [엔지니어링 가드레일](engineering-guardrails.md)의 기술 이행 유형과
-  [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
+  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
   적용한다. 현재 source 정렬이나 리뷰 범위의 `No Findings`를 운영 구버전 차단 또는 전체 cutover 완료로
   확대 해석하지 않는다.
 

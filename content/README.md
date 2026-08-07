@@ -9,7 +9,7 @@
 | `architecture/`   | 상태, FSM, 시스템 구조 정의       | 회원 상태란 무엇인가              |
 | `flows/`          | 동작 흐름, 시퀀스 다이어그램      | 회원가입 시 어떤 API를 호출하는가 |
 | `policy/`         | 개발 정책, 컨벤션                 | 커밋 메시지 규칙                  |
-| `releases/`       | 배포 범위와 실행 증빙 기록        | 특정 버전이 어떻게 배포됐는가     |
+| `releases/`       | 릴리스 범위와 실행 증빙 기록      | 특정 버전이 어떻게 릴리스됐는가   |
 | `technical-debt/` | 우선순위 기반 미해결 기술 부채 관리 | 어떤 문제와 후속 조치가 남았는가  |
 | `templates/`      | 신규 문서 작성용 표준 템플릿      | 정책·아키텍처 문서를 어떻게 시작하는가 |
 
@@ -23,7 +23,7 @@
 | 1:1 매칭·Key·일정 | [매칭 시스템](architecture/matching-system.md) | [매칭 운영 정책](policy/matching-ops-policy.md), [매칭 FSM](architecture/matching-fsm.md) |
 | 그룹미팅·라운지·채팅 | [그룹미팅 시스템](architecture/group-meeting-system.md), [라운지 시스템](architecture/lounge-system.md), [채팅 시스템](architecture/chat-system.md) | 각 문서 상단의 충돌 시 우선 문서 |
 | API 계약·논리 데이터 모델 | [API 공통 응답 계약](policy/api-response-contract-policy.md), [논리 데이터 모델 인덱스](architecture/logical-data-model-index.md) | [API 계약 패키지 정책](policy/api-client-contract-package-policy.md), [논리 데이터 모델 정책](policy/logical-data-model-policy.md) |
-| 배포·릴리즈 | [배포/릴리즈 프로세스](policy/release-process.md) | [운영 배포 런북](flows/cross-project/production-deploy-command-runbook.md) |
+| 배포·릴리스 | [릴리스 프로세스](policy/release-process.md) | [운영 릴리스 실행 런북](flows/cross-project/production-deploy-command-runbook.md) |
 | docs 작성·구조 변경 | [문서 거버넌스 정책](policy/document-governance-policy.md) | [GitHub의 `content/templates/`](https://github.com/coupler-developer/docs/tree/main/content/templates) |
 
 첫 문서를 연 뒤에는 상단의 `충돌 시 우선 문서`와 `관련 문서`를 따라가며 판정 책임별 단일 SoT를 확인한다.

@@ -179,6 +179,18 @@
       "routing": "closure"
     },
     {
+      "id": "flows.cross-project.api-production-deploy-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/api-production-deploy-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.db-migration-operation-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/db-migration-operation-flow.md",
+      "routing": "closure"
+    },
+    {
       "id": "flows.cross-project.development-cron-operation-flow",
       "lifecycle": "active",
       "path": "flows/cross-project/development-cron-operation-flow.md",
@@ -206,6 +218,12 @@
       "id": "flows.cross-project.matching-flow",
       "lifecycle": "active",
       "path": "flows/cross-project/matching-flow.md",
+      "routing": "closure"
+    },
+    {
+      "id": "flows.cross-project.mobile-production-release-flow",
+      "lifecycle": "active",
+      "path": "flows/cross-project/mobile-production-release-flow.md",
       "routing": "closure"
     },
     {
@@ -616,8 +634,21 @@
     },
     {
       "id": "route.release",
-      "lifecycle": "active",
+      "lifecycle": "retired",
+      "replacementId": "route.release-v2",
+      "retiredAt": "2026-08-07",
+      "retirementReason": "한국어 릴리스 표기를 통일해 같은 routing 책임을 새 signal 계약으로 승계했다.",
       "signal": "배포·릴리즈·태그",
+      "targetSource": "`content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook",
+      "targets": [
+        "policy.release-process",
+        "policy.release-tag-policy"
+      ]
+    },
+    {
+      "id": "route.release-v2",
+      "lifecycle": "active",
+      "signal": "배포·릴리스·태그",
       "targetSource": "`content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook",
       "targets": [
         "policy.release-process",

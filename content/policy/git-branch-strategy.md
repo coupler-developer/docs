@@ -12,7 +12,7 @@
 - **`main`** → 모든 기능/문서/버그/정리/리팩토링 브랜치가 PR로 합쳐지는 단일 기준 브랜치 (배포 및 태깅)
 - **`develop`** → 빈 껍데기처럼 유지하는 임시 실험 브랜치 (필요 시만 사용, main 병합 금지)
 - **`feature/*` · `docs/*` · `fix/*` · `chore/*` · `refactor/*`** → 작업 단위별 말단 브랜치
-- **`release/*`** → `coupler-mobile-app` Store 제출 준비처럼 버전/빌드 번호를 고정해야 하는 단기 릴리즈 준비 브랜치
+- **`release/*`** → `coupler-mobile-app` Store 제출 준비처럼 버전/빌드 번호를 고정해야 하는 단기 릴리스 준비 브랜치
 
 > 상시 유지하는 `release/*`, `hotfix/*` 브랜치는 없다.
 > 모든 배포/패치는 **main에 병합한 뒤 태그(`v1.2.0`, `v1.2.1`)** 로 기록한다.
@@ -65,7 +65,7 @@ release/{이름}/{타겟버전}({버전코드})-준비
 - `{타겟버전}`은 Store에 제출할 `versionName`/`MARKETING_VERSION` 값이다.
 - `{버전코드}`는 Android `versionCode`와 iOS `CURRENT_PROJECT_VERSION`에 함께 적용하는 공통 빌드 번호다.
 - 쉘 명령에서 괄호가 포함된 브랜치명을 사용할 때는 브랜치명 전체를 작은따옴표로 감싼다.
-- API/Admin/docs 릴리즈 준비에는 `release/*`를 쓰지 않는다.
+- API/Admin/docs 릴리스 준비에는 `release/*`를 쓰지 않는다.
 - Store 제출 준비 외의 일반 작업에는 `feature/*`, `fix/*`, `chore/*`, `refactor/*`, `docs/*`를 사용한다.
 
 ## 관련 문서

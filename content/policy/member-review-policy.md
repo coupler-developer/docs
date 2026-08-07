@@ -322,7 +322,7 @@ CMS 회원정보 저장은 닉네임처럼 필수 인증과 무관한 필드를 
 
 - API 서버는 descriptor-first `ErrorData` 응답 경계를 사용한다.
 - 실패 응답은 공통 응답 envelope의 `{ ok: false, error: ErrorData }`와 `request_id`를 사용한다.
-- Mobile/Admin 공통 실패 처리와 릴리즈 근거 연결은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스` 잔여 범위로 추적한다.
+- Mobile/Admin 공통 실패 처리와 릴리스 근거 연결은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스` 잔여 범위로 추적한다.
 
 규칙:
 

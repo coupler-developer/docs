@@ -1,29 +1,29 @@
-# API 계약 변경 모바일 릴리즈 플로우
+# API 계약 변경 모바일 릴리스 플로우
 
 ## 문서 역할
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: [배포/릴리즈 프로세스](../../policy/release-process.md), [배포 태그 정책](../../policy/release-tag-policy.md), [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
+- 충돌 시 우선 문서: [릴리스 프로세스](../../policy/release-process.md), [릴리스 태그 정책](../../policy/release-tag-policy.md), [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - 기준 성격: `as-is`
 
 ## 목적
 
 Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runtime 조합을 빠뜨리지 않고,
-`API cutover: No | Yes`에 맞는 배포·activation·복구 순서를 고정한다.
+`API cutover: No | Yes`에 맞는 운영 반영·activation·복구 순서를 고정한다.
 
 ## 범위
 
-- 시작 조건: Mobile Store 또는 NextPush 배포가 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작,
+- 시작 조건: Mobile Store 출시 또는 NextPush 배포가 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작,
   DB 읽기/쓰기 계약 중 하나 이상을 변경한다.
 - 종료 조건: release-scoped 소비자 inventory, API contract case, DB runtime plan/execution, 운영 smoke와
-  복구 기준이 릴리즈 기록에 남는다.
-- 제외 범위: 신규 SQL 작성, Store/NextPush 플랫폼 자체 정책 해석, API 계약 변경이 없는 UI-only 배포
+  복구 기준이 릴리스 기록에 남는다.
+- 제외 범위: 신규 SQL 작성, Store/NextPush 플랫폼 자체 정책 해석, API 계약 변경이 없는 UI-only 릴리스
 
 ## 상위 규범 문서
 
-- [배포/릴리즈 프로세스](../../policy/release-process.md)
-- [배포 태그 정책](../../policy/release-tag-policy.md)
+- [릴리스 프로세스](../../policy/release-process.md)
+- [릴리스 태그 정책](../../policy/release-tag-policy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)
 - [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
@@ -45,7 +45,7 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
   NextPush 실패 시 native 개발 API로 진행할 수 있는 경로는 잔존 위험이지만 그 사실만으로 cutover 또는
   심사 제출의 성공·실패를 판정하지 않는다.
 
-## 배포 단위
+## 릴리스 단위
 
 | 구성요소 | 완료 기준 |
 | --- | --- |
@@ -73,17 +73,17 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 
 1. Swagger/OpenAPI와 generated contract를 고정하고 contracts package stable을 발행한다.
 2. Admin·Mobile `package.json`과 lockfile을 같은 exact package version으로 정렬한다.
-3. 운영에 실제 노출할 현재 소비자와 현재 완전 릴리즈가 현재 운영 API+최종 DB에서 성공하는 case를
+3. 운영에 실제 노출할 현재 소비자와 현재 완전 릴리스가 현재 운영 API+최종 DB에서 성공하는 case를
    검증한다. 개발 API를 보는 심사 native case는 별도 QA case로만 남긴다.
 4. API `No`이면 inventory의 모든 지원 이전 소비자가 현재 API+최종 DB에서 성공하고, 이번 변경이 제거
    예정 adapter·dual-write·fallback을 만들지 않는지 검증한다.
 5. API `Yes`이면 old-readable bootstrap/version 성공 case와 incompatible product request의 결정론적
    거부 case를 검증하고, activation·client rollback이 참조할 case ID를 고정한다. activation case에는
    선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
-6. DB migration이 있으면 plan에 선언한 모든 `RESUMED` 조합과 이전 릴리즈 복구 후보를 개발계 FENCED에서
+6. DB migration이 있으면 plan에 선언한 모든 `RESUMED` 조합과 이전 릴리스 복구 후보를 개발계 FENCED에서
    검증한다.
 
-### 2) 배포 전 Gate
+### 2) 운영 반영 전 Gate
 
 아래 조건이 모두 충족되지 않으면 운영 반영을 시작하지 않는다.
 
@@ -95,16 +95,16 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 - API `Yes`이면 activation 장벽, old-readable bootstrap/upgrade, client rollback case가 준비돼 있다.
 - DB migration이면 writer/effect producer inventory, backup, FENCED smoke, RESUMED 순서가 준비돼 있다.
 
-### 3) Store 배포
+### 3) Store 출시
 
 1. 제출 artifact와 commit, 제출 마커를 고정하고 수동 출시로 심사한다. 심사 중 기존 운영 앱을 막기 위해
    `min_version`을 미리 올리지 않는다.
-2. API `No`이면 migration/API 배포 뒤에도 지원 이전 앱 case가 통과한 상태에서 승인 build를 출시한다.
+2. API `No`이면 migration 실행과 API 배포 뒤에도 지원 이전 앱 case가 통과한 상태에서 승인 build를 출시한다.
 3. API `Yes`이면 승인·출시 가능 상태에서 activation 장벽을 닫고 API/Admin/Store를 전환한다. 장벽 안에서도
    bootstrap/version은 old-readable해야 하며 product request 거부 응답을 확인한다.
 4. DB migration이 포함되면 별도 유지보수 실행의 durable FENCED → migration → final-DB smoke → RESUMED
    순서를 activation window에 배치한다.
-5. 출시·activation 시각, case ID, artifact ref, smoke와 복구 기준을 같은 릴리즈 기록에 남긴다.
+5. 출시·activation 시각, case ID, artifact ref, smoke와 복구 기준을 같은 릴리스 기록에 남긴다.
 
 ### 4) NextPush 배포
 
@@ -120,12 +120,12 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 - API `No`이면 모든 지원 이전 소비자가 성공하고 이번 변경이 만든 후속 공개 계약 전환 작업이 0건이다.
 - API `Yes`이면 activation·거부·bootstrap/upgrade·client rollback case가 실제 순서에서 통과했다.
 - DB migration이면 FENCED final-DB smoke, 모든 상태 표면 residual 0, durable RESUMED와 시작 watermark,
-  현재 완전 릴리즈 smoke가 완료됐다.
-- 이전 릴리즈 rollback을 허용했다면 final DB 조합 smoke와 재개 뒤 수락 write·queue·외부효과의 무손실
+  현재 완전 릴리스 smoke가 완료됐다.
+- 이전 릴리스 rollback을 허용했다면 final DB 조합 smoke와 재개 뒤 수락 write·queue·외부효과의 무손실
   보존 증빙이 있다. 없으면 forward fix/통제된 reconciliation만 복구 경로로 남긴다.
 - package exact version 정렬과 각 저장소 표준 품질 게이트가 통과했다.
 
-배포 뒤에 위 사전 Gate 위반을 발견했다면 당시 activation이나 old-readable case를 사후 제조하지 않는다.
+운영 반영 뒤에 위 사전 Gate 위반을 발견했다면 당시 activation이나 old-readable case를 사후 제조하지 않는다.
 현재 서비스 동작과 영향 범위를 확인하고 안전한 forward fix를 선택한 뒤 릴리스 기록의 cutover를
 `violated`로 terminal 처분한다. 정상 Activation·rollback 구조 대신 실패 요구조건, exact 영향 소비자 ref,
 관측·미관측 범위, 운영 처분과 후속 통제를 전용 `violation` 구조에 기록한다. 이 처분은 정상 완료 case가
@@ -172,8 +172,8 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 
 ## 관련 문서
 
-- [배포/릴리즈 프로세스](../../policy/release-process.md)
-- [배포 태그 정책](../../policy/release-tag-policy.md)
-- [운영 배포 명령어 런북](production-deploy-command-runbook.md)
-- [릴리즈 자동화 파이프라인](release-automation-pipeline.md)
+- [릴리스 프로세스](../../policy/release-process.md)
+- [릴리스 태그 정책](../../policy/release-tag-policy.md)
+- [운영 릴리스 실행 런북](production-deploy-command-runbook.md)
+- [릴리스 게이트 플로우](release-automation-pipeline.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)

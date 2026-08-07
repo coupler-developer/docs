@@ -118,7 +118,7 @@
 - 사용자가 명시하거나 직전 요청에서 합의한 대상 레포·ref·파일/변경 범위
 - 산출물 종류: 코드, 테스트, 문서, 설정, DB migration, 릴리스 기록
 - 제품·운영 도메인과 관련 architecture/policy/FSM/flow
-- 위험 표면: API 계약, DB, 권한·보안, 결제, 푸시, 개인정보, 배포, 모바일 릴리즈, 다중 레포
+- 위험 표면: API 계약, DB, 권한·보안, 결제, 푸시, 개인정보, 배포, 모바일 릴리스, 다중 레포
 - 사용자 요청의 포함 범위와 명시적 제외 범위
 
 - `최종리뷰`, `상태 확인`처럼 대상을 생략한 짧은 후속 요청은 직전에 명시·합의한 레포·ref·파일/변경 범위와
@@ -164,7 +164,7 @@
 | 매칭 상태·키·일정 | `content/policy/matching-ops-policy.md` |
 | 회원 심사 | `content/policy/member-review-policy.md`와 연결 architecture/FSM |
 | 푸시 타입·발송·장애 대응 | `content/policy/push-notification-policy.md` |
-| 배포·릴리즈·태그 | `content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook |
+| 배포·릴리스·태그 | `content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook |
 
 - 표에 없는 도메인은 비적용으로 추론하지 않고 `관련 SoT 폐쇄 탐색`을 적용한다.
 - 여러 신호가 함께 있으면 해당 행의 문서를 합집합으로 읽고 판정 책임별 우선순위를 고정한다.
@@ -257,15 +257,15 @@
 ### Technical Debt
 
 - [기술 부채 정리](technical-debt/technical-debt.md)
-- [Firebase Apple SDK CocoaPods 마이그레이션 계획](technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md)
+- [Firebase Apple SDK CocoaPods 마이그레이션](technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md)
 
 ### Policy
 
 - [Git 브랜치 전략](policy/git-branch-strategy.md) - 브랜치 명명 규칙
 - [Git 동기화/Rebase 실행 정책](policy/git-sync-rebase-policy.md) - pull/rebase 기준 및 최신화 검증 규칙
 - [커밋 메시지 컨벤션](policy/commit-convention.md) - Conventional Commits 기반
-- [배포 태그 정책](policy/release-tag-policy.md) - 릴리즈 태그와 스토어 제출 마커 태그 기준
-- [배포/릴리즈 프로세스](policy/release-process.md) - 배포 범위, 릴리즈 기록 상태·metadata·완료·불변 조건
+- [릴리스 태그 정책](policy/release-tag-policy.md) - 릴리스 태그와 스토어 제출 마커 태그 기준
+- [릴리스 프로세스](policy/release-process.md) - 릴리스 범위, 기록 상태·metadata·완료·불변 조건
 - [로그 정책](policy/log-policy.md) - 개발/운영 로그 규칙
 - [API 공통 응답 계약 정책](policy/api-response-contract-policy.md) - API/Admin/Mobile 공통 JSON 응답 envelope 기준
 - [API 에러 계약 정책](policy/api-error-contract-policy.md) - API/Admin/Mobile 공통 실패 ErrorData 및 taxonomy 기준
@@ -292,10 +292,13 @@
 
 - [Kakao 네이티브 로그인 플로우](flows/cross-project/kakao-native-login-flow.md) - React Native 브리지, Kakao 네이티브 SDK, Coupler API 토큰 재검증
 - [매칭 플로우](flows/cross-project/matching-flow.md) - 매칭 카드 → 만남
-- [API 계약 변경 모바일 릴리즈 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - 소비자 inventory, `API cutover`, DB runtime/schema 조합에 따른 Mobile 배포 절차
-- [릴리즈 자동화 파이프라인](flows/cross-project/release-automation-pipeline.md) - 릴리즈 gate 순서와 read-only preflight 자동화 기준
-- [운영 배포 명령어 런북](flows/cross-project/production-deploy-command-runbook.md) - 배포 범위별 DB/API/Admin/Mobile/Tag 실행 명령어
+- [API 계약 변경 모바일 릴리스 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - 소비자 inventory, `API cutover`, DB runtime/schema 조합에 따른 Mobile 릴리스 절차
+- [릴리스 게이트 플로우](flows/cross-project/release-automation-pipeline.md) - 릴리스 gate 순서와 read-only preflight 자동화 기준
+- [운영 릴리스 실행 런북](flows/cross-project/production-deploy-command-runbook.md) - scope별 실행 라우팅, 공통 preflight, 서비스/docs 태그
+- [DB Migration 실행 런북](flows/cross-project/db-migration-operation-flow.md) - canonical 개발계 검증·운영계 실행 명령
+- [API 운영 배포 런북](flows/cross-project/api-production-deploy-flow.md) - `coupler-api` 운영 PM2 배포·rollback 절차
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
+- [Mobile 운영 릴리스 런북](flows/cross-project/mobile-production-release-flow.md) - Store 제출 증빙·NextPush 배포·rollback 절차
 - [테스트용 개발 데이터 운영 흐름](flows/cross-project/development-test-data-flow.md) - plan/apply/verify/coverage/reset 절차
 - [개발계 cron 운영 흐름](flows/cross-project/development-cron-operation-flow.md) - 인증·외부 발송 차단·scheduler 설치·rollback 절차
 - [Firebase Apple SDK 설치 경로 전환 흐름](flows/cross-project/firebase-apple-sdk-migration-flow.md) - CocoaPods 종료 대응 실행·검증·rollback 절차
@@ -308,7 +311,7 @@
 - [2.2.7 릴리스 실행 기록](releases/v2.2.7.md) - contracts 0.1.5 기준 API/Admin/Mobile NextPush 운영 배포 기록
 - [2.2.6 릴리스 실행 기록](releases/v2.2.6.md) - contracts package 0.1.2 발행과 Admin/Mobile 소비자 dependency bump 준비 기록
 - [2.2.5 릴리스 실행 기록](releases/v2.2.5.md) - API/Admin/Mobile 공통 응답 contract cutover 진행 기록
-- [2.2.4 릴리스 실행 기록](releases/v2.2.4.md) - Mobile Store 2.2.1 (100) 배포 진행 기록
+- [2.2.4 릴리스 실행 기록](releases/v2.2.4.md) - Mobile Store 2.2.1 (100) 출시 진행 기록
 - [2.2.3 릴리스 실행 기록](releases/v2.2.3.md) - Admin/API 운영 배포와 Mobile Store 릴리스 분리 기록
 - [2.2.2 릴리스 실행 기록](releases/v2.2.2.md) - API 프로필 사진 승인 알림 hotfix와 Mobile NextPush 운영 배포 완료 기록
 - [2.2.1 릴리스 실행 기록](releases/v2.2.1.md) - API 삭제 댓글 표시 정체성 hotfix 운영 배포/태그 완료 기록

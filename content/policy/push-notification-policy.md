@@ -124,7 +124,7 @@
 
 - FCM 전송 실패율 급증 시 fallback이 아닌 원인 분석과 재시도 정책으로 대응한다.
 - 재시도는 제한 횟수/간격을 명시하며 무한 재시도를 금지한다.
-- 장애 시 영향 타입/영향 사용자/복구 시점을 릴리즈 노트 또는 장애 보고에 기록한다.
+- 장애 시 영향 타입/영향 사용자/복구 시점을 릴리스 노트 또는 장애 보고에 기록한다.
 
 ### 5) 배포/검증
 
@@ -173,4 +173,4 @@
 - [푸시알림 시스템](../architecture/push-notification.md)
 - [보안/접근통제 정책](security-access-control-policy.md)
 - [로그 정책](log-policy.md)
-- [배포/릴리즈 프로세스](release-process.md)
+- [릴리스 프로세스](release-process.md)

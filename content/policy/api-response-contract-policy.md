@@ -91,5 +91,5 @@ API/Admin/Mobile이 JSON API 성공/실패를 같은 envelope 기준으로 판�
 - [API 에러 계약 정책](api-error-contract-policy.md)
 - [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)
 - [회원가입 응답 계약](signup-response-contract.md)
-- [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
+- [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
 - [기술 부채 정리](../technical-debt/technical-debt.md)

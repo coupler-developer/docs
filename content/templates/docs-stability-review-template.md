@@ -18,7 +18,7 @@
 - 대상:
 - 직접 연결 문서: `<명시 링크 | 관련 문서 | 같은 도메인 규범 | 역방향 규범 참조 | 영향받는 인덱스/nav/템플릿/검증 스크립트>`
 - 제외:
-- 조건부 추가 관점: `<없음 | 적용: 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리즈/데이터 거버넌스/다중 레포 계약/Policy Composition / Lifecycle Consistency/Docs Taxonomy Transition Readiness 중 해당 항목>`
+- 조건부 추가 관점: `<없음 | 적용: 보안/권한/결제/API 계약/FSM/상태 전이/푸시/DB/배포/릴리스/데이터 거버넌스/다중 레포 계약/Policy Composition / Lifecycle Consistency/Docs Taxonomy Transition Readiness 중 해당 항목>`
 - N/A 근거:
 - 기준 문서:
 

@@ -40,6 +40,6 @@
 
 ## 관련 문서
 
-- [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
-- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
+- [릴리스 프로세스](../policy/release-process.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)

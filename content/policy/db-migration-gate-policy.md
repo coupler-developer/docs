@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: DB migration 안전 조건은 이 문서, 전체 릴리스 순서는 [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)
+- 충돌 시 우선 문서: DB migration 안전 조건은 이 문서, 전체 릴리스 순서는 [릴리스 게이트 플로우](../flows/cross-project/release-automation-pipeline.md)
 - 기준 성격: `as-is`
 
 ## 목적
@@ -63,16 +63,16 @@ catalog entry와 ledger row를 보존한다.
   `FENCED | RESUMED | RECOVERING` 허용 phase
 - DB, queue, 외부효과의 상태 표면
 - FENCED smoke 방식: read-only, transaction rollback, isolated synthetic 중 하나
-- 재개 전 restore, append-only recovery migration, 이전 완전 릴리즈+최종 DB, forward fix,
+- 재개 전 restore, append-only recovery migration, 이전 완전 릴리스+최종 DB, forward fix,
   lossless reconciliation 중 실제 준비한 복구 전략과 검증 procedure ref
 
-`RESUMED` 조합은 모든 변경 경계가 성공해야 하며, 현재 완전 릴리즈+최종 DB 조합은 정확히 하나여야 한다.
+`RESUMED` 조합은 모든 변경 경계가 성공해야 하며, 현재 완전 릴리스+최종 DB 조합은 정확히 하나여야 한다.
 이 현재 조합은 재개 뒤 복구의 active source가 될 수 있도록 `FENCED | RESUMED | RECOVERING`을 모두
 허용해야 한다.
 `mixed` runtime set은 durable `RESUMED` 조합으로 허용하지 않는다. 순차 재기동 중 mixed runtime이 생길 수
 있다면 writer/effect producer를 계속 fence한 `FENCED | RECOVERING` 안에서만 전환하고, 그 보장이 없으면
 재개를 차단한다.
-이전 완전 릴리즈+최종 DB rollback을 선언하려면 해당 runtime의 모든 queue consumer와 side-effect producer에
+이전 완전 릴리스+최종 DB rollback을 선언하려면 해당 runtime의 모든 queue consumer와 side-effect producer에
 cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연결한다. SQL이 update·backfill·delete·DDL
 중 무엇인지, 현재 source 소비가 0건인지, Store 강제 업데이트나 NextPush mandatory 여부는 이 증빙을
 대체하지 않는다.
@@ -123,7 +123,7 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 8. 최초 재개 조합과 같은 execution에서 사용할 모든 복구 target의 plan-final smoke를 writer가 닫힌
    `FENCED`에서 수행한다. read-only, transaction rollback 또는 isolated synthetic만 허용하며 plan의
    procedure ref, 별도 result ref, DB·queue·외부효과 모든 표면의 residual 0을 정확히 증명한다.
-9. 현재 완전 릴리즈+최종 DB 조합, 상태 표면별 시작 watermark와 `RESUMED` event를 durable하게 기록한
+9. 현재 완전 릴리스+최종 DB 조합, 상태 표면별 시작 watermark와 `RESUMED` event를 durable하게 기록한
    뒤에만 production writer와 effect producer를 연다.
 10. 재시작한 모든 runtime unit의 source ref와 compatibility-config SHA를 실제 관측한 running inventory가
    active mixture와 정확히 일치하고 smoke가 통과한 뒤에만 서비스를 완료한다.
@@ -329,13 +329,14 @@ migration 의미나 live DB 판정을 복제하지 않는다. 신규 기록의 r
 - [ ] RESUMED marker와 시작 watermark가 production write/effect보다 먼저 durable하게 기록됐는가?
 - [ ] 복구했다면 target의 새 RESUMED marker와 fresh 시작 watermark 뒤에 runtime을 열었는가?
 - [ ] post-resume rollback을 허용했다면 수락 write·queue·외부효과의 무손실 보존 증빙이 있는가?
-- [ ] 전체 postcheck, 재기동과 현재 완전 릴리즈 smoke가 완료됐는가?
+- [ ] 전체 postcheck, 재기동과 현재 완전 릴리스 smoke가 완료됐는가?
 - [ ] 환경별 root가 `plan.json`/`execution.jsonl` 한 쌍이고, 복구 이력은
       `history/<failed-plan-sha256>/`의 도달 가능한 immutable pair만 존재하는가?
 
 ## 연결 문서
 
-- [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)
-- [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)
-- [배포/릴리즈 프로세스](release-process.md)
+- [릴리스 게이트 플로우](../flows/cross-project/release-automation-pipeline.md)
+- [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)
+- [운영 릴리스 실행 런북](../flows/cross-project/production-deploy-command-runbook.md)
+- [릴리스 프로세스](release-process.md)
 - [테스트/CI 전략](testing-strategy.md)

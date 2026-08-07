@@ -96,14 +96,14 @@
 Store 출시·NextPush 적용과 공개 API contract cutover는 서로 다른 축이다. DB는 별도 cutover 라벨이 아니라
 실제 runtime·schema 조합과 상태 표면으로 판정한다.
 
-릴리즈마다 지원 소비자 inventory를 먼저 고정한다. Store의 직전 지원 build와 제출·출시할 build,
+릴리스마다 지원 소비자 inventory를 먼저 고정한다. Store의 직전 지원 build와 제출·출시할 build,
 플랫폼별 OTA label/cohort와 target binary, 운영 Admin artifact, REST·WebSocket·bootstrap·version endpoint를
 빠짐없이 나열하고 각 항목에 소비자 ID, source/binary ref, 계약 세대와 호출 표면을 연결한다. `현재 source`,
 강제 업데이트 설정 또는 버전을 식별하지 못하는 traffic 0건으로 이 inventory를 대신하지 않는다.
 
 공개 계약 검증은 다음 조건을 모두 다룬다.
 
-1. 현재 소비자와 현재 완전 릴리즈가 현재 API와 최종 DB에서 성공한다.
+1. 현재 소비자와 현재 완전 릴리스가 현재 API와 최종 DB에서 성공한다.
 2. `API cutover: No`이면 inventory의 모든 지원 이전 소비자가 현재 API와 최종 DB에서 성공한다. 정확성이
    Store 강제 업데이트, NextPush mandatory 또는 동시 활성화에 의존하지 않고 제거 예정
    adapter·dual-write·fallback을 만들지 않는다.
@@ -122,13 +122,13 @@ DB 변경은 계획 시 이전·현재·필요한 혼합 runtime set의 unit별 
 runtime set·schema fingerprint가 선언과 정확히 일치하고, `RESUMED`에 허용한 모든 경계가 성공해야 한다.
 update·backfill·delete·DDL이라는 SQL 형태만으로 안전 여부를 판정하지 않는다.
 
-`RESUMED` 뒤의 이전 릴리즈 rollback은 이전 client/API 계약뿐 아니라 그 시점까지 수락한 write, queue
+`RESUMED` 뒤의 이전 릴리스 rollback은 이전 client/API 계약뿐 아니라 그 시점까지 수락한 write, queue
 cursor·in-flight 작업, idempotency와 외부효과를 보존·재생·보상할 수 있을 때만 허용한다. 이 증빙이 없으면
 snapshot/PITR로 코드를 되돌리지 않고 forward fix 또는 통제된 무손실 reconciliation을 수행한다. 이전
 API로 되돌리는 전략은 inventory의 이전·현재 모든 소비자 interface가 이전 API와 final DB에서 성공한
 rollback case를 정확히 하나씩 가져야 한다.
 
-배포 순서는 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md),
+릴리스 순서는 [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md),
 DB 실행 안전은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 따른다.
 
 ### 2-3) 현재 source 정렬과 운영 contract cutover 분리
@@ -275,7 +275,7 @@ DB 실행 안전은 [DB Migration 유지보수 정책](db-migration-gate-policy.
     - Swagger request body, Mobile/Admin request boundary, API parser가 같은 계약을 가리켜야 한다
     - API URL-encoded parser는 작업 요청자가 명시적으로 승인한 Mobile 호환 입력 경로로만 허용한다. 승인되지
       않은 parser는 최종 계약 변경에서 제거하고, 승인된 parser의 제거는
-      [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
+      [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
       예외 호환 Exit Gate를 따른다
 - **DB typeCast 이후 의미 재캐스팅 금지 (`coupler-api`)**
     - DB `typeCast`가 적용된 row 숫자값은 동일 의미 필드에 대해 `Number(...)`/`String(...)` 재캐스팅을 금지한다

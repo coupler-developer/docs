@@ -933,7 +933,7 @@ function releaseRecordSource({
     "",
     "## 상위 규범 문서",
     "",
-    "- [배포/릴리즈 프로세스](../policy/release-process.md)",
+    "- [릴리스 프로세스](../policy/release-process.md)",
     "",
     "## 릴리스 상태",
     "",
@@ -1036,7 +1036,7 @@ function releaseRecordSource({
     "",
     "## 관련 문서",
     "",
-    "- [배포/릴리즈 프로세스](../policy/release-process.md)",
+    "- [릴리스 프로세스](../policy/release-process.md)",
     "",
   ].join("\n");
 }
