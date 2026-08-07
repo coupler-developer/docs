@@ -210,7 +210,8 @@
 - 문서 구조 검증(로컬): `yarn validate:docs-structure`
 - 문서 민감 인프라 식별자 검증(로컬·경량 CI): `yarn validate:docs-sensitive`
 - 문서 구조 검증 테스트(로컬): `yarn test:docs-structure`
-- 문서 lifecycle 검증(로컬, 사용 가능한 `origin/main` baseline 포함): `yarn validate:document-lifecycle`
+- 문서 lifecycle current registry·retirement ledger 검증(로컬, 사용 가능한 `origin/main` baseline 포함):
+  `yarn validate:document-lifecycle`
 - 문서 lifecycle 검증 테스트(로컬): `yarn test:document-lifecycle`
 - 에이전트 작업흐름 검증(로컬): `yarn validate:agent-workflow`
 - 에이전트 작업흐름 검증 테스트(로컬): `yarn test:agent-workflow`
@@ -238,8 +239,9 @@
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
-  다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 lifecycle 현재
-  상태와 전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle 전환을 실행한다.
+  다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 current registry와
+  retirement ledger의 현재 상태·전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle
+  전환을 실행한다.
 - docs 레포: PR 병합 뒤 `push(main)`에서는 push 이전 SHA를 `DOCUMENT_LIFECYCLE_BASE_REF`로 주입한
   `yarn verify` 한 번이 새 main의 Pages artifact를 검증한다. PR admission과 main 배포는 ref·산출물·
   신뢰 경계가 다르므로 단계별 검증이며, 같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다.

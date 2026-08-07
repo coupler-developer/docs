@@ -1,0 +1,25 @@
+{
+    "schemaVersion": 1,
+    "retirements": [
+        {
+            "id": "flows.cross-project.api-contract-cutover-final-review",
+            "kind": "document",
+            "retiredAt": "2026-08-02",
+            "reservedPaths": [
+                "flows/cross-project/api-contract-cutover-final-review.md"
+            ]
+        },
+        {
+            "id": "route.release",
+            "kind": "route",
+            "retiredAt": "2026-08-07",
+            "replacementId": "route.release-v2"
+        },
+        {
+            "id": "route.foundation-review",
+            "kind": "route",
+            "retiredAt": "2026-08-07",
+            "replacementId": "route.foundation-review-v2"
+        }
+    ]
+}

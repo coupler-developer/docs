@@ -5,338 +5,370 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  FULL_TASK_IDS,
-  STATIC_TASK_IDS,
-  VALIDATION_TASKS,
+    FULL_TASK_IDS,
+    STATIC_TASK_IDS,
+    VALIDATION_TASKS,
 } from "./docs-validation-runner.mjs";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const docsRoot = path.dirname(scriptsRoot);
 const packageJson = JSON.parse(
-  fs.readFileSync(path.join(docsRoot, "package.json"), "utf8"),
+    fs.readFileSync(path.join(docsRoot, "package.json"), "utf8"),
 );
 const workflow = fs.readFileSync(
-  path.join(docsRoot, ".github", "workflows", "lint.yml"),
-  "utf8",
+    path.join(docsRoot, ".github", "workflows", "lint.yml"),
+    "utf8",
 );
 const deployWorkflow = fs.readFileSync(
-  path.join(docsRoot, ".github", "workflows", "deploy-docs.yml"),
-  "utf8",
+    path.join(docsRoot, ".github", "workflows", "deploy-docs.yml"),
+    "utf8",
 );
 const releaseWorkflow = fs.readFileSync(
-  path.join(docsRoot, ".github", "workflows", "release.yml"),
-  "utf8",
+    path.join(docsRoot, ".github", "workflows", "release.yml"),
+    "utf8",
 );
 const workflowDirectory = path.join(docsRoot, ".github", "workflows");
 const allWorkflows = fs
-  .readdirSync(workflowDirectory)
-  .filter((fileName) => fileName.endsWith(".yml"))
-  .map((fileName) =>
-    fs.readFileSync(path.join(workflowDirectory, fileName), "utf8"),
-  )
-  .join("\n");
+    .readdirSync(workflowDirectory)
+    .filter((fileName) => fileName.endsWith(".yml"))
+    .map((fileName) =>
+        fs.readFileSync(path.join(workflowDirectory, fileName), "utf8"),
+    )
+    .join("\n");
 const testingStrategy = fs.readFileSync(
-  path.join(docsRoot, "content", "policy", "testing-strategy.md"),
-  "utf8",
+    path.join(docsRoot, "content", "policy", "testing-strategy.md"),
+    "utf8",
 );
 const documentGovernancePolicy = fs.readFileSync(
-  path.join(docsRoot, "content", "policy", "document-governance-policy.md"),
-  "utf8",
+    path.join(docsRoot, "content", "policy", "document-governance-policy.md"),
+    "utf8",
 );
 const codeReviewPolicy = fs.readFileSync(
-  path.join(docsRoot, "content", "policy", "code-review-policy.md"),
-  "utf8",
+    path.join(docsRoot, "content", "policy", "code-review-policy.md"),
+    "utf8",
 );
 const docsStabilityReviewTemplate = fs.readFileSync(
-  path.join(docsRoot, "content", "templates", "docs-stability-review-template.md"),
-  "utf8",
+    path.join(
+        docsRoot,
+        "content",
+        "templates",
+        "docs-stability-review-template.md",
+    ),
+    "utf8",
 );
 const policyTemplate = fs.readFileSync(
-  path.join(docsRoot, "content", "templates", "policy-template.md"),
-  "utf8",
+    path.join(docsRoot, "content", "templates", "policy-template.md"),
+    "utf8",
 );
 const agentWorkflowValidator = fs.readFileSync(
-  path.join(docsRoot, "scripts", "validate-agent-workflow.mjs"),
-  "utf8",
+    path.join(docsRoot, "scripts", "validate-agent-workflow.mjs"),
+    "utf8",
 );
 const documentLifecycleValidator = fs.readFileSync(
-  path.join(docsRoot, "scripts", "validate-document-lifecycle.mjs"),
-  "utf8",
+    path.join(docsRoot, "scripts", "validate-document-lifecycle.mjs"),
+    "utf8",
 );
 const runnerScript = "node scripts/docs-validation-runner.mjs";
 const taskScript = (taskId) => `${runnerScript} task ${taskId}`;
 const expectedStaticTaskIds = [
-  "test:release-preflight",
-  "test:docs-structure",
-  "test:agent-workflow",
-  "test:document-lifecycle",
-  "test:logical-data-model",
-  "test:technical-debt",
-  "test:docs-validation-runner",
-  "test:docs-validation-config",
-  "validate:docs-structure",
-  "validate:document-lifecycle",
-  "validate:agent-workflow",
-  "validate:logical-data-model",
-  "validate:technical-debt",
-  "validate:release-records",
-  "validate:api-error-docs",
+    "test:release-preflight",
+    "test:docs-structure",
+    "test:agent-workflow",
+    "test:document-lifecycle",
+    "test:logical-data-model",
+    "test:technical-debt",
+    "test:docs-validation-runner",
+    "test:docs-validation-config",
+    "validate:docs-structure",
+    "validate:document-lifecycle",
+    "validate:agent-workflow",
+    "validate:logical-data-model",
+    "validate:technical-debt",
+    "validate:release-records",
+    "validate:api-error-docs",
 ];
 
 test("local validation and full CI use the same static gate runner", () => {
-  assert.equal(
-    packageJson.scripts["validate:docs"],
-    `${runnerScript} full`,
-  );
-  assert.equal(packageJson.scripts.verify, `${runnerScript} full`);
-  assert.equal(
-    packageJson.scripts["validate:docs-static"],
-    `${runnerScript} static`,
-  );
-  assert.match(
-    workflow,
-    /- name: Validate full docs static gates\n\s+if: steps\.validation_mode\.outputs\.mode == 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: yarn validate:docs-static/,
-  );
-  assert.match(deployWorkflow, /uses: actions\/checkout@v6\n\s+with:\n\s+fetch-depth: 0/);
-  assert.match(
-    deployWorkflow,
-    /- name: Validate docs\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.before \}\}\n\s+run: yarn verify/,
-  );
-  assert.match(releaseWorkflow, /- name: Validate docs\n\s+run: yarn verify/);
-  assert.match(workflow, /- name: Run markdownlint\n\s+run: yarn lint:md/);
-  assert.match(workflow, /- name: Build docs\n\s+run: yarn build:docs/);
-  assert.match(
-    testingStrategy,
-    /문서 공통 정적 검증\(로컬·full CI\): `yarn validate:docs-static`/,
-  );
+    assert.equal(packageJson.scripts["validate:docs"], `${runnerScript} full`);
+    assert.equal(packageJson.scripts.verify, `${runnerScript} full`);
+    assert.equal(
+        packageJson.scripts["validate:docs-static"],
+        `${runnerScript} static`,
+    );
+    assert.match(
+        workflow,
+        /- name: Validate full docs static gates\n\s+if: steps\.validation_mode\.outputs\.mode == 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: yarn validate:docs-static/,
+    );
+    assert.match(
+        deployWorkflow,
+        /uses: actions\/checkout@v6\n\s+with:\n\s+fetch-depth: 0/,
+    );
+    assert.match(
+        deployWorkflow,
+        /- name: Validate docs\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.before \}\}\n\s+run: yarn verify/,
+    );
+    assert.match(releaseWorkflow, /- name: Validate docs\n\s+run: yarn verify/);
+    assert.match(workflow, /- name: Run markdownlint\n\s+run: yarn lint:md/);
+    assert.match(workflow, /- name: Build docs\n\s+run: yarn build:docs/);
+    assert.match(
+        testingStrategy,
+        /문서 공통 정적 검증\(로컬·full CI\): `yarn validate:docs-static`/,
+    );
 });
 
 test("the runner owns the exact static and full task sets", () => {
-  assert.deepEqual(STATIC_TASK_IDS, expectedStaticTaskIds);
-  assert.deepEqual(
-    new Set(FULL_TASK_IDS),
-    new Set([...expectedStaticTaskIds, "lint:md", "build:docs"]),
-  );
-  assert.equal(FULL_TASK_IDS.length, expectedStaticTaskIds.length + 2);
+    assert.deepEqual(STATIC_TASK_IDS, expectedStaticTaskIds);
+    assert.deepEqual(
+        new Set(FULL_TASK_IDS),
+        new Set([...expectedStaticTaskIds, "lint:md", "build:docs"]),
+    );
+    assert.equal(FULL_TASK_IDS.length, expectedStaticTaskIds.length + 2);
 
-  for (const taskId of new Set([...FULL_TASK_IDS, "validate:docs-sensitive"])) {
-    assert.ok(VALIDATION_TASKS[taskId], `missing runner task: ${taskId}`);
-    assert.equal(packageJson.scripts[taskId], taskScript(taskId));
-  }
+    for (const taskId of new Set([
+        ...FULL_TASK_IDS,
+        "validate:docs-sensitive",
+    ])) {
+        assert.ok(VALIDATION_TASKS[taskId], `missing runner task: ${taskId}`);
+        assert.equal(packageJson.scripts[taskId], taskScript(taskId));
+    }
 
-  assert.match(
-    testingStrategy,
-    /단일 `docs-validation-runner`가 폐쇄형 leaf 목록과 최대 2개 병렬\s+실행을 소유한다/,
-  );
+    assert.match(
+        testingStrategy,
+        /단일 `docs-validation-runner`가 폐쇄형 leaf 목록과 최대 2개 병렬\s+실행을 소유한다/,
+    );
 });
 
 test("verification aliases cannot drift from CI", () => {
-  const forbiddenAliases = ["test:ci", "verify:ci", "ci:test", "ci:verify"];
+    const forbiddenAliases = ["test:ci", "verify:ci", "ci:test", "ci:verify"];
 
-  for (const alias of forbiddenAliases) {
-    assert.equal(packageJson.scripts[alias], undefined);
-    assert.doesNotMatch(allWorkflows, new RegExp(alias.replace(":", "\\:")));
-  }
-  assert.match(
-    testingStrategy,
-    /개발자용 전체 검증 진입점은 `verify` 하나만 사용한다/,
-  );
+    for (const alias of forbiddenAliases) {
+        assert.equal(packageJson.scripts[alias], undefined);
+        assert.doesNotMatch(
+            allWorkflows,
+            new RegExp(alias.replace(":", "\\:")),
+        );
+    }
+    assert.match(
+        testingStrategy,
+        /개발자용 전체 검증 진입점은 `verify` 하나만 사용한다/,
+    );
 });
 
 test("agent workflow validation is part of the shared static gate", () => {
-  assert.equal(
-    packageJson.scripts["validate:agent-workflow"],
-    taskScript("validate:agent-workflow"),
-  );
-  assert.equal(
-    packageJson.scripts["test:agent-workflow"],
-    taskScript("test:agent-workflow"),
-  );
-  assert.ok(STATIC_TASK_IDS.includes("validate:agent-workflow"));
-  assert.ok(STATIC_TASK_IDS.includes("test:agent-workflow"));
-  assert.match(
-    testingStrategy,
-    /에이전트 작업흐름 검증\(로컬\): `yarn validate:agent-workflow`/,
-  );
-  assert.match(
-    testingStrategy,
-    /에이전트 작업흐름 검증 테스트\(로컬\): `yarn test:agent-workflow`/,
-  );
+    assert.equal(
+        packageJson.scripts["validate:agent-workflow"],
+        taskScript("validate:agent-workflow"),
+    );
+    assert.equal(
+        packageJson.scripts["test:agent-workflow"],
+        taskScript("test:agent-workflow"),
+    );
+    assert.ok(STATIC_TASK_IDS.includes("validate:agent-workflow"));
+    assert.ok(STATIC_TASK_IDS.includes("test:agent-workflow"));
+    assert.match(
+        testingStrategy,
+        /에이전트 작업흐름 검증\(로컬\): `yarn validate:agent-workflow`/,
+    );
+    assert.match(
+        testingStrategy,
+        /에이전트 작업흐름 검증 테스트\(로컬\): `yarn test:agent-workflow`/,
+    );
 });
 
 test("document lifecycle validation is wired for local, full, and lightweight PR gates", () => {
-  assert.equal(
-    packageJson.scripts["validate:document-lifecycle"],
-    taskScript("validate:document-lifecycle"),
-  );
-  assert.equal(
-    packageJson.scripts["test:document-lifecycle"],
-    taskScript("test:document-lifecycle"),
-  );
-  assert.ok(STATIC_TASK_IDS.includes("validate:document-lifecycle"));
-  assert.ok(STATIC_TASK_IDS.includes("test:document-lifecycle"));
-  assert.match(
-    workflow,
-    /- name: Install Node dependencies\n\s+run: yarn install --frozen-lockfile/,
-  );
-  assert.match(
-    workflow,
-    /- name: Validate document lifecycle transition\n\s+if: github\.event_name == 'pull_request' && steps\.validation_mode\.outputs\.mode != 'full'[\s\S]*?run: yarn validate:document-lifecycle --base-ref "\$BASE_SHA"/,
-  );
-  assert.match(
-    testingStrategy,
-    /문서 lifecycle 검증\(로컬, 사용 가능한 `origin\/main` baseline 포함\): `yarn validate:document-lifecycle`/,
-  );
-  assert.match(
-    testingStrategy,
-    /문서 lifecycle 검증 테스트\(로컬\): `yarn test:document-lifecycle`/,
-  );
+    assert.equal(
+        packageJson.scripts["validate:document-lifecycle"],
+        taskScript("validate:document-lifecycle"),
+    );
+    assert.equal(
+        packageJson.scripts["test:document-lifecycle"],
+        taskScript("test:document-lifecycle"),
+    );
+    assert.ok(STATIC_TASK_IDS.includes("validate:document-lifecycle"));
+    assert.ok(STATIC_TASK_IDS.includes("test:document-lifecycle"));
+    assert.match(
+        workflow,
+        /- name: Install Node dependencies\n\s+run: yarn install --frozen-lockfile/,
+    );
+    assert.match(
+        workflow,
+        /- name: Validate document lifecycle transition\n\s+if: github\.event_name == 'pull_request' && steps\.validation_mode\.outputs\.mode != 'full'[\s\S]*?run: yarn validate:document-lifecycle --base-ref "\$BASE_SHA"/,
+    );
+    assert.match(
+        testingStrategy,
+        /문서 lifecycle current registry·retirement ledger 검증\(로컬, 사용 가능한 `origin\/main` baseline 포함\):\s+`yarn validate:document-lifecycle`/,
+    );
+    assert.match(
+        testingStrategy,
+        /문서 lifecycle 검증 테스트\(로컬\): `yarn test:document-lifecycle`/,
+    );
 });
 
 test("each full CI path runs lifecycle current and transition validation once", () => {
-  assert.match(
-    documentLifecycleValidator,
-    /process\.env\.DOCUMENT_LIFECYCLE_BASE_REF\?\.trim\(\)/,
-  );
-  assert.equal(
-    [...workflow.matchAll(/yarn validate:document-lifecycle/g)].length,
-    1,
-    "PR workflow should keep only the lightweight explicit lifecycle run",
-  );
-  assert.equal(
-    [...deployWorkflow.matchAll(/yarn validate:document-lifecycle/g)].length,
-    0,
-    "deploy should inject its baseline into the shared full runner",
-  );
-  assert.doesNotMatch(deployWorkflow, /Validate document lifecycle transition/);
-  assert.match(
-    testingStrategy,
-    /같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다/,
-  );
+    assert.match(
+        documentLifecycleValidator,
+        /process\.env\.DOCUMENT_LIFECYCLE_BASE_REF\?\.trim\(\)/,
+    );
+    assert.match(
+        documentLifecycleValidator,
+        /const retirementLedgerFile = "document-retirement-ledger\.json"/,
+    );
+    assert.equal(
+        [...workflow.matchAll(/yarn validate:document-lifecycle/g)].length,
+        1,
+        "PR workflow should keep only the lightweight explicit lifecycle run",
+    );
+    assert.equal(
+        [...deployWorkflow.matchAll(/yarn validate:document-lifecycle/g)]
+            .length,
+        0,
+        "deploy should inject its baseline into the shared full runner",
+    );
+    assert.doesNotMatch(
+        deployWorkflow,
+        /Validate document lifecycle transition/,
+    );
+    assert.match(
+        testingStrategy,
+        /같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다/,
+    );
 });
 
 test("validation redundancy review stays synchronized across policies and templates", () => {
-  assert.match(testingStrategy, /^### 검증 중복 판정$/mu);
-  assert.match(
-    documentGovernancePolicy,
-    /\*\*Validation Architecture \/ Redundancy Reviewer\*\*/,
-  );
-  assert.match(
-    codeReviewPolicy,
-    /\*\*QA \/ Release\*\*:[\s\S]*?동일 Gate가 불필요하게 반복되는지/,
-  );
-  assert.match(
-    docsStabilityReviewTemplate,
-    /\| Validation Architecture \/ Redundancy Reviewer \|  \|  \|/,
-  );
-  assert.match(
-    policyTemplate,
-    /검증 경로의 event·ref·baseline·산출물별 책임과 근거 없는 중복 실행 확인/,
-  );
+    assert.match(testingStrategy, /^### 검증 중복 판정$/mu);
+    assert.match(
+        documentGovernancePolicy,
+        /\*\*Validation Architecture \/ Redundancy Reviewer\*\*/,
+    );
+    assert.match(
+        codeReviewPolicy,
+        /\*\*QA \/ Release\*\*:[\s\S]*?동일 Gate가 불필요하게 반복되는지/,
+    );
+    assert.match(
+        docsStabilityReviewTemplate,
+        /\| Validation Architecture \/ Redundancy Reviewer \|  \|  \|/,
+    );
+    assert.match(
+        policyTemplate,
+        /검증 경로의 event·ref·baseline·산출물별 책임과 근거 없는 중복 실행 확인/,
+    );
 });
 
 test("final candidate validation follows independent review evidence", () => {
-  const orderedHeadings = [
-    "## 정책 Composition Gate (policy 추가·수정·삭제 시)",
-    "## 독립 리뷰 판정",
-    "## Findings",
-    "## 독립 리뷰 체크포인트",
-    "## 검증",
-    "## 결론",
-  ];
-  const headingIndexes = orderedHeadings.map((heading) =>
-    docsStabilityReviewTemplate.indexOf(heading),
-  );
+    const orderedHeadings = [
+        "## 정책 Composition Gate (policy 추가·수정·삭제 시)",
+        "## 독립 리뷰 판정",
+        "## Findings",
+        "## 독립 리뷰 체크포인트",
+        "## 검증",
+        "## 결론",
+    ];
+    const headingIndexes = orderedHeadings.map((heading) =>
+        docsStabilityReviewTemplate.indexOf(heading),
+    );
 
-  assert.ok(headingIndexes.every((index) => index >= 0));
-  assert.deepEqual(headingIndexes, [...headingIndexes].sort((a, b) => a - b));
-  assert.match(
-    docsStabilityReviewTemplate,
-    /구현·문서 구조와 검증 계획을 판정한다\. 실제 검증 결과와 최종 Exit Gate는 아래 `결론`에서 결합한다\./,
-  );
-  assert.doesNotMatch(codeReviewPolicy, /^[-] \[ \] 자체 테스트 완료$/mu);
-  assert.match(
-    codeReviewPolicy,
-    /별도 표적 검증을 실행했다면 허용 사유·명령·결과를/,
-  );
-  assert.match(
-    codeReviewPolicy,
-    /독립 최종 리뷰 체크포인트: `열린 Finding 0건·검증 대기` \/ `미도달` \+ 근거/,
-  );
-  assert.match(
-    codeReviewPolicy,
-    /검증 결과는 독립 리뷰나 체크포인트를 대체하지 않는다/,
-  );
-  assert.doesNotMatch(
-    codeReviewPolicy,
-    /독립 최종 리뷰 체크포인트:[^\n]*N\/A/,
-  );
+    assert.ok(headingIndexes.every((index) => index >= 0));
+    assert.deepEqual(
+        headingIndexes,
+        [...headingIndexes].sort((a, b) => a - b),
+    );
+    assert.match(
+        docsStabilityReviewTemplate,
+        /구현·문서 구조와 검증 계획을 판정한다\. 실제 검증 결과와 최종 Exit Gate는 아래 `결론`에서 결합한다\./,
+    );
+    assert.doesNotMatch(codeReviewPolicy, /^[-] \[ \] 자체 테스트 완료$/mu);
+    assert.match(
+        codeReviewPolicy,
+        /별도 표적 검증을 실행했다면 허용 사유·명령·결과를/,
+    );
+    assert.match(
+        codeReviewPolicy,
+        /독립 최종 리뷰 체크포인트: `열린 Finding 0건·검증 대기` \/ `미도달` \+ 근거/,
+    );
+    assert.match(
+        codeReviewPolicy,
+        /검증 결과는 독립 리뷰나 체크포인트를 대체하지 않는다/,
+    );
+    assert.doesNotMatch(
+        codeReviewPolicy,
+        /독립 최종 리뷰 체크포인트:[^\n]*N\/A/,
+    );
 });
 
 test("foundation and high-risk route descriptors come from the lifecycle registry", () => {
-  assert.match(
-    agentWorkflowValidator,
-    /const activeRoutes = lifecycleRegistry\.routes\.filter/,
-  );
-  assert.match(agentWorkflowValidator, /routing === "core"/);
-  assert.doesNotMatch(
-    agentWorkflowValidator,
-    /REQUIRED_(BASIC_RULES|LOCAL_FINAL_CANDIDATE_CONTRACT|CLOSURE_CONTRACT)/,
-  );
+    assert.match(
+        agentWorkflowValidator,
+        /const currentRoutes = lifecycleRegistry\.routes;/,
+    );
+    assert.doesNotMatch(
+        agentWorkflowValidator,
+        /route\.lifecycle === "active"/,
+    );
+    assert.match(agentWorkflowValidator, /routing === "core"/);
+    assert.doesNotMatch(
+        agentWorkflowValidator,
+        /REQUIRED_(BASIC_RULES|LOCAL_FINAL_CANDIDATE_CONTRACT|CLOSURE_CONTRACT)/,
+    );
 });
 
 test("lightweight release validation remains separate from the full runner", () => {
-  assert.match(
-    workflow,
-    /- name: Validate release records \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: node scripts\/validate-release-records\.mjs/,
-  );
-  assert.match(
-    workflow,
-    /- name: Validate sensitive docs \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+run: yarn validate:docs-sensitive/,
-  );
-  assert.equal(
-    packageJson.scripts["validate:docs-sensitive"],
-    taskScript("validate:docs-sensitive"),
-  );
-  assert.match(
-    testingStrategy,
-    /문서 민감 인프라 식별자 검증\(로컬·경량 CI\): `yarn validate:docs-sensitive`/,
-  );
-  assert.match(workflow, /types: \[opened, synchronize, reopened\]/);
-  assert.doesNotMatch(workflow, /ready_for_review|converted_to_draft|--draft/);
+    assert.match(
+        workflow,
+        /- name: Validate release records \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+env:\n\s+DOCUMENT_LIFECYCLE_BASE_REF: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+run: node scripts\/validate-release-records\.mjs/,
+    );
+    assert.match(
+        workflow,
+        /- name: Validate sensitive docs \(lightweight\)\n\s+if: steps\.validation_mode\.outputs\.mode != 'full'\n\s+run: yarn validate:docs-sensitive/,
+    );
+    assert.equal(
+        packageJson.scripts["validate:docs-sensitive"],
+        taskScript("validate:docs-sensitive"),
+    );
+    assert.match(
+        testingStrategy,
+        /문서 민감 인프라 식별자 검증\(로컬·경량 CI\): `yarn validate:docs-sensitive`/,
+    );
+    assert.match(workflow, /types: \[opened, synchronize, reopened\]/);
+    assert.doesNotMatch(
+        workflow,
+        /ready_for_review|converted_to_draft|--draft/,
+    );
 });
 
 test("lint and build jobs start independently from docs structure validation", () => {
-  const markdownLintJob = readJob("markdown-lint", "build-docs");
-  const buildDocsJob = readJob("build-docs");
+    const markdownLintJob = readJob("markdown-lint", "build-docs");
+    const buildDocsJob = readJob("build-docs");
 
-  for (const job of [markdownLintJob, buildDocsJob]) {
-    assert.doesNotMatch(job, /^\s{4}needs:/mu);
-    assert.doesNotMatch(job, /^\s{4}if:/mu);
-  }
+    for (const job of [markdownLintJob, buildDocsJob]) {
+        assert.doesNotMatch(job, /^\s{4}needs:/mu);
+        assert.doesNotMatch(job, /^\s{4}if:/mu);
+    }
 
-  assert.match(buildDocsJob, /^\s{10}cache: "pip"$/mu);
-  assert.match(
-    buildDocsJob,
-    /^\s{10}cache-dependency-path: requirements\.txt$/mu,
-  );
-  assert.match(
-    testingStrategy,
-    /`markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다/,
-  );
+    assert.match(buildDocsJob, /^\s{10}cache: "pip"$/mu);
+    assert.match(
+        buildDocsJob,
+        /^\s{10}cache-dependency-path: requirements\.txt$/mu,
+    );
+    assert.match(
+        testingStrategy,
+        /`markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다/,
+    );
 });
 
 function readJob(jobName, nextJobName = null) {
-  const startMarker = `  ${jobName}:\n`;
-  const start = workflow.indexOf(startMarker);
+    const startMarker = `  ${jobName}:\n`;
+    const start = workflow.indexOf(startMarker);
 
-  assert.notEqual(start, -1, `missing workflow job: ${jobName}`);
+    assert.notEqual(start, -1, `missing workflow job: ${jobName}`);
 
-  if (!nextJobName) {
-    return workflow.slice(start);
-  }
+    if (!nextJobName) {
+        return workflow.slice(start);
+    }
 
-  const end = workflow.indexOf(`  ${nextJobName}:\n`, start + startMarker.length);
-  assert.notEqual(end, -1, `missing workflow job: ${nextJobName}`);
-  return workflow.slice(start, end);
+    const end = workflow.indexOf(
+        `  ${nextJobName}:\n`,
+        start + startMarker.length,
+    );
+    assert.notEqual(end, -1, `missing workflow job: ${nextJobName}`);
+    return workflow.slice(start, end);
 }
