@@ -99,10 +99,14 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
    포함되며, pending은 catalog 순서를 유지한다. `adjudicableLedgerGapRefs[].ref`는
    `pendingRefs`의 exact subset이어야 한다.
 7. plan의 catalog와 SQL checksum이 배포 ref의 실제 bytes와 일치한다.
-8. 운영 plan 생성과 실제 운영 maintenance 명령 진입 때마다 참조한 개발계 plan/execution의 bytes SHA,
+8. 운영 plan 생성과 실제 운영 workflow action 진입 때마다 참조한 개발계 plan/execution의 bytes SHA,
    execution `planSha256`, 환경별 history, catalog/runtime-contract SHA를 다시 검증한다.
 
 ## 표준 절차
+
+공개 운영 진입점은 API package의 `db:migration:workflow` 하나다. 정상 실행과 outcome 판정·ledger repair·
+복구는 이 workflow의 normal/`incident` action으로만 시작하며, 내부 typed executor 파일을 CLI로 직접
+실행하지 않는다.
 
 1. runtime 계약과 writer inventory를 고정하고 API, Admin, WebSocket, cron, worker, direct SQL writer와
    queue/external-effect producer를 모두 중지한다.
@@ -226,6 +230,10 @@ Recovery plan은 원래 실패 plan과 execution의 bytes SHA, execution plan ha
 target ref를 결속한다. 실패 plan의 catalog refs는 현재 catalog의 immutable prefix여야 하며 그 뒤에는 해당
 target을 가리키는 단 하나의 append-only recovery migration만 허용한다. Recovery 뒤 원래 migration과
 recovery migration의 완료 조건과 ledger를 모두 확인한다.
+개발계 SQL/postcondition 실패는 같은 미출시 version에서만 실패 root pair를 plan SHA history와 canonical
+evidence에 먼저 보존하고 새 recovery plan root로 전환할 수 있다. 운영계 SQL/postcondition 실패와 recovery
+migration 재실패는 자동 replan하지 않고 `manual-review-required`로 유지한다. 게시됐거나 terminal인 version의
+plan, execution, release record는 incident action으로도 변경하지 않는다.
 append-only recovery migration과 forward-fix migration은 기존 plan/execution에 덧붙이지 않고 새 immutable
 plan/execution으로 수행한다. `RESUMED` 전 restore도 실패 execution을 성공으로 바꾸지 않는다. 복원 뒤
 live schema/ledger를 다시 읽어 새 plan/execution으로 정상 시작 상태와 후속 작업을 검증한다.
@@ -270,7 +278,8 @@ backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PI
 `released | rolled_back`은 그 prod plan과 완료된 prod execution을 기록한다. `pending`의 dev execution이
 있으면 `service-completed`로 끝난 완전한 pair여야 하며 partial·failed execution은 허용하지 않는다.
 개발계 execution을 완료한 뒤에만 prod plan을 생성하고, root를 prod plan으로 전진시킨 미병합 PR
-head에서 preflight를 통과한 뒤 운영계를 실행한다. 개발계 plan/execution 생성과 실행은 API executor가
+head에서 preflight를 통과한 뒤 운영계를 실행한다. 개발계 plan/execution 생성과 실행은
+[DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)의 `status`가 안내한 workflow가
 자체 안전 Gate로 수행하며, docs PR이나 preflight를 선행조건으로 요구하지 않는다. 검증기는 root execution의
 environment와 `planSha256`, prod plan 내부 dev pair와 복구 plan 내부 failed pair를 실제 archive bytes/SHA까지
 따라가며,

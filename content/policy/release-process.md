@@ -245,8 +245,10 @@
   시나리오, rollback 기준이 고정되어 운영 실행을 시작할 수 있는 상태다. 자동 검증은 PR 내부 커밋의 상태
   순서나 과거 snapshot을 검사하지 않고 현재 최종본만 검증한다.
 - `in_progress`는 일부 범위가 이미 끝났지만 외부 승인이나 후속 범위가 남아 단일 실행에서 바로 `released`로 전환할 수 없는 장기 릴리스에 사용한다.
-- 개발계 migration은 API executor로 먼저 실행하고 immutable dev plan/execution을 보존할 수 있다. 운영 준비
-  시 그 pair를 참조하는 prod plan을 root로 `in_progress` 기록에 고정하고, 같은 PR head의 preflight를
+- 개발계 migration은 [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)의
+  `status`가 안내한 `dev-run`으로 실행하고 immutable dev plan/execution을 보존할 수 있다. 운영 준비 시
+  `status`가 안내한 `prod-prepare`로 그 pair를 참조하는 prod plan을 root로 `in_progress` 기록에 고정하고,
+  같은 PR head의 preflight를
   통과하기 전에는 운영 DB 실행으로 넘어가지 않는다. 릴리스 기록을 개발계 실행 전에 열었다면 dev plan/null,
   실행 뒤에는 completed dev pair의 `pending` 단계를 사용할 수 있지만 docs PR과 preflight는 개발계 실행의
   선행조건이 아니다. 운영까지의 간격이 길면 release record 없이 dev graph만 먼저 `main`에 checkpoint로
