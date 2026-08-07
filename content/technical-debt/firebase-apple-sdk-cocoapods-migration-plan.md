@@ -4,7 +4,7 @@
 
 - 역할: `부채`
 - 문서 종류: `technical-debt`
-- 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md), [테스트/CI 전략](../policy/testing-strategy.md), [배포/릴리즈 프로세스](../policy/release-process.md)
+- 충돌 시 우선 문서: [엔지니어링 가드레일](../policy/engineering-guardrails.md), [테스트/CI 전략](../policy/testing-strategy.md), [릴리스 프로세스](../policy/release-process.md)
 - 기준 성격: `transition`
 
 ## 목적
@@ -26,12 +26,12 @@
 
 ## 외부 조건
 
-- 확인일: `2026-07-16`
+- 확인일: `2026-08-07`
 - Firebase는 2026년 10월부터 CocoaPods에 신규 SDK를 배포하지 않는다.
 - 기존 CocoaPods 버전은 계속 설치 가능하다.
 - 최신 CocoaPods 배포는 Xcode `26.2+`, CocoaPods `1.12.0+`를 요구한다.
 - CocoaPods·SPM 혼용은 dependency cycle과 build error 위험이 있다.
-- RNFirebase [#9010](https://github.com/invertase/react-native-firebase/issues/9010), [#8933](https://github.com/invertase/react-native-firebase/pull/8933)은 미완료 상태다.
+- RNFirebase [#8933](https://github.com/invertase/react-native-firebase/pull/8933)의 SPM 지원 구현은 병합됐고 [#9010](https://github.com/invertase/react-native-firebase/issues/9010)은 종료됐다. 해당 구현을 포함한 stable package 발행과 `coupler-mobile-app`의 dependency·iOS 설치 경로 전환 및 검증은 완료되지 않았다.
 - 근거: [Firebase 설치 방식](https://firebase.google.com/docs/ios/installation-methods), [CocoaPods 마이그레이션](https://firebase.google.com/docs/ios/cocoapods-deprecation)
 
 ## Debt
@@ -46,7 +46,7 @@
 ### [TD-FIREBASE-APPLE-002] Xcode 26 release gate 공백 `P1` `M`
 
 - 현상: Xcode 16.2 simulator CI와 수동 Xcode 26.5 archive만 있다.
-- 영향: native 변경의 Store 회귀를 릴리즈 직전에 발견할 수 있다.
+- 영향: native 변경의 Store 회귀를 릴리스 직전에 발견할 수 있다.
 - 조치: Xcode 26.2+ Release archive와 pre-release TestFlight·FCM gate를 추가한다.
 - 완료: 도구 버전·설치 로그·archive·TestFlight·FCM 근거 연결.
 
@@ -66,6 +66,6 @@
 
 - [푸시알림 시스템](../architecture/push-notification.md)
 - [Firebase Apple SDK 설치 경로 전환 흐름](../flows/cross-project/firebase-apple-sdk-migration-flow.md)
-- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [릴리스 프로세스](../policy/release-process.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)
 - [기술 부채 정리](technical-debt.md)
