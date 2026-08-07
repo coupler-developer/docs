@@ -114,23 +114,27 @@ nav:
           - 마케팅 앱 이벤트 정책: policy/marketing-app-events-policy.md
           - 테스트용 개발 데이터 정책: policy/development-test-data-policy.md
           - 서비스 용어 정책: policy/service-terminology-policy.md
-      - 릴리즈와 문서:
-          - 배포 태그 정책: policy/release-tag-policy.md
-          - 배포/릴리즈 프로세스: policy/release-process.md
+      - 릴리스와 문서:
+          - 릴리스 태그 정책: policy/release-tag-policy.md
+          - 릴리스 프로세스: policy/release-process.md
           - 문서 거버넌스 정책: policy/document-governance-policy.md
   - Flows:
       - 제품 흐름:
           - Kakao 네이티브 로그인 플로우: flows/cross-project/kakao-native-login-flow.md
           - 매칭 플로우: flows/cross-project/matching-flow.md
-      - 계약과 릴리즈:
-          - API 계약 변경 모바일 릴리즈 플로우: flows/cross-project/api-contract-mobile-release-flow.md
-          - 릴리즈 자동화 파이프라인: flows/cross-project/release-automation-pipeline.md
-          - 운영 배포 명령어 런북: flows/cross-project/production-deploy-command-runbook.md
-          - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
+      - 계약과 릴리스:
+          - 릴리스 게이트 플로우: flows/cross-project/release-automation-pipeline.md
+          - API 계약 변경 모바일 릴리스 플로우: flows/cross-project/api-contract-mobile-release-flow.md
+          - Firebase Apple SDK 설치 경로 전환 흐름: flows/cross-project/firebase-apple-sdk-migration-flow.md
+          - 운영 릴리스 실행:
+              - 통합 실행 인덱스: flows/cross-project/production-deploy-command-runbook.md
+              - DB Migration 실행 런북: flows/cross-project/db-migration-operation-flow.md
+              - API 운영 배포 런북: flows/cross-project/api-production-deploy-flow.md
+              - Admin 운영 배포 런북: flows/cross-project/admin-web-production-deploy-flow.md
+              - Mobile 운영 릴리스 런북: flows/cross-project/mobile-production-release-flow.md
       - 개발 운영:
           - 테스트용 개발 데이터 운영 흐름: flows/cross-project/development-test-data-flow.md
           - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
-          - Firebase Apple SDK 설치 경로 전환 흐름: flows/cross-project/firebase-apple-sdk-migration-flow.md
   - Releases:
       - 2.4.1 릴리스 실행 기록: releases/v2.4.1.md
       - 2.4.0 릴리스 실행 기록: releases/v2.4.0.md
@@ -147,4 +151,4 @@ nav:
       - 2.0.0 릴리스 실행 기록: releases/v2.0.0.md
   - Technical Debt:
       - 기술 부채 정리: technical-debt/technical-debt.md
-      - Firebase Apple SDK CocoaPods 마이그레이션 계획: technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md
+      - Firebase Apple SDK CocoaPods 마이그레이션: technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md

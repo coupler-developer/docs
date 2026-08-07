@@ -152,7 +152,7 @@ flowchart LR
 ### 인연찾기(셀소) 게시글
 
 인연찾기 게시글은 일반 라운지 게시글 저장 구조를 사용하며 아래 값으로 식별한다.
-아래 계약의 구현 정합성 증빙은 `인연찾기 다중 레포 반영`에서 연결한 릴리즈 flow의 입력으로 사용한다.
+아래 계약의 구현 정합성 증빙은 `인연찾기 다중 레포 반영`에서 연결한 릴리스 flow의 입력으로 사용한다.
 
 | 항목 | 값과 의미 |
 | --- | --- |
@@ -182,7 +182,7 @@ flowchart LR
   `coupler-mobile-app`이 그 계약으로 작성 진입점과 게시글 등록을 제공한다.
 - Mobile은 인연찾기 등록을 `MANAGER_ONLY`로 제출한다. 사진을 선택하지 않으면 업로드 요청을 생략하고
   빈 `photo` 값으로 기존 라운지 등록 API를 호출한다.
-- 운영 반영은 [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)에
+- 운영 반영은 [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)에
   따라 API의 코드 12와 `MANAGER_ONLY` 접근 통제, 기존 앱의 목록·상세 호환을 확인한 뒤 Mobile을 배포한다.
 - 저장 구조와 API 요청 필드는 기존 라운지 계약을 재사용하므로 DB migration과 계약 cutover는 필요하지
   않다. 코드 12 게시글이 한 건이라도 저장된 뒤 Mobile 작성 진입점을 롤백하더라도 API 카테고리 코드는
@@ -202,7 +202,7 @@ flowchart LR
 
 - 위 테스트와 수동 시나리오는 같은 기능 기준점을 검증하며, 일반 CI 통과만으로 대체하지 않는다.
 - API additive 카테고리와 Mobile 작성 진입점의 배포·활성화·롤백 판정은 이 절에서 다시 정의하지 않고
-  [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
+  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
 
 ## 댓글 구조
 

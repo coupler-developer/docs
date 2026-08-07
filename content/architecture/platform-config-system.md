@@ -69,14 +69,14 @@ flowchart LR
     | 규칙 ID | 관련 논리 ID | 불변조건 | 기준 문서 |
     | --- | --- | --- | --- |
     | `PLATFORM-CONFIG-INV-001` | `platform-config.setting` | 금액·보상 설정은 사용하는 도메인이 기대하는 부호와 범위를 만족해야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
-    | `PLATFORM-CONFIG-INV-002` | `platform-config.app-release` | 최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다 | [배포/릴리즈 프로세스](../policy/release-process.md) |
+    | `PLATFORM-CONFIG-INV-002` | `platform-config.app-release` | 최소 지원 버전은 현재 배포 버전보다 높게 설정할 수 없다 | [릴리스 프로세스](../policy/release-process.md) |
     | `PLATFORM-CONFIG-INV-003` | `platform-config.signup-message` | 활성 가입 안내는 적용 범위에서 하나의 결정적인 템플릿으로 선택돼야 한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
 
 <!-- markdownlint-enable MD046 -->
 
 ## 관련 문서
 
-- [배포/릴리즈 프로세스](../policy/release-process.md)
+- [릴리스 프로세스](../policy/release-process.md)
 - [결제 운영 정책](../policy/payment-ops-policy.md)
 - [매칭 운영 정책](../policy/matching-ops-policy.md)
 - [논리 데이터 모델 정책](../policy/logical-data-model-policy.md)

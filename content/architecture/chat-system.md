@@ -355,7 +355,7 @@ sequenceDiagram
   메모리에서 관리한다. PM2 cluster 또는 다중 인스턴스로 확장하기 전 인스턴스 간 이벤트 broker와
   재동기화 전략을 먼저 확정해야 한다.
 - API 계약 package, API, Admin, Android·iOS NextPush는 같은 계약 snapshot의 단일 배포 단위다. 실제 배포
-  순서·검증·rollback은 [운영 배포 명령어 런북](../flows/cross-project/production-deploy-command-runbook.md)을 따른다.
+  순서·검증·rollback은 [운영 릴리스 실행 런북](../flows/cross-project/production-deploy-command-runbook.md)을 따른다.
 
 ## 매칭 채팅
 

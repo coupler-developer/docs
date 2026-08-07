@@ -61,15 +61,15 @@
 
 ## 상위 규범 문서
 
-- [배포/릴리즈 프로세스](../policy/release-process.md)
-- [배포 태그 정책](../policy/release-tag-policy.md)
+- [릴리스 프로세스](../policy/release-process.md)
+- [릴리스 태그 정책](../policy/release-tag-policy.md)
 - [테스트/CI 전략](../policy/testing-strategy.md)
 
 ## 릴리스 상태
 
 - 목표 버전: `vX.Y.Z`
 - 전체 상태: `pending`
-- 완료 범위: 배포 scope, 기준 SHA, 검증 시나리오, rollback 기준 고정
+- 완료 범위: 릴리스 scope, 기준 SHA, 검증 시나리오, rollback 기준 고정
 - 대기 범위: 포함 범위별 운영 배포, smoke, 서비스 태그, 최종 기록
 
 ## 버전 매핑
@@ -101,7 +101,7 @@
   shape를 사용한다. `verified`는 공통 또는 platform별 submission tag, exact commit, artifact SHA-256, 이관·삭제 증빙과
   `limitation: null`을 요구한다. 원래 marker/hash가 없는 과거 예외는 tag·commit·artifact/evidence를 모두
   `null`로 두고 구체적인 `limitation`만 기록한다. 사후 생성 marker를 `verified`로 바꾸지 않는다.
-- `releaseScopes`는 실제 릴리즈 surface의 단일 SoT다. 값은 `db-migration`, `contracts-package`, `coupler-api`, `coupler-admin-web`, `mobile-store`, `mobile-nextpush`, `docs` 중에서 고르고, 항상 `docs`를 포함한다.
+- `releaseScopes`는 실제 릴리스 surface의 단일 SoT다. 값은 `db-migration`, `contracts-package`, `coupler-api`, `coupler-admin-web`, `mobile-store`, `mobile-nextpush`, `docs` 중에서 고르고, 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 직접 쓰지 않고 `releaseScopes` descriptor에서 파생한다.
 - `scopeResults`는 scope별 결과 상태와 증적의 단일 SoT다. 각 key는 `releaseScopes`와 정확히 일치해야 하며, scope별 `status`는 `planned`, `pending`, `in_progress`, `released`, `rolled_back`, `superseded` 중 하나다.
 - 문서 전체 `status`는 `scopeResults`에서 파생되는 상태와 일치해야 한다. 선행 완료 scope가 `released`이고 나머지가 `pending`이면 전체 상태는 `pending`, 장기 실행에서 일부 scope가 진행 중이면 `in_progress`, 완료된 scope와 후속 릴리스로 대체된 scope만 남으면 `superseded`다.
@@ -305,7 +305,8 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 - `mobile-store`를 `released`로 닫을 때는 `scopeResults.mobile-store.evidence.submission`, `approval`, `release`, `smoke`, `artifact`, `submittedMarkers`와 포함 platform의 `verified` source mapping을 concrete 값으로 채운다.
 - `mobile-nextpush`를 `released`로 닫을 때는 `scopeResults.mobile-nextpush.evidence.app`, `productionLabel`, `targetBinary`, `uploadedAt`, `rollout`, `mandatory`, `disabled`를 concrete 값으로 채운다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `extraRepoRefs`에 `docs`, `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 중 canonical name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
-- `포함 범위`와 `제외 범위`는 사람이 읽는 실행 계약이다. 배포 범위(`DB migration`, `coupler-api`, `coupler-admin-web`, `Mobile Store`, `Mobile NextPush`, `docs`, `Tag/Release Record`)별로 완료/제외를 구분한다.
+- `포함 범위`와 `제외 범위`는 사람이 읽는 실행 계약이다. `releaseScopes`의 canonical 값별로 완료/제외를
+  구분하며, 태그와 릴리스 기록은 scope가 아니라 별도 Gate와 증빙으로 적는다.
 - 제외한 범위와 완료 판정에 직접 쓰이지 않는 `N/A` 항목은 미적용 사유와 근거를 함께 적는다.
 - `released` 또는 `rolled_back` scope의 완료/rollback 증적은 실제 workflow, Gate, smoke, artifact, rollback 기준 같은 concrete 증빙으로 채우며 `N/A - <사유>`로 대체하지 않는다.
 - `rolled_back` scope는 `rollbackReason`을 기록한다. scope descriptor에 전용 rollback evidence가 없는
@@ -316,7 +317,7 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 - `preflightRepoNames`가 `docs`뿐인 릴리스 기록은 서비스 repo workspace 없이 docs-only preflight를 실행할 수 있다.
 - 서비스 레포가 `preflightRepoNames`에 포함되면 preflight 실행 시 해당 repo가 있는 workspace root가 필요하다.
 - preflight 검증 대상 서비스 ref는 확인된 annotated tag가 없으면 실행 시점의 현재 `origin/main`과 같아야 한다. annotated tag와 commit이 일치하면 그 불변 릴리스 기준점을 허용한다.
-- `docs`의 릴리즈 기준점은 `versionMapping.docs.tag`와 실제 docs tag commit으로 확인한다. 릴리즈 기록 문서 안의 `versionMapping.docs.commit`에는 자기 자신을 안정적으로 가리키는 concrete SHA를 적지 않는다.
+- `docs`의 릴리스 기준점은 `versionMapping.docs.tag`와 실제 docs tag commit으로 확인한다. 릴리스 기록 문서 안의 `versionMapping.docs.commit`에는 자기 자신을 안정적으로 가리키는 concrete SHA를 적지 않는다.
 - `docs` scope가 `released`이면 `versionMapping.docs.tag`를 목표 버전으로 고정한다. 실제 origin annotated tag는 final PR merge 뒤 병합된 main 커밋에 생성하고 postcheck하며, tag commit은 `origin/main` 계보에 있어야 한다.
 - `preflightRepoNames`에 포함된 서비스 레포는 `versionMapping`에 확인 가능한 `tag`/`releaseTag` 또는
   `commit` SHA를 적는다. `coupler-api`와 `coupler-admin-web`은 terminal 공개 계약/artifact를 결속하므로
@@ -340,14 +341,14 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
   않는다. 운영 당일 docs `main`의 exact bytes를 API `.runtime` path로 복원하고 fresh prod plan을 만든다.
   같은 version의 최초 release record는 이 dev graph를 참조하는 `db-migration` canonical prod plan root로
   소비해야 한다.
-- 릴리즈 기록은 최종본으로 한 번만 `main`에 병합한다. `main`에 존재하는 기록은 불투명한 역사 기록으로서
+- 릴리스 기록은 최종본으로 한 번만 `main`에 병합한다. `main`에 존재하는 기록은 불투명한 역사 기록으로서
   수정·삭제·이름 변경·대체할 수 없고 내용도 현재 계약으로 재검증하지 않는다. 오탈자·잘못된 증빙·실패·
   rollback 설명만을 고치기 위한 새 릴리스 기록도 만들지 않는다. 새 기록은 실제 새 배포 또는 DB migration
   실행이 있을 때만 작성한다.
 - `main`의 개별 DB migration evidence 파일은 즉시 불변이다. 병합된 release record가 있는 version에는 파일을
   사후 추가하지 않는다. no-record dev checkpoint version에는 기존 dev bytes를 그대로 둔 채 prod evidence와
   이를 소비하는 최종 release record만 나중에 한 번 추가할 수 있다.
-- `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안 공유가 필요한 경우에만 선택적으로 사용하며 배포 시작 기준이 아니다.
+- `planned`는 범위나 기준 SHA가 아직 고정되지 않은 초안 공유가 필요한 경우에만 선택적으로 사용하며 릴리스 실행 기준이 아니다.
 - `released`, `rolled_back` scope의 태그와 커밋은 실제 확인 가능한 ref로 적는다.
 - `released`, `rolled_back` scope에서는 scope descriptor가 요구하는 evidence에 `null`, `N/A`, `N/A - <사유>`, `pending`, `미생성`, `미검증`, `미완료`, `심사 중`, `대기` 같은 placeholder나 미적용 사유를 남기지 않는다.
 - `버전 매핑` 섹션은 사람이 읽는 mirror다. 자동화 기준은 `release-metadata.versionMapping`이며, 둘이 서로 다른 기준점을 가리키지 않게 같이 갱신한다.
@@ -405,7 +406,7 @@ execution root가 내부 dev 이력과 실제 bytes SHA까지 결속된 경우�
 - API 대상:
 - iOS TestFlight QA 빌드:
 - Android QA APK:
-- 운영 릴리즈 전 확인:
+- 운영 릴리스 전 확인:
 
 ## 롤백 기준
 

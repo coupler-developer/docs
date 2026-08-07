@@ -155,7 +155,7 @@
   bootstrap·version case, 이전·현재 runtime의 final DB 조합 기록이 없다.
 - 영향: source package 정렬이나 강제 업데이트를 하위 호환 증빙으로 오인하거나 후속 제거가 필요한 임시
   경로를 API `No`로 닫을 수 있다.
-- 조치: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
+- 조치: [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
   release-scoped 소비자 inventory와 case를 검증하고 `API cutover`를 판정하며, DB 변경은 maintenance
   runtime contract에 실제 조합·상태 표면·복구 전략을 선언한다.
 - 완료: exact package, 모든 지원 consumer-interface case, API 판정과 적용 시 activation/client rollback,

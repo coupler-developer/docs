@@ -232,7 +232,7 @@
   방향별 알림을 해당 매칭 탭으로 연결하며, Admin이 최초 로그 상태로 방향을 표시하고 관련 회귀 테스트가
   함께 반영된 상태다.
 - 상세 문서 정리 완료 조건: [매칭 FSM](../architecture/matching-fsm.md), [매칭 키 시스템](../architecture/matching-key-system.md), [매칭 일정 제안 알고리즘](../architecture/matching-schedule-algorithm.md), [채팅 시스템](../architecture/chat-system.md), [매칭 플로우](../flows/cross-project/matching-flow.md)가 상태/키/환불/일정 값 또는 API 요청 field를 새 규범으로 정의하지 않고 이 문서, Swagger, 코드 경계 링크 또는 예시/시각화 역할로만 설명한다.
-- 전환 추적: 본 절의 완료 조건과 해당 변경 PR/릴리즈 기록을 기준으로 추적한다. 완료 전 상세 문서의 값 표현이 이 문서와 충돌하면 이 문서를 우선한다.
+- 전환 추적: 본 절의 완료 조건과 해당 변경 PR/릴리스 기록을 기준으로 추적한다. 완료 전 상세 문서의 값 표현이 이 문서와 충돌하면 이 문서를 우선한다.
 
 ## 관련 문서
 

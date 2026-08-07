@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 계약 패키지의 목적, 발행, 소비, 수정 절차는 이 문서. JSON 응답 envelope은 `api-response-contract-policy.md`, 실패 `ErrorData`/taxonomy는 `api-error-contract-policy.md`, 운영 릴리즈 scope·증빙은 `release-process.md`, Gate 순서는 `release-automation-pipeline.md`
+- 충돌 시 우선 문서: 계약 패키지의 목적, 발행, 소비, 수정 절차는 이 문서. JSON 응답 envelope은 `api-response-contract-policy.md`, 실패 `ErrorData`/taxonomy는 `api-error-contract-policy.md`, 운영 릴리스 scope·증빙은 `release-process.md`, Gate 순서는 `release-automation-pipeline.md`
 - 기준 성격: `as-is`
 
 ## 목적
@@ -16,7 +16,7 @@
 - `coupler-api`의 계약 package source, generated contract, pack/publish 설정
 - Swagger/OpenAPI에서 생성하는 operation별 public request/success DTO type
 - `coupler-admin-web`와 `coupler-mobile-app`의 계약 dependency, import, lockfile
-- GitHub Packages registry/auth 설정과 API 계약 변경 릴리즈 기록
+- GitHub Packages registry/auth 설정과 API 계약 변경 릴리스 기록
 
 제외 범위:
 
@@ -33,9 +33,9 @@
 - DTO 필드의 비즈니스 의미와 도메인 제약: 각 도메인 정책
 - package publish 규칙: 이 문서의 `필수 규칙`, `Draft PR prerelease 검증`, `첫 발행`,
   `계약 수정과 version bump`
-- 운영 릴리즈 포함·증빙 기준: [배포/릴리즈 프로세스](release-process.md)의 `Contracts Package Release`
-- 운영 Gate 순서: [릴리즈 자동화 파이프라인](../flows/cross-project/release-automation-pipeline.md)
-- API 계약 변경 cutover gate: [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
+- 운영 릴리스 포함·증빙 기준: [릴리스 프로세스](release-process.md)의 `계약 패키지 릴리스`
+- 운영 Gate 순서: [릴리스 게이트 플로우](../flows/cross-project/release-automation-pipeline.md)
+- API 계약 변경 cutover gate: [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
 - package 전환 잔여 부채: [기술 부채 정리](../technical-debt/technical-debt.md)의 `API 응답 공통 계약 cutover 인덱스`, `API success DTO schema 정리 미완료`, `API public request DTO 생성/소비 전환 미완료`
 
 ## 용어
@@ -94,7 +94,7 @@
   [엔지니어링 가드레일](engineering-guardrails.md)의 `API 계약과 runtime-state 안전성의 독립 판정`을 따른다.
   Store/NextPush 이력, source 검색 결과 또는 버전을 구분할 수 없는 traffic 0건으로 이를 대신하지 않는다.
 - 변경된 계약 symbol을 특정 consumer가 직접 import하지 않더라도 version 갱신 대상에서 제외하지 않는다. 계약 package는 active consumer가 함께 고정하는 공용 계약 스냅샷이다.
-- 새 stable version을 발행하면 같은 릴리즈 작업 단위에서 Admin/Mobile dependency와 lockfile 갱신 PR을 모두 준비하고 품질 게이트를 통과시킨다. 두 PR이 `main`에 병합되기 전에는 계약 package 소비 정렬을 완료로 기록하지 않는다.
+- 새 stable version을 발행하면 같은 릴리스 작업 단위에서 Admin/Mobile dependency와 lockfile 갱신 PR을 모두 준비하고 품질 게이트를 통과시킨다. 두 PR이 `main`에 병합되기 전에는 계약 package 소비 정렬을 완료로 기록하지 않는다.
 - 소비자 source version 지연은 별도 예외로 승인된 경우에만 허용한다. 예외 기록에는 대상 consumer,
   현재/목표 version, 지연 사유, owner, 제거 조건과 목표 시점을 포함해야 하며, 예외가 열린 동안에는 현재
   source 계약 정렬을 완료로 판정하지 않는다.
@@ -105,7 +105,7 @@
   두지 않는다.
 - Admin/Mobile 소비자 설치 인증은 package 발행 권한과 분리한다. 현재 소비자 CI 설치는 GitHub Packages package settings의 `Manage Actions access`에 해당 consumer repo가 `Read` 권한으로 등록된 상태를 전제로, GitHub Actions 기본 `github.token`과 workflow `packages: read` 권한을 사용한다.
 - package 설치만을 위해 새 PAT, 새 token secret, 새 fallback token을 만들지 않는다.
-- 새 token secret이 필요하다고 판단되면 먼저 package `Manage Actions access`, `github.token` 권한, org/repo 권한 제약을 조사하고, 대체 불가 사유와 권한 범위, 만료/회수 계획을 PR/릴리즈 기록에 남긴 뒤 명시 승인을 받아야 한다.
+- 새 token secret이 필요하다고 판단되면 먼저 package `Manage Actions access`, `github.token` 권한, org/repo 권한 제약을 조사하고, 대체 불가 사유와 권한 범위, 만료/회수 계획을 PR/릴리스 기록에 남긴 뒤 명시 승인을 받아야 한다.
 - GitHub Packages에 발행하더라도 API repo에 `npm install` 또는 `package-lock.json` 생성을 섞지 않는다.
 - 소비자 repo의 `.npmrc`는 scope registry 설정만 커밋한다. token 값이나 `${NODE_AUTH_TOKEN}` placeholder를 `.npmrc`에 커밋하지 않는다.
 - GitHub Packages npm package는 로컬 개발자 설치에도 인증이 필요하다. 각 개발자는 개인 GitHub 계정 기준으로 `read:packages` 권한이 있는 user-level npm auth를 설정한다.
@@ -195,7 +195,7 @@
 3. `pnpm pack:contracts`로 발행 산출물에 필요한 파일만 포함되는지 확인한다.
 4. Package `api` entrypoint가 operation별 type-only public request/success DTO를, `response` entrypoint가 strict `ErrorData` 기반 envelope 타입과 runtime guard를 노출하는지 확인한다.
 5. Package와 Admin/Mobile response facade의 public runtime symbol이 각각의 정확한 allowlist를 벗어나지 않는지 CI로 확인한다.
-6. PR과 릴리즈 기록에 package infra가 wire 계약 변경, 소비자 전환 완료, public request/success DTO 완료를 의미하지 않는다고 기록한다.
+6. PR과 릴리스 기록에 package infra가 wire 계약 변경, 소비자 전환 완료, public request/success DTO 완료를 의미하지 않는다고 기록한다.
 
 ### Draft PR prerelease 검증
 
@@ -213,7 +213,7 @@
 
 1. API repo에서 generated contract freshness 검증을 통과시킨다.
 2. API repo의 package manager 기준으로 `@coupler-developer/coupler-api-contracts`를 발행한다.
-3. 발행 version, registry package, 비교한 API ref, pack/publish 검증 결과를 릴리즈 기록에 남긴다.
+3. 발행 version, registry package, 비교한 API ref, pack/publish 검증 결과를 릴리스 기록에 남긴다.
 4. 발행 실패 시 소비자 전환 PR을 진행하지 않는다.
 
 ### Admin/Mobile 소비 전환
@@ -238,7 +238,7 @@
 4. Admin/Mobile은 직접 사용하는 계약 symbol 변경 여부와 무관하게 published latest stable version으로 dependency와 lockfile을 함께 갱신한다.
 5. 각 소비자 표준 품질 게이트와 package version/lockfile 일치를 확인한 뒤 두 소비자 PR을 `main`에 병합한다.
 6. API/DB 변경은 두 active consumer의 현재 source version 정렬과 별도로
-   [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
+   [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)의
    `API cutover`와 DB runtime/schema 조합 Gate를 통과한 뒤 진행한다.
 
 ## 증빙/추적
@@ -246,7 +246,7 @@
 - API PR: generated contract freshness 검증, pack 결과, 발행 대상 파일 목록
 - Publish 기록: package name, version, registry URL 또는 package manager 출력, API ref
 - Admin/Mobile PR: registry 설정, CI secret 이름/권한 범위, dependency diff, lockfile diff, public request/success DTO import 전환 diff, local wire DTO와 legacy generated copy 제거 diff, request boundary 검증
-- Cutover PR: 비교한 API/Admin/Mobile ref, 릴리즈 기록 링크
+- Cutover PR: 비교한 API/Admin/Mobile ref, 릴리스 기록 링크
 
 ## 체크리스트
 
@@ -283,7 +283,7 @@
 - [ ] repo `.npmrc`에는 registry scope만 있고 token 값이나 `${NODE_AUTH_TOKEN}` placeholder가 없는가?
 - [ ] 소비자 코드가 package contract를 우회하는 local cast, alias fallback, normalize를 추가하지 않았는가?
 - [ ] package dependency와 lockfile 전환 PR에서 legacy generated copy와 copy exact match CI를 제거했는가?
-- [ ] 계약 산출물 변경마다 새 package version과 릴리즈 증빙이 남았는가?
+- [ ] 계약 산출물 변경마다 새 package version과 릴리스 증빙이 남았는가?
 - [ ] API `main`의 published latest stable version과 Admin/Mobile `package.json` 및 lockfile의 exact version이 모두 같은가?
 - [ ] 직접 import하지 않는 계약 symbol을 이유로 active consumer의 version 갱신을 생략하지 않았는가?
 - [ ] 소비자 source version 지연 예외가 있다면 owner, 사유, 목표 version, 제거 조건과 목표 시점이 기록되어
@@ -293,6 +293,6 @@
 
 - [API 공통 응답 계약 정책](api-response-contract-policy.md)
 - [API 에러 계약 정책](api-error-contract-policy.md)
-- [배포/릴리즈 프로세스](release-process.md)
-- [API 계약 변경 모바일 릴리즈 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
+- [릴리스 프로세스](release-process.md)
+- [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)
 - [기술 부채 정리](../technical-debt/technical-debt.md)

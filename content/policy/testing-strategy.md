@@ -15,7 +15,7 @@
 
 - 코드 레포의 표준 품질 게이트는 계약 검사, `lint`, `typecheck`, `format`, `test`를 묶은 `verify`다.
 - docs의 표준 품질 게이트는 `docs 구조 검증`, `문서 lifecycle 검증`, `에이전트 작업흐름 검증`, `논리 데이터 모델 검증`,
-  `기술부채 인벤토리 검증`, `릴리스 기록 검증`, `API 에러 문서 검증`, `릴리즈 preflight 스크립트 검증`,
+  `기술부채 인벤토리 검증`, `릴리스 기록 검증`, `API 에러 문서 검증`, `릴리스 preflight 스크립트 검증`,
   `markdownlint`, `mkdocs build --strict`다.
 - 레포에서 미제공인 항목은 `N/A`로 표기하고, 미적용 근거를 PR/작업 보고에 남긴다.
 - 표준 검증 명령은 아래를 단일 기준으로 사용한다.
@@ -100,8 +100,8 @@
 - `yarn storybook:check`는 Storybook story 수집, `.storybook/storybook.requires.ts` 최신성, Storybook 전용 TypeScript 체크, story 렌더/snapshot 테스트를 함께 검증해야 한다.
 - UI 표시 변경, Storybook 인프라 변경, 또는 이미 story가 있는 컴포넌트 변경은 관련 story와 snapshot을 함께 추가/갱신하고 PR에 변경 이유를 남긴다.
 - iOS/Android native visual job은 일반 PR과 Mobile Store 제출 준비용 `release/* → main` PR에서 자동 실행하지 않는다. 모든 PR은 별도 Storybook workflow의 `yarn storybook:check`를 유지한다.
-- native visual 검증이 필요하면 GitHub Actions의 `workflow_dispatch`에서 검증할 ref를 선택해 두 native visual job을 수동 실행한다. 각 플랫폼의 fresh capture를 해당 플랫폼의 기준 이미지와 비교해 두 job이 모두 통과해야 하며, 실행 URL과 결과를 PR/릴리즈 증빙에 남긴다.
-- [배포 태그 정책](release-tag-policy.md)의 `vX.Y.Z` 릴리즈 태그는 운영 반영·검증 뒤 생성하는 기준점이므로 native visual의 사전 릴리즈 트리거로 사용하지 않는다.
+- native visual 검증이 필요하면 GitHub Actions의 `workflow_dispatch`에서 검증할 ref를 선택해 두 native visual job을 수동 실행한다. 각 플랫폼의 fresh capture를 해당 플랫폼의 기준 이미지와 비교해 두 job이 모두 통과해야 하며, 실행 URL과 결과를 PR/릴리스 증빙에 남긴다.
+- [릴리스 태그 정책](release-tag-policy.md)의 `vX.Y.Z` 릴리스 태그는 운영 반영·검증 뒤 생성하는 기준점이므로 native visual의 사전 릴리스 트리거로 사용하지 않는다.
 - Storybook snapshot은 컴포넌트 표시 회귀 증빙이며, native 설정/앱 시작/실기기 동작/화면 전환 E2E 검증을 대체하지 않는다.
 - PR에서 native visual job이 예약되지 않은 상태는 적용 대상이 아니므로 `N/A`로 기록한다. 수동 실행을 검증 근거로 선택한 뒤 CI 결제/runner 장애처럼 테스트가 실행 전 차단된 상태는 통과로 간주하지 않는다. PR에서는 로컬 `yarn storybook:check` 결과를 임시 증빙으로 기록할 수 있지만 선택한 수동 native visual의 원격 CI 상태는 `미검증`으로 남긴다.
 
@@ -114,7 +114,7 @@
 | --- | --- | --- |
 | `Low` | 동작/정책 기준 변경 없는 문서, 주석, 포맷, 내부 정리 | 회귀 영향 `N/A` 사유와 변경 경로 근거 |
 | `Medium` | UI 표시, API 호출부, 순수 로직, 상태 표시처럼 사용자/운영 동작에 영향 가능 | 보호 동작 1개 이상에 대한 테스트, 로그, 또는 수동 시나리오 결과 |
-| `High` | API 계약, 상태 머신(FSM)/상태 전이, 권한, 결제, 푸시, DB, 배포, 네이티브/모바일 릴리즈, 보안/개인정보, 다중 레포 변경 | 자동 테스트, 검증 스크립트, postcheck, 운영 로그, 실기기 검증 중 해당 영역의 차단 가능한 증빙 |
+| `High` | API 계약, 상태 머신(FSM)/상태 전이, 권한, 결제, 푸시, DB, 배포, 네이티브/모바일 릴리스, 보안/개인정보, 다중 레포 변경 | 자동 테스트, 검증 스크립트, postcheck, 운영 로그, 실기기 검증 중 해당 영역의 차단 가능한 증빙 |
 
 - `High` 변경에서 자동 테스트가 없으면 수동 검증만으로 끝내지 않고, 왜 자동화할 수 없는지와 대체 검증 스크립트/로그를 남긴다.
 - `High` 변경은 아래 최소 검증을 따른다.
@@ -130,7 +130,7 @@
 | 푸시 | 발송, 스킵, 중복 방지, 저장 결과 검증 |
 | DB | [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 catalog/fixture와 직전/신규 API runtime+migrated DB 검증 |
 | 배포 | 배포 후 핵심 응답, 로그, 롤백 기준 검증 |
-| 네이티브/모바일 릴리즈 | 실기기 또는 배포 리허설 검증 |
+| 네이티브/모바일 릴리스 | 실기기 또는 배포 리허설 검증 |
 | 다중 레포 변경 | 각 레포 품질 게이트와 교차 계약 검증 |
 
 - 기존 정책 불일치는 이번 변경이 새로 만들거나 확산한 경우에만 신규 회귀로 본다.
@@ -221,7 +221,7 @@
 - 기술부채 인벤토리 검증 테스트(로컬): `yarn test:technical-debt`
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
-- 릴리즈 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
+- 릴리스 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
     DB migration maintenance root graph의 고정 경로, 실제 bytes SHA-256, plan/execution 결속, orphan 거부와
     과거 릴리스 파일의 최종 트리 불변성 테스트를 이 runner에 포함한다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
@@ -262,7 +262,7 @@
 - DB는 plan에 선언한 이전·현재·실제 혼합 runtime과 시작·최종 DB 조합의 변경 경계를 검증한다. 모든
   `RESUMED` 조합은 성공해야 하고, FENCED smoke는 DB·queue·external-effect 표면 residual 0을 exact-set으로
   확인한다.
-- post-resume 이전 릴리즈 복구를 허용하면 수락 write, queue cursor/in-flight/idempotency와 외부 sink
+- post-resume 이전 릴리스 복구를 허용하면 수락 write, queue cursor/in-flight/idempotency와 외부 sink
   효과의 무손실 보존·재생·보상 테스트를 포함한다. snapshot/PITR 성공만으로 대체하지 않는다.
 - Store 강제 업데이트, NextPush mandatory와 버전을 구분할 수 없는 traffic 0건은 위 case나 runtime
   조합 테스트를 대체하지 않는다.
