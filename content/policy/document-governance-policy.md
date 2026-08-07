@@ -21,8 +21,9 @@
 ## 단일 SoT
 
 - 문서 역할/메타데이터/우선순위/문서 동기화와 정책 composition 검토 책임은 이 문서를 단일 기준으로 사용한다.
-- 문서 stable ID, active/retired 생명주기, routing 분류와 삭제 책임 승계 규칙은 이 문서를 단일 기준으로
-  사용하고 `document-lifecycle-registry.json`은 그 기계 판정 ledger로 사용한다.
+- 문서 stable ID, current/retired 생명주기, routing 분류와 삭제 책임 승계 규칙은 이 문서를 단일 기준으로
+  사용한다. `document-lifecycle-registry.json`은 current descriptor, `document-retirement-ledger.json`은
+  삭제된 ID와 경로 예약을 기계 판정한다.
 - 새 세션 bootstrap, 요청·권한·범위 판정, 관련 SoT 탐색, 단계별 문서 라우팅과 완료 증빙은
   [`content/AGENTS.md`](../AGENTS.md)의 `작업 계약`을 단일 기준으로 사용한다.
 - 상위 공통 기술 원칙과 기술 이행 유형별 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다. API/DB/테스트 등 세부 판정은 가드레일의 `단일 SoT와 우선순위` 표에 연결된 범위별 문서를 따른다.
@@ -108,7 +109,7 @@
 | 새 세션 bootstrap, 요청 유형, 범위·권한, 실행 단계 | [`content/AGENTS.md`](../AGENTS.md) | root `AGENTS.md`와 README는 최초 진입용 최소 mirror |
 | 기술·도메인 판정 | 각 범위별 policy/FSM과 생성 계약 | `content/AGENTS.md`는 신호와 필수 열람 경로만 연결 |
 | 문서 역할·SoT·동기화·안정성 평가 | 이 문서 | `content/AGENTS.md`는 적용 시점을 연결 |
-| 문서 stable ID·생명주기·routing 책임 | 이 문서 | `document-lifecycle-registry.json`은 active/retired ledger와 descriptor mirror |
+| 문서 stable ID·생명주기·routing 책임 | 이 문서 | lifecycle registry는 current descriptor, retirement ledger는 삭제된 ID·경로 예약 mirror |
 | 검증 명령과 CI | [테스트/CI 전략](testing-strategy.md) | `content/AGENTS.md`는 `VERIFY` 단계에서 실행을 요구 |
 | 리뷰 절차와 최종 판정 | [코드 리뷰 정책](code-review-policy.md) | `content/AGENTS.md`는 마지막 변경 이후 `REVIEW`를 요구 |
 
@@ -218,71 +219,73 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 
 ## 문서 Lifecycle Registry
 
-`document-lifecycle-registry.json`은 문서 규범을 다시 정의하는 문서가 아니라, 이 정책이 소유하는 문서
-생명주기와 에이전트 routing 책임을 기계 검증하기 위한 stable ID·tombstone append-only ledger다.
+`document-lifecycle-registry.json`은 현재 문서·route descriptor만 소유한다.
+`document-retirement-ledger.json`은 삭제된 stable ID와 문서 경로를 장기 예약하는 최소 append-only ledger다.
+두 파일은 문서 규범이나 상세 변경 이력을 다시 정의하지 않는다.
 
 ### 문서 항목
 
 | 필드 | 규칙 |
 | --- | --- |
 | `id` | 경로가 바뀌어도 유지하는 lowercase stable ID |
-| `lifecycle` | 현재 문서는 `active`, 삭제된 문서는 `retired` |
-| `path` | `content/` 기준 현재 또는 삭제 직전 Markdown 경로 |
+| `path` | `content/` 기준 현재 Markdown 경로 |
 | `routing` | `core`, `direct`, `closure`, `historical` 중 하나 |
 | `coreOrder` | `core` 기반 문서 4개의 stable 순서를 고정 |
 | `requiredHeadings` | 자동 검증할 실제 Markdown Gate heading과 level |
 | `previousPaths` | 개명·이동 전 경로를 제거하지 않고 누적 |
 
-- 모든 nav·인덱스 대상 `content` 문서는 정확히 하나의 `active` 항목과 연결한다. README, AGENTS, CLAUDE와 삽입·작성
+- 모든 nav·인덱스 대상 `content` 문서는 정확히 하나의 current 항목과 연결한다. README, AGENTS, CLAUDE와 삽입·작성
   템플릿은 registry 대상에서 제외한다.
 - `core`는 여러 작업 단계에서 재사용하는 기반 문서 4개, `direct`는 도메인·고위험 신호 route가 직접 가리키는
   문서, `closure`는 관련 SoT 폐쇄 탐색으로 도달하는 문서, `historical`은 불변 릴리스 실행 기록에 사용한다.
-  새 세션은 `content/AGENTS.md`만 직접 읽고 `core`를 포함한 추가 문서는 active route가 일치할 때 읽는다.
+  새 세션은 `content/AGENTS.md`만 직접 읽고 `core`를 포함한 추가 문서는 current route가 일치할 때 읽는다.
 - `requiredHeadings`는 fenced code, HTML 주석·block, blockquote 안 문자열이 아니라 실제 최상위 Markdown
   heading으로 존재해야 한다.
-- 새 문서는 문서·nav·AGENTS 인덱스와 같은 변경 단위에서 `active` 항목을 추가한다. routing 책임을 판정하지
+- 새 문서는 문서·nav·AGENTS 인덱스와 같은 변경 단위에서 current 항목을 추가한다. routing 책임을 판정하지
   않은 새 문서는 완료로 간주하지 않는다.
 - 개명·이동은 `id`를 바꾸지 않고 새 `path`를 기록하며, 기존 경로와 과거 `previousPaths`를 보존한다.
 
 ### 삭제와 책임 승계
 
-- 삭제 시 registry 항목 자체를 지우지 않고 `retired`로 바꾼 뒤 `retiredAt`, `retirementReason`과
-  `replacementId` 또는 `noReplacementReason` 중 정확히 하나를 기록한다.
-- retired 문서 항목은 삭제 직전 `path`, `routing`, Core였으면 `coreOrder`, 기존 `requiredHeadings`와
-  `previousPaths`를 그대로 보존한다.
-- `replacementId`는 현재 `active` 항목이어야 한다. 대체가 없으면 규범·설명·시나리오·부채 책임이 왜 더
-  이상 필요하지 않은지 구체적으로 기록한다.
-- `retired` tombstone은 재활성화·삭제·수정하지 않는다. 복원이 필요하면 새 stable ID로 문서를 추가하고
-  기존 tombstone을 근거로 연결한다.
-- 로컬 Gate는 사용 가능한 `origin/main`, PR Gate는 base SHA, main 배포 Gate는 push 이전 SHA의 모든
-  문서·route ID가 현재 registry에도 존재하는지 비교한다. 문서와 registry 항목을 함께 삭제하거나 삭제
-  이력을 rename으로 위장하면 실패해야 한다.
+- 삭제 시 current registry 항목을 제거하고 같은 변경에서 retirement ledger 항목을 추가한다.
+- retirement 항목은 `id`, `kind`, `retiredAt`만 공통으로 갖는다. 삭제 문서는 마지막 `path`와 모든
+  `previousPaths`를 `reservedPaths`에 기록하고, route는 경로가 없으므로 `reservedPaths`를 갖지 않는다.
+- 후속 책임이 있으면 선택 필드 `replacementId`로 같은 kind의 알려진 current 또는 retired ID를 가리킨다.
+  여러 번 교체된 chain은 허용하되 unknown·교차 kind·self·cycle 참조는 허용하지 않는다.
+- 후속 책임이 없으면 `replacementId`를 생략한다. 상세 삭제 사유, 마지막 routing·heading·route descriptor와
+  당시 문서 구조는 PR과 Git 이력에 남기며 최소 예약 ledger에 복제하지 않는다.
+- retirement ledger 항목은 삭제·수정하지 않는다. 삭제된 ID와 `reservedPaths`는 current registry에서 다시
+  사용할 수 없다. 복원은 새 stable ID를 사용한다.
+- 로컬 Gate는 사용 가능한 `origin/main`, PR Gate는 base SHA, main 배포 Gate는 push 이전 SHA의 current
+  registry와 retirement ledger를 함께 비교한다. current ID 제거에는 같은 kind의 retirement 항목이 필요하고,
+  문서 삭제에는 마지막 경로와 모든 과거 경로 예약이 필요하다.
 - PR Gate가 drift의 `main` 유입 자체를 막으려면 GitHub `main` 보호 설정에 `docs-structure`,
   `markdown-lint`, `build-docs`를 필수 status check로 지정하고 관리자 우회를 허용하지 않는다. 이 보호가
   없으면 main 배포 Gate는 admission control이 아니라 잘못된 문서의 배포 차단과 사후 탐지만 수행한다.
 
 ### Route 항목
 
-- 고위험 신호는 stable route `id`, `active`/`retired` lifecycle, 사용자 입력 `signal`, 표시 계약
-  `targetSource`, stable 문서 ID `targets`를 갖는다.
-- `targetSource`의 경로와 `targets`가 가리키는 active 문서 경로·순서는 정확히 일치해야 한다.
-- `core`와 `direct` 문서는 하나 이상의 active route가 참조해야 한다. 기반 문서, 고위험 route와 필수 Gate
+- 고위험 current 신호는 stable route `id`, 사용자 입력 `signal`, 표시 계약 `targetSource`, stable 문서 ID
+  `targets`를 갖는다.
+- `targetSource`의 경로와 `targets`가 가리키는 current 문서 경로·순서는 정확히 일치해야 한다.
+- `core`와 `direct` 문서는 하나 이상의 current route가 참조해야 한다. 기반 문서, 고위험 route와 필수 Gate
   descriptor는 registry에서 파생하며 별도 validator 상수로 중복 소유하지 않는다.
-- active route의 signal·targets를 제거하거나 책임을 교체하려면 기존 route를 `retired` tombstone으로 남기고
-  replacement 또는 무대체 사유를 기록한다. 같은 ID의 의미를 덮어써서 과거 책임을 지우지 않는다.
-- retired route는 삭제 직전 `signal`, `targetSource`, `targets`를 그대로 보존한다.
+- 같은 ID의 route `signal`, `targetSource`, `targets`는 변경하지 않는다. 책임을 교체하려면 기존 ID를
+  retirement ledger로 옮기고 새 current ID를 추가한다.
 
 ## 구조 변경 규칙
 
-- 문서 추가/삭제/이동/개명 시 `document-lifecycle-registry.json`, `content/AGENTS.md` 인덱스와
-  `mkdocs.yml` `nav`를 같은 PR에서 함께 갱신한다.
+- 문서 추가/삭제/이동/개명 시 `document-lifecycle-registry.json`, 삭제라면
+  `document-retirement-ledger.json`, `content/AGENTS.md` 인덱스와 `mkdocs.yml` `nav`를 같은 PR에서 함께
+  갱신한다.
 - 독립 문서 템플릿은 역할/문서 종류/충돌 시 우선 문서/기준 성격 메타데이터를 갖고 같은 역할-종류 조합을
   사용한다. 다른 문서에 삽입되는 `api-contract-cutover-gate-template.md` 조각은 독립 문서 메타데이터
   대상에서 제외한다.
 - 메타데이터 형식, 역할-종류 조합, 디렉터리 분류, 전환 추적 경계, 독립 템플릿, `content/AGENTS.md` 인덱스,
   `mkdocs.yml` `nav` 정합성은 docs 구조 검증으로 자동 확인 가능해야 한다.
-- 모든 nav·인덱스 대상 문서의 active coverage, stable ID·과거 경로, routing 분류, 필수 heading, route target 역참조,
-  retired 증빙과 PR base 대비 문서·route ID 보존은 문서 lifecycle 검증으로 자동 확인 가능해야 한다.
+- 모든 nav·인덱스 대상 문서의 current coverage, stable ID·과거 경로, routing 분류, 필수 heading, route target
+  역참조, retired ID·경로 예약과 base 대비 current→retired 전환은 문서 lifecycle 검증으로 자동 확인 가능해야
+  한다.
 - `content/AGENTS.md`의 bootstrap, 요청 유형·권한·상태의 폐쇄형 값, registry에서 파생한 라우팅, README
   bootstrap과 확인 가능한 실제 workspace root bootstrap은 에이전트 작업흐름 검증으로 자동 확인 가능해야 한다.
 - 자동 검증은 표·상태 순서·경로·필수 heading처럼 구조적으로 판정 가능한 계약을 fail-closed로 검사한다.

@@ -104,9 +104,10 @@
 
 - `yarn validate:docs-structure`는 메타데이터 형식, 역할-문서 종류 조합, 디렉터리 분류, 전환 추적 경계,
   독립 템플릿, `content/AGENTS.md` 인덱스, `mkdocs.yml` `nav` 정합성을 검증한다.
-- `yarn validate:document-lifecycle`는 모든 nav·인덱스 대상 문서의 stable ID·active/retired 상태·routing 분류·필수 Gate,
-  route target 역참조를 검증한다. 로컬에서는 사용 가능한 `origin/main`, PR에서는 base SHA, main 배포에서는
-  push 이전 SHA의 registry와 비교해 문서·route ID 삭제, tombstone 변경, 무기록 rename과 책임 제거를 차단한다.
+- `yarn validate:document-lifecycle`는 모든 nav·인덱스 대상 문서의 current stable ID·routing 분류·필수 Gate,
+  route target 역참조와 retirement ledger의 삭제된 ID·경로 예약을 검증한다. 로컬에서는 사용 가능한
+  `origin/main`, PR에서는 base SHA, main 배포에서는 push 이전 SHA와 비교해 무기록 삭제·rename, retirement
+  변경과 ID·경로 재사용을 차단한다.
 - `main` 유입 단계에서 이 검증을 강제하려면 GitHub 보호 설정에 `docs-structure`, `markdown-lint`,
   `build-docs`를 필수 status check로 지정하고 관리자 우회를 막아야 한다. 보호 설정이 없으면 직접 push는
   저장소에 들어갈 수 있고 main 배포 Gate가 이후 배포만 차단한다.
@@ -115,8 +116,8 @@
   `AGENTS.md`도 README의 bootstrap 계약과 비교한다.
 - 작업 실행 계약을 바꿀 때는 `content/AGENTS.md`, lifecycle route와 구조 회귀 테스트를 같은 변경 단위에서
   동기화한다. 자유 문장의 의미와 간결성은 문서 안정성 평가에서 판정한다.
-- 문서 추가·이동·삭제 시 `document-lifecycle-registry.json`을 함께 갱신한다. 문서와 registry 항목을 동시에
-  지워 이력을 없애지 않으며, 삭제 항목은 영구 tombstone으로 유지한다.
+- 문서 추가·이동 시 `document-lifecycle-registry.json`을 함께 갱신한다. 삭제 시 current 항목을 제거하고
+  `document-retirement-ledger.json`에 stable ID와 모든 과거 경로를 예약한다.
 - 논리 데이터 모델의 상세 표를 바꿨다면 `yarn generate:logical-data-model`로 쉬운 그림과 catalog를 다시
   만든다.
 - `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
