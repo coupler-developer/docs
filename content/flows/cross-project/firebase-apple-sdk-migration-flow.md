@@ -4,7 +4,7 @@
 
 - 역할: `시나리오`
 - 문서 종류: `flow`
-- 충돌 시 우선 문서: [엔지니어링 가드레일](../../policy/engineering-guardrails.md), [테스트/CI 전략](../../policy/testing-strategy.md), [배포/릴리즈 프로세스](../../policy/release-process.md)
+- 충돌 시 우선 문서: [엔지니어링 가드레일](../../policy/engineering-guardrails.md), [테스트/CI 전략](../../policy/testing-strategy.md), [릴리스 프로세스](../../policy/release-process.md)
 - 기준 성격: `transition`
 
 ## 목적
@@ -42,8 +42,8 @@
 
 ## Rollback
 
-- clean build 또는 archive가 실패하면 이전 dependency, lockfile, Podfile과 Xcode project 기준점으로 복원한다.
-- TestFlight 또는 실기기 FCM 검증이 실패하면 Store 배포를 중단하고 이전 설치 경로를 유지한다.
+- clean build, archive, TestFlight 또는 실기기 FCM 검증이 실패하면 Store 출시를 중단하고 이전 dependency,
+  lockfile, Podfile과 Xcode project 기준점으로 복원한다.
 - 지원 경로 전환이 기한 안에 완료되지 않으면 마지막 검증된 CocoaPods 조합을 임시 고정하고 기술부채의
   완료 상태는 열어 둔다.
 
@@ -57,5 +57,5 @@
 
 - [Firebase Apple SDK CocoaPods 마이그레이션 부채](../../technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md)
 - [푸시알림 시스템](../../architecture/push-notification.md)
-- [배포/릴리즈 프로세스](../../policy/release-process.md)
+- [릴리스 프로세스](../../policy/release-process.md)
 - [테스트/CI 전략](../../policy/testing-strategy.md)
