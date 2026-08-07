@@ -7,6 +7,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { parseReleaseMetadataBlock } from "./release-record-metadata.mjs";
+
 const testFilePath = fileURLToPath(import.meta.url);
 const scriptsRoot = path.dirname(testFilePath);
 const validateScript = path.join(scriptsRoot, "validate-release-records.mjs");
@@ -84,12 +86,11 @@ describe("validate release records metadata sync", () => {
   it("keeps API cutover Gate out of the base release record template", () => {
     const template = fs.readFileSync(releaseRecordTemplate, "utf8");
     const cutoverTemplate = fs.readFileSync(apiContractCutoverGateTemplate, "utf8");
+    const errors = [];
+    const metadata = parseReleaseMetadataBlock(template, "release record template", errors);
 
-    assert.match(template, /"apiContractCutover": null/);
-    assert.match(
-      template,
-      /API contract cutover가 없으면 `apiContractCutover: null`로 두고 `API contract cutover Gate` 섹션을 만들지 않는다/,
-    );
+    assert.deepEqual(errors, []);
+    assert.equal(metadata.apiContractCutover, null);
     assert.doesNotMatch(template, /^### API contract cutover Gate$/m);
     assert.match(cutoverTemplate, /^### API contract cutover Gate$/m);
   });

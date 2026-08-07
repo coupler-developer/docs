@@ -273,18 +273,15 @@ test("final candidate validation follows independent review evidence", () => {
   );
 });
 
-test("Core and high-risk route descriptors come from the lifecycle registry", () => {
+test("foundation and high-risk route descriptors come from the lifecycle registry", () => {
   assert.match(
     agentWorkflowValidator,
-    /const REQUIRED_CORE_PATHS = activeLifecycleDocuments/,
+    /const activeRoutes = lifecycleRegistry\.routes\.filter/,
   );
-  assert.match(
-    agentWorkflowValidator,
-    /const REQUIRED_HIGH_RISK_ROUTES = lifecycleRegistry\.routes/,
-  );
+  assert.match(agentWorkflowValidator, /routing === "core"/);
   assert.doesNotMatch(
     agentWorkflowValidator,
-    /const REQUIRED_HIGH_RISK_ROUTES = \[/,
+    /REQUIRED_(BASIC_RULES|LOCAL_FINAL_CANDIDATE_CONTRACT|CLOSURE_CONTRACT)/,
   );
 });
 

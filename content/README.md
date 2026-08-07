@@ -94,7 +94,7 @@
    ```
 
 5. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
-6. 첫 작업 전에는 반드시 `docs/content/AGENTS.md`를 열고 Core 4 문서 선열람, 첫 응답 `ACK/EVIDENCE` 형식, 선열람 전 명령 실행 금지 규칙까지 확인한다.
+6. 첫 작업 전에는 `docs/content/AGENTS.md`를 열고 `ACK: BOOT@YYYY-MM-DD`를 출력한 뒤 요청·단계별 필수 문서를 라우팅한다.
 
 ## 문서 검증
 
@@ -110,12 +110,11 @@
 - `main` 유입 단계에서 이 검증을 강제하려면 GitHub 보호 설정에 `docs-structure`, `markdown-lint`,
   `build-docs`를 필수 status check로 지정하고 관리자 우회를 막아야 한다. 보호 설정이 없으면 직접 push는
   저장소에 들어갈 수 있고 main 배포 Gate가 이후 배포만 차단한다.
-- `yarn validate:agent-workflow`는 새 세션의 Core 4 열람, 요청별 동작·종료 조건, 권한 경계,
-  신호별 SoT·필수 Gate, 상태별 동작, 단계별 재고정, 완료 증빙, 검증 대상 절의 미인식 지시 부재와 workspace
-  bootstrap 안전 게이트를 검증한다. 공용 workspace에서 실행하면 실제 workspace root `AGENTS.md`도 README의
-  bootstrap 계약과 비교한다.
-- 작업 실행 계약을 의도적으로 바꿀 때는 `content/AGENTS.md`, validator descriptor와 반대 조건 회귀 테스트를
-  같은 변경 단위에서 동기화한다. 검증 대상 절에 descriptor에 없는 지시를 추가하면 검증은 실패한다.
+- `yarn validate:agent-workflow`는 새 세션 bootstrap, 요청 유형·권한·상태의 폐쇄형 구조, registry에서 파생한
+  신호별 필수 문서와 workspace bootstrap 안전 Gate를 검증한다. 공용 workspace에서는 실제 workspace root
+  `AGENTS.md`도 README의 bootstrap 계약과 비교한다.
+- 작업 실행 계약을 바꿀 때는 `content/AGENTS.md`, lifecycle route와 구조 회귀 테스트를 같은 변경 단위에서
+  동기화한다. 자유 문장의 의미와 간결성은 문서 안정성 평가에서 판정한다.
 - 문서 추가·이동·삭제 시 `document-lifecycle-registry.json`을 함께 갱신한다. 문서와 registry 항목을 동시에
   지워 이력을 없애지 않으며, 삭제 항목은 영구 tombstone으로 유지한다.
 - 논리 데이터 모델의 상세 표를 바꿨다면 `yarn generate:logical-data-model`로 쉬운 그림과 catalog를 다시

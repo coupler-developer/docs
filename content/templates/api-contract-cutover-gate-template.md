@@ -6,7 +6,7 @@ API/Admin/Mobile 공개 API 계약 변경 중 `API cutover: Yes`일 때만
 `scopeResults.coupler-api.evidence`에 한 번만 기록한다. 이 Gate는 그 case ID를 참조하는 activation과
 client rollback만 소유하며 DB backup/restore를 소유하지 않는다.
 Exact `publicContract` consumer/artifact/case와 `runtimeRecovery` JSON shape는
-[릴리스 실행 기록 템플릿](release-record-template.md)의 예시를 그대로 따른다.
+[릴리스 프로세스](../policy/release-process.md)의 `릴리스 운영 모델`과 `scripts/release-schema.mjs`를 따른다.
 Terminal cutover는 contracts-package scope가 `released`이고 package `sourceRef`가 current API 40자
 SHA와 같거나, 두 ref의 `packages/contracts` git tree SHA가 같다는 `sourceTree` 증빙이 있을 때만
 기록한다. `released` cutover는 API scope `released`, `rollback` cutover는 API scope
