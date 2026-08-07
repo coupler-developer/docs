@@ -31,7 +31,7 @@ set -euo pipefail
 : "${MIGRATION_VERSION:?set MIGRATION_VERSION}"
 
 cd coupler-api
-pnpm db:migration:workflow -- status "${MIGRATION_VERSION}"
+pnpm db:migration status "${MIGRATION_VERSION}"
 ```
 
 출력은 아래 종류 중 정확히 하나다.
@@ -83,7 +83,7 @@ evidence file 확인을 대체하지 않는다. `dev-run`과 `prod-run`은 DB ph
   전략 하나로 아래 명령을 사용한다. 이후에는 `incident continue`로만 전진한다.
 
 ```bash
-pnpm db:migration:workflow -- incident begin-recovery "${MIGRATION_VERSION}" <dev|prod> \
+pnpm db:migration incident begin-recovery "${MIGRATION_VERSION}" <dev|prod> \
   <previous-complete-release-final-db|lossless-reconciliation>
 ```
 
