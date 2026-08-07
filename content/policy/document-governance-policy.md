@@ -16,15 +16,15 @@
 
 - `docs`
 - 워크스페이스에서 관리하는 architecture, fsm, flow, technical-debt, policy 문서
-- 워크스페이스 root `AGENTS.md`에서 `content/AGENTS.md`와 Core·도메인 SoT로 이어지는 새 세션 실행 경로
+- 워크스페이스 root `AGENTS.md`에서 `content/AGENTS.md`의 bootstrap과 단계·도메인 SoT로 이어지는 새 세션 실행 경로
 
 ## 단일 SoT
 
 - 문서 역할/메타데이터/우선순위/문서 동기화와 정책 composition 검토 책임은 이 문서를 단일 기준으로 사용한다.
 - 문서 stable ID, active/retired 생명주기, routing 분류와 삭제 책임 승계 규칙은 이 문서를 단일 기준으로
   사용하고 `document-lifecycle-registry.json`은 그 기계 판정 ledger로 사용한다.
-- 새 세션의 Core 강제 열람, 요청·권한·범위 판정, 관련 SoT 탐색, 실행 단계와 완료 증빙은
-  [`content/AGENTS.md`](../AGENTS.md)의 `작업 실행 제어`를 단일 기준으로 사용한다.
+- 새 세션 bootstrap, 요청·권한·범위 판정, 관련 SoT 탐색, 단계별 문서 라우팅과 완료 증빙은
+  [`content/AGENTS.md`](../AGENTS.md)의 `작업 계약`을 단일 기준으로 사용한다.
 - 상위 공통 기술 원칙과 기술 이행 유형별 완료 기준은 [엔지니어링 가드레일](engineering-guardrails.md)을 단일 기준으로 사용한다. API/DB/테스트 등 세부 판정은 가드레일의 `단일 SoT와 우선순위` 표에 연결된 범위별 문서를 따른다.
 - docs 검증 게이트와 표준 검증 명령은 [테스트/CI 전략](testing-strategy.md)을 단일 기준으로 사용한다.
 - DB 공개 범위와 데이터 분류는 [데이터 거버넌스 정책](data-governance-policy.md)을 단일 기준으로 사용한다.
@@ -105,7 +105,7 @@
 
 | 판정 책임 | 단일 SoT | 다른 문서의 역할 |
 | --- | --- | --- |
-| 새 세션 Core, 요청 유형, 권한 집합, 작업 범위, 실행 단계 | [`content/AGENTS.md`](../AGENTS.md) | root `AGENTS.md`와 README는 최초 진입용 최소 mirror |
+| 새 세션 bootstrap, 요청 유형, 범위·권한, 실행 단계 | [`content/AGENTS.md`](../AGENTS.md) | root `AGENTS.md`와 README는 최초 진입용 최소 mirror |
 | 기술·도메인 판정 | 각 범위별 policy/FSM과 생성 계약 | `content/AGENTS.md`는 신호와 필수 열람 경로만 연결 |
 | 문서 역할·SoT·동기화·안정성 평가 | 이 문서 | `content/AGENTS.md`는 적용 시점을 연결 |
 | 문서 stable ID·생명주기·routing 책임 | 이 문서 | `document-lifecycle-registry.json`은 active/retired ledger와 descriptor mirror |
@@ -119,14 +119,15 @@
 - 공용 workspace의 실제 root `AGENTS.md`는 README bootstrap 예시와 같은 계약을 유지한다. docs 검증이
   Coupler workspace root를 확인할 수 있으면 실제 파일도 함께 비교하고, 독립 docs checkout처럼 root가 없으면
   README와 `content/AGENTS.md`만 검증한다.
-- `content/AGENTS.md`는 세부 기술 MUST를 다시 정의하지 않고 필수 Core, 적용 신호, 판정 순서와 범위별
+- `content/AGENTS.md`는 세부 기술 MUST를 다시 정의하지 않고 최소 bootstrap, 적용 신호, 판정 순서와 범위별
   단일 SoT를 연결한다.
 - 요청 유형, 권한 집합, 작업 범위, 실행 단계는 독립된 분류 축이다. 하나의 값이나 순차 권한 등급으로 합치지
   않는다.
 - 적용 상태는 모든 새 세션과 컨텍스트 유실 후 재진입의 `as-is` 실행 경로다. 별도 transition·호환 상태를
   두지 않는다.
-- 완료 조건은 Core 4 유지, 각 분류 축과 종료 조건의 폐쇄형 정의, 기존 작업 연속성, 관련 SoT 폐쇄 탐색,
-  단계별 재고정, 마지막 변경 이후 검증·리뷰, 권한 없는 외부 작업 차단과 적용 에이전트 작업흐름 검증 통과다.
+- 완료 조건은 새 세션의 `content/AGENTS.md` 직접 열람, 각 분류 축과 종료 조건의 폐쇄형 정의, 기존 작업 연속성,
+  관련 SoT 폐쇄 탐색, 단계별 필수 문서 라우팅, 마지막 변경 이후 검증·리뷰, 권한 없는 외부 작업 차단과 적용
+  에이전트 작업흐름 검증 통과다.
 
 ## 정책 Composition Gate
 
@@ -228,14 +229,15 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 | `lifecycle` | 현재 문서는 `active`, 삭제된 문서는 `retired` |
 | `path` | `content/` 기준 현재 또는 삭제 직전 Markdown 경로 |
 | `routing` | `core`, `direct`, `closure`, `historical` 중 하나 |
-| `coreOrder` | `core` 문서에만 사용하며 Core 4 순서를 고정 |
+| `coreOrder` | `core` 기반 문서 4개의 stable 순서를 고정 |
 | `requiredHeadings` | 자동 검증할 실제 Markdown Gate heading과 level |
 | `previousPaths` | 개명·이동 전 경로를 제거하지 않고 누적 |
 
 - 모든 nav·인덱스 대상 `content` 문서는 정확히 하나의 `active` 항목과 연결한다. README, AGENTS, CLAUDE와 삽입·작성
   템플릿은 registry 대상에서 제외한다.
-- `core`는 모든 새 세션이 직접 읽는 Core 4, `direct`는 고위험 신호 route가 직접 가리키는 문서,
-  `closure`는 관련 SoT 폐쇄 탐색으로 도달하는 문서, `historical`은 불변 릴리스 실행 기록에 사용한다.
+- `core`는 여러 작업 단계에서 재사용하는 기반 문서 4개, `direct`는 도메인·고위험 신호 route가 직접 가리키는
+  문서, `closure`는 관련 SoT 폐쇄 탐색으로 도달하는 문서, `historical`은 불변 릴리스 실행 기록에 사용한다.
+  새 세션은 `content/AGENTS.md`만 직접 읽고 `core`를 포함한 추가 문서는 active route가 일치할 때 읽는다.
 - `requiredHeadings`는 fenced code, HTML 주석·block, blockquote 안 문자열이 아니라 실제 최상위 Markdown
   heading으로 존재해야 한다.
 - 새 문서는 문서·nav·AGENTS 인덱스와 같은 변경 단위에서 `active` 항목을 추가한다. routing 책임을 판정하지
@@ -264,8 +266,8 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 - 고위험 신호는 stable route `id`, `active`/`retired` lifecycle, 사용자 입력 `signal`, 표시 계약
   `targetSource`, stable 문서 ID `targets`를 갖는다.
 - `targetSource`의 경로와 `targets`가 가리키는 active 문서 경로·순서는 정확히 일치해야 한다.
-- `direct` 문서는 하나 이상의 active route가 참조해야 한다. Core 4, 고위험 route와 필수 Gate descriptor는
-  registry에서 파생하며 별도 validator 상수로 중복 소유하지 않는다.
+- `core`와 `direct` 문서는 하나 이상의 active route가 참조해야 한다. 기반 문서, 고위험 route와 필수 Gate
+  descriptor는 registry에서 파생하며 별도 validator 상수로 중복 소유하지 않는다.
 - active route의 signal·targets를 제거하거나 책임을 교체하려면 기존 route를 `retired` tombstone으로 남기고
   replacement 또는 무대체 사유를 기록한다. 같은 ID의 의미를 덮어써서 과거 책임을 지우지 않는다.
 - retired route는 삭제 직전 `signal`, `targetSource`, `targets`를 그대로 보존한다.
@@ -281,11 +283,10 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
   `mkdocs.yml` `nav` 정합성은 docs 구조 검증으로 자동 확인 가능해야 한다.
 - 모든 nav·인덱스 대상 문서의 active coverage, stable ID·과거 경로, routing 분류, 필수 heading, route target 역참조,
   retired 증빙과 PR base 대비 문서·route ID 보존은 문서 lifecycle 검증으로 자동 확인 가능해야 한다.
-- `content/AGENTS.md`의 Core 4, 요청 유형별 기본 동작·종료 조건, 독립 권한·요청 표현별 권한 경계,
-  고위험 신호별 문서·필수 Gate, 상태별 허용 동작과 순서, 단계별 기준 재고정, 작업별 완료 증빙, README
+- `content/AGENTS.md`의 bootstrap, 요청 유형·권한·상태의 폐쇄형 값, registry에서 파생한 라우팅, README
   bootstrap과 확인 가능한 실제 workspace root bootstrap은 에이전트 작업흐름 검증으로 자동 확인 가능해야 한다.
-- 자동 검증 대상 실행 절은 descriptor에서 생성한 전체 계약과 비교해 미인식 의미 문장을 fail-closed로
-  거부한다. 고위험 라우팅은 신호, 문서 경로와 필수 Gate 안내를 포함한 대상 셀 전체를 정확 비교한다.
+- 자동 검증은 표·상태 순서·경로·필수 heading처럼 구조적으로 판정 가능한 계약을 fail-closed로 검사한다.
+  자유 문장의 의미와 간결성은 validator 상수로 복제하지 않고 문서 안정성 평가에서 판정한다.
 - 본문이 실제로 설명·규범·시나리오·부채 역할을 지키는지는 의미 검토가 필요하므로 정규식 hard gate로
   대신하지 않고 문서 안정성 평가에서 판정한다.
 - 구조·문법·어휘만으로 결정 가능한 자유 문장 hard gate는 [테스트/CI 전략](testing-strategy.md)의

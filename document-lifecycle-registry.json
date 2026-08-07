@@ -654,6 +654,42 @@
         "policy.release-process",
         "policy.release-tag-policy"
       ]
+    },
+    {
+      "id": "route.foundation-engineering",
+      "lifecycle": "active",
+      "signal": "코드·테스트·설정·DB 설계·변경·리뷰",
+      "targetSource": "`content/policy/engineering-guardrails.md`",
+      "targets": [
+        "policy.engineering-guardrails"
+      ]
+    },
+    {
+      "id": "route.foundation-review",
+      "lifecycle": "active",
+      "signal": "변경 결과 리뷰·최종 판정·commit·push·PR",
+      "targetSource": "`content/policy/code-review-policy.md`",
+      "targets": [
+        "policy.code-review-policy"
+      ]
+    },
+    {
+      "id": "route.foundation-testing",
+      "lifecycle": "active",
+      "signal": "테스트 변경·검증·`VERIFY`",
+      "targetSource": "`content/policy/testing-strategy.md`",
+      "targets": [
+        "policy.testing-strategy"
+      ]
+    },
+    {
+      "id": "route.foundation-debt",
+      "lifecycle": "active",
+      "signal": "기술부채 또는 도메인 완료 판정",
+      "targetSource": "`content/technical-debt/technical-debt.md`",
+      "targets": [
+        "technical-debt.technical-debt"
+      ]
     }
   ]
 }
