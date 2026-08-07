@@ -67,11 +67,11 @@
 
 ## 메인 흐름
 
-DB migration을 포함하면 개발계에서 API executor로 plan/apply를 완료하고 immutable dev pair와 도달 가능한
-failed-history를 보존한 상태가 이 릴리스 흐름의 입력이다. 이 입력 준비는 docs PR이나 preflight를 요구하지
-않는다. 운영 실행이 같은 작업 세션에 이어지지 않으면 release record 없는 completed dev checkpoint PR로
-그 graph만 먼저 `main`에 보존하고 version을 예약한다. 후속 release record가 이 graph를 소비하기 전까지 다른
-용도로 같은 version을 사용하지 않는다.
+DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation-flow.md)의 `status`가 안내한
+`dev-run`으로 immutable dev pair와 도달 가능한 failed-history를 보존한 상태가 이 릴리스 흐름의 입력이다.
+이 입력 준비는 docs PR이나 preflight를 요구하지 않는다. 운영 실행이 같은 작업 세션에 이어지지 않으면
+release record 없는 completed dev checkpoint PR로 그 graph만 먼저 `main`에 보존하고 version을 예약한다.
+후속 release record가 이 graph를 소비하기 전까지 다른 용도로 같은 version을 사용하지 않는다.
 
 ### 0) Scope Gate
 
@@ -86,9 +86,9 @@ failed-history를 보존한 상태가 이 릴리스 흐름의 입력이다. 이 
 2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채운다.
 3. 릴리스 실행 기준점은 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
    반영한다.
-4. DB migration은 운영 당일 completed dev pair를 API repo-relative runtime path로 복원하고 live production
-   DB에서 fresh prod plan을 만든다. dev pair·prod plan·도달 가능한
-   failed-history를 canonical archive에 보존한 뒤 prod plan/null을 `in_progress` root로 둔다.
+4. DB migration은 운영 당일 `status`가 안내한 `prod-prepare`로 completed dev pair를 복원하고 live
+   production DB에서 fresh prod plan을 만든다. dev pair·prod plan·도달 가능한 failed-history를 canonical
+   archive에 보존한 뒤 prod plan/null을 `in_progress` root로 둔다.
 5. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
 
 ### 2) Static Preflight Gate

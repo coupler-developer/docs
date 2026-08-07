@@ -39,15 +39,18 @@
 | commit | 별도 명시 요청 또는 `수정하고 PR 올려줘` |
 | push | 별도 명시 요청 또는 `수정하고 PR 올려줘` |
 | PR | 별도 명시 요청 또는 `수정하고 PR 올려줘` |
+| merge/main integration | 별도 명시 요청 |
 | reviewer | 개인 또는 팀을 지정한 별도 명시 승인 |
 | deploy | 별도 명시 요청 |
 | force push·삭제 | 대상과 동작의 별도 명시 승인 |
 
-- 권한은 서로 독립적이며 `수정하고 PR 올려줘`도 reviewer 변경·deploy를 포함하지 않는다.
+- 권한은 서로 독립적이며 `수정하고 PR 올려줘`도 reviewer 변경·merge/main integration·deploy를 포함하지
+  않는다.
 - 외부 의존성은 [엔지니어링 가드레일](policy/engineering-guardrails.md)의 사전 검토를 먼저 적용한다.
-- 권한이 없는 단계 직전에는 완료 상태와 필요한 권한을 보고하고 멈춘다.
+- 목표 단계가 권한 집합을 초과하면 첫 파일 변경이나 외부 작업 전에 완료 가능한 단계, 중지 지점과 필요한 권한을
+  보고하고 목표 단계와 권한을 확정한다.
 - 첫 파일 변경 또는 외부 작업 전에 다음 계약을 기록한다.
-  `ROUTE: 요청=<유형> | 레포=<대상> | 산출물=<종류> | 도메인=<범위> | 위험=<표면> | 권한=<집합> | 필수문서=<경로> | 완료=<종료 조건>`
+  `ROUTE: 요청=<유형> | 레포=<대상> | 산출물=<종류> | 도메인=<범위> | 위험=<표면> | 목표단계=<검증 완료|외부 작업 완료|main 반영 완료|배포 완료> | 권한=<집합> | 필수문서=<경로> | 완료=<종료 조건>`
 
 ### 문서 라우팅
 
@@ -73,7 +76,7 @@
 | 푸시 타입·발송·장애 대응 | `content/policy/push-notification-policy.md` |
 | 배포·릴리스·태그 | `content/policy/release-process.md`, `content/policy/release-tag-policy.md`, 적용 runbook |
 | 코드·테스트·설정·DB 설계·변경·리뷰 | `content/policy/engineering-guardrails.md` |
-| 변경 결과 리뷰·최종 판정·commit·push·PR | `content/policy/code-review-policy.md` |
+| 변경 결과 리뷰·최종 판정·commit·push·PR·merge/main integration | `content/policy/code-review-policy.md` |
 | 테스트 변경·검증·`VERIFY` | `content/policy/testing-strategy.md` |
 | 기술부채 또는 도메인 완료 판정 | `content/technical-debt/technical-debt.md` |
 
@@ -84,14 +87,26 @@
 
 `BOOT -> CLASSIFY -> ROUTE -> BASELINE -> PLAN -> EXECUTE -> REVIEW -> VERIFY -> EXTERNAL_ACTION -> REPORT`
 
+| 목표 단계 | 완료 조건 | 선택 조건 |
+| --- | --- | --- |
+| `검증 완료` | 마지막 파일 변경 이후 독립 리뷰와 적용 품질 게이트가 통과한 상태 | `변경·구현`의 기본 목표 |
+| `외부 작업 완료` | 승인된 commit·push·PR·tag 등 main integration·deploy 전 외부 작업과 결과 확인이 끝난 상태 | 요청에 해당 외부 작업과 권한이 있음 |
+| `main 반영 완료` | 승인된 merge 뒤 원격 main ref의 반영 결과가 검증된 최종 후보와 일치하는 상태 | 요청에 merge/main integration 권한이 있음 |
+| `배포 완료` | 승인된 대상 ref 또는 산출물의 deploy와 postcheck가 끝난 상태 | 요청에 deploy 권한이 있음 |
+
+- 목표 단계는 순차 권한 등급이 아니며 해당 단계의 external action 권한을 자동으로 포함하지 않는다. 앞 단계 완료를
+  뒤 단계 완료로 확대하지 않는다.
+- `cutover 완료`는 `완료=<종료 조건>`에 cutover 대상과 Exit Gate를 고정하고 해당 목표 단계 완료 조건까지
+  충족했을 때만 사용한다. 그렇지 않으면 실제로 끝난 목표 단계만 보고한다.
 - 비적용 단계는 근거 있는 `N/A`로 판정한다. 기존 작업 확인은 `BASELINE`, 최종 판정은 `REPORT`에 포함한다.
 - 마지막 파일 변경 뒤 같은 범위의 독립 리뷰를 수행한다. 열린 Finding이 0건이면
   `열린 Finding 0건·검증 대기`를 기록한 뒤 동일 후보를 검증한다.
 - Finding은 원인을 1회 수정하고 동일 범위를 1회 재리뷰한다. 열린 Finding이 남으면 추가 자동 반복 없이
   `Finding`으로 보고한다.
 - 리뷰·검증 뒤 파일이 바뀌면 두 결과는 만료된다. 검증 실패는 `No Findings`로 판정하지 않는다.
-- commit 전에는 코드 리뷰·브랜치·커밋 정책, push·PR 전에는 코드 리뷰 정책의 Push Gate, deploy 전에는
-  릴리스 정책과 적용 runbook을 다시 읽는다.
+- commit 전에는 코드 리뷰·브랜치·커밋 정책, push·PR 전에는 코드 리뷰 정책의 Push Gate,
+  merge/main integration 전에는 코드 리뷰 정책의 병합 전 체크리스트, deploy 전에는 릴리스 정책과 적용
+  runbook을 다시 읽는다.
 - 최종 보고에는 범위, 변경, 검증, 문서 동기화, 열린 Finding, 최종 판정, 잔여 위험을 포함한다.
 
 ## 문서 인덱스
