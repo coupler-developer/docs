@@ -955,7 +955,7 @@ describe("release metadata scope results", () => {
     assert.deepEqual(validate(metadata), []);
   });
 
-  it("requires DB-backed runtime recovery evidence to reference an included DB migration scope", () => {
+  it("keeps API runtime recovery independent from DB execution evidence", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "coupler-api"],
       statuses: {
@@ -970,87 +970,7 @@ describe("release metadata scope results", () => {
 
     assert(
       validate(metadata).some((error) =>
-        /stateSafety must reference an included db-migration scope/.test(error),
-      ),
-    );
-  });
-
-  it("does not accept a pending DB execution as terminal API recovery evidence", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "db-migration", "coupler-api"],
-      statuses: {
-        docs: "released",
-        "db-migration": "pending",
-        "coupler-api": "released",
-      },
-    });
-    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.stateSafety = {
-      source: "db-maintenance-execution",
-      scope: "db-migration",
-    };
-
-    assert(
-      validate(metadata).some((error) =>
-        /requires a terminal canonical prod DB maintenance execution/.test(error),
-      ),
-    );
-  });
-
-  it("does not accept violation evidence as terminal API recovery state safety", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package", "db-migration", "coupler-api"],
-      statuses: {
-        docs: "released",
-        "contracts-package": "released",
-        "db-migration": "released",
-        "coupler-api": "released",
-      },
-    });
-    metadata.scopeResults["db-migration"].evidence = {
-      schema: "db-migration-maintenance-evidence/v1",
-      kind: "violation",
-      violation: {},
-    };
-    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery.stateSafety = {
-      source: "db-maintenance-execution",
-      scope: "db-migration",
-    };
-
-    assert(
-      validate(metadata).some((error) =>
-        /requires a terminal canonical prod DB maintenance execution/.test(error),
-      ),
-    );
-  });
-
-  it("does not accept violation evidence as non-terminal API recovery state safety", () => {
-    const metadata = buildMetadata({
-      scopes: ["docs", "contracts-package", "db-migration", "coupler-api"],
-      statuses: {
-        docs: "in_progress",
-        "contracts-package": "released",
-        "db-migration": "released",
-        "coupler-api": "in_progress",
-      },
-      status: "in_progress",
-    });
-    metadata.scopeResults["db-migration"].evidence = {
-      schema: "db-migration-maintenance-evidence/v1",
-      kind: "violation",
-      violation: {},
-    };
-    metadata.scopeResults["coupler-api"].evidence.runtimeRecovery = {
-      strategy: "forward-fix",
-      stateSafety: {
-        source: "db-maintenance-execution",
-        scope: "db-migration",
-      },
-      previousReleaseCaseIds: [],
-    };
-
-    assert(
-      validate(metadata).some((error) =>
-        /requires a terminal canonical prod DB maintenance execution/.test(error),
+        /stateSafety\.source is not allowed/.test(error),
       ),
     );
   });
@@ -1186,7 +1106,7 @@ describe("release metadata scope results", () => {
     }
   });
 
-  it("allows new maintenance DB migration records with one terminal prod root pair", () => {
+  it("allows new DB migration records with one terminal prod root pair", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1198,32 +1118,31 @@ describe("release metadata scope results", () => {
   });
 
   it("rejects DB migration artifact aliases, extra evidence, and byte digest mismatch", () => {
-    const metadata = buildMetadata({
+    const buildReleased = () => buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
         docs: "released",
         "db-migration": "released",
       },
     });
-    metadata.scopeResults["db-migration"].evidence.plan.path =
+
+    const alias = buildReleased();
+    alias.scopeResults["db-migration"].evidence.plan.path =
       `content/releases/evidence/db-migrations/${version}/dev/../dev/plan.json`;
-    metadata.scopeResults["db-migration"].evidence.extra = {
+    assert.match(validate(alias).join("\n"), /evidence\.plan must bind .*prod\/plan\.json/);
+
+    const extra = buildReleased();
+    extra.scopeResults["db-migration"].evidence.extra = {
       path: "extra",
       sha256: checksum,
     };
+    assert.match(validate(extra).join("\n"), /must contain only plan and execution/);
 
-    const validationErrors = validate(metadata, {
+    const digest = buildReleased();
+    const validationErrors = validate(digest, {
       readArtifact: () => Buffer.from("different bytes\n"),
     });
-    assert(
-      validationErrors.some((error) => /evidence\.plan\.path must be/.test(error)),
-    );
-    assert(
-      validationErrors.some((error) => /evidence has unknown key: extra/.test(error)),
-    );
-    assert(
-      validationErrors.some((error) => /sha256 does not match artifact bytes/.test(error)),
-    );
+    assert.match(validationErrors.join("\n"), /evidence\.plan checksum mismatch/);
   });
 
   it("allows a planned or completed dev root while pending and requires prod execution at terminal status", () => {
@@ -1238,13 +1157,13 @@ describe("release metadata scope results", () => {
     assert.deepEqual(validate(pendingMetadata), []);
 
     pendingMetadata.scopeResults["db-migration"].evidence.execution =
-      maintenanceArtifactRef("dev", "execution.jsonl");
+      dbMigrationArtifactRef("dev", "execution.jsonl");
     assert.deepEqual(validate(pendingMetadata), []);
 
     pendingMetadata.scopeResults["db-migration"].evidence.plan = null;
     assert(
       validate(pendingMetadata).some((error) =>
-        /evidence\.plan must be an artifact reference/.test(error),
+        /evidence\.plan must bind .*dev\/plan\.json/.test(error),
       ),
     );
 
@@ -1258,7 +1177,7 @@ describe("release metadata scope results", () => {
     releasedMetadata.scopeResults["db-migration"].evidence.execution = null;
     assert(
       validate(releasedMetadata).some((error) =>
-        /evidence\.execution must be an artifact reference/.test(error),
+        /evidence\.execution must bind .*prod\/execution\.jsonl/.test(error),
       ),
     );
   });
@@ -1275,15 +1194,15 @@ describe("release metadata scope results", () => {
     assert.deepEqual(validate(inProgressMetadata), []);
 
     const evidence = inProgressMetadata.scopeResults["db-migration"].evidence;
-    evidence.plan = maintenanceArtifactRef("dev", "plan.json");
+    evidence.plan = dbMigrationArtifactRef("dev", "plan.json");
     assert(
       validate(inProgressMetadata).some((error) =>
-        /evidence\.plan\.path must be .*prod\/plan\.json/.test(error),
+        /evidence\.plan must bind .*prod\/plan\.json/.test(error),
       ),
     );
   });
 
-  it("derives coupler-api preflight repo for maintenance DB migration evidence", () => {
+  it("derives coupler-api preflight repo for DB migration evidence", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1933,16 +1852,14 @@ function evidenceFor(scopeName, status) {
 function dbMigrationEvidence(status) {
   const environment = status === "planned" ? null : status === "pending" ? "dev" : "prod";
   return {
-    schema: "db-migration-maintenance-evidence/v1",
-    kind: "canonical",
-    plan: environment ? maintenanceArtifactRef(environment, "plan.json") : null,
+    plan: environment ? dbMigrationArtifactRef(environment, "plan.json") : null,
     execution: ["released", "rolled_back"].includes(status)
-      ? maintenanceArtifactRef(environment, "execution.jsonl")
+      ? dbMigrationArtifactRef(environment, "execution.jsonl")
       : null,
   };
 }
 
-function maintenanceArtifactRef(environment, fileName) {
+function dbMigrationArtifactRef(environment, fileName) {
   return {
     path: `content/releases/evidence/db-migrations/${version}/${environment}/${fileName}`,
     sha256: checksum,

@@ -9,15 +9,14 @@
 
 ## 목적
 
-Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runtime 조합을 빠뜨리지 않고,
-`API cutover: No | Yes`에 맞는 운영 반영·activation·복구 순서를 고정한다.
+Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리지 않고 `API cutover: No | Yes`에 맞는 운영
+반영·activation·복구 순서를 고정한다. DB migration은 별도 DB 런북으로 실행한다.
 
 ## 범위
 
 - 시작 조건: Mobile Store 출시 또는 NextPush 배포가 API 요청/응답 필드, enum, nullable, 상태 전이, endpoint 동작,
   DB 읽기/쓰기 계약 중 하나 이상을 변경한다.
-- 종료 조건: release-scoped 소비자 inventory, API contract case, DB runtime plan/execution, 운영 smoke와
-  복구 기준이 릴리스 기록에 남는다.
+- 종료 조건: release-scoped 소비자 inventory, API contract case, 운영 smoke와 복구 기준이 릴리스 기록에 남는다.
 - 제외 범위: 신규 SQL 작성, Store/NextPush 플랫폼 자체 정책 해석, API 계약 변경이 없는 UI-only 릴리스
 
 ## 상위 규범 문서
@@ -26,19 +25,18 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 - [릴리스 태그 정책](../../policy/release-tag-policy.md)
 - [엔지니어링 가드레일](../../policy/engineering-guardrails.md)
 - [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)
-- [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
+- [DB Migration 정책](../../policy/db-migration-gate-policy.md)
 - [테스트/CI 전략](../../policy/testing-strategy.md)
 
 ## 핵심 원칙
 
-- 공개 계약의 기본 경로는 `API cutover: No`다. DB 변경은 `Compatible/Cutover` 전역 라벨을 만들지 않고
-  실제 runtime/schema 조합과 상태 표면으로 판정한다.
+- 공개 계약의 기본 경로는 `API cutover: No`다. DB 변경은 API cutover와 별도 scope로 판정한다.
 - Store 출시와 NextPush 적용은 모바일 활성화 수단이다. source 정렬, 강제 업데이트 팝업, mandatory 설정,
   버전을 구분하지 못하는 traffic 0건은 이전 소비자의 호환 또는 차단 증빙이 아니다.
 - `API cutover: Yes`여도 이전 소비자가 이해할 수 있는 bootstrap/version/업데이트 경로는 계속 성공해야
   한다. 호환 불가능한 제품 요청은 이전 소비자가 파싱할 수 있는 응답으로 결정론적으로 거부한다.
-- DB writer가 재개된 뒤의 코드 rollback은 API 계약만으로 결정하지 않는다. 재개 뒤 수락한 write,
-  queue cursor·in-flight 작업, idempotency와 외부효과의 보존·재생·보상 가능성을 함께 확인한다.
+- API rollback은 API 계약만으로 결정하지 않는다. 수락한 write, queue cursor·in-flight 작업,
+  idempotency와 외부효과의 보존·재생·보상 가능성을 application evidence로 확인한다.
 - 심사용 native bundle이 개발 API를 보는 특수 제출은 우발적 운영 설정 오류로 재분류하지 않는다. 다만
   기존 Store→운영 API, 심사 native→개발 API, 같은 target binary+Production NextPush→운영 API를 서로
   다른 consumer/case evidence로 기록하고 개발계 case를 운영 API+최종 DB 호환 증빙으로 사용하지 않는다.
@@ -54,7 +52,7 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 | Admin | exact package와 최종 operation만 소비, 운영 artifact smoke 통과 |
 | Mobile Store | 제출·승인·출시 build와 API 대상, platform/build ref 및 smoke 고정 |
 | Mobile NextPush | 플랫폼별 app/deployment/label/cohort, target binary와 적용 smoke 고정 |
-| DB | immutable runtime contract, FENCED/RESUMED/RECOVERING 실행과 상태 표면 증빙 |
+| DB | 별도 DB 런북의 current trio, plan/execution, START/TARGET/PARTIAL |
 
 ## 메인 흐름
 
@@ -66,8 +64,7 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
    연결한다. 심사 native와 출시 NextPush가 같은 Store build를 공유해도 API 환경이 다르면 Store와
    NextPush consumer evidence를 합치지 않는다.
 3. API/Admin/Mobile/docs ref, contracts package, DB migration 포함 여부와 제외 범위의 `N/A` 근거를 기록한다.
-4. 공개 계약 변경은 `API cutover: No | Yes`를 판정한다. DB 변경은 이전·현재·실제 혼합 runtime,
-   시작·최종 DB, 변경 경계와 상태 표면을 migration runtime contract에 선언한다.
+4. 공개 계약 변경은 `API cutover: No | Yes`를 판정한다. DB 변경은 별도 `db-migration` scope에 포함한다.
 
 ### 1) 최종 계약 준비
 
@@ -80,8 +77,7 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 5. API `Yes`이면 old-readable bootstrap/version 성공 case와 incompatible product request의 결정론적
    거부 case를 검증하고, activation·client rollback이 참조할 case ID를 고정한다. activation case에는
    선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
-6. DB migration이 있으면 plan에 선언한 모든 `RESUMED` 조합과 이전 릴리스 복구 후보를 개발계 FENCED에서
-   검증한다.
+6. DB migration이 있으면 별도 런북에서 current trio를 검증하고 dev DONE pair를 만든다.
 
 ### 2) 운영 반영 전 Gate
 
@@ -90,10 +86,9 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 - 소비자 inventory가 Store, OTA, Admin, REST, WebSocket, bootstrap/version 표면을 exact-set으로 포함한다.
 - package source/published stable/consumer dependency와 각 artifact ref가 일치한다.
 - API contract case와 API `No | Yes` 판정이 일치한다.
-- DB plan은 runtime set·schema 조합·상태 표면·복구 전략과 같은 catalog/runtime-contract SHA의 개발계
-  완료 execution을 참조한다.
+- DB prod plan은 같은 API source의 완료된 dev plan/execution을 참조한다.
 - API `Yes`이면 activation 장벽, old-readable bootstrap/upgrade, client rollback case가 준비돼 있다.
-- DB migration이면 writer/effect producer inventory, backup, FENCED smoke, RESUMED 순서가 준비돼 있다.
+- DB migration이면 traffic/writer 중지·drain과 backup을 운영 전제로 준비한다.
 
 ### 3) Store 출시
 
@@ -102,8 +97,8 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 2. API `No`이면 migration 실행과 API 배포 뒤에도 지원 이전 앱 case가 통과한 상태에서 승인 build를 출시한다.
 3. API `Yes`이면 승인·출시 가능 상태에서 activation 장벽을 닫고 API/Admin/Store를 전환한다. 장벽 안에서도
    bootstrap/version은 old-readable해야 하며 product request 거부 응답을 확인한다.
-4. DB migration이 포함되면 별도 유지보수 실행의 durable FENCED → migration → final-DB smoke → RESUMED
-   순서를 activation window에 배치한다.
+4. DB migration이 포함되면 별도 maintenance window에서 DB DONE을 먼저 확인하고 API 배포·smoke·traffic
+   재개는 이 릴리스 절차로 이어간다. API 상태를 DB journal에 기록하지 않는다.
 5. 출시·activation 시각, case ID, artifact ref, smoke와 복구 기준을 같은 릴리스 기록에 남긴다.
 
 ### 4) NextPush 배포
@@ -119,9 +114,8 @@ Store·NextPush·Admin·API·DB가 함께 바뀌어도 실제 소비자와 runti
 - 소비자 inventory의 현재·이전 case와 실제 운영 artifact가 일치한다.
 - API `No`이면 모든 지원 이전 소비자가 성공하고 이번 변경이 만든 후속 공개 계약 전환 작업이 0건이다.
 - API `Yes`이면 activation·거부·bootstrap/upgrade·client rollback case가 실제 순서에서 통과했다.
-- DB migration이면 FENCED final-DB smoke, 모든 상태 표면 residual 0, durable RESUMED와 시작 watermark,
-  현재 완전 릴리스 smoke가 완료됐다.
-- 이전 릴리스 rollback을 허용했다면 final DB 조합 smoke와 재개 뒤 수락 write·queue·외부효과의 무손실
+- DB migration이면 prod plan/execution이 DONE/TARGET이고 현재 API 릴리스 smoke는 별도로 완료됐다.
+- 이전 API rollback을 허용했다면 final DB 조합 smoke와 수락 write·queue·외부효과의 무손실
   보존 증빙이 있다. 없으면 forward fix/통제된 reconciliation만 복구 경로로 남긴다.
 - package exact version 정렬과 각 저장소 표준 품질 게이트가 통과했다.
 
@@ -143,12 +137,8 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 - 이전 API/runtime rollback은 release-scoped inventory의 이전·현재 모든 소비자 interface가 이전 API와
   final DB에서 성공한 rollback case를 정확히 하나씩 가질 때만 허용한다. 이 case 전체가
   `runtimeRecovery.previousReleaseCaseIds`와 일치해야 한다.
-- API binary rollback은 DB migration 실행의 active mixture와 persisted/queued/external-effect 안전성까지
-  통과해야 한다.
-- `RESUMED` 전에는 writer/effect producer가 계속 닫혀 있을 때만 선언된 backup/snapshot restore를 쓸 수
-  있다.
-- `RESUMED` 뒤 snapshot/PITR만으로는 rollback하지 않는다. 모든 수락 write/effect를 보존할 수 없으면
-  forward fix 또는 통제된 lossless reconciliation을 수행한다.
+- API binary rollback은 persisted/queued/external-effect application evidence를 통과해야 한다. DB
+  DONE/TARGET 뒤 pre-run backup 복원은 허용하지 않는다.
 
 ## 검증 체크리스트
 
@@ -158,8 +148,8 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 - [ ] API `Yes`이면 old-readable bootstrap/upgrade와 결정론적 거부, activation/client rollback이 있는가?
 - [ ] 이전 API/runtime rollback이면 모든 release-scoped 소비자 interface의 이전 API 성공 case가 정확히
   하나씩 있고 선택된 rollback case와 일치하는가?
-- [ ] DB plan이 이전·현재·혼합 runtime, 변경 경계, 상태 표면과 허용 phase를 선언했는가?
-- [ ] FENCED/RESUMED/RECOVERING 순서와 post-resume 무손실 복구 조건이 검증됐는가?
+- [ ] DB scope가 있으면 별도 런북의 current trio, dev/prod pair, DONE/TARGET 조건이 검증됐는가?
+- [ ] API smoke·traffic 재개·rollback 증거가 DB journal과 분리됐는가?
 - [ ] 마지막 변경 이후 각 저장소의 표준 품질 게이트가 통과했는가?
 
 ## 비포함 / 금지
@@ -167,7 +157,7 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 - Store/NextPush 활성화를 API/DB 호환 검증 대신 사용하지 않는다.
 - 현재 source 정렬, 앱 팝업 또는 버전 미식별 traffic 0건으로 이전 계약 요청 차단을 추론하지 않는다.
 - API `No`에 제거 예정 adapter·dual-write를 숨기지 않는다.
-- snapshot/PITR를 재개 뒤 수락한 write/effect의 보존 증빙으로 사용하지 않는다.
+- snapshot/PITR를 수락한 write/effect의 보존 증빙으로 사용하지 않는다.
 - 이 문서를 도메인 상태 전이의 규범 문서로 사용하지 않는다.
 
 ## 관련 문서

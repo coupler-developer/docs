@@ -27,11 +27,7 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
-import {
-  dbMigrationMaintenanceEvidenceSchema,
-  sha256Hex,
-  validateMaintenanceDbMigrationEvidence,
-} from "./db-migration-maintenance-artifacts.mjs";
+import { validateDbMigrationEvidence } from "./db-migration-evidence.mjs";
 
 const docsRoot = process.cwd();
 const requireTrustedApiSource = process.env.DB_MIGRATION_REQUIRE_API_PROVENANCE === "1";
@@ -167,7 +163,6 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
       listArtifacts: listWorkingTreeReleaseArtifacts,
       requireCurrentSchema: Boolean(baseRef),
     });
-    validateBaseDevCheckpointBinding(relativePath, metadata, errors);
   }
 
   return metadata;
@@ -214,13 +209,12 @@ function validateChangedDbMigrationEvidenceOwnership(
       );
       continue;
     }
-    validateCrossVersionDevPairUniqueness(version, validationErrors);
     const metadata = metadataByVersion.get(version);
     if (metadata) {
       const dbResult = metadata.scopeResults?.["db-migration"];
       if (
         !metadata.releaseScopes?.includes("db-migration") ||
-        dbResult?.evidence?.kind !== "canonical"
+        !dbResult?.evidence?.plan
       ) {
         validationErrors.push(
           `${releasePath}: same-version DB migration artifacts require a canonical db-migration scope in the release record`,
@@ -229,36 +223,8 @@ function validateChangedDbMigrationEvidenceOwnership(
       continue;
     }
 
-    const checkpointRoot = `content/releases/evidence/db-migrations/${version}`;
-    const planPath = `${checkpointRoot}/dev/plan.json`;
-    const executionPath = `${checkpointRoot}/dev/execution.jsonl`;
-    const planSource = readWorkingTreeReleaseArtifact(planPath);
-    const executionSource = readWorkingTreeReleaseArtifact(executionPath);
-    const context = `${checkpointRoot}: standalone completed dev checkpoint`;
-    if (planSource === null || executionSource === null) {
-      validationErrors.push(
-        `${context} requires both dev/plan.json and dev/execution.jsonl`,
-      );
-      continue;
-    }
-
     validationErrors.push(
-      ...validateMaintenanceDbMigrationEvidence({
-        evidence: {
-          schema: dbMigrationMaintenanceEvidenceSchema,
-          kind: "canonical",
-          plan: { path: planPath, sha256: sha256Hex(planSource) },
-          execution: { path: executionPath, sha256: sha256Hex(executionSource) },
-        },
-        version,
-        apiSourceRef: null,
-        scopeStatus: "pending",
-        readArtifact: readWorkingTreeReleaseArtifact,
-        readApiArtifact,
-        requireTrustedApiSource,
-        listArtifacts: listWorkingTreeReleaseArtifacts,
-        context,
-      }),
+      `${releasePath}: DB migration artifacts must be added with their same-version release record`,
     );
   }
 }
@@ -286,90 +252,6 @@ function readTrustedApiArtifact(sourceRef, relativePath) {
     });
   } catch {
     return null;
-  }
-}
-
-function validateCrossVersionDevPairUniqueness(version, validationErrors) {
-  const evidenceRoot = "content/releases/evidence/db-migrations/";
-  const planPath = `${evidenceRoot}${version}/dev/plan.json`;
-  const executionPath = `${evidenceRoot}${version}/dev/execution.jsonl`;
-  const planSource = readWorkingTreeReleaseArtifact(planPath);
-  const executionSource = readWorkingTreeReleaseArtifact(executionPath);
-  if (planSource === null || executionSource === null) {
-    return;
-  }
-  const artifactPaths = listWorkingTreeReleaseArtifacts(evidenceRoot);
-  if (artifactPaths === null) {
-    validationErrors.push(
-      `${evidenceRoot}: DB migration evidence inventory must contain only regular files and directories`,
-    );
-    return;
-  }
-  const otherVersions = new Set(
-    artifactPaths
-      .map((artifactPath) => artifactPath.match(dbMigrationEvidencePattern)?.[1] ?? null)
-      .filter((candidate) => candidate && candidate !== version),
-  );
-  const planSha256 = sha256Hex(planSource);
-  const executionSha256 = sha256Hex(executionSource);
-  for (const otherVersion of otherVersions) {
-    const otherPlan = readWorkingTreeReleaseArtifact(
-      `${evidenceRoot}${otherVersion}/dev/plan.json`,
-    );
-    const otherExecution = readWorkingTreeReleaseArtifact(
-      `${evidenceRoot}${otherVersion}/dev/execution.jsonl`,
-    );
-    if (
-      otherPlan !== null &&
-      otherExecution !== null &&
-      sha256Hex(otherPlan) === planSha256 &&
-      sha256Hex(otherExecution) === executionSha256
-    ) {
-      validationErrors.push(
-        `${evidenceRoot}${version}: a new version must be requalified in dev; it cannot reuse the exact ${otherVersion} dev checkpoint pair`,
-      );
-    }
-  }
-}
-
-function validateBaseDevCheckpointBinding(relativePath, metadata, validationErrors) {
-  if (!baseRef || gitObjectExists(`${baseRef}:${relativePath}`)) {
-    return;
-  }
-  const version = metadata.version;
-  if (typeof version !== "string") {
-    return;
-  }
-  const checkpointRoot = `content/releases/evidence/db-migrations/${version}/dev`;
-  const hasPlan = gitObjectExists(`${baseRef}:${checkpointRoot}/plan.json`);
-  const hasExecution = gitObjectExists(`${baseRef}:${checkpointRoot}/execution.jsonl`);
-  if (!hasPlan && !hasExecution) {
-    return;
-  }
-  if (!hasPlan || !hasExecution) {
-    validationErrors.push(
-      `${relativePath}: base contains an incomplete standalone dev checkpoint for ${version}`,
-    );
-    return;
-  }
-
-  const dbResult = metadata.scopeResults?.["db-migration"];
-  if (!metadata.releaseScopes?.includes("db-migration") || !dbResult) {
-    validationErrors.push(
-      `${relativePath}: release version ${version} is reserved by a standalone dev checkpoint and must include the db-migration scope`,
-    );
-    return;
-  }
-  const expectedProdPlanPath =
-    `content/releases/evidence/db-migrations/${version}/prod/plan.json`;
-  if (
-    !["in_progress", "released", "rolled_back"].includes(dbResult.status) ||
-    dbResult.evidence?.kind !== "canonical" ||
-    dbResult.evidence?.plan?.path !== expectedProdPlanPath
-  ) {
-    validationErrors.push(
-      `${relativePath}: release version ${version} must consume its standalone dev checkpoint through a canonical prod plan root`,
-    );
   }
 }
 

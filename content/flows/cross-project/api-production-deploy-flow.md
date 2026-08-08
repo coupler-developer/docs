@@ -87,14 +87,14 @@ exact commit, action, PM2 상태, 내부·외부 응답과 릴리스 기록의 �
 
 - install 또는 PM2 반영이 중단되면 블록을 처음부터 재실행하지 않는다. checkout, PM2 상태, 내부·외부 응답과
   로그로 실제 반영 지점을 먼저 확인한다.
-- rollback은 릴리스 기록이 exact commit과 현재 DB/runtime 조합을 허용한 경우에만 수행한다. 근거가 없으면
-  forward fix 또는 승인된 reconciliation을 사용한다.
+- rollback은 릴리스 기록이 exact commit과 현재 TARGET DB 계약의 호환성을 증명한 경우에만 수행한다. 근거가
+  없으면 forward fix를 사용한다.
 
 ## 비포함 / 금지
 
 - 운영에서 `node app.ts` 또는 `pm2 start app.ts`로 `pm2.json`과 `prestart` 검사를 우회하지 않는다.
 - 개발계 성공을 운영 배포·검증 또는 서비스 태그 근거로 사용하지 않는다.
-- DB migration 뒤 이전 API/runtime 복구 가능성을 API 응답만으로 추론하지 않는다.
+- DB migration 뒤 이전 API 복구 가능성을 API 응답만으로 추론하지 않는다.
 
 ## 관련 문서
 

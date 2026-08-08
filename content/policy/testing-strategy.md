@@ -128,7 +128,7 @@
 | 권한/보안 | 권한별 허용/거부 검증 |
 | 결제 | 중복 결제, 환불, 키 지급/회수 검증 |
 | 푸시 | 발송, 스킵, 중복 방지, 저장 결과 검증 |
-| DB | [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 catalog/fixture와 직전/신규 API runtime+migrated DB 검증 |
+| DB | [DB Migration 정책](db-migration-gate-policy.md)의 current trio scratch replay, START/TARGET/PARTIAL, plan/journal 검증 |
 | 배포 | 배포 후 핵심 응답, 로그, 롤백 기준 검증 |
 | 네이티브/모바일 릴리스 | 실기기 또는 배포 리허설 검증 |
 | 다중 레포 변경 | 각 레포 품질 게이트와 교차 계약 검증 |
@@ -223,7 +223,7 @@
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리스 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
-    DB migration maintenance root graph의 고정 경로, 실제 bytes SHA-256, plan/execution 결속, orphan 거부와
+    DB migration dev/prod pair의 고정 경로, 실제 bytes SHA-256, plan/execution 결속, extra artifact 거부와
     과거 릴리스 파일의 최종 트리 불변성 테스트를 이 runner에 포함한다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
@@ -232,7 +232,7 @@
 - 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
 - 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`
 - DB migration provenance(CI): 보호된 base의 validator가 PR head를 실행하지 않고 데이터로 읽으며,
-  `COUPLER_CI_READ_TOKEN`으로 checkout한 `coupler-api`의 `main` 이력과 sealed input bytes를 대조한다. token은
+  `COUPLER_CI_READ_TOKEN`으로 checkout한 `coupler-api`의 `main` 이력과 plan이 참조한 source bytes를 대조한다. token은
   `coupler-api` 단일 저장소의 `Contents: read` fine-grained PAT만 허용하고 GitHub App은 사용하지 않는다.
   결과는 `DB Migration Provenance / exact-head` status로 검증한 PR head SHA에 직접 결속한다.
 - 문서 lint(CI): 로컬과 같은 `yarn lint:md`
@@ -266,15 +266,14 @@
 
 ## DB 마이그레이션 검증 (공통)
 
-- 운영 반영 전 최소 검증 순서는 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 표준 절차를 따른다.
-- 상세 판정 기준은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
+- 운영 반영 전 최소 검증 순서는 [DB Migration 정책](db-migration-gate-policy.md)의 표준 절차를 따른다.
+- 상세 판정 기준은 [DB Migration 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
 - API `No`는 release-scoped Store/OTA/Admin consumer-interface가 현재 API+최종 DB에서 성공하는 자동
   계약·통합 테스트 또는 재현 가능한 smoke로 검증한다.
-- DB는 plan에 선언한 이전·현재·실제 혼합 runtime과 시작·최종 DB 조합의 변경 경계를 검증한다. 모든
-  `RESUMED` 조합은 성공해야 하고, FENCED smoke는 DB·queue·external-effect 표면 residual 0을 exact-set으로
-  확인한다.
-- post-resume 이전 릴리스 복구를 허용하면 수락 write, queue cursor/in-flight/idempotency와 외부 sink
-  효과의 무손실 보존·재생·보상 테스트를 포함한다. snapshot/PITR 성공만으로 대체하지 않는다.
+- DB는 baseline+fixture START, current의 모든 proper prefix PARTIAL, 최종 TARGET과 전체 schema lock 일치를
+  검증한다. plan과 journal은 DB identity·backup·schema/state digest 외 marker를 거부한다.
+- API 배포·health/smoke·traffic 재개와 API rollback 검증은 DB plan/journal이 아니라 API·릴리스 테스트가
+  별도로 소유한다.
 - Store 강제 업데이트, NextPush mandatory와 버전을 구분할 수 없는 traffic 0건은 위 case나 runtime
   조합 테스트를 대체하지 않는다.
 - CI는 API admission·local MariaDB replay와 docs evidence 계약만 검증한다. 실제 운영 DB 상태, credential,

@@ -30,8 +30,7 @@
 - 데이터는 최소 `일반`, `내부`, `민감` 3단계로 분류한다.
 - 비밀번호, 결제 식별자 원문, 인증 토큰은 `민감`으로 분류한다.
 - 분류 없는 신규 저장 필드는 운영 배포를 금지한다.
-- 전체 물리 스키마 catalog, schema-only baseline/lock, migration checksum catalog는 `내부`로 분류하고 private
-  서비스 저장소에서만 관리한다.
+- 전체 물리 schema baseline/lock과 migration SQL은 `내부`로 분류하고 private 서비스 저장소에서만 관리한다.
 - DB 접속 정보, 계정, 권한, host/topology, 운영 row 또는 민감 데이터가 포함된 dump는 `민감`으로 분류한다.
 - 공개 docs에는 논리 엔티티·관계·소유권·분류·불변 조건·보관/삭제 생명주기만 기록한다. 서비스 업무
   스키마의 전체 테이블·컬럼 설명, 실행 가능한 DDL, 운영 row 샘플은 공개하지 않는다.
