@@ -1608,6 +1608,28 @@ describe("maintenance DB migration root evidence", () => {
     );
   });
 
+  it("rejects prod promotion from a dev checkpoint created at another API source", () => {
+    const archive = canonicalArchive({
+      withProdExecution: false,
+      devApiSourceRef: "c".repeat(40),
+    });
+    const errors = validateMaintenanceDbMigrationEvidence({
+      evidence: canonicalEvidence(archive.prodPlanRef),
+      version,
+      apiSourceRef,
+      scopeStatus: "in_progress",
+      readArtifact: archive.readArtifact,
+      listArtifacts: archive.listArtifacts,
+      context: "db migration evidence",
+    });
+
+    assert(
+      errors.some((error) =>
+        error.includes("dev pair must match the prod plan generation, API source"),
+      ),
+    );
+  });
+
   it("rejects a prod plan that launders a dev-owned migration as pre-applied", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     const planPath = `${artifactRoot}/prod/plan.json`;
@@ -1912,6 +1934,33 @@ describe("maintenance DB migration root evidence", () => {
       }),
       [],
     );
+  });
+
+  it("resolves trusted inputs at every reachable plan API source", () => {
+    const archive = canonicalArchive({ withRecoveryHistory: true });
+    archive.files.delete(archive.prodPlanRef.path);
+    archive.files.delete(archive.prodExecutionRef.path);
+    const trustedReads = new Set();
+    const readTrustedInput = archive.readArtifact.readApiArtifact;
+    archive.readArtifact.readApiArtifact = (sourceRef, inputPath) => {
+      trustedReads.add(sourceRef);
+      return readTrustedInput(sourceRef, inputPath);
+    };
+
+    assert.deepEqual(
+      validateMaintenanceDbMigrationEvidence({
+        evidence: canonicalEvidence(archive.devPlanRef, archive.devExecutionRef),
+        version,
+        apiSourceRef,
+        scopeStatus: "pending",
+        readArtifact: archive.readArtifact,
+        requireTrustedApiSource: true,
+        listArtifacts: archive.listArtifacts,
+        context: "db migration evidence",
+      }),
+      [],
+    );
+    assert.deepEqual(trustedReads, new Set([apiSourceRef, "f".repeat(40)]));
   });
 
   it("binds recovery to the failed causal target and one appended catalog ref", () => {
@@ -2832,6 +2881,18 @@ describe("historical DB migration violation evidence", () => {
       }),
       [],
     );
+  });
+
+  it("rejects a violation API source that differs from the release mapping", () => {
+    const errors = validateMaintenanceDbMigrationEvidence({
+      evidence: violationEvidenceFor(version, "b".repeat(40)),
+      version,
+      apiSourceRef,
+      scopeStatus: "released",
+      listArtifacts: () => [],
+      context: "db migration evidence",
+    });
+    assert(errors.some((error) => /apiSourceRef must match the API release commit/.test(error)));
   });
 
   it("requires a full API source commit even when the release mapping is also weak", () => {
