@@ -743,6 +743,7 @@ function validateCanonicalGraph({
       if (
         isPlainObject(devPlan) &&
         (devPlan.schema !== plan.schema ||
+          devPlan.apiSourceRef !== plan.apiSourceRef ||
           devPlan.catalog?.sha256 !== plan.catalog?.sha256 ||
           devPlan.ledgerCompatibility?.sha256 !== plan.ledgerCompatibility?.sha256 ||
           !isDeepStrictEqual(devPlan.runtimeContract, plan.runtimeContract) ||
@@ -750,7 +751,7 @@ function validateCanonicalGraph({
             !isDeepStrictEqual(devPlan.postconditions, plan.postconditions)))
       ) {
         errors.push(
-          `${context}.plan dev pair must match the prod plan generation, catalog, compatibility, runtime, and postconditions`,
+          `${context}.plan dev pair must match the prod plan generation, API source, catalog, compatibility, runtime, and postconditions`,
         );
       }
       const devReleaseOwnedRefs = devGraph?.releaseOwnedRefs;

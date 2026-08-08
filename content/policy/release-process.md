@@ -216,6 +216,11 @@
   일치해야 한다. 배포·검증 뒤 원격 annotated 태그와 commit이 같은 기준점으로 고정되면 그 태그가 불변
   릴리스 기준이 되며, 후속 작업으로 `main`이 전진해도 이미 배포된 commit을 새 `main`으로 바꾸지 않는다.
   태그가 없거나 원격에서 확인되지 않거나 tag/commit이 다르면 과거 commit을 릴리스 기준으로 허용하지 않는다.
+  단, `origin/main`에 이미 병합된 standalone completed dev checkpoint를 같은 bytes의 canonical prod root로
+  소비하는 DB-only 릴리스는 API 배포 기준이 아니라 해당 plan의 immutable executor/runtime basis를
+  `versionMapping.coupler-api.commit`에 보존한다. 이 commit은 최신 `origin/main`의 조상이어야 하며
+  `coupler-api` 또는 `contracts-package` scope를 함께 포함하면 예외를 적용하지 않고 현재 API ref에서 개발계
+  검증을 다시 수행한다.
 - 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙
@@ -296,6 +301,8 @@
 - [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
 - [ ] DB migration root가 현재 단계와 일치하고 dev·failed 이력까지 모두 도달 가능하며, 운영 실행 전 prod
       plan root를 담은 현재 PR head의 preflight를 통과했는가?
+- [ ] delayed DB checkpoint의 과거 API commit을 사용했다면 API/contracts scope가 없고 exact checkpoint
+      consumption·`origin/main` ancestry·trusted source 검증을 모두 통과했는가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [릴리스 태그 정책](release-tag-policy.md), Gate 순서는 릴리스 게이트 플로우, 실행 라우팅과
       공통 명령은 운영 릴리스 실행 런북을 단일 기준으로 사용하는가?

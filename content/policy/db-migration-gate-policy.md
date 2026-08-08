@@ -318,6 +318,13 @@ ledger compatibility, runtime contract가 달라져 기존 dev pair가 prod plan
 허용하지 않는다. checkpoint PR에는 release record를 넣지 않고, prod plan을 담은 release record PR은 운영
 완료 전까지 미병합 상태로 유지한다.
 
+checkpoint 뒤 API `main`이 전진해도 DB-only 운영 전환은 dev/prod plan의 동일한 `apiSourceRef`를 immutable
+executor/runtime basis로 유지할 수 있다. 이 ref는 최신 API `origin/main`의 조상이어야 하고 root에서 도달하는
+모든 plan의 sealed input을 각 plan ref의 원본 bytes와 대조한다. canonical 서비스 checkout의 clean
+`main == origin/main` 검사는 이 trusted source 검증을 위한 별도 baseline Gate이며 executor ref를 현재 main으로
+바꾸지 않는다. `coupler-api` 또는 `contracts-package`를 같은 릴리스에 포함하면 이 예외를 적용하지 않고 새 API
+ref에서 개발계 검증을 다시 수행한다.
+
 `pending` dev root는 metadata/checkpoint 검증에는 유효하지만 운영 preflight admission은 아니다. 운영 실행
 직전에는 `in_progress` canonical prod plan/null root만 허용한다. `main`에 checkpoint가 있으면 preflight도
 그 version의 모든 dev·failed-history bytes를 현재 PR과 byte-for-byte 비교하고 최초 record가
@@ -354,6 +361,8 @@ preflight는 추가로 각 snapshot을 plan의 API commit에 있는 원본 bytes
 - [ ] 같은 catalog/runtime-contract SHA의 개발계 완료 뒤 운영계를 실행했는가?
 - [ ] 완료된 dev pair를 참조하는 prod plan이 현재 root이며, 운영 실행 전 그 미병합 PR head의 preflight를
       통과했는가?
+- [ ] checkpoint executor ref를 유지했다면 API `origin/main`의 조상이고 DB-only scope이며 모든 reachable
+      plan의 원본 bytes를 trusted API source에서 확인했는가?
 - [ ] sealed gap은 후행 ledger evidence와 live postcondition으로 별도 판정·ledger-only repair했고,
       나머지 pending ref는 순서대로 postcondition과 ledger를 완료했는가?
 - [ ] FENCED final-DB smoke가 최초 재개·복구 target 조합과 모든 상태 표면 residual 0을 증명했는가?

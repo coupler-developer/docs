@@ -17,12 +17,17 @@ import {
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const preflightScript = path.join(scriptsRoot, "release-preflight.mjs");
 let tempRoot;
+let extraTempRoots;
 
 beforeEach(() => {
   tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "release-preflight-"));
+  extraTempRoots = [];
 });
 
 afterEach(() => {
+  for (const extraRoot of extraTempRoots) {
+    fs.rmSync(extraRoot, { recursive: true, force: true });
+  }
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
@@ -211,6 +216,35 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /sealed input must match the trusted API source bytes/);
   });
 
+  it("rejects an API source that exists locally but is not in origin/main history", () => {
+    const workspace = createWorkspace();
+    git(workspace.apiRoot, ["checkout", "-b", "unmerged/db-source"]);
+    fs.writeFileSync(path.join(workspace.apiRoot, "UNMERGED.md"), "# Local-only source\n");
+    const unmergedApiRef = commit(workspace.apiRoot, "local-only API source");
+    git(workspace.apiRoot, ["checkout", "main"]);
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/unmerged-db-source"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef: unmergedApiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(workspace.docsRoot, "reference local-only API source");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/unmerged-db-source"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /trusted API source is missing/);
+    assert.match(result.stdout, /버전 매핑 ref가 origin\/main 계보에 없습니다/);
+  });
+
   it("revalidates an in-progress DB release after recording dev execution and the prod plan", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
@@ -241,6 +275,108 @@ describe("release preflight for unpublished PR records", () => {
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /preflight repos: docs, coupler-api/);
     assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("discovers the canonical workspace from a nested Docs worktree", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    const docsWorktree = path.join(tempRoot, "_worktrees", "docs-db-release");
+    fs.mkdirSync(path.dirname(docsWorktree), { recursive: true });
+    git(workspace.docsRoot, [
+      "worktree",
+      "add",
+      "-b",
+      "docs/nested-db-release",
+      docsWorktree,
+      "main",
+    ]);
+    writePendingRelease(docsWorktree, {
+      dbMigration: true,
+      apiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(docsWorktree, "nested worktree DB release");
+    git(docsWorktree, ["push", "-u", "origin", "docs/nested-db-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+    ], docsWorktree);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(
+      result.stdout,
+      new RegExp(`workspace root: ${escapeRegExp(fs.realpathSync(tempRoot))}`),
+    );
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("discovers the canonical workspace from an external Docs worktree", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), "docs-release-worktree-"));
+    extraTempRoots.push(externalRoot);
+    git(workspace.docsRoot, [
+      "worktree",
+      "add",
+      "-b",
+      "docs/external-db-release",
+      externalRoot,
+      "main",
+    ]);
+    writePendingRelease(externalRoot, {
+      dbMigration: true,
+      apiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(externalRoot, "external worktree DB release");
+    git(externalRoot, ["push", "-u", "origin", "docs/external-db-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+    ], externalRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(
+      result.stdout,
+      new RegExp(`workspace root: ${escapeRegExp(fs.realpathSync(tempRoot))}`),
+    );
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("rejects an explicit workspace root without the canonical service layout", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    git(workspace.docsRoot, ["checkout", "-b", "docs/invalid-workspace-root"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(workspace.docsRoot, "invalid explicit workspace root");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/invalid-workspace-root"]);
+    const invalidRoot = path.join(tempRoot, "_worktrees");
+    fs.mkdirSync(invalidRoot, { recursive: true });
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      invalidRoot,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /Workspace root must contain coupler-api, coupler-admin-web, and coupler-mobile-app/);
   });
 
   it("allows later non-DB preflight after the DB scope has terminal execution evidence", () => {
@@ -286,6 +422,9 @@ describe("release preflight for unpublished PR records", () => {
     fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
     commitAndPush(workspace.docsRoot, "completed dev checkpoint");
 
+    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_CHECKPOINT.md"), "# Unrelated API main work\n");
+    commitAndPush(workspace.apiRoot, "advance API main after DB checkpoint");
+
     git(workspace.docsRoot, ["checkout", "-b", "docs/delayed-prod-release"]);
     writePendingRelease(workspace.docsRoot, {
       dbMigration: true,
@@ -301,12 +440,46 @@ describe("release preflight for unpublished PR records", () => {
       "v9.9.0",
       "--pending-ref",
       pendingRef,
-      "--workspace-root",
-      tempRoot,
     ], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("does not freeze a delayed checkpoint basis for a combined contracts release", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+      dbMigrationStage: "dev-completed",
+    });
+    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
+    commitAndPush(workspace.docsRoot, "completed dev checkpoint");
+
+    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_CHECKPOINT.md"), "# New API source\n");
+    commitAndPush(workspace.apiRoot, "advance API main before combined release");
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/combined-checkpoint-release"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      contractsPackage: true,
+      apiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(workspace.docsRoot, "combined checkpoint release");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/combined-checkpoint-release"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /버전 매핑 ref는 현재 origin\/main 기준점과 같아야 합니다/);
   });
 
   it("rejects replacing an origin/main dev checkpoint before production execution", () => {
@@ -731,6 +904,7 @@ function writePendingRelease(
   docsRoot,
   {
     dbMigration = false,
+    contractsPackage = false,
     apiRef = null,
     apiTag = null,
     status = "pending",
@@ -743,7 +917,7 @@ function writePendingRelease(
   } = {},
 ) {
   const releaseScopes = dbMigration
-    ? ["docs", "db-migration"]
+    ? ["docs", "db-migration", ...(contractsPackage ? ["contracts-package"] : [])]
     : mobileStoreMapping
       ? ["docs", "mobile-store"]
       : ["docs"];
@@ -871,6 +1045,18 @@ function writePendingRelease(
       },
     };
   }
+  if (contractsPackage) {
+    scopeResults["contracts-package"] = {
+      status,
+      summary: `contracts-package ${status}`,
+      evidence: {
+        publishedPackage: "pending",
+        workflow: "pending",
+        sourceRef: "pending",
+        sourceTree: null,
+      },
+    };
+  }
   if (mobileStoreMapping) {
     scopeResults["mobile-store"] = {
       status,
@@ -982,6 +1168,10 @@ function writePendingRelease(
 
 function sha256Hex(source) {
   return createHash("sha256").update(source).digest("hex");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function runPreflight(args, docsRoot) {

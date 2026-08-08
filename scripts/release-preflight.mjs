@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,9 +61,6 @@ if (
     `--pending-ref requires release-metadata status pending or in_progress, got ${releaseRecord.status ?? "unknown"}`,
   );
 }
-if (releaseRecord && args.pendingRef) {
-  validateDbMigrationOperationalAdmission(releaseRecord, errors);
-}
 const preflightRepoNames = releaseRecord
   ? resolvePreflightRepoNames(args.include, releaseRecord, errors)
   : new Set();
@@ -79,6 +77,8 @@ const repoStates = releaseRecord
   : [];
 
 if (releaseRecord) {
+  validateReleaseRecordMetadata(releaseRecord, repoStates, errors);
+  validateDbMigrationOperationalAdmission(releaseRecord, errors);
   inspectReleaseRecord(releaseRecord, repoStates, errors);
   validatePendingReleaseTransition(args.pendingRef, repoStates, errors);
 }
@@ -273,17 +273,19 @@ function requireValue(argv, index, flagName) {
   return value;
 }
 
+function hasServiceWorkspaceLayout(candidateRoot) {
+  return [
+    "coupler-api",
+    "coupler-admin-web",
+    "coupler-mobile-app",
+  ].every((repoName) => fs.existsSync(path.join(candidateRoot, repoName)));
+}
+
 function findWorkspaceRoot(startDir) {
   let current = path.resolve(startDir);
 
   while (true) {
-    const hasServiceRepos = [
-      "coupler-api",
-      "coupler-admin-web",
-      "coupler-mobile-app",
-    ].every((repoName) => fs.existsSync(path.join(current, repoName)));
-
-    if (hasServiceRepos) {
+    if (hasServiceWorkspaceLayout(current)) {
       return current;
     }
 
@@ -298,19 +300,48 @@ function findWorkspaceRoot(startDir) {
   }
 }
 
+function findCanonicalDocsRoot() {
+  try {
+    const commonDir = git(docsRoot, [
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-common-dir",
+    ]);
+    const canonicalCandidate = path.dirname(commonDir);
+    return git(canonicalCandidate, ["rev-parse", "--show-toplevel"]);
+  } catch {
+    return null;
+  }
+}
+
 function resolveWorkspaceRoot(rawWorkspaceRoot, releaseModel, errors) {
   if (!releaseModel.requiresServiceWorkspace) {
     return null;
   }
 
   if (rawWorkspaceRoot) {
-    return path.resolve(rawWorkspaceRoot);
+    const resolved = path.resolve(rawWorkspaceRoot);
+    if (!hasServiceWorkspaceLayout(resolved)) {
+      errors.push(
+        `Workspace root must contain coupler-api, coupler-admin-web, and coupler-mobile-app: ${resolved}`,
+      );
+      return null;
+    }
+    return resolved;
   }
 
   try {
     return findWorkspaceRoot(docsRoot);
-  } catch (error) {
-    errors.push(error.message);
+  } catch (directError) {
+    const canonicalDocsRoot = findCanonicalDocsRoot();
+    if (canonicalDocsRoot && canonicalDocsRoot !== docsRoot) {
+      try {
+        return findWorkspaceRoot(canonicalDocsRoot);
+      } catch {
+        // Report the direct discovery error below; the explicit override remains available.
+      }
+    }
+    errors.push(directError.message);
     return null;
   }
 }
@@ -538,17 +569,6 @@ function readReleaseRecord(version, errors, pendingRef) {
   const scopeFields = parseScopeFields(scopeSection);
   const metadataStatus = metadata?.status ?? null;
 
-  if (metadata) {
-    validateReleaseMetadata(metadata, version, version, errors, {
-      readArtifact: (relativePath) =>
-        readPendingReleaseArtifact(pendingRef, relativePath),
-      readApiArtifact: readTrustedApiArtifact,
-      requireTrustedApiSource: true,
-      listArtifacts: (prefix) => listPendingReleaseArtifacts(pendingRef, prefix),
-      requireCurrentSchema: true,
-    });
-  }
-
   if (!statusSection.includes(`- 목표 버전: \`${version}\``)) {
     errors.push(`${version}: release status target version does not match file name`);
   }
@@ -567,6 +587,7 @@ function readReleaseRecord(version, errors, pendingRef) {
 
   return {
     version,
+    pendingRef,
     source,
     metadata,
     model,
@@ -578,26 +599,53 @@ function readReleaseRecord(version, errors, pendingRef) {
   };
 }
 
-function readTrustedApiArtifact(sourceRef, relativePath) {
-  if (
-    !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
-    !relativePath ||
-    path.posix.isAbsolute(relativePath) ||
-    relativePath.split("/").includes("..")
-  ) {
-    return null;
+function validateReleaseRecordMetadata(releaseRecord, repoStates, validationErrors) {
+  if (!releaseRecord.metadata) {
+    return;
   }
-  const apiRoot = process.env.DB_MIGRATION_API_ROOT ??
-    path.join(args.workspaceRoot ?? path.dirname(docsRoot), "coupler-api");
-  try {
-    return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
-      cwd: apiRoot,
-      encoding: null,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    return null;
-  }
+  const apiRoot = repoStates.find((state) => state.name === "coupler-api")?.root ?? null;
+  validateReleaseMetadata(
+    releaseRecord.metadata,
+    releaseRecord.version,
+    releaseRecord.version,
+    validationErrors,
+    {
+      readArtifact: (relativePath) =>
+        readPendingReleaseArtifact(args.pendingRef, relativePath),
+      readApiArtifact: createTrustedApiArtifactReader(apiRoot),
+      requireTrustedApiSource: true,
+      listArtifacts: (prefix) => listPendingReleaseArtifacts(args.pendingRef, prefix),
+      requireCurrentSchema: true,
+    },
+  );
+}
+
+function createTrustedApiArtifactReader(apiRoot) {
+  return (sourceRef, relativePath) => {
+    if (
+      !apiRoot ||
+      !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
+      !relativePath ||
+      path.posix.isAbsolute(relativePath) ||
+      path.posix.normalize(relativePath) !== relativePath ||
+      relativePath.split("/").includes("..")
+    ) {
+      return null;
+    }
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", sourceRef, "origin/main"], {
+        cwd: apiRoot,
+        stdio: "ignore",
+      });
+      return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
+        cwd: apiRoot,
+        encoding: null,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+    } catch {
+      return null;
+    }
+  };
 }
 
 function readPendingReleaseArtifact(pendingRef, relativePath) {
@@ -891,7 +939,8 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
     const refsRequiringCurrentOrigin = resolvedRefs.filter(
       (ref) =>
         !ref.frozenArtifact &&
-        !frozenGroups.has(ref.group ?? "default"),
+        !frozenGroups.has(ref.group ?? "default") &&
+        !isFrozenDbCheckpointBasis(state, ref, releaseRecord),
     );
     validateResolvedBasisMatchesOriginMain(
       state.name,
@@ -900,6 +949,71 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
       errors,
     );
   }
+}
+
+function isFrozenDbCheckpointBasis(state, ref, releaseRecord) {
+  if (
+    state.name !== "coupler-api" ||
+    ref.type !== "commit" ||
+    !releaseRecord.model.releaseScopes.has("db-migration") ||
+    releaseRecord.model.releaseScopes.has("coupler-api") ||
+    releaseRecord.model.releaseScopes.has("contracts-package")
+  ) {
+    return false;
+  }
+
+  const dbResult = releaseRecord.metadata?.scopeResults?.["db-migration"];
+  const eligibleDbStatuses = new Set(["in_progress", "released", "rolled_back"]);
+  const evidenceRoot =
+    `content/releases/evidence/db-migrations/${releaseRecord.version}`;
+  const prodPlanPath = `${evidenceRoot}/prod/plan.json`;
+  if (
+    !eligibleDbStatuses.has(dbResult?.status) ||
+    dbResult?.evidence?.kind !== "canonical" ||
+    dbResult.evidence.plan?.path !== prodPlanPath ||
+    !releaseRecord.pendingRef
+  ) {
+    return false;
+  }
+
+  const devPlanPath = `${evidenceRoot}/dev/plan.json`;
+  const devExecutionPath = `${evidenceRoot}/dev/execution.jsonl`;
+  const baseDevPlan = readGitReleaseArtifact("origin/main", devPlanPath);
+  const baseDevExecution = readGitReleaseArtifact("origin/main", devExecutionPath);
+  const pendingDevPlan = readGitReleaseArtifact(releaseRecord.pendingRef, devPlanPath);
+  const pendingDevExecution = readGitReleaseArtifact(
+    releaseRecord.pendingRef,
+    devExecutionPath,
+  );
+  const prodPlanSource = readGitReleaseArtifact(releaseRecord.pendingRef, prodPlanPath);
+  if (
+    !Buffer.isBuffer(baseDevPlan) ||
+    !Buffer.isBuffer(baseDevExecution) ||
+    !Buffer.isBuffer(pendingDevPlan) ||
+    !Buffer.isBuffer(pendingDevExecution) ||
+    !Buffer.isBuffer(prodPlanSource) ||
+    !baseDevPlan.equals(pendingDevPlan) ||
+    !baseDevExecution.equals(pendingDevExecution)
+  ) {
+    return false;
+  }
+
+  try {
+    const prodPlan = JSON.parse(prodPlanSource.toString("utf8"));
+    const devPlan = JSON.parse(baseDevPlan.toString("utf8"));
+    return (
+      prodPlan.apiSourceRef === ref.commit &&
+      devPlan.apiSourceRef === ref.commit &&
+      prodPlan.devPlan?.sha256 === sha256Hex(baseDevPlan) &&
+      prodPlan.devExecution?.sha256 === sha256Hex(baseDevExecution)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function sha256Hex(source) {
+  return createHash("sha256").update(source).digest("hex");
 }
 
 function requiresOriginTag(policy, releaseStatus) {
@@ -1101,11 +1215,11 @@ function formatPreflightRepoNames(preflightRepoNames) {
 
 function printUsage() {
   console.log(`Usage:
-  yarn release:preflight --version vX.Y.Z --workspace-root .. --pending-ref <40-character-SHA>
+  yarn release:preflight --version vX.Y.Z --pending-ref <40-character-SHA>
 
 Options:
   --version <vX.Y.Z>       Required. Release record version to inspect.
-  --workspace-root <path>  Workspace root containing service repositories.
+  --workspace-root <path>  Optional override for the workspace root containing service repositories.
   --include <repos>        Comma-separated repo refs to check. Values: docs, coupler-api, coupler-admin-web, coupler-mobile-app, api, admin, mobile, all.
   --pending-ref <SHA>      Full pushed docs PR head SHA. Requires pending or in_progress metadata and a clean non-main branch synced with origin upstream.
   --help                  Show this help.

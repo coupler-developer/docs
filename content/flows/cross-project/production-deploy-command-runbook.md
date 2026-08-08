@@ -50,15 +50,15 @@ API 계약 변경과 `mobile-store` 또는 `mobile-nextpush`가 함께 포함되
 
 ## 공통 사전 확인
 
-워크스페이스 상대경로를 사용하는 각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. 열린 docs PR의
-원격 head를 기준으로 preflight를 실행한다.
+워크스페이스 상대경로를 사용하는 각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. 공통 preflight
+블록만 열린 docs PR worktree에서 실행한다. preflight는 worktree의 Git common directory에서 canonical
+workspace를 찾으므로 worktree 위치를 별도로 계산하지 않는다.
 
 ```bash
 set -euo pipefail
 : "${VERSION:?set VERSION}"
 : "${PR_NUMBER:?set PR_NUMBER}"
 
-cd docs
 WORKTREE_STATUS="$(git status --porcelain)"
 test -z "${WORKTREE_STATUS}"
 PENDING_REF="$(git rev-parse HEAD)"
@@ -69,12 +69,12 @@ test "$(gh pr view "${PR_NUMBER}" --json headRefOid --jq .headRefOid)" = "${PEND
 
 yarn release:preflight \
   --version "${VERSION}" \
-  --workspace-root .. \
   --pending-ref "${PENDING_REF}"
 ```
 
 `PASS`가 아니면 운영 실행을 시작하지 않는다. preflight 뒤 docs PR head 또는 포함된 서비스 레포의 `origin/main`이 바뀌면
-다음 운영 명령 전에 preflight를 다시 실행한다.
+다음 운영 명령 전에 preflight를 다시 실행한다. 표준 workspace가 아닌 경우에만 실제 `coupler-*` 서비스
+레포를 포함하는 경로를 `--workspace-root <absolute-path>`로 명시한다.
 
 ## 서비스 태그
 
