@@ -143,12 +143,13 @@ GITHUB_REPOSITORY=coupler-developer/docs \
   bash .github/scripts/generate-release-notes.sh "${TAG}" "${DOCS_COMMIT}" \
   > "${PREVIEW_PATH}"
 
-yarn verify
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
 printf 'review release note: %s\n' "${PREVIEW_PATH}"
 ```
 
-출력된 preview와 문서 안정성 평가가 `No Findings`일 때만 다음 블록에서 annotated tag를 한 번 생성해 push한다.
+출력된 preview와 `DOCS_COMMIT`을 read-only 독립 리뷰하고 열린 Finding이 0건이면
+`열린 Finding 0건·검증 대기`를 기록한다. 그 체크포인트와 파일이 바뀌지 않았을 때만 다음 블록에서
+`yarn verify`를 실행하고 annotated tag를 한 번 생성해 push한다.
 
 ```bash
 set -euo pipefail
@@ -166,6 +167,9 @@ test "$(git rev-parse --verify "${DOCS_COMMIT}^{commit}")" = "${DOCS_COMMIT}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
 
+yarn verify
+test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
+
 git tag -a "${TAG}" "${DOCS_COMMIT}" -m "Release ${TAG}"
 test "$(git rev-list -n 1 "${TAG}")" = "${DOCS_COMMIT}"
 git push origin "refs/tags/${TAG}"
@@ -173,7 +177,48 @@ REMOTE_COMMIT="$(git ls-remote --tags origin "refs/tags/${TAG}^{}" | cut -f1)"
 test "${REMOTE_COMMIT}" = "${DOCS_COMMIT}"
 ```
 
-tag push 뒤 `Release Docs`, GitHub Release, `docs-site-vX.Y.Z.tar.gz`와 Pages 결과를 postcheck한다.
+tag push 뒤 새 shell에서 exact commit의 `Release Docs`, GitHub Release, site artifact와 Pages 배포를
+아래 한 블록으로 postcheck한다. workflow가 아직 조회되지 않으면 운영 변경을 반복하지 않고 이 블록만 다시
+실행한다.
+
+```bash
+set -euo pipefail
+: "${TAG:?set TAG}"
+: "${DOCS_COMMIT:?set DOCS_COMMIT}"
+[[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+[[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+
+REPO=coupler-developer/docs
+ASSET_NAME="docs-site-${TAG}.tar.gz"
+RELEASE_RUN_ID="$(gh run list --repo "${REPO}" --workflow release.yml --event push \
+  --branch "${TAG}" --commit "${DOCS_COMMIT}" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+PAGES_RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy-docs.yml --event push \
+  --branch main --commit "${DOCS_COMMIT}" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+test -n "${RELEASE_RUN_ID}"
+test -n "${PAGES_RUN_ID}"
+
+gh run watch "${RELEASE_RUN_ID}" --repo "${REPO}" --compact --exit-status
+gh run watch "${PAGES_RUN_ID}" --repo "${REPO}" --compact --exit-status
+
+test "$(gh release view "${TAG}" --repo "${REPO}" --json tagName --jq .tagName)" = "${TAG}"
+test "$(gh release view "${TAG}" --repo "${REPO}" --json assets \
+  --jq '.assets[] | select(.name == "'"${ASSET_NAME}"'") | .name')" = "${ASSET_NAME}"
+
+POSTCHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/docs-release-${TAG}.XXXXXX")"
+gh release download "${TAG}" --repo "${REPO}" --dir "${POSTCHECK_DIR}" --pattern "${ASSET_NAME}"
+test -s "${POSTCHECK_DIR}/${ASSET_NAME}"
+tar -tzf "${POSTCHECK_DIR}/${ASSET_NAME}" >/dev/null
+
+PAGES_URL="$(gh api "repos/${REPO}/pages" --jq .html_url)"
+test "${PAGES_URL%/}" = "https://coupler-developer.github.io/docs"
+curl --fail-with-body --show-error -I "${PAGES_URL}"
+
+printf 'RELEASE_RUN=%s\nPAGES_RUN=%s\nRELEASE_URL=%s\nPAGES_URL=%s\nASSET=%s\n' \
+  "$(gh run view "${RELEASE_RUN_ID}" --repo "${REPO}" --json url --jq .url)" \
+  "$(gh run view "${PAGES_RUN_ID}" --repo "${REPO}" --json url --jq .url)" \
+  "$(gh release view "${TAG}" --repo "${REPO}" --json url --jq .url)" \
+  "${PAGES_URL}" "${POSTCHECK_DIR}/${ASSET_NAME}"
+```
 
 ## 검증 기록
 

@@ -53,13 +53,8 @@ test "$(git -C coupler-mobile-app rev-parse origin/main)" = "${MOBILE_COMMIT}"
 test "$(git -C coupler-mobile-app rev-parse HEAD)" = "${MOBILE_COMMIT}"
 
 SCRIPT_COMMAND="$(node -p "require('./coupler-mobile-app/package.json').scripts['${SCRIPT}']")"
-case " ${SCRIPT_COMMAND} " in
-  *" -d Production "*" -t ${TARGET_BINARY} "*) ;;
-  *)
-    printf 'Production target mismatch: %s\n' "${SCRIPT_COMMAND}" >&2
-    exit 1
-    ;;
-esac
+EXPECTED_SCRIPT_COMMAND="yarn check:nextpush-contracts && nextpush release-react ${APP_ID} ${PLATFORM} -d Production -m -t ${TARGET_BINARY}"
+test "${SCRIPT_COMMAND}" = "${EXPECTED_SCRIPT_COMMAND}"
 
 nextpush whoami
 nextpush deployment history "${APP_ID}" Production --format json
@@ -79,7 +74,7 @@ artifact와 exact source를 검증하고 제출 마커를 만든다.
 
 ```bash
 set -euo pipefail
-: "${MARKER_SCOPE:?set MARKER_SCOPE to mobile, android, or ios}"
+: "${MARKER_SCOPE:?set MARKER_SCOPE to android or ios}"
 : "${MOBILE_VERSION:?set MOBILE_VERSION}"
 : "${BUILD:?set BUILD}"
 : "${SUBMITTED_COMMIT:?set SUBMITTED_COMMIT}"
@@ -91,7 +86,7 @@ set -euo pipefail
 : "${SOURCE_EVIDENCE:?set SOURCE_EVIDENCE}"
 
 case "${MARKER_SCOPE}" in
-  mobile | android | ios) ;;
+  android | ios) ;;
   *)
     printf 'invalid MARKER_SCOPE: %s\n' "${MARKER_SCOPE}" >&2
     exit 1

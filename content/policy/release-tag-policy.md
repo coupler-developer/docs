@@ -33,7 +33,7 @@
 
 - 릴리스 태그: 운영 반영과 검증이 완료된 기준점을 고정하는 `vMAJOR.MINOR.PATCH` 형식의 annotated tag
 - 제출 마커 태그: Mobile Store 심사 중 binary provenance를 임시 고정하는 `submitted/*` 형식의 annotated tag
-- platform별 제출 마커 태그: Android와 iOS의 제출 기준이 실제로 갈라진 경우에만 사용하는 예외 태그
+- platform별 제출 마커 태그: Android 또는 iOS artifact 하나의 provenance를 고정하는 표준 제출 마커
 
 ## 필수 규칙
 
@@ -49,8 +49,11 @@
 - 서비스 레포(`coupler-api`, `coupler-admin-web`, `coupler-mobile-app`) 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
 - 스토어 심사 중인 모바일 빌드는 `submitted` 또는 `in_review`로만 기록한다. `coupler-mobile-app`의 `vX.Y.Z` 릴리스 태그는 스토어 승인 후 운영 출시와 기본 검증이 끝난 커밋에 생성한다.
 - 스토어 제출 마커 태그는 릴리스 태그가 아니라 심사 중 binary provenance를 잃지 않기 위한 임시 기록이다.
-- 기본 제출 마커 태그 이름은 `submitted/mobile-<version>-<build>`로 고정한다(예: `submitted/mobile-2.2.0-97`).
-- Android와 iOS가 서로 다른 커밋 기준으로 빌드됐거나 별도 제출 이벤트로 심사에 들어간 경우에만 예외적으로 `submitted/android-<version>-<build>`, `submitted/ios-<version>-<build>`처럼 platform별 제출 마커 태그를 각각 만든다.
+- 신규 제출 마커는 artifact 하나당 `submitted/android-<version>-<build>` 또는
+  `submitted/ios-<version>-<build>` 하나로 고정한다. 두 platform을 함께 제출해도 각각 만들며 artifact
+  경로·SHA-256·bundle/hash tuple을 다른 platform과 공유하지 않는다.
+- 기존 `submitted/mobile-<version>-<build>`는 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy 포함)에
+  역사적 사실로만 보존한다. v3 증빙으로 이관하거나 신규 제출에 만들지 않는다.
 - Mobile Store 승인, 실제 출시, 기본 smoke 검증, `coupler-mobile-app` `vX.Y.Z` 릴리스 태그 push, 릴리스 기록 문서의 제출 증빙 이관이 모두 끝나면 해당 릴리스의 `submitted/*` 태그는 로컬과 원격에서 삭제한다.
 - 릴리스 기록 문서에 제출 마커 태그 이름, tag commit SHA, artifact/hash 요약, 삭제 여부를 남기기 전에는 `submitted/*` 태그를 삭제하지 않는다.
 - NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 새로 만들지 않는다. 스토어 binary 출시 또는 릴리스 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다.
@@ -88,9 +91,9 @@
 - [ ] 릴리스 태그가 `vMAJOR.MINOR.PATCH` 형식인가?
 - [ ] 태그가 annotated tag인가?
 - [ ] 릴리스 태그가 운영 반영과 검증이 완료된 커밋을 가리키는가?
-- [ ] Mobile Store 포함 시 실제 제출 형태에 맞는 공통 `submitted/mobile-*` 또는 platform별 `submitted/android-*`, `submitted/ios-*` 제출 마커 태그를 남겼는가?
+- [ ] Mobile Store 포함 시 제출한 각 platform에 `submitted/android-*` 또는 `submitted/ios-*` 마커와 해당
+  platform만의 artifact tuple을 남겼는가?
 - [ ] Mobile Store gate에 묶인 통합 릴리스라면 태그 보류/완료 범위를 릴리스 기록에 구분했는가?
-- [ ] Android/iOS 제출 마커 태그를 분리했다면 커밋 기준 또는 제출 이벤트가 실제로 다른가?
 - [ ] 제출 마커 태그 메시지에 artifact, hash, 제출 시각, 커밋 판단 근거가 남았는가?
 - [ ] Mobile Store 승인/출시/검증 후 `vX.Y.Z` 릴리스 태그와 릴리스 기록에 제출 증빙을 이관했는가?
 - [ ] 제출 증빙 이관 후 해당 릴리스의 `submitted/*` 로컬/원격 태그를 삭제했거나, 삭제 보류 사유를 기록했는가?

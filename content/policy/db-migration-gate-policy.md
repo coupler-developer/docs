@@ -52,12 +52,17 @@ catalog entry와 ledger row를 보존한다.
 
 ## Runtime 계약
 
-모든 migration은 구현 전에 `db-migration-runtime-contract/v1`을 만들고 immutable plan에 포함한다.
-이 계약이 DB runtime 안전성의 단일 SoT다.
+모든 migration은 SQL 구현 전에 변경 경계, 허용 runtime/schema 조합, 상태 표면과 복구 전략을 설계·리뷰한다.
+API `main` 반영 뒤에는 그 설계에 exact source ref, 실제 compatibility config와 schema fingerprint를 결속한
+`db-migration-runtime-contract/v2`를 plan 생성 전에 고정하고 immutable plan에 포함한다. 이 exact 계약이
+실행 시점 DB runtime 안전성의 단일 SoT다.
+이 v2 cutover를 반영하기 전에 진행 중인 v1 workflow를 원래 executor ref에서 운영 완료 또는 승인된 terminal
+처분으로 닫는다. cutover 뒤 v1은 기존 plan/execution의 검증·재진입에만 읽고 새 dev/prod plan이나 replan을
+만들지 않는다.
 
 - 이전·현재·실제로 노출할 혼합 runtime set과 각 unit의 ID, kind, source ref,
-  compatibility-config SHA, DB reader/writer,
-  queue consumer, side-effect producer 역할
+  실제 compatibility config(feature flag, serializer mode, DB reader/writer·queue consumer·side-effect
+  producer 활성 역할). immutable plan은 원문을 보존하고 workflow가 그 원문에서 config SHA를 계산한다.
 - 변경된 read/write/state 경계와 각 runtime/schema 조합의 legacy/new-state 검증 결과
 - 시작 DB와 최종 DB의 canonical physical schema SHA-256, 실제로 허용할 runtime 조합 및
   `FENCED | RESUMED | RECOVERING` 허용 phase
@@ -88,9 +93,10 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 1. 대상 환경과 DB identity가 예상값과 일치하고 TLS 검증이 활성화돼 있다.
 2. API HTTP write, Admin write, WebSocket, cron, worker, direct SQL을 모두 분류한 `writer-inventory/v2`가
    있고, 존재하는 unit은 runtime 계약의 source ref/compatibility-config SHA와 정확히 일치한다.
-   compatibility-config SHA는 환경별 secret·host·URL이 아니라 DB/API 계약에 영향을 주는 feature flag,
-   serializer mode, 활성 worker/producer 역할만 정규화해 계산한다. 없는 category도 owner,
-   부재 근거와 검증을 기록한다.
+   compatibility-config SHA는 환경별 secret·host·URL이 아니라 unit별
+   `db-migration-compatibility-config/v1`의 DB/API 계약 feature flag, serializer mode, 활성 역할만 canonical
+   정렬해 계산한다. manifest는 runtime contract unit에 inline으로 두고 workflow가 검증·계산한다. 없는
+   writer category도 owner, 부재 근거와 검증을 기록한다.
 3. 모든 writer와 queue/external-effect producer가 중지됐고 그 증빙이 있다.
 4. application writer session과 활성 transaction이 0건이다.
 5. 복원 가능한 backup 또는 snapshot의 식별자와 digest가 준비돼 있다.
@@ -98,7 +104,7 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
    pendingRefs`로 정확히 분할되고, recovery migration 자체는 `appliedRefs` 또는 `pendingRefs`에
    포함되며, pending은 catalog 순서를 유지한다. `adjudicableLedgerGapRefs[].ref`는
    `pendingRefs`의 exact subset이어야 한다.
-7. plan의 catalog와 SQL checksum이 배포 ref의 실제 bytes와 일치한다.
+7. plan의 catalog·SQL·postcondition manifest/check checksum이 배포 ref의 실제 bytes와 일치한다.
 8. 운영 plan 생성과 실제 운영 workflow action 진입 때마다 참조한 개발계 plan/execution의 bytes SHA,
    execution `planSha256`, 환경별 history, catalog/runtime-contract SHA를 다시 검증한다.
 
@@ -106,7 +112,8 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 
 공개 운영 진입점은 API package의 `db:migration` 하나다. 정상 실행과 outcome 판정·ledger repair·
 복구는 이 workflow의 normal/`incident` action으로만 시작하며, 내부 typed executor 파일을 CLI로 직접
-실행하지 않는다.
+실행하지 않는다. 모든 action은 clean API source에서만 실행하며, initial은 `origin/main`, reentry는 immutable
+plan의 `apiSourceRef`와 `HEAD`가 일치해야 한다.
 
 1. runtime 계약과 writer inventory를 고정하고 API, Admin, WebSocket, cron, worker, direct SQL writer와
    queue/external-effect producer를 모두 중지한다.
@@ -143,9 +150,12 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 ## Plan 계약
 
 `plan.json`은 실행 전에 생성하는 immutable 입력이다.
+신규 plan은 `db-migration-maintenance-plan/v4`와 runtime contract v2를 함께 사용한다. 기존 v3/v1 pair는
+원래 executor ref의 운영 재진입에만 사용하며 두 세대를 섞지 않는다. 새/current 릴리스 증빙 root는
+v4/v2만 허용하고, 이미 게시된 v3/v1 이력은 불투명한 역사로만 보존한다.
 
-- 환경, DB identity digest, API source ref, catalog와 ledger compatibility artifact의 path/checksum을
-  포함한다.
+- 환경, DB identity digest, API source ref, catalog·ledger compatibility·postcondition manifest artifact의
+  path/checksum을 포함한다. manifest는 실제 check/setup SQL checksum을 결속한다.
 - catalog의 모든 entry를 `appliedRefs`, `recoveredRefs[].ref`, `baselineRefs`,
   `supersededRefs[].ref`, `pendingRefs` 중 하나에 정확히 한 번씩 포함한다.
   `recoveredRefs[].recoveryRef`는 적용된 recovery ref와 원본 ref의 관계를,
@@ -159,6 +169,12 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 - 개발계와 운영계는 각각 plan을 만들지만 운영계 plan은 같은 catalog/runtime-contract SHA의 완료된 개발계
   plan과 execution의 실제 bytes SHA를 함께 선행조건으로 참조한다. 개발계 execution은 운영 plan이 아니라
   참조한 개발계 plan의 환경별 partition과 `planSha256`으로 검증한다.
+- 최초 개발계 plan에는 하나 이상의 pending release migration이 있어야 한다. 개발계 graph가 현재 execution과
+  failed-history에서 직접 해결한 normal migration ref는 release-owned set이며, 이 집합은 운영 plan의
+  `pendingRefs`와 정확히 같아야 한다. 개발계에서 append-only recovery가 필요했던 graph는 운영계로 승격하지
+  않는다. 승인된 pre-release 기준으로 개발계를 복원하고 새 migration/version을 처음부터 검증한다. 어느
+  환경에서든 canonical graph 밖에서 먼저 적용된 ref가 있으면 정상 promotion으로 바꾸지 않고
+  `kind: violation`으로만 기록한다.
 
 ## Execution 계약
 
@@ -271,6 +287,8 @@ backup/snapshot restore를 사용할 수 있다. `RESUMED` 뒤에는 snapshot/PI
   `execution.jsonl`
 - 운영계: `content/releases/evidence/db-migrations/<version>/prod/plan.json`,
   `execution.jsonl`
+- plan 입력 원본: `content/releases/evidence/db-migrations/<version>/inputs/<sha256>/<basename>`의
+  catalog·ledger compatibility·postcondition manifest snapshot
 
 릴리스 metadata의 `kind: canonical` 증빙은 현재 단계의 root `plan`과 nullable `execution` 한 쌍만 직접
 참조한다. `planned`는 `plan: null, execution: null`, `pending`은 dev plan과 nullable dev execution,
@@ -284,7 +302,8 @@ head에서 preflight를 통과한 뒤 운영계를 실행한다. 개발계 plan/
 environment와 `planSha256`, prod plan 내부 dev pair와 복구 plan 내부 failed pair를 실제 archive bytes/SHA까지
 따라가며,
 root에서 도달할 수 없는 같은 버전의 artifact를 거부한다. dev/prod root와 도달 가능한 failed-history는
-보존하지만 metadata에 같은 참조를 중복 기록하지 않는다. 후속 릴리스로 대체된 `superseded` scope는
+각 plan에서 도달하는 content-addressed 입력 snapshot과 함께 보존하지만 metadata에 같은 참조를 중복
+기록하지 않는다. 후속 릴리스로 대체된 `superseded` scope는
 마지막으로 도달한 dev 또는 prod root pair를 그대로 보존하며, 이를 운영 실행이나 완료 증빙으로 재사용하지
 않는다.
 
@@ -318,9 +337,12 @@ canonical execution을 사후 제조하지 않았다는 한계를 모두 기록�
 파싱하거나 현재 계약으로 재검증하지 않고, 파일 전체의 경로·blob 불변성만 확인한다.
 
 Canonical maintenance executor는 plan/execution의 의미, live DB 결과와 재개 가능 여부를 검증한다. Docs는
-migration 의미나 live DB 판정을 복제하지 않는다. 신규 기록의 root graph가 가리키는 regular file의
-경로·bytes SHA-256, plan/execution envelope 결속과 완료 event만 확인해 executor가 검증한 이력을 정확히
-묶는다.
+live DB 판정을 복제하지 않는다. 신규 기록은 root graph와 sealed input의 경로·bytes SHA-256, catalog
+partition·recovery relation·postcondition digest, runtime/API ref와 완료 event의 결속을 확인한다. 운영
+preflight는 추가로 각 snapshot을 plan의 API commit에 있는 원본 bytes와 대조한다. 독립 docs checkout의
+경량 검증은 snapshot 자체와 graph 결속을 확인하고, API 원본 대조를 대신하지 않는다. 최종 PR head는
+보호된 base validator가 실행하는 필수 provenance CI에서 API `main` 이력과 원본 bytes를 다시 대조하고,
+`DB Migration Provenance / exact-head` required status를 검증한 PR head SHA에 직접 게시한다.
 
 ## 완료 조건
 
@@ -340,7 +362,8 @@ migration 의미나 live DB 판정을 복제하지 않는다. 신규 기록의 r
 - [ ] post-resume rollback을 허용했다면 수락 write·queue·외부효과의 무손실 보존 증빙이 있는가?
 - [ ] 전체 postcheck, 재기동과 현재 완전 릴리스 smoke가 완료됐는가?
 - [ ] 환경별 root가 `plan.json`/`execution.jsonl` 한 쌍이고, 복구 이력은
-      `history/<failed-plan-sha256>/`의 도달 가능한 immutable pair만 존재하는가?
+      `history/<failed-plan-sha256>/`의 도달 가능한 immutable pair만 존재하며 모든 plan 입력 snapshot이
+      `inputs/<sha256>/<basename>`에 봉인됐는가?
 
 ## 연결 문서
 

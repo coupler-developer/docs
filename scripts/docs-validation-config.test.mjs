@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
@@ -18,6 +19,29 @@ const packageJson = JSON.parse(
 const workflow = fs.readFileSync(
     path.join(docsRoot, ".github", "workflows", "lint.yml"),
     "utf8",
+);
+const dbMigrationProvenanceWorkflow = fs.readFileSync(
+    path.join(
+        docsRoot,
+        ".github",
+        "workflows",
+        "db-migration-provenance.yml",
+    ),
+    "utf8",
+);
+const operationalRunbookPaths = [
+    "db-migration-operation-flow.md",
+    "admin-web-production-deploy-flow.md",
+    "mobile-production-release-flow.md",
+    "production-deploy-command-runbook.md",
+].map((name) =>
+    path.join(docsRoot, "content", "flows", "cross-project", name),
+);
+const operationalRunbooks = new Map(
+    operationalRunbookPaths.map((runbookPath) => [
+        path.basename(runbookPath),
+        fs.readFileSync(runbookPath, "utf8"),
+    ]),
 );
 const deployWorkflow = fs.readFileSync(
     path.join(docsRoot, ".github", "workflows", "deploy-docs.yml"),
@@ -333,6 +357,83 @@ test("lightweight release validation remains separate from the full runner", () 
         workflow,
         /ready_for_review|converted_to_draft|--draft/,
     );
+});
+
+test("DB migration provenance uses protected code and a read-only API checkout", () => {
+    assert.match(dbMigrationProvenanceWorkflow, /pull_request_target:/);
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+path: trusted/,
+    );
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /repository: \$\{\{ github\.event\.pull_request\.head\.repo\.full_name \}\}\n\s+ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}\n\s+path: candidate/,
+    );
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /repository: coupler-developer\/coupler-api\n\s+ref: main\n\s+token: \$\{\{ secrets\.COUPLER_CI_READ_TOKEN \}\}/,
+    );
+    assert.doesNotMatch(dbMigrationProvenanceWorkflow, /COUPLER_DEV_TOKEN/);
+    assert.equal(
+        [...dbMigrationProvenanceWorkflow.matchAll(/persist-credentials: false/g)].length,
+        3,
+    );
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /working-directory: candidate[\s\S]*DB_MIGRATION_REQUIRE_API_PROVENANCE: "1"[\s\S]*node \.\.\/trusted\/scripts\/validate-release-records\.mjs/,
+    );
+    assert.match(dbMigrationProvenanceWorkflow, /statuses: write/);
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}[\s\S]*repos\/\$\{GITHUB_REPOSITORY\}\/statuses\/\$\{HEAD_SHA\}[\s\S]*DB Migration Provenance \/ exact-head/,
+    );
+    assert.match(
+        dbMigrationProvenanceWorkflow,
+        /if: always\(\) && steps\.provenance\.outcome != 'success'[\s\S]*run: exit 1/,
+    );
+    assert.match(testingStrategy, /최초 도입 PR[\s\S]*trusted[\s\S]*canary[\s\S]*required check/);
+    assert.doesNotMatch(
+        dbMigrationProvenanceWorkflow,
+        /(?:node|yarn|npm|pnpm) candidate\//,
+    );
+});
+
+test("operator runbook bash blocks are syntactically executable", () => {
+    for (const [name, source] of operationalRunbooks) {
+        const blocks = [...source.matchAll(/```bash\n([\s\S]*?)\n```/g)];
+        assert(blocks.length > 0, `${name} must contain an executable bash block`);
+        for (const [index, match] of blocks.entries()) {
+            const result = spawnSync("bash", ["-n"], {
+                input: match[1],
+                encoding: "utf8",
+            });
+            assert.equal(
+                result.status,
+                0,
+                `${name} bash block ${index + 1}: ${result.stderr}`,
+            );
+        }
+    }
+});
+
+test("release runbooks bind rollback, NextPush, marker, and docs postcheck evidence", () => {
+    const admin = operationalRunbooks.get("admin-web-production-deploy-flow.md");
+    const mobile = operationalRunbooks.get("mobile-production-release-flow.md");
+    const release = operationalRunbooks.get("production-deploy-command-runbook.md");
+
+    assert.match(admin, /BACKUP_METADATA=.*\.coupler-admin-backup/);
+    assert.match(admin, /ROLLBACK_COMMIT=.*awk[\s\S]*BACKUP_INDEX_SHA256/);
+    assert.doesNotMatch(admin, /: "\$\{ROLLBACK_COMMIT:\?/);
+    assert.match(
+        mobile,
+        /EXPECTED_SCRIPT_COMMAND=.*\$\{APP_ID\} \$\{PLATFORM\} -d Production -m -t \$\{TARGET_BINARY\}/,
+    );
+    assert.match(mobile, /set MARKER_SCOPE to android or ios/);
+    assert.doesNotMatch(mobile, /mobile \| android \| ios/);
+
+    const docsClose = release.slice(release.indexOf("## Docs 릴리스 마감"));
+    assert(docsClose.indexOf("열린 Finding 0건·검증 대기") < docsClose.indexOf("yarn verify"));
+    assert.match(docsClose, /gh run watch[\s\S]*gh release download[\s\S]*repos\/\$\{REPO\}\/pages/);
 });
 
 test("lint and build jobs start independently from docs structure validation", () => {

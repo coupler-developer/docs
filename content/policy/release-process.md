@@ -190,8 +190,10 @@
   이 예외는 rollback 기준이나 다음 릴리스의 source 증빙으로 재사용하지 않는다. 하나의 terminal
   `mobile-store` scope에는 최소 하나의 `verified` platform source가 있어야 한다.
 - `release-metadata/v3`의 `scopeResults.mobile-store.evidence.submittedMarkers.android|ios`는 platform별
-  submission provenance를 소유한다. 정상 공통 또는 platform별 submission-time marker와 artifact SHA-256이 있으면 `verified`로
-  tag·commit·artifact digest·이관/삭제 증빙을 닫는다. 과거 제출에서 원래 marker나 artifact hash가 없으면
+  submission provenance를 소유한다. 해당 platform의 submission-time marker와 artifact SHA-256이 있으면 `verified`로
+  tag·commit·artifact digest·이관/삭제 증빙을 닫는다. 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy
+  포함)의 공통 `submitted/mobile-*`는 그 기록에만 보존하며 v3 완료 증빙으로 승격하지 않는다. 과거 제출에서
+  원래 platform marker나 artifact hash가 없으면
   `unavailable-historical`로 두고 tag·commit·artifact/evidence를 `null`로 유지한 채 한계만 기록한다. 출시 뒤
   사후 생성한 marker는 `verified` 완료 증빙으로 계산하지 않는다.
 - terminal evidence hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다.

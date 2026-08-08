@@ -542,6 +542,8 @@ function readReleaseRecord(version, errors, pendingRef) {
     validateReleaseMetadata(metadata, version, version, errors, {
       readArtifact: (relativePath) =>
         readPendingReleaseArtifact(pendingRef, relativePath),
+      readApiArtifact: readTrustedApiArtifact,
+      requireTrustedApiSource: true,
       listArtifacts: (prefix) => listPendingReleaseArtifacts(pendingRef, prefix),
       requireCurrentSchema: true,
     });
@@ -574,6 +576,28 @@ function readReleaseRecord(version, errors, pendingRef) {
     versionMapping,
     status: metadataStatus ?? status,
   };
+}
+
+function readTrustedApiArtifact(sourceRef, relativePath) {
+  if (
+    !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
+    !relativePath ||
+    path.posix.isAbsolute(relativePath) ||
+    relativePath.split("/").includes("..")
+  ) {
+    return null;
+  }
+  const apiRoot = process.env.DB_MIGRATION_API_ROOT ??
+    path.join(args.workspaceRoot ?? path.dirname(docsRoot), "coupler-api");
+  try {
+    return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
+      cwd: apiRoot,
+      encoding: null,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
 }
 
 function readPendingReleaseArtifact(pendingRef, relativePath) {

@@ -76,7 +76,13 @@ export function validateReleaseMetadata(
   context,
   expectedVersion,
   errors,
-  { readArtifact, listArtifacts, requireCurrentSchema = false } = {},
+  {
+    readArtifact,
+    readApiArtifact,
+    requireTrustedApiSource = false,
+    listArtifacts,
+    requireCurrentSchema = false,
+  } = {},
 ) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
@@ -106,7 +112,12 @@ export function validateReleaseMetadata(
 
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
-  validateScopeResults(metadata, context, errors, { readArtifact, listArtifacts });
+  validateScopeResults(metadata, context, errors, {
+    readArtifact,
+    readApiArtifact,
+    requireTrustedApiSource,
+    listArtifacts,
+  });
   validateVersionMapping(metadata.versionMapping, metadata.schema, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
@@ -268,7 +279,12 @@ function validateExtraRepoRefs(metadata, context, errors) {
   });
 }
 
-function validateScopeResults(metadata, context, errors, { readArtifact, listArtifacts }) {
+function validateScopeResults(
+  metadata,
+  context,
+  errors,
+  { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
+) {
   const scopeResults = metadata.scopeResults;
   const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
 
@@ -295,7 +311,7 @@ function validateScopeResults(metadata, context, errors, { readArtifact, listArt
       scopeResults[scopeName],
       context,
       errors,
-      { readArtifact, listArtifacts },
+      { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
     );
   }
 }
@@ -306,7 +322,7 @@ function validateScopeResult(
   result,
   context,
   errors,
-  { readArtifact, listArtifacts },
+  { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
 ) {
   const descriptor = releaseScopeDescriptors[scopeName];
   if (!descriptor) {
@@ -366,6 +382,8 @@ function validateScopeResult(
         apiSourceRef: metadata.versionMapping?.["coupler-api"]?.commit,
         scopeStatus: result.status,
         readArtifact,
+        readApiArtifact,
+        requireTrustedApiSource,
         listArtifacts,
         context: `${context}: release-metadata scopeResults.db-migration.evidence`,
       }),
@@ -2225,13 +2243,10 @@ function validatePlatformSubmittedMarkers(value, metadata, context, fieldPath, e
     if (marker.status === "verified") {
       const versionBuildMatch = mapping.versionBuild?.match(/^(\d+\.\d+\.\d+)\s+\((\d+)\)$/);
       const expectedTags = versionBuildMatch
-        ? new Set([
-            `submitted/mobile-${versionBuildMatch[1]}-${versionBuildMatch[2]}`,
-            `submitted/${platform}-${versionBuildMatch[1]}-${versionBuildMatch[2]}`,
-          ])
+        ? new Set([`submitted/${platform}-${versionBuildMatch[1]}-${versionBuildMatch[2]}`])
         : new Set();
       if (!expectedTags.has(marker.tag)) {
-        errors.push(`${context}: verified ${markerPath}.tag must match the common or platform submission marker`);
+        errors.push(`${context}: verified ${markerPath}.tag must match its platform submission marker`);
       }
       if (!isFullCommitSha(marker.commit) || marker.commit !== mapping.commit) {
         errors.push(`${context}: verified ${markerPath}.commit must match the platform source commit`);

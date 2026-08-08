@@ -158,7 +158,8 @@ release record 없는 completed dev checkpoint PR로 그 graph만 먼저 `main`�
 1. 릴리스 기록에 실제 태그/SHA, 운영 반영 시각, 검증 결과, 롤백 기준을 반영한다.
 2. 미완료·대기·대체 범위가 있으면 상태 정책에 맞는 값과 근거를 남긴다.
 3. 릴리스 기록 validator로 base에 존재한 과거 파일의 경로·blob 불변성과 신규 현재 기록만 확인한다.
-4. 마지막 수정 이후 전체 `yarn verify`와 리뷰를 통과한 기록을 한 번 병합한다.
+4. 마지막 수정 이후 독립 리뷰에서 열린 Finding 0건을 기록하고 같은 후보의 전체 `yarn verify`를 통과한
+   기록을 한 번 병합한다.
 5. 병합된 docs 기준점에 허용된 태그를 생성하고 Release workflow와 artifact를 postcheck한다.
 
 ## 자동화 범위
