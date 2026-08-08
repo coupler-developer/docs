@@ -25,8 +25,8 @@ const migrationKinds = [
   "contract",
   "recovery",
 ];
-const maintenancePlanSchema = "db-migration-maintenance-plan/v4";
-const maintenanceEventSchema = "db-migration-maintenance-event/v3";
+const maintenancePlanKind = "db-migration-maintenance-plan";
+const maintenanceEventKind = "db-migration-maintenance-event";
 const maintenanceEventTypes = new Set([
   "phase-fenced",
   "fence-reverified",
@@ -68,7 +68,7 @@ const migrationTerminalTypes = new Set([
   "migration-failed",
 ]);
 const maintenancePlanKeys = [
-  "schema",
+  "kind",
   "environment",
   "createdAt",
   "apiSourceRef",
@@ -86,6 +86,7 @@ const maintenancePlanKeys = [
   "failedPlan",
   "failedExecution",
   "runtimeContract",
+  "postconditions",
 ];
 
 export function sha256Hex(source) {
@@ -742,16 +743,14 @@ function validateCanonicalGraph({
       const devPlan = devGraph?.plan;
       if (
         isPlainObject(devPlan) &&
-        (devPlan.schema !== plan.schema ||
-          devPlan.apiSourceRef !== plan.apiSourceRef ||
+        (devPlan.apiSourceRef !== plan.apiSourceRef ||
           devPlan.catalog?.sha256 !== plan.catalog?.sha256 ||
           devPlan.ledgerCompatibility?.sha256 !== plan.ledgerCompatibility?.sha256 ||
           !isDeepStrictEqual(devPlan.runtimeContract, plan.runtimeContract) ||
-          (plan.schema === maintenancePlanSchema &&
-            !isDeepStrictEqual(devPlan.postconditions, plan.postconditions)))
+          !isDeepStrictEqual(devPlan.postconditions, plan.postconditions))
       ) {
         errors.push(
-          `${context}.plan dev pair must match the prod plan generation, API source, catalog, compatibility, runtime, and postconditions`,
+          `${context}.plan dev pair must match the prod plan API source, catalog, compatibility, runtime, and postconditions`,
         );
       }
       const devReleaseOwnedRefs = devGraph?.releaseOwnedRefs;
@@ -865,13 +864,12 @@ function validateCanonicalGraph({
       }
       if (
         isPlainObject(failedPlan) &&
-        (failedPlan.schema !== plan.schema ||
-          failedPlan.databaseIdentitySha256 !== plan.databaseIdentitySha256 ||
+        (failedPlan.databaseIdentitySha256 !== plan.databaseIdentitySha256 ||
           failedPlan.catalog?.path !== plan.catalog?.path ||
           failedPlan.ledgerCompatibility?.sha256 !== plan.ledgerCompatibility?.sha256)
       ) {
         errors.push(
-          `${context}.plan failed pair must match the recovery plan generation, database, catalog, and compatibility`,
+          `${context}.plan failed pair must match the recovery plan database, catalog, and compatibility`,
         );
       }
       if (isPlainObject(failedPlan)) {
@@ -916,10 +914,9 @@ function validatePlanEnvelope({ plan, expectedEnvironment, apiSourceRef, context
     errors.push(`${context} must be a maintenance plan object`);
     return;
   }
-  const expectedKeys = [...maintenancePlanKeys, "postconditions"];
-  validateExactKeys(plan, expectedKeys, context, errors);
-  if (plan.schema !== maintenancePlanSchema) {
-    errors.push(`${context}.schema must be ${maintenancePlanSchema}`);
+  validateExactKeys(plan, maintenancePlanKeys, context, errors);
+  if (plan.kind !== maintenancePlanKind) {
+    errors.push(`${context}.kind must be ${maintenancePlanKind}`);
   }
   if (!environments.includes(plan.environment)) {
     errors.push(`${context}.environment must be dev or prod`);
@@ -1031,10 +1028,9 @@ function validatePlanEnvelope({ plan, expectedEnvironment, apiSourceRef, context
   if (!isPlainObject(plan.runtimeContract)) {
     errors.push(`${context}.runtimeContract must be an object`);
   } else {
-    const expectedRuntimeSchema = "db-migration-runtime-contract/v2";
-    if (!isDeclaredRuntimeContract(plan.runtimeContract, expectedRuntimeSchema)) {
+    if (!isDeclaredRuntimeContract(plan.runtimeContract)) {
       errors.push(
-        `${context}.runtimeContract must be a complete ${expectedRuntimeSchema} contract for ${plan.schema}`,
+        `${context}.runtimeContract must be a complete db-migration-runtime-contract`,
       );
     } else if (!nextFinalApiSourceRefs(plan.runtimeContract).includes(plan.apiSourceRef)) {
       errors.push(`${context}.runtimeContract next final runtime set must include apiSourceRef`);
@@ -1066,7 +1062,7 @@ function validatePlanInputSnapshots({
   const inputs = [
     ["catalog", plan.catalog],
     ["ledgerCompatibility", plan.ledgerCompatibility],
-    ...(plan.schema === maintenancePlanSchema ? [["postconditions", plan.postconditions]] : []),
+    ["postconditions", plan.postconditions],
   ];
   const sources = new Map();
   for (const [key, reference] of inputs) {
@@ -1163,9 +1159,9 @@ function validatePlanAgainstSealedInputs({
   context,
   errors,
 }) {
-  if (!isPlainObject(catalog) || !Array.isArray(catalog.migrations)) {
+  if (!isCurrentCatalogShape(catalog)) {
     if (catalog !== null) {
-      errors.push(`${context}.catalog sealed input must declare migrations`);
+      errors.push(`${context}.catalog sealed input must use the exact db-schema-contract shape`);
     }
     return;
   }
@@ -1217,9 +1213,11 @@ function validatePlanAgainstSealedInputs({
   ) {
     errors.push(`${context} sealed recovery migrations must bind a catalog target`);
   }
-  if (!isPlainObject(compatibility)) {
+  if (!isCurrentLedgerCompatibilityShape(compatibility)) {
     if (compatibility !== null) {
-      errors.push(`${context}.ledgerCompatibility sealed input must be an object`);
+      errors.push(
+        `${context}.ledgerCompatibility sealed input must use the exact db-migration-ledger-compatibility shape`,
+      );
     }
     return;
   }
@@ -1277,9 +1275,170 @@ function nextFinalApiSourceRefs(runtimeContract) {
     .map((unit) => unit.sourceRef) ?? [];
 }
 
+function isCurrentCatalogShape(value) {
+  if (
+    !isPlainObject(value) ||
+    !hasExactKeys(value, ["kind", "baseline", "currentLockFile", "replayFixture", "migrations"]) ||
+    value.kind !== "db-schema-contract" ||
+    !isPlainObject(value.baseline) ||
+    !hasExactKeys(value.baseline, [
+      "sqlFile",
+      "lockFile",
+      "capturedAt",
+      "sourceEnvironment",
+      "sourceMainCommit",
+    ]) ||
+    !Object.values(value.baseline).every(isNonEmptyText) ||
+    !isNonEmptyText(value.currentLockFile) ||
+    !Array.isArray(value.migrations)
+  ) {
+    return false;
+  }
+  if (
+    value.replayFixture !== null &&
+    (!isPlainObject(value.replayFixture) ||
+      !hasExactKeys(value.replayFixture, ["sqlFile", "sha256"]) ||
+      !isNonEmptyText(value.replayFixture.sqlFile) ||
+      !sha256Pattern.test(value.replayFixture.sha256 ?? ""))
+  ) {
+    return false;
+  }
+  const migrationKeys = [
+    "file",
+    "kind",
+    "schemaEffect",
+    "includedInBaseline",
+    "replayInSchemaCheck",
+    "sha256",
+  ];
+  return value.migrations.every(
+    (entry) =>
+      isPlainObject(entry) &&
+      (hasExactKeys(entry, migrationKeys) ||
+        hasExactKeys(entry, [...migrationKeys, "recoveryFor"])) &&
+      isMigrationRef({ file: entry.file, kind: entry.kind, sha256: entry.sha256 }) &&
+      typeof entry.schemaEffect === "boolean" &&
+      typeof entry.includedInBaseline === "boolean" &&
+      typeof entry.replayInSchemaCheck === "boolean" &&
+      (!Object.hasOwn(entry, "recoveryFor") || isNonEmptyText(entry.recoveryFor)),
+  );
+}
+
+function isCurrentLedgerCompatibilityShape(value) {
+  if (
+    !isPlainObject(value) ||
+    !hasExactKeys(value, [
+      "kind",
+      "catalogStartOrdinal",
+      "historicalPrefixes",
+      "aliases",
+      "supersededMigrations",
+      "adjudicableLedgerGaps",
+    ]) ||
+    value.kind !== "db-migration-ledger-compatibility" ||
+    !Number.isSafeInteger(value.catalogStartOrdinal) ||
+    value.catalogStartOrdinal < 0 ||
+    !Array.isArray(value.historicalPrefixes) ||
+    !Array.isArray(value.aliases) ||
+    !Array.isArray(value.supersededMigrations) ||
+    !Array.isArray(value.adjudicableLedgerGaps)
+  ) {
+    return false;
+  }
+  const validEnvironment = (environment) => environments.includes(environment);
+  const prefixEnvironments = value.historicalPrefixes.map((prefix) => prefix?.environment);
+  return (
+    value.historicalPrefixes.every(
+      (prefix) =>
+        isPlainObject(prefix) &&
+        hasExactKeys(prefix, ["environment", "rowCount", "sha256"]) &&
+        validEnvironment(prefix.environment) &&
+        Number.isSafeInteger(prefix.rowCount) &&
+        prefix.rowCount >= 0 &&
+        sha256Pattern.test(prefix.sha256 ?? ""),
+    ) &&
+    prefixEnvironments.length === environments.length &&
+    environments.every((environment) => prefixEnvironments.includes(environment)) &&
+    value.aliases.every(
+      (alias) =>
+        isPlainObject(alias) &&
+        hasExactKeys(alias, [
+          "environment",
+          "migrationFile",
+          "migrationType",
+          "targetEnv",
+          "checksumSha256",
+        ]) &&
+        validEnvironment(alias.environment) &&
+        [alias.migrationFile, alias.migrationType, alias.targetEnv].every(isNonEmptyText) &&
+        sha256Pattern.test(alias.checksumSha256 ?? ""),
+    ) &&
+    value.supersededMigrations.every(
+      (entry) =>
+        isPlainObject(entry) &&
+        hasExactKeys(entry, ["environment", "migrationFile", "supersededBy"]) &&
+        validEnvironment(entry.environment) &&
+        isNonEmptyText(entry.migrationFile) &&
+        isNonEmptyText(entry.supersededBy),
+    ) &&
+    value.adjudicableLedgerGaps.every(
+      (entry) =>
+        isPlainObject(entry) &&
+        hasExactKeys(entry, ["environment", "migrationFile", "evidenceMigrationFile"]) &&
+        validEnvironment(entry.environment) &&
+        isNonEmptyText(entry.migrationFile) &&
+        isNonEmptyText(entry.evidenceMigrationFile),
+    )
+  );
+}
+
+function isCurrentPostconditionsShape(value) {
+  return (
+    isPlainObject(value) &&
+    hasExactKeys(value, ["kind", "entries"]) &&
+    value.kind === "db-migration-postconditions" &&
+    Array.isArray(value.entries) &&
+    value.entries.every(
+      (entry) =>
+        isPlainObject(entry) &&
+        hasExactKeys(entry, ["migrationFile", "setup", "check", "assertions"]) &&
+        isNonEmptyText(entry.migrationFile) &&
+        (entry.setup === null || isPostconditionFile(entry.setup)) &&
+        isPostconditionFile(entry.check) &&
+        Array.isArray(entry.assertions) &&
+        entry.assertions.length > 0 &&
+        entry.assertions.every(isPostconditionAssertion),
+    )
+  );
+}
+
+function isPostconditionFile(value) {
+  return (
+    isPlainObject(value) &&
+    hasExactKeys(value, ["file", "sha256"]) &&
+    isNonEmptyText(value.file) &&
+    sha256Pattern.test(value.sha256 ?? "")
+  );
+}
+
+function isPostconditionAssertion(value) {
+  return (
+    isPlainObject(value) &&
+    hasExactKeys(value, ["column", "expected", "scopes"]) &&
+    isNonEmptyText(value.column) &&
+    (value.expected === null || ["string", "number"].includes(typeof value.expected)) &&
+    Array.isArray(value.scopes) &&
+    value.scopes.length > 0 &&
+    value.scopes.every((scope) => ["live", "replay"].includes(scope)) &&
+    new Set(value.scopes).size === value.scopes.length
+  );
+}
+
 function validatePostconditionManifest({ plan, catalogByFile, postconditions, context, errors }) {
-  if (!isPlainObject(postconditions) || postconditions.version !== 1 || !Array.isArray(postconditions.entries)) {
-    errors.push(`${context}.postconditions sealed input must declare version 1 entries`);
+  if (!isCurrentPostconditionsShape(postconditions)) {
+    errors.push(
+      `${context}.postconditions sealed input must use the exact db-migration-postconditions shape`,
+    );
     return;
   }
   const entriesByFile = new Map();
@@ -1388,12 +1547,12 @@ function validateExecutionEnvelope({
     }
     validateExactKeys(
       event,
-      ["schema", "sequence", "at", "environment", "planSha256", "type", "data"],
+      ["kind", "sequence", "at", "environment", "planSha256", "type", "data"],
       eventContext,
       errors,
     );
-    if (event.schema !== maintenanceEventSchema) {
-      errors.push(`${eventContext}.schema must be ${maintenanceEventSchema}`);
+    if (event.kind !== maintenanceEventKind) {
+      errors.push(`${eventContext}.kind must be ${maintenanceEventKind}`);
     }
     if (event.sequence !== index + 1) {
       errors.push(`${eventContext}.sequence must be ${index + 1}`);
@@ -1457,17 +1616,13 @@ function validateExecutionEnvelope({
       validateMigrationFailedData(event.data, `${eventContext}.data`, errors);
     }
   }
-  const runtimeContractSchema = plan?.runtimeContract?.schema;
   if (
-    ["db-migration-runtime-contract/v1", "db-migration-runtime-contract/v2"].includes(
-      runtimeContractSchema,
-    ) &&
     events.some((event) => {
       const runtimeSet = eventRuntimeSet(event);
-      return runtimeSet !== null && !isRuntimeSet(runtimeSet, runtimeContractSchema);
+      return runtimeSet !== null && !isRuntimeSet(runtimeSet);
     })
   ) {
-    errors.push(`${context} runtime units must match the plan runtime contract generation`);
+    errors.push(`${context} runtime units must use the current runtime contract shape`);
   }
   if (
     events.some((event) => {
@@ -1752,7 +1907,7 @@ function validateMigrationEventHistory({ events, plan, context, errors }) {
       !isMigrationEventAdmissible(plan, accepted, event)
     ) {
       errors.push(
-        `${context} migration event ${event?.sequence ?? accepted.length + 1} is not admissible in v3 history`,
+        `${context} migration event ${event?.sequence ?? accepted.length + 1} is not admissible in current history`,
       );
     }
     accepted.push(event);
@@ -2132,7 +2287,7 @@ function validateMigrationOutcomeAdjudicatedData(value, context, errors) {
       (key) => Object.hasOwn(value, key) && !sha256Pattern.test(value[key] ?? ""),
     )
   ) {
-    errors.push(`${context} must use the closed v3 migration outcome adjudication shape`);
+    errors.push(`${context} must use the current migration outcome adjudication shape`);
   }
 }
 
@@ -2166,7 +2321,7 @@ function validateMigrationLedgerGapAdjudicatedData({ value, plan, context, error
     ) ||
     !declaredGap
   ) {
-    errors.push(`${context} must match one sealed plan ledger gap and its closed v3 evidence`);
+    errors.push(`${context} must match one sealed plan ledger gap and its current evidence`);
   }
 }
 
@@ -2257,7 +2412,7 @@ function validateFenceReverifiedData(value, context, errors) {
     !isRuntimeSet(value.runtimeSet) ||
     !sha256Pattern.test(value.schemaFingerprintSha256 ?? "")
   ) {
-    errors.push(`${context} must use the closed v3 FENCED re-verification shape`);
+    errors.push(`${context} must use the current FENCED re-verification shape`);
   }
 }
 
@@ -2322,7 +2477,7 @@ function validatePhaseRecoveringData(value, context, errors) {
     !Array.isArray(value.endWatermarks) ||
     !value.endWatermarks.every(isSurfaceWatermark)
   ) {
-    errors.push(`${context} must use the closed v3 RECOVERING shape`);
+    errors.push(`${context} must use the current RECOVERING shape`);
   }
 }
 
@@ -2340,7 +2495,7 @@ function validateRecoveryCompletedData(value, context, errors) {
     !isEvidenceResult(value.statePostcondition) ||
     !isEffectRecoveryEvidence(value.effectRecovery)
   ) {
-    errors.push(`${context} must use the closed v3 recovery completion shape`);
+    errors.push(`${context} must use the current recovery completion shape`);
   }
 }
 
@@ -2394,7 +2549,7 @@ function validateOptionalRuntimeEventHistory({ events, plan, context, errors }) 
       (event?.type !== "phase-fenced" && !fenced) ||
       (resumedCount > 0 && forbiddenAfterResume.has(event?.type))
     ) {
-      errors.push(`${context} runtime event ${event?.sequence ?? index + 1} is not admissible in v3 history`);
+      errors.push(`${context} runtime event ${event?.sequence ?? index + 1} is not admissible in current history`);
     }
 
     if (event?.type === "phase-fenced") {
@@ -2562,7 +2717,7 @@ function validateMigrationFailedData(value, context, errors) {
     ["ref", "recoveryFor", "phase", "errorSha256", "resolution"],
   ];
   if (!allowedKeys.some((keys) => hasExactKeys(value, keys))) {
-    errors.push(`${context} must use the v3 migration failure shape`);
+    errors.push(`${context} must use the current migration failure shape`);
   }
   if (!isMigrationRef(value.ref)) {
     errors.push(`${context}.ref must be a migration reference`);
@@ -2778,9 +2933,9 @@ function isWriterInventoryEntries(value) {
 }
 
 function runtimeUnitCompatibilitySha256(unit) {
-  return Object.hasOwn(unit, "compatibilityConfig")
-    ? sha256Hex(`${JSON.stringify(normalizeCompatibilityConfig(unit.compatibilityConfig), null, 2)}\n`)
-    : unit.compatibilityConfigSha256;
+  return sha256Hex(
+    `${JSON.stringify(normalizeCompatibilityConfig(unit.compatibilityConfig), null, 2)}\n`,
+  );
 }
 
 function writerInventoryMatchesRuntimeSet(writers, runtimeSet) {
@@ -2998,8 +3153,8 @@ function isCompatibilityConfigEntry(value, isValue) {
 function isCompatibilityConfig(value) {
   return (
     isPlainObject(value) &&
-    hasExactKeys(value, ["schema", "featureFlags", "serializerModes", "activeRoles"]) &&
-    value.schema === "db-migration-compatibility-config/v1" &&
+    hasExactKeys(value, ["kind", "featureFlags", "serializerModes", "activeRoles"]) &&
+    value.kind === "db-migration-compatibility-config" &&
     Array.isArray(value.featureFlags) &&
     value.featureFlags.every((entry) =>
       isCompatibilityConfigEntry(entry, (entryValue) => typeof entryValue === "boolean"),
@@ -3020,7 +3175,7 @@ function isCompatibilityConfig(value) {
 
 function normalizeCompatibilityConfig(value) {
   return {
-    schema: "db-migration-compatibility-config/v1",
+    kind: "db-migration-compatibility-config",
     featureFlags: value.featureFlags
       .map(({ name, value: entryValue }) => ({ name, value: entryValue }))
       .sort((left, right) =>
@@ -3173,14 +3328,14 @@ function isDeclaredRecoveryStrategy(value) {
 }
 
 function runtimeUnitRoles(unit) {
-  return Array.isArray(unit?.roles) ? unit.roles : unit?.compatibilityConfig?.activeRoles ?? [];
+  return unit?.compatibilityConfig?.activeRoles ?? [];
 }
 
-function isDeclaredRuntimeContract(value, expectedSchema) {
+function isDeclaredRuntimeContract(value) {
   if (
     !isPlainObject(value) ||
     !hasExactKeys(value, [
-      "schema",
+      "kind",
       "runtimeSets",
       "changedBoundaries",
       "mixtures",
@@ -3188,10 +3343,10 @@ function isDeclaredRuntimeContract(value, expectedSchema) {
       "fencedSmoke",
       "recoveryStrategies",
     ]) ||
-    value.schema !== expectedSchema ||
+    value.kind !== "db-migration-runtime-contract" ||
     !Array.isArray(value.runtimeSets) ||
     value.runtimeSets.length === 0 ||
-    !value.runtimeSets.every((runtimeSet) => isRuntimeSet(runtimeSet, expectedSchema)) ||
+    !value.runtimeSets.every(isRuntimeSet) ||
     !Array.isArray(value.changedBoundaries) ||
     value.changedBoundaries.length === 0 ||
     !value.changedBoundaries.every(isChangedBoundary) ||
@@ -3361,7 +3516,7 @@ function isDeclaredRuntimeContract(value, expectedSchema) {
   return true;
 }
 
-function isRuntimeSet(value, runtimeContractSchema = null) {
+function isRuntimeSet(value) {
   return (
     isPlainObject(value) &&
     hasExactKeys(value, ["id", "release", "units"]) &&
@@ -3369,11 +3524,11 @@ function isRuntimeSet(value, runtimeContractSchema = null) {
     ["previous", "next", "mixed"].includes(value.release) &&
     Array.isArray(value.units) &&
     value.units.length > 0 &&
-    value.units.every((unit) => isRuntimeUnitRef(unit, runtimeContractSchema))
+    value.units.every(isRuntimeUnitRef)
   );
 }
 
-function isRuntimeUnitRef(value, runtimeContractSchema = null) {
+function isRuntimeUnitRef(value) {
   if (
     !isPlainObject(value) ||
     !isClosedId(value.id) ||
@@ -3382,23 +3537,10 @@ function isRuntimeUnitRef(value, runtimeContractSchema = null) {
   ) {
     return false;
   }
-  const legacy =
-    hasExactKeys(value, ["id", "kind", "sourceRef", "compatibilityConfigSha256", "roles"]) &&
-    sha256Pattern.test(value.compatibilityConfigSha256 ?? "") &&
-    Array.isArray(value.roles) &&
-    value.roles.length > 0 &&
-    value.roles.every((role) =>
-      ["db-reader", "db-writer", "queue-consumer", "side-effect-producer"].includes(role),
-    ) &&
-    new Set(value.roles).size === value.roles.length;
-  const current =
+  return (
     hasExactKeys(value, ["id", "kind", "sourceRef", "compatibilityConfig"]) &&
     /^[0-9a-f]{40}$/u.test(value.sourceRef) &&
-    isCompatibilityConfig(value.compatibilityConfig);
-  return (
-    (runtimeContractSchema === "db-migration-runtime-contract/v1" && legacy) ||
-    (runtimeContractSchema === "db-migration-runtime-contract/v2" && current) ||
-    (runtimeContractSchema === null && (legacy || current))
+    isCompatibilityConfig(value.compatibilityConfig)
   );
 }
 
