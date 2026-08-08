@@ -231,6 +231,10 @@
 - 문서 표준 통합 검증(로컬): `yarn verify`
 - 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
 - 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`
+- DB migration provenance(CI): 보호된 base의 validator가 PR head를 실행하지 않고 데이터로 읽으며,
+  `COUPLER_CI_READ_TOKEN`으로 checkout한 `coupler-api`의 `main` 이력과 sealed input bytes를 대조한다. token은
+  `coupler-api` 단일 저장소의 `Contents: read` fine-grained PAT만 허용하고 GitHub App은 사용하지 않는다.
+  결과는 `DB Migration Provenance / exact-head` status로 검증한 PR head SHA에 직접 결속한다.
 - 문서 lint(CI): 로컬과 같은 `yarn lint:md`
 - 문서 build(CI): Python 의존성 설치 후 로컬과 같은 `yarn build:docs`
 
@@ -238,6 +242,11 @@
 
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
+- docs 레포: `DB Migration Provenance`는 `pull_request_target(main)`의 보호된 base 코드만 실행한다. PR head와
+  API checkout은 별도 경로에 두고 후보의 script·dependency·workflow는 실행하지 않으며, credential·ref·원본
+  조회가 없거나 실패하면 exact-head status를 실패시킨다. 최초 도입 PR은 DB evidence를 포함하지 않는 trusted
+  bootstrap으로 병합하고 canary 실행 뒤 위 status를 required check로 지정한다. 그 전에는 DB evidence PR을
+  병합하지 않는다.
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
   다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 current registry와
   retirement ledger의 현재 상태·전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle

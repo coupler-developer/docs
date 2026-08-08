@@ -1345,7 +1345,7 @@ describe("release metadata scope results", () => {
     assert.deepEqual(validate(metadata), []);
   });
 
-  it("accepts either the common or platform-specific submission marker name", () => {
+  it("requires the platform-specific marker for new submissions", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "mobile-store"],
       statuses: {
@@ -1354,7 +1354,13 @@ describe("release metadata scope results", () => {
       },
     });
     usePlatformStoreMapping(metadata);
-    assert.deepEqual(validate(metadata), []);
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.tag =
+      "submitted/mobile-9.9.0-900";
+    assert(
+      validate(metadata).some((error) =>
+        /must match its platform submission marker/.test(error),
+      ),
+    );
 
     metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.tag =
       "submitted/android-9.9.0-900";
@@ -1786,7 +1792,7 @@ function usePlatformStoreMapping(metadata) {
     metadata.scopeResults["mobile-store"].evidence.submittedMarkers = {
       android: {
         status: "verified",
-        tag: "submitted/mobile-9.9.0-900",
+        tag: "submitted/android-9.9.0-900",
         commit: mobileCommit,
         artifactSha256: "a".repeat(64),
         evidence: "Android submission marker and artifact digest migrated",

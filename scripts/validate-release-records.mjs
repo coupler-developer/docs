@@ -34,6 +34,11 @@ import {
 } from "./db-migration-maintenance-artifacts.mjs";
 
 const docsRoot = process.cwd();
+const requireTrustedApiSource = process.env.DB_MIGRATION_REQUIRE_API_PROVENANCE === "1";
+const trustedApiRoot = process.env.DB_MIGRATION_API_ROOT ?? null;
+const readApiArtifact = requireTrustedApiSource || trustedApiRoot
+  ? readTrustedApiArtifact
+  : undefined;
 const releasesRoot = path.join(docsRoot, "content", "releases");
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
 const dbMigrationEvidencePattern =
@@ -157,6 +162,8 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
   if (metadata) {
     validateReleaseMetadata(metadata, relativePath, tag, errors, {
       readArtifact: readWorkingTreeReleaseArtifact,
+      readApiArtifact,
+      requireTrustedApiSource,
       listArtifacts: listWorkingTreeReleaseArtifacts,
       requireCurrentSchema: Boolean(baseRef),
     });
@@ -247,10 +254,38 @@ function validateChangedDbMigrationEvidenceOwnership(
         apiSourceRef: null,
         scopeStatus: "pending",
         readArtifact: readWorkingTreeReleaseArtifact,
+        readApiArtifact,
+        requireTrustedApiSource,
         listArtifacts: listWorkingTreeReleaseArtifacts,
         context,
       }),
     );
+  }
+}
+
+function readTrustedApiArtifact(sourceRef, relativePath) {
+  if (
+    !trustedApiRoot ||
+    !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
+    !relativePath ||
+    path.posix.isAbsolute(relativePath) ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    relativePath.split("/").includes("..")
+  ) {
+    return null;
+  }
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", sourceRef, "origin/main"], {
+      cwd: trustedApiRoot,
+      stdio: "ignore",
+    });
+    return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
+      cwd: trustedApiRoot,
+      encoding: null,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
   }
 }
 

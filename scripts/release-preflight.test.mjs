@@ -7,6 +7,13 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  completedMaintenanceExecution as maintenanceExecutionFor,
+  maintenanceInputSources,
+  maintenancePlanFor,
+  runtimeContractFor,
+} from "./db-migration-maintenance-test-fixtures.mjs";
+
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const preflightScript = path.join(scriptsRoot, "release-preflight.mjs");
 let tempRoot;
@@ -177,6 +184,31 @@ describe("release preflight for unpublished PR records", () => {
       result.stdout,
       /DB migration operational preflight requires an in_progress canonical prod plan root with null execution/,
     );
+  });
+
+  it("rejects a sealed catalog that does not exist at the plan API commit", () => {
+    const workspace = createWorkspace();
+    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    git(workspace.docsRoot, ["checkout", "-b", "docs/forged-db-catalog"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef,
+      forgeDbCatalog: true,
+    });
+    const pendingRef = commit(workspace.docsRoot, "forge DB catalog");
+    git(workspace.docsRoot, ["push", "-u", "origin", "docs/forged-db-catalog"]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /sealed input must match the trusted API source bytes/);
   });
 
   it("revalidates an in-progress DB release after recording dev execution and the prod plan", () => {
@@ -657,6 +689,13 @@ function createRepository(name) {
   git(repositoryRoot, ["config", "user.name", "Release Preflight Test"]);
   git(repositoryRoot, ["remote", "add", "origin", remoteRoot]);
   fs.writeFileSync(path.join(repositoryRoot, "README.md"), "# Test\n");
+  if (name === "coupler-api") {
+    for (const [relativePath, source] of Object.entries(maintenanceInputSources)) {
+      const absolutePath = path.join(repositoryRoot, relativePath);
+      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+      fs.writeFileSync(absolutePath, source);
+    }
+  }
   commitAndPush(repositoryRoot, "initial main");
   return repositoryRoot;
 }
@@ -698,6 +737,7 @@ function writePendingRelease(
     dbMigrationStatus = status,
     dbMigrationStage = "dev-planned",
     devPlanCreatedAt = "2026-08-04T00:00:00.000Z",
+    forgeDbCatalog = false,
     mobileStoreMapping = null,
     version = "v9.9.0",
   } = {},
@@ -723,53 +763,67 @@ function writePendingRelease(
       "db-migrations",
       version,
     );
-    const planFor = (environment, devPlan = null, devExecution = null) => ({
-      schema: "db-migration-maintenance-plan/v3",
-      environment,
-      createdAt:
-        environment === "dev" ? devPlanCreatedAt : "2026-08-04T00:00:00.000Z",
-      apiSourceRef: apiRef,
-      databaseIdentitySha256: "b".repeat(64),
-      catalog: { path: "db/schema/schema-contract.json", sha256: "c".repeat(64) },
-      ledgerCompatibility: {
-        path: "db/schema/ledger-compatibility.json",
-        sha256: "d".repeat(64),
-      },
-      appliedRefs: [],
-      recoveredRefs: [],
-      baselineRefs: [],
-      supersededRefs: [],
-      adjudicableLedgerGapRefs: [],
-      pendingRefs: [],
-      devPlan,
-      devExecution,
-      failedPlan: null,
-      failedExecution: null,
-      runtimeContract: {},
-    });
-    const devPlan = Buffer.from(`${JSON.stringify(planFor("dev"), null, 2)}\n`);
+    const evidenceInputSources = {
+      ...maintenanceInputSources,
+      ...(forgeDbCatalog
+        ? {
+            "db/schema/schema-contract.json":
+              `${JSON.stringify({ version: 1, migrations: [], forged: true }, null, 2)}\n`,
+          }
+        : {}),
+    };
+    const devRuntimeContract = runtimeContractFor("dev", apiRef);
+    const devPlanValue = maintenancePlanFor("dev", {
+        apiSourceRef: apiRef,
+        createdAt: devPlanCreatedAt,
+        runtimeContract: devRuntimeContract,
+      });
+    devPlanValue.catalog.sha256 = sha256Hex(
+      evidenceInputSources["db/schema/schema-contract.json"],
+    );
+    const devPlan = Buffer.from(`${JSON.stringify(devPlanValue, null, 2)}\n`);
     const devPlanSha256 = sha256Hex(devPlan);
-    const devExecution = maintenanceExecutionFor("dev", devPlanSha256, apiRef);
+    const devExecution = maintenanceExecutionFor(
+      "dev",
+      devPlanSha256,
+      devRuntimeContract,
+    );
     const devExecutionSha256 = sha256Hex(devExecution);
-    const prodPlan = Buffer.from(
-      `${JSON.stringify(
-        planFor(
-          "prod",
-          { path: `.runtime/db-migrations/${version}/dev/plan.json`, sha256: devPlanSha256 },
-          {
+    const prodPlanValue = maintenancePlanFor("prod", {
+          apiSourceRef: apiRef,
+          devPlan: {
+            path: `.runtime/db-migrations/${version}/dev/plan.json`,
+            sha256: devPlanSha256,
+          },
+          devExecution: {
             path: `.runtime/db-migrations/${version}/dev/execution.jsonl`,
             sha256: devExecutionSha256,
           },
-        ),
-        null,
-        2,
-      )}\n`,
+          runtimeContract: devRuntimeContract,
+        });
+    prodPlanValue.catalog.sha256 = sha256Hex(
+      evidenceInputSources["db/schema/schema-contract.json"],
     );
+    const prodPlan = Buffer.from(`${JSON.stringify(prodPlanValue, null, 2)}\n`);
     const prodPlanSha256 = sha256Hex(prodPlan);
-    const prodExecution = maintenanceExecutionFor("prod", prodPlanSha256, apiRef);
+    const prodExecution = maintenanceExecutionFor(
+      "prod",
+      prodPlanSha256,
+      devRuntimeContract,
+    );
     const prodExecutionSha256 = sha256Hex(prodExecution);
     fs.mkdirSync(path.join(artifactRoot, "dev"), { recursive: true });
     fs.mkdirSync(path.join(artifactRoot, "prod"), { recursive: true });
+    for (const [relativePath, source] of Object.entries(evidenceInputSources)) {
+      const inputPath = path.join(
+        artifactRoot,
+        "inputs",
+        sha256Hex(source),
+        path.basename(relativePath),
+      );
+      fs.mkdirSync(path.dirname(inputPath), { recursive: true });
+      fs.writeFileSync(inputPath, source);
+    }
     fs.writeFileSync(path.join(artifactRoot, "dev", "plan.json"), devPlan);
     if (dbMigrationStage !== "dev-planned") {
       fs.writeFileSync(
@@ -928,134 +982,6 @@ function writePendingRelease(
 
 function sha256Hex(source) {
   return createHash("sha256").update(source).digest("hex");
-}
-
-function closedWriterInventory(runtimeSet) {
-  const [unit] = runtimeSet.units;
-  return [
-    {
-      state: "present",
-      id: `${unit.id}-writer`,
-      kind: unit.kind,
-      runtimeUnitId: unit.id,
-      sourceRef: unit.sourceRef,
-      compatibilityConfigSha256: unit.compatibilityConfigSha256,
-      owner: "API owner",
-      stopEvidence: "writer stopped",
-      verificationEvidence: "writer stop verified",
-      sideEffectStopEvidence: "side effects stopped",
-    },
-    ...["admin", "websocket", "cron", "worker", "direct-sql"].map((kind) => ({
-      state: "absent",
-      kind,
-      owner: `${kind} owner`,
-      reason: `${kind} is not deployed`,
-      verificationEvidence: `${kind} absence verified`,
-    })),
-  ];
-}
-
-function evidenceResult(name) {
-  return { procedureRef: `procedure/${name}`, resultRef: `result/${name}` };
-}
-
-function maintenanceExecutionFor(environment, planSha256, apiRef) {
-  const runtimeSet = {
-    id: `${environment}-next`,
-    release: "next",
-    units: [
-      {
-        id: `${environment}-next-api`,
-        kind: "api",
-        sourceRef: apiRef,
-        compatibilityConfigSha256: "6".repeat(64),
-        roles: ["db-reader", "db-writer"],
-      },
-    ],
-  };
-  const startMixture = {
-    mixtureId: `${environment}-start`,
-    runtimeSet,
-    schemaState: "plan-start",
-    schemaFingerprintSha256: "4".repeat(64),
-  };
-  const finalMixture = {
-    mixtureId: `${environment}-next-final`,
-    runtimeSet,
-    schemaState: "plan-final",
-    schemaFingerprintSha256: "5".repeat(64),
-  };
-  const eventData = [
-    {
-      type: "phase-fenced",
-      data: {
-        tlsCipher: "TLS_AES_256_GCM_SHA384",
-        writerInventorySha256: "9".repeat(64),
-        writers: closedWriterInventory(runtimeSet),
-        backup: { ref: "backup/dev/example", sha256: "a".repeat(64) },
-        sessions: 0,
-        transactions: 0,
-        mixture: startMixture,
-      },
-    },
-    {
-      type: "database-completed",
-      data: { catalogSha256: "c".repeat(64), ledgerCount: 1 },
-    },
-    { type: "lock-released", data: {} },
-    {
-      type: "fenced-smoke-completed",
-      data: {
-        mixture: finalMixture,
-        mode: "read-only",
-        modeEvidence: {
-          mode: "read-only",
-          readOnlyAccessEvidence: "read-only access verified",
-        },
-        smokeResult: evidenceResult("fenced-smoke"),
-        surfaceResiduals: [],
-      },
-    },
-    { type: "lock-released", data: {} },
-    {
-      type: "phase-resumed",
-      data: {
-        mixture: finalMixture,
-        resumeEvidence: "writers resumed",
-        startWatermarks: [],
-      },
-    },
-    { type: "lock-released", data: {} },
-    {
-      type: "service-completed",
-      data: {
-        activeMixture: finalMixture,
-        restartEvidence: "runtime restarted",
-        smokeEvidence: "smoke passed",
-        recoveryReadinessEvidence: "recovery readiness verified",
-        runningRuntimeSha256: "7".repeat(64),
-        runningUnits: [
-          {
-            runtimeUnitId: `${environment}-next-api`,
-            kind: "api",
-            sourceRef: apiRef,
-            compatibilityConfigSha256: "6".repeat(64),
-            observationEvidence: "runtime source and config observed",
-          },
-        ],
-        runtimeContractSha256: sha256Hex(`${JSON.stringify({}, null, 2)}\n`),
-      },
-    },
-  ];
-  const events = eventData.map((event, index) => ({
-    schema: "db-migration-maintenance-event/v3",
-    sequence: index + 1,
-    at: new Date(Date.UTC(2026, 7, 4, 0, 0, index)).toISOString(),
-    environment,
-    planSha256,
-    ...event,
-  }));
-  return Buffer.from(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
 }
 
 function runPreflight(args, docsRoot) {

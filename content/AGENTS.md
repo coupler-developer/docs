@@ -184,7 +184,7 @@
 - [API 계약 변경 모바일 릴리스 플로우](flows/cross-project/api-contract-mobile-release-flow.md) - 소비자 inventory, `API cutover`, DB runtime/schema 조합에 따른 Mobile 릴리스 절차
 - [릴리스 게이트 플로우](flows/cross-project/release-automation-pipeline.md) - 릴리스 gate 순서와 read-only preflight 자동화 기준
 - [운영 릴리스 실행 런북](flows/cross-project/production-deploy-command-runbook.md) - scope별 실행 라우팅, 공통 preflight, 서비스/docs 태그
-- [DB Migration 실행 런북](flows/cross-project/db-migration-operation-flow.md) - canonical 개발계 검증·운영계 실행 명령
+- [DB Migration 실행 런북](flows/cross-project/db-migration-operation-flow.md) - source 작성부터 개발계·운영계 증빙 완료까지의 사람 실행 경로
 - [API 운영 배포 런북](flows/cross-project/api-production-deploy-flow.md) - `coupler-api` 운영 PM2 배포·rollback 절차
 - [Admin 운영 배포 런북](flows/cross-project/admin-web-production-deploy-flow.md) - `coupler-admin-web` 운영 정적 배포 절차
 - [Mobile 운영 릴리스 런북](flows/cross-project/mobile-production-release-flow.md) - Store 제출 증빙·NextPush 배포·rollback 절차

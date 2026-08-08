@@ -1,0 +1,80 @@
+name: DB Migration Provenance
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: db-migration-provenance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  db-migration-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted validator
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout candidate as data
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout API source read-only
+        uses: actions/checkout@v6
+        with:
+          repository: coupler-developer/coupler-api
+          ref: main
+          token: ${{ secrets.COUPLER_CI_READ_TOKEN }}
+          path: coupler-api
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate candidate DB migration provenance
+        id: provenance
+        continue-on-error: true
+        working-directory: candidate
+        env:
+          DOCUMENT_LIFECYCLE_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          DB_MIGRATION_REQUIRE_API_PROVENANCE: "1"
+          DB_MIGRATION_API_ROOT: ${{ github.workspace }}/coupler-api
+        run: >-
+          node ../trusted/scripts/validate-release-records.mjs
+          --base-ref "${{ github.event.pull_request.base.sha }}"
+
+      - name: Publish exact-head provenance status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VALIDATION_OUTCOME: ${{ steps.provenance.outcome }}
+        run: |
+          if [[ "$VALIDATION_OUTCOME" == "success" ]]; then
+            STATE=success
+            DESCRIPTION="trusted API provenance verified"
+          else
+            STATE=failure
+            DESCRIPTION="trusted API provenance failed"
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$STATE" \
+            -f context="DB Migration Provenance / exact-head" \
+            -f description="$DESCRIPTION"
+
+      - name: Enforce provenance result
+        if: always() && steps.provenance.outcome != 'success'
+        run: exit 1

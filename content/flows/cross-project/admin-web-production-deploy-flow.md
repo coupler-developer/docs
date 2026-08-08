@@ -62,14 +62,17 @@ grep -R --include='*.js' -F "${EXPECTED_API_ORIGIN}" build/static/js >/dev/null
 
 ARTIFACT_PATH="${TMPDIR:-/tmp}/coupler-admin-web-${ADMIN_COMMIT}.tar.gz"
 ARTIFACT_NAME="$(basename "${ARTIFACT_PATH}")"
+INDEX_SHA256="$(shasum -a 256 build/index.html | awk '{print $1}')"
 tar -C build -czf "${ARTIFACT_PATH}" .
 ARTIFACT_SHA256="$(shasum -a 256 "${ARTIFACT_PATH}" | awk '{print $1}')"
+[[ "${INDEX_SHA256}" =~ ^[0-9a-f]{64}$ ]]
 [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
-printf 'ARTIFACT_PATH=%s\nARTIFACT_NAME=%s\nARTIFACT_SHA256=%s\n' \
-  "${ARTIFACT_PATH}" "${ARTIFACT_NAME}" "${ARTIFACT_SHA256}"
+printf 'ARTIFACT_PATH=%s\nARTIFACT_NAME=%s\nARTIFACT_SHA256=%s\nINDEX_SHA256=%s\n' \
+  "${ARTIFACT_PATH}" "${ARTIFACT_NAME}" "${ARTIFACT_SHA256}" "${INDEX_SHA256}"
 ```
 
-출력한 artifact name, SHA-256과 `ADMIN_COMMIT`을 릴리스 기록에 고정한다. 임시 local path는 기록하지 않는다.
+출력한 artifact name, artifact/index SHA-256과 `ADMIN_COMMIT`을 릴리스 기록에 고정한다. 임시 local path는
+기록하지 않는다.
 
 ## 2) Artifact 업로드
 
@@ -91,20 +94,29 @@ scp "${ARTIFACT_PATH}" "${DEPLOY_USER}@${ADMIN_SERVER}:${UPLOAD_PATH}"
 
 ## 3) 운영 반영·postcheck
 
-운영 EC2의 새 shell에서 실행한다. live root에는 새 hashed asset을 먼저 추가하고, 같은 파일시스템의 임시
-`index.html`을 마지막에 rename한다. 이전 hashed asset은 rollback을 위해 삭제하지 않는다.
+운영 EC2의 새 shell에서 실행한다. `PREVIOUS_ADMIN_COMMIT`과 `PREVIOUS_INDEX_SHA256`은 현재 live 정상본의
+기존 릴리스 기록에서 가져오며 이 shell에서 새로 계산해 승인값으로 만들지 않는다. live root에는 새 hashed
+asset을 먼저 추가하고, 같은 파일시스템의 임시 `index.html`을 마지막에 rename한다. 이전 hashed asset은
+rollback을 위해 삭제하지 않는다.
 
 ```bash
 set -euo pipefail
 : "${ADMIN_COMMIT:?set ADMIN_COMMIT}"
 : "${ARTIFACT_SHA256:?set ARTIFACT_SHA256}"
+: "${INDEX_SHA256:?set INDEX_SHA256}"
+: "${PREVIOUS_ADMIN_COMMIT:?set PREVIOUS_ADMIN_COMMIT}"
+: "${PREVIOUS_INDEX_SHA256:?set PREVIOUS_INDEX_SHA256}"
 [[ "${ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 [[ "${ARTIFACT_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
+[[ "${INDEX_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
+[[ "${PREVIOUS_ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+[[ "${PREVIOUS_INDEX_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
 
 LIVE_ROOT=/var/www/coupler-admin-web
 UPLOAD_PATH="/var/tmp/coupler-admin-web-${ADMIN_COMMIT}.tar.gz"
 NEXT_INDEX="${LIVE_ROOT}/.index.html.${ADMIN_COMMIT}"
 BACKUP_DIR="/var/www/coupler-admin-web-backup-$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP_METADATA="${BACKUP_DIR}/.coupler-admin-backup"
 
 test -d "${LIVE_ROOT}"
 test -f "${UPLOAD_PATH}"
@@ -115,12 +127,20 @@ sudo test ! -e "${BACKUP_DIR}"
 ACTUAL_SHA256="$(sha256sum "${UPLOAD_PATH}" | awk '{print $1}')"
 test "$(printf '%s' "${ACTUAL_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
   "$(printf '%s' "${ARTIFACT_SHA256}" | tr '[:upper:]' '[:lower:]')"
-tar -xOf "${UPLOAD_PATH}" ./index.html >/dev/null
+ARCHIVE_INDEX_SHA256="$(tar -xOf "${UPLOAD_PATH}" ./index.html | sha256sum | awk '{print $1}')"
+test "$(printf '%s' "${ARCHIVE_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
+  "$(printf '%s' "${INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
+LIVE_INDEX_SHA256="$(sudo sha256sum "${LIVE_ROOT}/index.html" | awk '{print $1}')"
+test "$(printf '%s' "${LIVE_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
+  "$(printf '%s' "${PREVIOUS_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
 sudo nginx -t
 sudo nginx -T 2>&1 | grep -F 'root /var/www/coupler-admin-web;' >/dev/null
 sudo mkdir "${BACKUP_DIR}"
 sudo rsync -a "${LIVE_ROOT}/" "${BACKUP_DIR}/"
 sudo test -f "${BACKUP_DIR}/index.html"
+printf 'commit=%s\nindex_sha256=%s\n' \
+  "${PREVIOUS_ADMIN_COMMIT}" "${PREVIOUS_INDEX_SHA256}" | sudo tee "${BACKUP_METADATA}" >/dev/null
+sudo chmod 0444 "${BACKUP_METADATA}"
 
 sudo tar --no-same-owner --exclude='./index.html' -xzf "${UPLOAD_PATH}" -C "${LIVE_ROOT}"
 tar -xOf "${UPLOAD_PATH}" ./index.html | sudo tee "${NEXT_INDEX}" >/dev/null
@@ -130,8 +150,8 @@ tar -xOf "${UPLOAD_PATH}" ./index.html | sudo cmp -s - "${LIVE_ROOT}/index.html"
 
 curl --fail-with-body --show-error -I http://127.0.0.1:8000/
 curl --fail-with-body --show-error -I https://cms.ritzy.fourhundred.co.kr/
-printf 'ACTIVE_ADMIN_COMMIT=%s\nARTIFACT_SHA256=%s\nBACKUP_DIR=%s\n' \
-  "${ADMIN_COMMIT}" "${ARTIFACT_SHA256}" "${BACKUP_DIR}"
+printf 'ACTIVE_ADMIN_COMMIT=%s\nARTIFACT_SHA256=%s\nINDEX_SHA256=%s\nBACKUP_DIR=%s\n' \
+  "${ADMIN_COMMIT}" "${ARTIFACT_SHA256}" "${INDEX_SHA256}" "${BACKUP_DIR}"
 ```
 
 브라우저에서 Admin 로그인과 릴리스 기록의 핵심 화면을 확인한다. 콘솔에 CRA 개발 서버 WebSocket 재연결 오류가
@@ -146,32 +166,45 @@ printf 'ACTIVE_ADMIN_COMMIT=%s\nARTIFACT_SHA256=%s\nBACKUP_DIR=%s\n' \
 
 ## 롤백 흐름
 
-배포 단계가 출력해 릴리스 기록에 고정한 이전 정상본의 `BACKUP_DIR`만 사용한다. 운영 EC2의 새 shell에서 실행한다.
+배포 단계가 출력해 릴리스 기록에 고정한 이전 정상본의 `BACKUP_DIR`만 사용한다. rollback commit은 별도
+입력받지 않고 backup 생성 때 live `index.html` SHA와 함께 봉인한 metadata에서 읽는다. 운영 EC2의 새
+shell에서 실행한다.
 
 ```bash
 set -euo pipefail
-: "${ROLLBACK_COMMIT:?set ROLLBACK_COMMIT}"
 : "${BACKUP_DIR:?set BACKUP_DIR}"
-[[ "${ROLLBACK_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 [[ "${BACKUP_DIR}" =~ ^/var/www/coupler-admin-web-backup-[0-9]{8}T[0-9]{6}Z$ ]]
 
 LIVE_ROOT=/var/www/coupler-admin-web
+BACKUP_METADATA="${BACKUP_DIR}/.coupler-admin-backup"
+sudo test -f "${BACKUP_METADATA}"
+test "$(sudo grep -c '^commit=' "${BACKUP_METADATA}")" = 1
+test "$(sudo grep -c '^index_sha256=' "${BACKUP_METADATA}")" = 1
+ROLLBACK_COMMIT="$(sudo awk -F= '$1 == "commit" {print $2}' "${BACKUP_METADATA}")"
+ROLLBACK_INDEX_SHA256="$(sudo awk -F= '$1 == "index_sha256" {print $2}' "${BACKUP_METADATA}")"
+[[ "${ROLLBACK_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+[[ "${ROLLBACK_INDEX_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
 ROLLBACK_INDEX="${LIVE_ROOT}/.index.html.${ROLLBACK_COMMIT}"
 
 sudo test -d "${LIVE_ROOT}"
 sudo test -d "${BACKUP_DIR}"
 sudo test -f "${BACKUP_DIR}/index.html"
 sudo test ! -e "${ROLLBACK_INDEX}"
+BACKUP_INDEX_SHA256="$(sudo sha256sum "${BACKUP_DIR}/index.html" | awk '{print $1}')"
+test "$(printf '%s' "${BACKUP_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
+  "$(printf '%s' "${ROLLBACK_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
 sudo nginx -t
 
-sudo rsync -a --exclude='index.html' "${BACKUP_DIR}/" "${LIVE_ROOT}/"
+sudo rsync -a --exclude='index.html' --exclude='.coupler-admin-backup' \
+  "${BACKUP_DIR}/" "${LIVE_ROOT}/"
 sudo install -m 0644 "${BACKUP_DIR}/index.html" "${ROLLBACK_INDEX}"
 sudo mv -f "${ROLLBACK_INDEX}" "${LIVE_ROOT}/index.html"
 sudo cmp -s "${BACKUP_DIR}/index.html" "${LIVE_ROOT}/index.html"
 
 curl --fail-with-body --show-error -I http://127.0.0.1:8000/
 curl --fail-with-body --show-error -I https://cms.ritzy.fourhundred.co.kr/
-printf 'ACTIVE_ADMIN_COMMIT=%s\n' "${ROLLBACK_COMMIT}"
+printf 'ACTIVE_ADMIN_COMMIT=%s\nINDEX_SHA256=%s\n' \
+  "${ROLLBACK_COMMIT}" "${ROLLBACK_INDEX_SHA256}"
 ```
 
 rollback 뒤 브라우저 smoke와 원인·시각·이전/대상 commit을 릴리스 기록에 남긴다.
