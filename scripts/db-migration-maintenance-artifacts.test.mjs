@@ -22,7 +22,7 @@ function artifactRef(artifactPath, source) {
   const sha256 = sha256Hex(source);
   try {
     const value = JSON.parse(source);
-    if (String(value?.schema).startsWith("db-migration-maintenance-plan/")) {
+    if (value?.kind === "db-migration-maintenance-plan") {
       plansBySha256.set(sha256, value);
     }
   } catch {
@@ -33,31 +33,21 @@ function artifactRef(artifactPath, source) {
 
 function runtimeContractFor(
   environment,
-  schema = "db-migration-runtime-contract/v1",
   sourceRef = apiSourceRef,
 ) {
-  const runtimeUnit = (release) =>
-    schema === "db-migration-runtime-contract/v2"
-      ? {
-          id: `${environment}-${release}-api`,
-          kind: "api",
-          sourceRef,
-          compatibilityConfig: {
-            schema: "db-migration-compatibility-config/v1",
-            featureFlags: [],
-            serializerModes: [],
-            activeRoles: ["db-reader", "db-writer"],
-          },
-        }
-      : {
-          id: `${environment}-${release}-api`,
-          kind: "api",
-          sourceRef,
-          compatibilityConfigSha256: "6".repeat(64),
-          roles: ["db-reader", "db-writer"],
-        };
+  const runtimeUnit = (release) => ({
+    id: `${environment}-${release}-api`,
+    kind: "api",
+    sourceRef,
+    compatibilityConfig: {
+      kind: "db-migration-compatibility-config",
+      featureFlags: [],
+      serializerModes: [],
+      activeRoles: ["db-reader", "db-writer"],
+    },
+  });
   return {
-    schema,
+    kind: "db-migration-runtime-contract",
     runtimeSets: [
       { id: `${environment}-previous`, release: "previous", units: [runtimeUnit("previous")] },
       { id: `${environment}-next`, release: "next", units: [runtimeUnit("next")] },
@@ -130,6 +120,24 @@ function runtimeContractFor(
   };
 }
 
+function legacyVersionedRuntimeContractFor(environment, schema) {
+  const contract = runtimeContractFor(environment);
+  delete contract.kind;
+  contract.schema = schema;
+  if (schema === "db-migration-runtime-contract/v1") {
+    contract.runtimeSets.forEach((runtimeSet) => {
+      runtimeSet.units = runtimeSet.units.map((unit) => ({
+        id: unit.id,
+        kind: unit.kind,
+        sourceRef: unit.sourceRef,
+        compatibilityConfigSha256: "6".repeat(64),
+        roles: ["db-reader", "db-writer"],
+      }));
+    });
+  }
+  return contract;
+}
+
 function planFor(
   environment,
   {
@@ -149,7 +157,7 @@ function planFor(
   } = {},
 ) {
   const plan = {
-    schema: "db-migration-maintenance-plan/v4",
+    kind: "db-migration-maintenance-plan",
     environment,
     createdAt,
     apiSourceRef: planApiSourceRef,
@@ -174,12 +182,7 @@ function planFor(
     failedPlan,
     failedExecution,
     runtimeContract:
-      runtimeContract ??
-      runtimeContractFor(
-        environment,
-        "db-migration-runtime-contract/v2",
-        planApiSourceRef,
-      ),
+      runtimeContract ?? runtimeContractFor(environment, planApiSourceRef),
   };
   plan.catalog.sha256 = sha256Hex(catalogFixtureSource(plan));
   plan.ledgerCompatibility.sha256 = sha256Hex(compatibilityFixtureSource(plan));
@@ -190,7 +193,7 @@ function planFor(
 function postconditionsFixtureSource(plan) {
   return `${JSON.stringify(
     {
-      version: 1,
+      kind: "db-migration-postconditions",
       entries: primaryPlanRefs(plan).map((ref) => ({
         migrationFile: ref.file,
         setup: null,
@@ -235,7 +238,16 @@ function catalogFixtureSource(plan) {
   const pendingRecoveryTarget = plan.pendingRefs.find((ref) => ref.kind !== "recovery")?.file;
   return `${JSON.stringify(
     {
-      version: 1,
+      kind: "db-schema-contract",
+      baseline: {
+        sqlFile: "db/schema/baseline.sql",
+        lockFile: "db/schema/baseline.lock.json",
+        capturedAt: "2026-08-04T00:00:00.000Z",
+        sourceEnvironment: "production schema + migration ledger read",
+        sourceMainCommit: apiSourceRef,
+      },
+      currentLockFile: "db/schema/schema.lock.json",
+      replayFixture: null,
       migrations: primaryPlanRefs(plan).map((ref) => ({
         ...ref,
         schemaEffect: ref.kind === "schema",
@@ -254,7 +266,15 @@ function catalogFixtureSource(plan) {
 function compatibilityFixtureSource(plan) {
   return `${JSON.stringify(
     {
-      schema: "db-migration-ledger-compatibility/v1",
+      kind: "db-migration-ledger-compatibility",
+      catalogStartOrdinal: Math.min(
+        ...primaryPlanRefs(plan).map((ref) => Number.parseInt(ref.file.match(/\/(\d+)/u)?.[1] ?? "0", 10)),
+      ),
+      historicalPrefixes: [
+        { environment: "dev", rowCount: 0, sha256: "6".repeat(64) },
+        { environment: "prod", rowCount: 0, sha256: "7".repeat(64) },
+      ],
+      aliases: [],
       supersededMigrations: plan.supersededRefs.map((entry) => ({
         environment: plan.environment,
         migrationFile: entry.ref.file,
@@ -290,9 +310,7 @@ function synchronizePlanInputArtifacts(files) {
     const inputs = [
       [plan.catalog, catalogFixtureSource(plan)],
       [plan.ledgerCompatibility, compatibilityFixtureSource(plan)],
-      ...(plan.schema === "db-migration-maintenance-plan/v4"
-        ? [[plan.postconditions, postconditionsFixtureSource(plan)]]
-        : []),
+      [plan.postconditions, postconditionsFixtureSource(plan)],
     ];
     for (const [reference, inputSource] of inputs) {
       if (reference?.sha256 && reference?.path) {
@@ -306,18 +324,6 @@ function synchronizePlanInputArtifacts(files) {
   }
 }
 
-function v4Plan(plan) {
-  return {
-    ...plan,
-    schema: "db-migration-maintenance-plan/v4",
-    postconditions: {
-      path: "db/schema/migration-postconditions.json",
-      sha256: sha256Hex(postconditionsFixtureSource(plan)),
-    },
-    runtimeContract: runtimeContractFor(plan.environment, "db-migration-runtime-contract/v2"),
-  };
-}
-
 function executionFor(
   environment,
   planSha256,
@@ -329,7 +335,7 @@ function executionFor(
     ledgerOnlyFailure = false,
     adjudicatedFailure = false,
     migrationEventData = [],
-    runtimeContract = runtimeContractFor(environment, "db-migration-runtime-contract/v2"),
+    runtimeContract = runtimeContractFor(environment),
   } = {},
 ) {
   const catalogSha256 = plansBySha256.get(planSha256)?.catalog?.sha256 ?? "c".repeat(64);
@@ -481,7 +487,7 @@ function executionFor(
     ? completedEventData
     : [...failedEventData, ...(terminalizedFailure ? completedEventData : [])];
   const events = eventData.map((event, index) => ({
-    schema: "db-migration-maintenance-event/v3",
+    kind: "db-migration-maintenance-event",
     sequence: index + 1,
     at: new Date(Date.UTC(2026, 7, 4, 0, 0, index)).toISOString(),
     environment,
@@ -523,7 +529,7 @@ function runtimeUnitCompatibilitySha256(unit) {
   }
   const config = unit.compatibilityConfig;
   const normalized = {
-    schema: "db-migration-compatibility-config/v1",
+    kind: "db-migration-compatibility-config",
     featureFlags: config.featureFlags
       .map(({ name, value }) => ({ name, value }))
       .sort((left, right) =>
@@ -877,12 +883,12 @@ describe("maintenance DB migration root evidence", () => {
     );
   });
 
-  it("accepts v4 plans only when the postcondition source is bound", () => {
+  it("accepts current plans only when the postcondition source is bound", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     archive.files.delete(`${artifactRoot}/dev/execution.jsonl`);
     archive.files.delete(`${artifactRoot}/prod/plan.json`);
     const planPath = `${artifactRoot}/dev/plan.json`;
-    const plan = v4Plan(JSON.parse(archive.files.get(planPath)));
+    const plan = JSON.parse(archive.files.get(planPath));
     const source = `${JSON.stringify(plan, null, 2)}\n`;
     const planRef = artifactRef(planPath, source);
     archive.files.set(planPath, source);
@@ -963,8 +969,8 @@ describe("maintenance DB migration root evidence", () => {
     assert.ok(numericIdErrors.some((error) => error.includes("complete db-migration")));
 
     const mixedPlan = structuredClone(plan);
+    delete mixedPlan.kind;
     mixedPlan.schema = "db-migration-maintenance-plan/v3";
-    delete mixedPlan.postconditions;
     const mixedSource = `${JSON.stringify(mixedPlan, null, 2)}\n`;
     archive.files.set(planPath, mixedSource);
     const mixedErrors = validateMaintenanceDbMigrationEvidence({
@@ -978,7 +984,7 @@ describe("maintenance DB migration root evidence", () => {
     });
     assert.ok(
       mixedErrors.some((error) =>
-        error.includes("schema must be db-migration-maintenance-plan/v4"),
+        error.includes("kind must be db-migration-maintenance-plan"),
       ),
     );
 
@@ -1129,7 +1135,11 @@ describe("maintenance DB migration root evidence", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     archive.files.delete(`${artifactRoot}/dev/execution.jsonl`);
     archive.files.delete(`${artifactRoot}/prod/plan.json`);
-    const emptyManifest = `${JSON.stringify({ version: 1, entries: [] }, null, 2)}\n`;
+    const emptyManifest = `${JSON.stringify(
+      { kind: "db-migration-postconditions", entries: [] },
+      null,
+      2,
+    )}\n`;
     const plan = planFor("dev", { pendingRefs: [pendingRef] });
     plan.postconditions.sha256 = sha256Hex(emptyManifest);
     const planPath = `${artifactRoot}/dev/plan.json`;
@@ -1153,6 +1163,69 @@ describe("maintenance DB migration root evidence", () => {
       context: "db migration evidence",
     });
     assert(errors.some((error) => error.includes("requires a sealed live postcondition")));
+  });
+
+  it("rejects incomplete and unknown sealed input fields", () => {
+    const cases = [
+      {
+        key: "catalog",
+        mutate: (value) => delete value.baseline,
+        message: "exact db-schema-contract shape",
+      },
+      {
+        key: "ledgerCompatibility",
+        mutate: (value) => {
+          value.schema = "db-migration-ledger-compatibility/v1";
+        },
+        message: "exact db-migration-ledger-compatibility shape",
+      },
+      {
+        key: "postconditions",
+        mutate: (value) => {
+          value.entries[0].check.version = 1;
+        },
+        message: "exact db-migration-postconditions shape",
+      },
+    ];
+    for (const { key, mutate, message } of cases) {
+      const archive = canonicalArchive({ withProdExecution: false });
+      const planPath = `${artifactRoot}/dev/plan.json`;
+      const plan = JSON.parse(archive.files.get(planPath));
+      const sources = {
+        catalog: catalogFixtureSource(plan),
+        ledgerCompatibility: compatibilityFixtureSource(plan),
+        postconditions: postconditionsFixtureSource(plan),
+      };
+      const value = JSON.parse(sources[key]);
+      mutate(value);
+      sources[key] = `${JSON.stringify(value, null, 2)}\n`;
+      plan[key].sha256 = sha256Hex(sources[key]);
+      const planSource = `${JSON.stringify(plan, null, 2)}\n`;
+      const files = new Map(
+        [...archive.files].filter(([artifactPath]) => !artifactPath.includes("/inputs/")),
+      );
+      files.delete(`${artifactRoot}/dev/execution.jsonl`);
+      files.delete(`${artifactRoot}/prod/plan.json`);
+      files.set(planPath, planSource);
+      for (const inputKey of ["catalog", "ledgerCompatibility", "postconditions"]) {
+        const reference = plan[inputKey];
+        files.set(
+          `${artifactRoot}/inputs/${reference.sha256}/${reference.path.split("/").at(-1)}`,
+          sources[inputKey],
+        );
+      }
+      const errors = validateMaintenanceDbMigrationEvidence({
+        evidence: canonicalEvidence(artifactRef(planPath, planSource)),
+        version,
+        apiSourceRef,
+        scopeStatus: "pending",
+        readArtifact: (artifactPath) => files.get(artifactPath) ?? null,
+        listArtifacts: (prefix) =>
+          [...files.keys()].filter((artifactPath) => artifactPath.startsWith(prefix)),
+        context: "db migration evidence",
+      });
+      assert(errors.some((error) => error.includes(message)));
+    }
   });
 
   it("rejects executor-impossible plan buckets, input paths, and overlaps", () => {
@@ -1482,7 +1555,7 @@ describe("maintenance DB migration root evidence", () => {
 
       assert(
         errors.some((error) =>
-          /closed v3 migration outcome adjudication shape|sealed plan ledger gap|not causally complete|missing causal migration resolution/.test(
+          /current migration outcome adjudication shape|sealed plan ledger gap|not causally complete|missing causal migration resolution/.test(
             error,
           ),
         ),
@@ -1490,7 +1563,7 @@ describe("maintenance DB migration root evidence", () => {
     }
   });
 
-  it("rejects closed adjudication events recorded outside the v3 causal order", () => {
+  it("rejects adjudication events recorded outside the current causal order", () => {
     const firstRef = {
       file: "db/migrations/100_example.sql",
       kind: "schema",
@@ -1586,7 +1659,7 @@ describe("maintenance DB migration root evidence", () => {
         context: "db migration evidence",
       });
 
-      assert(errors.some((error) => /not admissible in v3 history/.test(error)));
+      assert(errors.some((error) => /not admissible in current history/.test(error)));
     }
   });
 
@@ -1625,7 +1698,7 @@ describe("maintenance DB migration root evidence", () => {
 
     assert(
       errors.some((error) =>
-        error.includes("dev pair must match the prod plan generation, API source"),
+        error.includes("dev pair must match the prod plan API source"),
       ),
     );
   });
@@ -1736,10 +1809,11 @@ describe("maintenance DB migration root evidence", () => {
     );
   });
 
-  it("rejects a prod plan that crosses plan generations", () => {
+  it("rejects a prod plan that crosses runtime contracts", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     const planPath = `${artifactRoot}/prod/plan.json`;
-    const plan = v4Plan(JSON.parse(archive.files.get(planPath)));
+    const plan = JSON.parse(archive.files.get(planPath));
+    plan.runtimeContract = runtimeContractFor("prod");
     const source = `${JSON.stringify(plan, null, 2)}\n`;
     const planRef = artifactRef(planPath, source);
     archive.files.set(planPath, source);
@@ -1754,13 +1828,13 @@ describe("maintenance DB migration root evidence", () => {
       context: "db migration evidence",
     });
 
-    assert.ok(errors.some((error) => error.includes("dev pair must match the prod plan generation")));
+    assert.ok(errors.some((error) => error.includes("dev pair must match the prod plan API source")));
   });
 
-  it("requires v4 prod and dev plans to bind identical postconditions", () => {
+  it("requires current prod and dev plans to bind identical postconditions", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     const devPlanPath = `${artifactRoot}/dev/plan.json`;
-    const devPlan = v4Plan(JSON.parse(archive.files.get(devPlanPath)));
+    const devPlan = JSON.parse(archive.files.get(devPlanPath));
     for (const runtimeSet of devPlan.runtimeContract.runtimeSets) {
       for (const unit of runtimeSet.units) {
         unit.compatibilityConfig.featureFlags = [
@@ -1791,7 +1865,7 @@ describe("maintenance DB migration root evidence", () => {
     archive.files.set(devExecutionPath, devExecutionSource);
 
     const prodPlanPath = `${artifactRoot}/prod/plan.json`;
-    const prodPlan = v4Plan(JSON.parse(archive.files.get(prodPlanPath)));
+    const prodPlan = JSON.parse(archive.files.get(prodPlanPath));
     prodPlan.runtimeContract = devPlan.runtimeContract;
     prodPlan.devPlan.sha256 = devPlanRef.sha256;
     prodPlan.devExecution.sha256 = devExecutionRef.sha256;
@@ -1873,7 +1947,10 @@ describe("maintenance DB migration root evidence", () => {
     );
 
     const legacyExecutionSource = executionFor("dev", devPlanRef.sha256, {
-      runtimeContract: runtimeContractFor("dev", "db-migration-runtime-contract/v1"),
+      runtimeContract: legacyVersionedRuntimeContractFor(
+        "dev",
+        "db-migration-runtime-contract/v1",
+      ),
     });
     archive.files.set(devExecutionPath, legacyExecutionSource);
     prodPlan.devExecution.sha256 = artifactRef(
@@ -1885,7 +1962,7 @@ describe("maintenance DB migration root evidence", () => {
     archive.files.set(prodPlanPath, prodPlanSource);
     assert.ok(
       validate().some((error) =>
-        error.includes("runtime units must match the plan runtime contract generation"),
+        error.includes("runtime units must use the current runtime contract shape"),
       ),
     );
 
@@ -1897,7 +1974,7 @@ describe("maintenance DB migration root evidence", () => {
     archive.files.set(prodPlanPath, prodPlanSource);
     assert.ok(
       validate().some((error) =>
-        /dev pair must match the prod plan generation|postconditions sealed input/.test(error),
+        /dev pair must match the prod plan API source|postconditions sealed input/.test(error),
       ),
     );
   });
@@ -2101,13 +2178,13 @@ describe("maintenance DB migration root evidence", () => {
     assert(errors.some((error) => error.includes("secondary migration refs")));
   });
 
-  it("rejects a new v3 plan instead of treating it as grandfathered re-entry", () => {
+  it("rejects a versioned plan instead of treating it as grandfathered re-entry", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     const devPlanPath = `${artifactRoot}/dev/plan.json`;
     const devPlan = JSON.parse(archive.files.get(devPlanPath));
+    delete devPlan.kind;
     devPlan.schema = "db-migration-maintenance-plan/v3";
-    delete devPlan.postconditions;
-    devPlan.runtimeContract = runtimeContractFor(
+    devPlan.runtimeContract = legacyVersionedRuntimeContractFor(
       "dev",
       "db-migration-runtime-contract/v1",
     );
@@ -2129,7 +2206,7 @@ describe("maintenance DB migration root evidence", () => {
 
     assert.ok(
       errors.some((error) =>
-        error.includes("schema must be db-migration-maintenance-plan/v4"),
+        error.includes("kind must be db-migration-maintenance-plan"),
       ),
     );
   });
@@ -2333,7 +2410,7 @@ describe("maintenance DB migration root evidence", () => {
     assert(errors.some((error) => /orphan artifacts/.test(error)));
   });
 
-  it("rejects an execution event that the v3 executor cannot parse", () => {
+  it("rejects an execution event that the current executor cannot parse", () => {
     const archive = canonicalArchive();
     const prodExecutionPath = `${artifactRoot}/prod/execution.jsonl`;
     const events = archive.files
@@ -2359,7 +2436,7 @@ describe("maintenance DB migration root evidence", () => {
     assert(errors.some((error) => /is missing key: at|\.at must be an ISO-8601/.test(error)));
   });
 
-  it("validates optional runtime events with their closed v3 data and order", () => {
+  it("validates optional runtime events with their current data and order", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     archive.files.delete(`${artifactRoot}/prod/plan.json`);
     const executionPath = `${artifactRoot}/dev/execution.jsonl`;
@@ -2439,7 +2516,7 @@ describe("maintenance DB migration root evidence", () => {
       ...withFence.slice(activeResumeIndex + 2),
     ].map((event, index) => ({
       ...event,
-      schema: "db-migration-maintenance-event/v3",
+      kind: "db-migration-maintenance-event",
       sequence: index + 1,
       at: new Date(Date.UTC(2026, 7, 4, 1, 0, index)).toISOString(),
       environment: "dev",
@@ -2519,7 +2596,7 @@ describe("maintenance DB migration root evidence", () => {
         ...baseEvents.slice(1),
       ].map((event, index) => ({
         ...event,
-        schema: "db-migration-maintenance-event/v3",
+        kind: "db-migration-maintenance-event",
         sequence: index + 1,
         at: new Date(Date.UTC(2026, 7, 4, 2, 0, index)).toISOString(),
         environment: "dev",
@@ -2543,7 +2620,7 @@ describe("maintenance DB migration root evidence", () => {
       });
       assert(
         errors.some((error) =>
-          /closed v3 FENCED re-verification shape|closed v3 RECOVERING shape|closed v3 recovery completion shape/.test(
+          /current FENCED re-verification shape|current RECOVERING shape|current recovery completion shape/.test(
             error,
           ),
         ),
@@ -2656,7 +2733,7 @@ describe("maintenance DB migration root evidence", () => {
     );
   });
 
-  it("rejects extra runtime lifecycle events that the v3 replay forbids", () => {
+  it("rejects extra runtime lifecycle events that current replay forbids", () => {
     const archive = canonicalArchive({ withProdExecution: false });
     archive.files.delete(`${artifactRoot}/prod/plan.json`);
     const executionPath = `${artifactRoot}/dev/execution.jsonl`;

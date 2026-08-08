@@ -11,21 +11,38 @@ const maintenancePostconditionSha256 = "5".repeat(64);
 
 export const maintenanceInputSources = Object.freeze({
   "db/schema/schema-contract.json": canonicalJson({
-    version: 1,
+    kind: "db-schema-contract",
+    baseline: {
+      sqlFile: "db/schema/baseline.sql",
+      lockFile: "db/schema/baseline.lock.json",
+      capturedAt: "2026-08-04T00:00:00.000Z",
+      sourceEnvironment: "production schema + migration ledger read",
+      sourceMainCommit: "a".repeat(40),
+    },
+    currentLockFile: "db/schema/schema.lock.json",
+    replayFixture: null,
     migrations: [
       {
         ...maintenanceReleaseRef,
+        schemaEffect: false,
         includedInBaseline: false,
+        replayInSchemaCheck: true,
       },
     ],
   }),
   "db/schema/ledger-compatibility.json": canonicalJson({
-    schema: "db-migration-ledger-compatibility/v1",
+    kind: "db-migration-ledger-compatibility",
+    catalogStartOrdinal: 100,
+    historicalPrefixes: [
+      { environment: "dev", rowCount: 0, sha256: "6".repeat(64) },
+      { environment: "prod", rowCount: 0, sha256: "7".repeat(64) },
+    ],
+    aliases: [],
     supersededMigrations: [],
     adjudicableLedgerGaps: [],
   }),
   "db/schema/migration-postconditions.json": canonicalJson({
-    version: 1,
+    kind: "db-migration-postconditions",
     entries: [
       {
         migrationFile: maintenanceReleaseRef.file,
@@ -57,7 +74,7 @@ export function maintenancePlanFor(
     sha256: sha256Hex(maintenanceInputSources[inputPath]),
   });
   return {
-    schema: "db-migration-maintenance-plan/v4",
+    kind: "db-migration-maintenance-plan",
     environment,
     createdAt,
     apiSourceRef,
@@ -85,14 +102,14 @@ export function runtimeContractFor(environment, apiRef = "a".repeat(40)) {
     kind: "api",
     sourceRef: apiRef,
     compatibilityConfig: {
-      schema: "db-migration-compatibility-config/v1",
+      kind: "db-migration-compatibility-config",
       featureFlags: [],
       serializerModes: [],
       activeRoles: ["db-reader", "db-writer"],
     },
   });
   return {
-    schema: "db-migration-runtime-contract/v2",
+    kind: "db-migration-runtime-contract",
     runtimeSets: [
       {
         id: `${environment}-previous`,
@@ -197,7 +214,7 @@ function writerInventoryFor(runtimeSet) {
 function runtimeUnitCompatibilitySha256(unit) {
   const config = unit.compatibilityConfig;
   return sha256Hex(canonicalJson({
-    schema: config.schema,
+    kind: config.kind,
     featureFlags: config.featureFlags,
     serializerModes: config.serializerModes,
     activeRoles: config.activeRoles,
@@ -311,7 +328,7 @@ export function completedMaintenanceExecution(environment, planSha256, runtimeCo
     },
   ];
   const events = eventData.map((event, index) => ({
-    schema: "db-migration-maintenance-event/v3",
+    kind: "db-migration-maintenance-event",
     sequence: index + 1,
     at: new Date(Date.UTC(2026, 7, 4, 0, 0, index)).toISOString(),
     environment,

@@ -54,11 +54,9 @@ catalog entry와 ledger row를 보존한다.
 
 모든 migration은 SQL 구현 전에 변경 경계, 허용 runtime/schema 조합, 상태 표면과 복구 전략을 설계·리뷰한다.
 API `main` 반영 뒤에는 그 설계에 exact source ref, 실제 compatibility config와 schema fingerprint를 결속한
-`db-migration-runtime-contract/v2`를 plan 생성 전에 고정하고 immutable plan에 포함한다. 이 exact 계약이
-실행 시점 DB runtime 안전성의 단일 SoT다.
-이 v2 cutover를 반영하기 전에 진행 중인 v1 workflow를 원래 executor ref에서 운영 완료 또는 승인된 terminal
-처분으로 닫는다. cutover 뒤 v1은 기존 plan/execution의 검증·재진입에만 읽고 새 dev/prod plan이나 replan을
-만들지 않는다.
+`kind: db-migration-runtime-contract`를 plan 생성 전에 고정하고 immutable plan에 포함한다. 이 exact 계약이
+실행 시점 DB runtime 안전성의 단일 SoT다. Current 실행 코드와 검증기는 versioned runtime contract를
+읽거나 쓰는 분기를 두지 않는다. 닫힌 과거 산출물은 실행 입력으로 재사용하지 않고 bytes 그대로 보존한다.
 
 - 이전·현재·실제로 노출할 혼합 runtime set과 각 unit의 ID, kind, source ref,
   실제 compatibility config(feature flag, serializer mode, DB reader/writer·queue consumer·side-effect
@@ -91,11 +89,12 @@ cursor, in-flight 작업, idempotency, 보상·외부 sink 검증 근거를 연�
 다음 조건을 모두 fresh read로 확인한다.
 
 1. 대상 환경과 DB identity가 예상값과 일치하고 TLS 검증이 활성화돼 있다.
-2. API HTTP write, Admin write, WebSocket, cron, worker, direct SQL을 모두 분류한 `writer-inventory/v2`가
+2. API HTTP write, Admin write, WebSocket, cron, worker, direct SQL을 모두 분류한
+   `kind: db-migration-writer-inventory`가
    있고, 존재하는 unit은 runtime 계약의 source ref/compatibility-config SHA와 정확히 일치한다.
    compatibility-config SHA는 환경별 secret·host·URL이 아니라 unit별
-   `db-migration-compatibility-config/v1`의 DB/API 계약 feature flag, serializer mode, 활성 역할만 canonical
-   정렬해 계산한다. manifest는 runtime contract unit에 inline으로 두고 workflow가 검증·계산한다. 없는
+   `kind: db-migration-compatibility-config`의 DB/API 계약 feature flag, serializer mode, 활성 역할만
+   canonical 정렬해 계산한다. manifest는 runtime contract unit에 inline으로 두고 workflow가 검증·계산한다. 없는
    writer category도 owner, 부재 근거와 검증을 기록한다.
 3. 모든 writer와 queue/external-effect producer가 중지됐고 그 증빙이 있다.
 4. application writer session과 활성 transaction이 0건이다.
@@ -150,9 +149,9 @@ plan의 `apiSourceRef`와 `HEAD`가 일치해야 한다.
 ## Plan 계약
 
 `plan.json`은 실행 전에 생성하는 immutable 입력이다.
-신규 plan은 `db-migration-maintenance-plan/v4`와 runtime contract v2를 함께 사용한다. 기존 v3/v1 pair는
-원래 executor ref의 운영 재진입에만 사용하며 두 세대를 섞지 않는다. 새/current 릴리스 증빙 root는
-v4/v2만 허용하고, 이미 게시된 v3/v1 이력은 불투명한 역사로만 보존한다.
+Current plan은 `kind: db-migration-maintenance-plan`과 versionless runtime contract 한 형태만 사용한다.
+versioned plan/runtime pair는 새 plan, replan, 재진입 또는 릴리스 증빙 root로 허용하지 않는다. 이미 닫힌
+산출물과 게시된 릴리스 기록은 current validator로 해석하지 않고 불투명한 역사로만 보존한다.
 
 - 환경, DB identity digest, API source ref, catalog·ledger compatibility·postcondition manifest artifact의
   path/checksum을 포함한다. manifest는 실제 check/setup SQL checksum을 결속한다.
@@ -178,8 +177,8 @@ v4/v2만 허용하고, 이미 게시된 v3/v1 이력은 불투명한 역사로�
 
 ## Execution 계약
 
-`execution.jsonl`은 한 환경의 실행 사실을 순서대로 기록한다. 별도 Gate 로그, 서명 bundle, frontier
-transition 파일을 만들지 않는다.
+`execution.jsonl`은 `kind: db-migration-maintenance-event`인 event로 한 환경의 실행 사실을 순서대로 기록한다.
+별도 Gate 로그, 서명 bundle, frontier transition 파일을 만들지 않는다.
 
 필수 내용은 다음과 같다.
 
