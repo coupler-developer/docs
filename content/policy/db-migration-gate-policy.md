@@ -55,8 +55,8 @@ catalog entry와 ledger row를 보존한다.
 모든 migration은 SQL 구현 전에 변경 경계, 허용 runtime/schema 조합, 상태 표면과 복구 전략을 설계·리뷰한다.
 API `main` 반영 뒤에는 그 설계에 exact source ref, 실제 compatibility config와 schema fingerprint를 결속한
 `kind: db-migration-runtime-contract`를 plan 생성 전에 고정하고 immutable plan에 포함한다. 이 exact 계약이
-실행 시점 DB runtime 안전성의 단일 SoT다. Current 실행 코드와 검증기는 versioned runtime contract를
-읽거나 쓰는 분기를 두지 않는다. 닫힌 과거 산출물은 실행 입력으로 재사용하지 않고 bytes 그대로 보존한다.
+실행 시점 DB runtime 안전성의 단일 SoT다. Current 실행 코드와 검증기는 이 exact current shape만 읽고
+쓴다. 닫힌 과거 산출물은 실행 입력으로 재사용하지 않고 bytes 그대로 보존한다.
 
 - 이전·현재·실제로 노출할 혼합 runtime set과 각 unit의 ID, kind, source ref,
   실제 compatibility config(feature flag, serializer mode, DB reader/writer·queue consumer·side-effect
@@ -149,8 +149,9 @@ plan의 `apiSourceRef`와 `HEAD`가 일치해야 한다.
 ## Plan 계약
 
 `plan.json`은 실행 전에 생성하는 immutable 입력이다.
-Current plan은 `kind: db-migration-maintenance-plan`과 versionless runtime contract 한 형태만 사용한다.
-versioned plan/runtime pair는 새 plan, replan, 재진입 또는 릴리스 증빙 root로 허용하지 않는다. 이미 닫힌
+Current plan은 `kind: db-migration-maintenance-plan`과 runtime contract 한 형태만 사용한다.
+두 계약의 `kind`와 exact current shape가 아니면 새 plan, replan, 재진입 또는 릴리스 증빙 root로 허용하지
+않는다. 이미 닫힌
 산출물과 게시된 릴리스 기록은 current validator로 해석하지 않고 불투명한 역사로만 보존한다.
 
 - 환경, DB identity digest, API source ref, catalog·ledger compatibility·postcondition manifest artifact의

@@ -120,24 +120,6 @@ function runtimeContractFor(
   };
 }
 
-function legacyVersionedRuntimeContractFor(environment, schema) {
-  const contract = runtimeContractFor(environment);
-  delete contract.kind;
-  contract.schema = schema;
-  if (schema === "db-migration-runtime-contract/v1") {
-    contract.runtimeSets.forEach((runtimeSet) => {
-      runtimeSet.units = runtimeSet.units.map((unit) => ({
-        id: unit.id,
-        kind: unit.kind,
-        sourceRef: unit.sourceRef,
-        compatibilityConfigSha256: "6".repeat(64),
-        roles: ["db-reader", "db-writer"],
-      }));
-    });
-  }
-  return contract;
-}
-
 function planFor(
   environment,
   {
@@ -906,33 +888,6 @@ describe("maintenance DB migration root evidence", () => {
       [],
     );
 
-    const unusedLegacySetPlan = structuredClone(plan);
-    unusedLegacySetPlan.runtimeContract.runtimeSets.push({
-      id: "unused-mixed",
-      release: "mixed",
-      units: [
-        {
-          id: "unused-api",
-          kind: "api",
-          sourceRef: apiSourceRef,
-          compatibilityConfigSha256: "6".repeat(64),
-          roles: ["db-reader"],
-        },
-      ],
-    });
-    const unusedLegacySetSource = `${JSON.stringify(unusedLegacySetPlan, null, 2)}\n`;
-    archive.files.set(planPath, unusedLegacySetSource);
-    const unusedLegacySetErrors = validateMaintenanceDbMigrationEvidence({
-      evidence: canonicalEvidence(artifactRef(planPath, unusedLegacySetSource)),
-      version,
-      apiSourceRef,
-      scopeStatus: "pending",
-      readArtifact: archive.readArtifact,
-      listArtifacts: archive.listArtifacts,
-      context: "db migration evidence",
-    });
-    assert.ok(unusedLegacySetErrors.some((error) => error.includes("complete db-migration")));
-
     const emptyProofPlan = structuredClone(plan);
     emptyProofPlan.runtimeContract.changedBoundaries = [];
     emptyProofPlan.runtimeContract.mixtures.forEach((mixture) => {
@@ -969,8 +924,7 @@ describe("maintenance DB migration root evidence", () => {
     assert.ok(numericIdErrors.some((error) => error.includes("complete db-migration")));
 
     const mixedPlan = structuredClone(plan);
-    delete mixedPlan.kind;
-    mixedPlan.schema = "db-migration-maintenance-plan/v3";
+    mixedPlan.kind = "unexpected-db-migration-plan";
     const mixedSource = `${JSON.stringify(mixedPlan, null, 2)}\n`;
     archive.files.set(planPath, mixedSource);
     const mixedErrors = validateMaintenanceDbMigrationEvidence({
@@ -1175,14 +1129,14 @@ describe("maintenance DB migration root evidence", () => {
       {
         key: "ledgerCompatibility",
         mutate: (value) => {
-          value.schema = "db-migration-ledger-compatibility/v1";
+          value.unexpected = true;
         },
         message: "exact db-migration-ledger-compatibility shape",
       },
       {
         key: "postconditions",
         mutate: (value) => {
-          value.entries[0].check.version = 1;
+          value.entries[0].check.unexpected = true;
         },
         message: "exact db-migration-postconditions shape",
       },
@@ -1838,12 +1792,12 @@ describe("maintenance DB migration root evidence", () => {
     for (const runtimeSet of devPlan.runtimeContract.runtimeSets) {
       for (const unit of runtimeSet.units) {
         unit.compatibilityConfig.featureFlags = [
-          { value: true, name: "writer-v2" },
-          { value: false, name: "reader-v2" },
+          { value: true, name: "writer-enabled" },
+          { value: false, name: "reader-disabled" },
         ];
         unit.compatibilityConfig.serializerModes = [
-          { value: "v2", name: "writer" },
-          { value: "v1", name: "reader" },
+          { value: "strict", name: "writer" },
+          { value: "compatible", name: "reader" },
         ];
         unit.compatibilityConfig.activeRoles = ["db-writer", "db-reader"];
         assert.notEqual(
@@ -1946,16 +1900,17 @@ describe("maintenance DB migration root evidence", () => {
       ),
     );
 
-    const legacyExecutionSource = executionFor("dev", devPlanRef.sha256, {
-      runtimeContract: legacyVersionedRuntimeContractFor(
-        "dev",
-        "db-migration-runtime-contract/v1",
-      ),
-    });
-    archive.files.set(devExecutionPath, legacyExecutionSource);
+    const invalidUnitEvents = devExecutionSource
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    invalidUnitEvents[0].data.mixture.runtimeSet.units[0].unexpected = true;
+    const invalidUnitExecutionSource =
+      `${invalidUnitEvents.map((event) => JSON.stringify(event)).join("\n")}\n`;
+    archive.files.set(devExecutionPath, invalidUnitExecutionSource);
     prodPlan.devExecution.sha256 = artifactRef(
       devExecutionPath,
-      legacyExecutionSource,
+      invalidUnitExecutionSource,
     ).sha256;
     prodPlanSource = `${JSON.stringify(prodPlan, null, 2)}\n`;
     prodPlanRef = artifactRef(prodPlanPath, prodPlanSource);
@@ -2178,39 +2133,6 @@ describe("maintenance DB migration root evidence", () => {
     assert(errors.some((error) => error.includes("secondary migration refs")));
   });
 
-  it("rejects a versioned plan instead of treating it as grandfathered re-entry", () => {
-    const archive = canonicalArchive({ withProdExecution: false });
-    const devPlanPath = `${artifactRoot}/dev/plan.json`;
-    const devPlan = JSON.parse(archive.files.get(devPlanPath));
-    delete devPlan.kind;
-    devPlan.schema = "db-migration-maintenance-plan/v3";
-    devPlan.runtimeContract = legacyVersionedRuntimeContractFor(
-      "dev",
-      "db-migration-runtime-contract/v1",
-    );
-    const devPlanSource = `${JSON.stringify(devPlan, null, 2)}\n`;
-    const devPlanRef = artifactRef(devPlanPath, devPlanSource);
-    archive.files.set(devPlanPath, devPlanSource);
-    archive.files.delete(`${artifactRoot}/dev/execution.jsonl`);
-    archive.files.delete(`${artifactRoot}/prod/plan.json`);
-
-    const errors = validateMaintenanceDbMigrationEvidence({
-      evidence: canonicalEvidence(devPlanRef),
-      version,
-      apiSourceRef,
-      scopeStatus: "pending",
-      readArtifact: archive.readArtifact,
-      listArtifacts: archive.listArtifacts,
-      context: "db migration evidence",
-    });
-
-    assert.ok(
-      errors.some((error) =>
-        error.includes("kind must be db-migration-maintenance-plan"),
-      ),
-    );
-  });
-
   it("accepts append-only recovery before later normal pending migrations", () => {
     const laterNormalRef = {
       file: "db/migrations/101_later_normal.sql",
@@ -2304,7 +2226,7 @@ describe("maintenance DB migration root evidence", () => {
       });
       assert(
         errors.some((error) =>
-          /v3 migration failure shape|unresolved causal SQL or postcondition failure/.test(
+          /current migration failure shape|unresolved causal SQL or postcondition failure/.test(
             error,
           ),
         ),
@@ -2855,9 +2777,9 @@ describe("maintenance DB migration root evidence", () => {
 });
 
 describe("historical DB migration violation evidence", () => {
-  it("rejects legacy release-specific schemas for new records", () => {
+  it("rejects an unexpected evidence schema", () => {
     const errors = validateMaintenanceDbMigrationEvidence({
-      evidence: { schema: "db-migration-precanonical-transition-evidence/v1" },
+      evidence: { schema: "unexpected-db-migration-evidence" },
       version,
       apiSourceRef,
       scopeStatus: "released",
