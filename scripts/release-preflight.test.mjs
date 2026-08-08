@@ -942,7 +942,11 @@ function writePendingRelease(
       ...(forgeDbCatalog
         ? {
             "db/schema/schema-contract.json":
-              `${JSON.stringify({ version: 1, migrations: [], forged: true }, null, 2)}\n`,
+              `${JSON.stringify(
+                { kind: "db-schema-contract", migrations: [], unexpected: true },
+                null,
+                2,
+              )}\n`,
           }
         : {}),
     };
