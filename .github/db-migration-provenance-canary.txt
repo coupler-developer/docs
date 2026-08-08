@@ -1,0 +1,2 @@
+Temporary canary for the protected DB Migration Provenance workflow.
+This file and its pull request must not be merged.
