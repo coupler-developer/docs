@@ -8,11 +8,10 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  completedMaintenanceExecution as maintenanceExecutionFor,
-  maintenanceInputSources,
-  maintenancePlanFor,
-  runtimeContractFor,
-} from "./db-migration-maintenance-test-fixtures.mjs";
+  dbMigrationExecution,
+  dbMigrationInputSources,
+  dbMigrationPlanFor,
+} from "./db-migration-evidence-test-fixtures.mjs";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const preflightScript = path.join(scriptsRoot, "release-preflight.mjs");
@@ -187,7 +186,7 @@ describe("release preflight for unpublished PR records", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stdout,
-      /DB migration operational preflight requires an in_progress canonical prod plan root with null execution/,
+      /DB migration operational preflight requires an in_progress canonical prod plan/,
     );
   });
 
@@ -213,7 +212,7 @@ describe("release preflight for unpublished PR records", () => {
     ], workspace.docsRoot);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /sealed input must match the trusted API source bytes/);
+    assert.match(result.stdout, /must use the exact single-current plan shape/);
   });
 
   it("rejects an API source that exists locally but is not in origin/main history", () => {
@@ -409,188 +408,6 @@ describe("release preflight for unpublished PR records", () => {
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
-  });
-
-  it("preserves and consumes exact origin/main dev checkpoint bytes after a delayed production start", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      dbMigrationStage: "dev-completed",
-    });
-    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
-    commitAndPush(workspace.docsRoot, "completed dev checkpoint");
-
-    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_CHECKPOINT.md"), "# Unrelated API main work\n");
-    commitAndPush(workspace.apiRoot, "advance API main after DB checkpoint");
-
-    git(workspace.docsRoot, ["checkout", "-b", "docs/delayed-prod-release"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      status: "in_progress",
-      dbMigrationStage: "prod-planned",
-    });
-    const pendingRef = commit(workspace.docsRoot, "consume delayed dev checkpoint");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/delayed-prod-release"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], workspace.docsRoot);
-
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.match(result.stdout, /Result: PASS/);
-  });
-
-  it("does not freeze a delayed checkpoint basis for a combined contracts release", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      dbMigrationStage: "dev-completed",
-    });
-    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
-    commitAndPush(workspace.docsRoot, "completed dev checkpoint");
-
-    fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_CHECKPOINT.md"), "# New API source\n");
-    commitAndPush(workspace.apiRoot, "advance API main before combined release");
-
-    git(workspace.docsRoot, ["checkout", "-b", "docs/combined-checkpoint-release"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      contractsPackage: true,
-      apiRef,
-      status: "in_progress",
-      dbMigrationStage: "prod-planned",
-    });
-    const pendingRef = commit(workspace.docsRoot, "combined checkpoint release");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/combined-checkpoint-release"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], workspace.docsRoot);
-
-    assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /버전 매핑 ref는 현재 origin\/main 기준점과 같아야 합니다/);
-  });
-
-  it("rejects replacing an origin/main dev checkpoint before production execution", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      dbMigrationStage: "dev-completed",
-    });
-    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
-    commitAndPush(workspace.docsRoot, "completed dev checkpoint");
-
-    git(workspace.docsRoot, ["checkout", "-b", "docs/replaced-dev-checkpoint"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      status: "in_progress",
-      dbMigrationStage: "prod-planned",
-      devPlanCreatedAt: "2026-08-03T00:00:00.000Z",
-    });
-    const pendingRef = commit(workspace.docsRoot, "replace delayed dev checkpoint");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/replaced-dev-checkpoint"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
-
-    assert.notEqual(result.status, 0);
-    assert.match(
-      result.stdout,
-      /DB migration evidence already present in the base ref.*is final and immutable/,
-    );
-  });
-
-  it("rejects superseding a reserved checkpoint version instead of consuming it", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      dbMigrationStage: "dev-completed",
-    });
-    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.9.0.md"));
-    commitAndPush(workspace.docsRoot, "completed dev checkpoint");
-
-    git(workspace.docsRoot, ["checkout", "-b", "docs/superseded-checkpoint"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      status: "in_progress",
-      dbMigrationStatus: "superseded",
-      dbMigrationStage: "prod-planned",
-    });
-    const pendingRef = commit(workspace.docsRoot, "supersede reserved checkpoint");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/superseded-checkpoint"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
-
-    assert.notEqual(result.status, 0);
-    assert.match(
-      result.stdout,
-      /must consume its standalone dev checkpoint through a canonical prod plan root/,
-    );
-  });
-
-  it("rejects reusing an older version dev checkpoint pair in operational preflight", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      dbMigrationStage: "dev-completed",
-      version: "v9.8.0",
-    });
-    fs.rmSync(path.join(workspace.docsRoot, "content", "releases", "v9.8.0.md"));
-    commitAndPush(workspace.docsRoot, "earlier completed dev checkpoint");
-
-    git(workspace.docsRoot, ["checkout", "-b", "docs/reused-dev-checkpoint"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      status: "in_progress",
-      dbMigrationStage: "prod-planned",
-    });
-    const pendingRef = commit(workspace.docsRoot, "reuse earlier dev checkpoint");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/reused-dev-checkpoint"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
-
-    assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /new version must be requalified in dev.*v9\.8\.0/);
   });
 
   it("rejects same-version DB artifacts when operational metadata omits the DB scope", () => {
@@ -863,7 +680,9 @@ function createRepository(name) {
   git(repositoryRoot, ["remote", "add", "origin", remoteRoot]);
   fs.writeFileSync(path.join(repositoryRoot, "README.md"), "# Test\n");
   if (name === "coupler-api") {
-    for (const [relativePath, source] of Object.entries(maintenanceInputSources)) {
+    for (const [relativePath, source] of Object.entries({
+      ...dbMigrationInputSources,
+    })) {
       const absolutePath = path.join(repositoryRoot, relativePath);
       fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
       fs.writeFileSync(absolutePath, source);
@@ -938,7 +757,7 @@ function writePendingRelease(
       version,
     );
     const evidenceInputSources = {
-      ...maintenanceInputSources,
+      ...dbMigrationInputSources,
       ...(forgeDbCatalog
         ? {
             "db/schema/schema-contract.json":
@@ -950,58 +769,43 @@ function writePendingRelease(
           }
         : {}),
     };
-    const devRuntimeContract = runtimeContractFor("dev", apiRef);
-    const devPlanValue = maintenancePlanFor("dev", {
+    const devPlanValue = dbMigrationPlanFor("dev", {
         apiSourceRef: apiRef,
         createdAt: devPlanCreatedAt,
-        runtimeContract: devRuntimeContract,
       });
-    devPlanValue.catalog.sha256 = sha256Hex(
-      evidenceInputSources["db/schema/schema-contract.json"],
-    );
+    if (forgeDbCatalog) {
+      devPlanValue.catalog = {
+        path: "db/schema/schema-contract.json",
+        sha256: sha256Hex(evidenceInputSources["db/schema/schema-contract.json"]),
+      };
+    }
     const devPlan = Buffer.from(`${JSON.stringify(devPlanValue, null, 2)}\n`);
     const devPlanSha256 = sha256Hex(devPlan);
-    const devExecution = maintenanceExecutionFor(
-      "dev",
-      devPlanSha256,
-      devRuntimeContract,
-    );
+    const devExecution = Buffer.from(dbMigrationExecution("dev", devPlanValue, "done"));
     const devExecutionSha256 = sha256Hex(devExecution);
-    const prodPlanValue = maintenancePlanFor("prod", {
+    const prodPlanValue = dbMigrationPlanFor("prod", {
           apiSourceRef: apiRef,
           devPlan: {
-            path: `.runtime/db-migrations/${version}/dev/plan.json`,
+            path: `.runtime/db-migration/dev/plan.json`,
             sha256: devPlanSha256,
           },
           devExecution: {
-            path: `.runtime/db-migrations/${version}/dev/execution.jsonl`,
+            path: `.runtime/db-migration/dev/execution.jsonl`,
             sha256: devExecutionSha256,
           },
-          runtimeContract: devRuntimeContract,
         });
-    prodPlanValue.catalog.sha256 = sha256Hex(
-      evidenceInputSources["db/schema/schema-contract.json"],
-    );
+    if (forgeDbCatalog) {
+      prodPlanValue.catalog = {
+        path: "db/schema/schema-contract.json",
+        sha256: sha256Hex(evidenceInputSources["db/schema/schema-contract.json"]),
+      };
+    }
     const prodPlan = Buffer.from(`${JSON.stringify(prodPlanValue, null, 2)}\n`);
     const prodPlanSha256 = sha256Hex(prodPlan);
-    const prodExecution = maintenanceExecutionFor(
-      "prod",
-      prodPlanSha256,
-      devRuntimeContract,
-    );
+    const prodExecution = Buffer.from(dbMigrationExecution("prod", prodPlanValue, "done"));
     const prodExecutionSha256 = sha256Hex(prodExecution);
     fs.mkdirSync(path.join(artifactRoot, "dev"), { recursive: true });
     fs.mkdirSync(path.join(artifactRoot, "prod"), { recursive: true });
-    for (const [relativePath, source] of Object.entries(evidenceInputSources)) {
-      const inputPath = path.join(
-        artifactRoot,
-        "inputs",
-        sha256Hex(source),
-        path.basename(relativePath),
-      );
-      fs.mkdirSync(path.dirname(inputPath), { recursive: true });
-      fs.writeFileSync(inputPath, source);
-    }
     fs.writeFileSync(path.join(artifactRoot, "dev", "plan.json"), devPlan);
     if (dbMigrationStage !== "dev-planned") {
       fs.writeFileSync(
@@ -1020,10 +824,8 @@ function writePendingRelease(
     }
     scopeResults["db-migration"] = {
       status: dbMigrationStatus,
-      summary: `DB maintenance ${dbMigrationStatus}`,
+      summary: `DB migration ${dbMigrationStatus}`,
       evidence: {
-        schema: "db-migration-maintenance-evidence/v1",
-        kind: "canonical",
         plan:
           ["prod-planned", "prod-completed"].includes(dbMigrationStage)
             ? {

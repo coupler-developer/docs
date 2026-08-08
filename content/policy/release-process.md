@@ -70,9 +70,9 @@
 - API 명세 변경이 포함된 Mobile Store 출시 또는 Mobile NextPush 배포는
   [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 함께 따른다.
   공개 계약의 기본 경로는 `API cutover: No`다.
-- API activation window는 `API cutover: Yes`에만 적용한다. DB는 별도 maintenance window에서 durable
-  FENCED → migration → final-DB smoke → RESUMED 순서로 실행한다. 둘이 함께 있으면 activation과
-  client/API/state 복구 순서를 하나의 릴리스 기록에서 결합한다.
+- API activation window는 `API cutover: Yes`에만 적용한다. DB migration은 별도 maintenance window에서
+  traffic/writer 중지·drain을 선행한 뒤 실행한다. DB DONE 뒤 API 배포·smoke·traffic 재개는 각 서비스
+  런북이 담당하며 DB journal의 조건으로 결합하지 않는다.
 - API cutover에서는 API/Admin 전환과 결정론적 서버 측 요청 차단, 선택한 Store 강제 업데이트 또는
   Android·iOS mandatory, smoke가 끝나기 전에는 장벽을 해제하지 않는다. 이 장벽을 보장할 수 없으면 릴리스 실행을
   `BLOCKED`로 둔다. 장벽 중에도 이전 client가 이해하는 bootstrap/version/upgrade 경로는 성공하고,
@@ -100,8 +100,7 @@
 - 신규 릴리스 기록은 실제 새 릴리스 범위를 기록한 최종본으로 한 번 병합한다. `main`에 이미 존재하는 릴리스
   기록은 상태와 무관하게 파일 전체가 불투명한 최종본이며 이후 수정·삭제·이름 변경·대체하지 않는다.
 - `main`에 들어간 개별 DB migration evidence 파일은 즉시 불변이다. release record가 이미 병합된 version에는
-  새 evidence도 추가하지 않는다. 단, release record 없는 completed dev checkpoint version은 기존 dev bytes를
-  바꾸지 않은 채 이후 prod evidence와 그 dev graph를 소비하는 최종 release record를 한 번 추가할 수 있다.
+  새 evidence도 추가하지 않는다. 신규 evidence는 같은 version의 미병합 release record와 한 PR에서 관리한다.
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
 - `버전 매핑`에는 아래 기준점을 함께 기록한다.
     - `docs` 기록 버전/태그
@@ -128,20 +127,17 @@
 - 신규 `db-migration` canonical evidence는 현재 단계의 root plan과 nullable execution 한 쌍만 직접
   참조한다. `planned`는 null/null, `pending`은 dev plan/null 또는 completed dev pair, `in_progress`는 완료된
   dev pair를 내부에 묶은 prod plan/null, terminal은 prod plan/execution을 root로 둔다. 개발계 완료 뒤 root를 prod plan으로
-  전진시킨 같은 미병합 PR에서 preflight를 통과한 뒤 운영계를 실행한다. 검증기는 root에서 dev·failed
-  이력까지 따라가 실제 bytes SHA-256과 execution의 environment/plan 결속을 확인하고 도달할 수 없는
+  전진시킨 같은 미병합 PR에서 preflight를 통과한 뒤 운영계를 실행한다. 검증기는 prod plan이 완료된 exact dev
+  pair를 결속하는지, API current trio bytes와 execution environment/plan이 일치하는지 확인하고 이 네 파일 외
   artifact를 거부한다.
-- Canonical chain 없이 이미 적용된 작업은 같은 v1의 `kind: violation`으로만 사실과 한계를 남긴다. 이 형식은
-  실행·개발계에서 운영계로의 전환·rollback 또는 API `runtimeRecovery.stateSafety`의 근거가 아니며, 상세 조건은
-  [DB Migration Gate 정책](db-migration-gate-policy.md)을 따른다.
-- Canonical maintenance executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 root
-  artifact graph, bytes SHA-256과 plan/execution envelope만 묶는다. 과거 기록과 DB artifact는
+- Canonical executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 root artifact,
+  bytes SHA-256과 plan/execution envelope만 묶는다. 과거 기록과 DB artifact는
   schema·상태·증빙을 읽지 않고 경로·blob 불변성만 확인한다.
 - `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
 - `rolled_back`은 사유만으로 닫지 않는다. descriptor가 전용 rollback evidence를 정의하면 그것을 사용하고,
   정의하지 않은 `contracts-package`, `mobile-store`, `mobile-nextpush`, `docs`는
-  `scopeResults.<scope>.rollbackEvidence`에 실제 되돌림 결과를 기록한다. `db-migration`은 dev 이력에 결속된
-  terminal prod maintenance execution artifact를 rollback 증빙으로 사용한다.
+  `scopeResults.<scope>.rollbackEvidence`에 실제 되돌림 결과를 기록한다. `db-migration`은 dev pair에 결속된
+  terminal prod execution artifact를 rollback 증빙으로 사용한다.
 - 릴리스 surface, required repo, scope별 결과 상태, terminal evidence 완료 조건을 판단하는 새 최상위 SoT를 추가하지 않는다. 같은 질문을 두 필드가 독립적으로 답할 수 있으면 drift, 예외 backfill, validator별 상수 복제가 생기므로 `releaseScopes` descriptor 또는 `scopeResults.<scope>` 아래 속성으로 흡수한다.
 - SoT 분리가 불가피하다고 판단하면 기존 derived model로 표현할 수 없는 이유, 신구 필드 우선순위, drift 검출 방식, 마이그레이션/삭제 계획, 회귀 테스트를 릴리스 자동화 변경과 함께 기록한다.
 - 추가 스냅샷 또는 비교 기준으로만 고정할 repo가 있으면 `release-metadata.extraRepoRefs`에 canonical repo name을 적는다. `extraRepoRefs`는 release 완료 조건을 새로 만들지 않는다.
@@ -174,9 +170,8 @@
   API+최종 DB 호환 근거로 계산하지 않는다. NextPush 확인·다운로드 실패 시 native 개발 API로 진행할 수
   있는 경로는 잔존 위험으로 기록하되, 그 사실만으로 API/DB cutover 판정이나 심사 제출
   차단·재제출을 결정하지 않는다.
-- DB에는 별도 `Compatible | Cutover` metadata를 만들지 않는다. DB migration plan/execution이 runtime
-  조합·phase·상태 표면·복구를 소유하고 Docs는 artifact 경로와 bytes SHA-256만 묶는다. 공개 API도
-  깨질 때만 API Gate를 함께 채운다.
+- DB에는 별도 `Compatible | Cutover` metadata를 만들지 않는다. Docs는 DB 전이의 exact dev/prod
+  plan·execution 경로와 bytes SHA-256만 묶는다. 공개 API도 깨질 때만 API Gate를 함께 채운다.
 - `versionMapping.coupler-mobile-app.nextPush`는 기존 단일 계약을 유지한다. app/deployment/label/target
   문자열과 exact source 40자 `commit`을 함께 기록하고 미적용 시 둘 다 `null`로 둔다. terminal 상태에서는
   `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
@@ -209,18 +204,12 @@
   head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
   metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
   `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB
-  migration scope는 canonical executor가 만든 현재 root와 거기서 도달하는 artifact graph의 exact SHA-256을
-  확인한다. 운영 실행 전에는 완료된 dev pair를 참조하는 prod plan이 root인 현재 PR head로 preflight를
-  통과해야 한다.
+  migration scope는 완료된 exact dev pair와 이를 참조하는 prod plan의 SHA-256을 확인한다. 운영 실행 전에는
+  이 세 파일을 담은 현재 PR head로 preflight를 통과해야 한다.
 - 서비스 버전 매핑은 원격 annotated 태그가 확정되기 전에는 해당 레포의 현재 `origin/main`과 정확히
   일치해야 한다. 배포·검증 뒤 원격 annotated 태그와 commit이 같은 기준점으로 고정되면 그 태그가 불변
   릴리스 기준이 되며, 후속 작업으로 `main`이 전진해도 이미 배포된 commit을 새 `main`으로 바꾸지 않는다.
   태그가 없거나 원격에서 확인되지 않거나 tag/commit이 다르면 과거 commit을 릴리스 기준으로 허용하지 않는다.
-  단, `origin/main`에 이미 병합된 standalone completed dev checkpoint를 같은 bytes의 canonical prod root로
-  소비하는 DB-only 릴리스는 API 배포 기준이 아니라 해당 plan의 immutable executor/runtime basis를
-  `versionMapping.coupler-api.commit`에 보존한다. 이 commit은 최신 `origin/main`의 조상이어야 하며
-  `coupler-api` 또는 `contracts-package` scope를 함께 포함하면 예외를 적용하지 않고 현재 API ref에서 개발계
-  검증을 다시 수행한다.
 - 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙
@@ -258,9 +247,8 @@
   같은 PR head의 preflight를
   통과하기 전에는 운영 DB 실행으로 넘어가지 않는다. 릴리스 기록을 개발계 실행 전에 열었다면 dev plan/null,
   실행 뒤에는 completed dev pair의 `pending` 단계를 사용할 수 있지만 docs PR과 preflight는 개발계 실행의
-  선행조건이 아니다. 운영까지의 간격이 길면 release record 없이 dev graph만 먼저 `main`에 checkpoint로
-  병합한다. 같은 version의 release record PR은 그 exact graph를 참조하는 canonical prod plan root로
-  소비하고 운영 완료 전까지 미병합 상태로 유지한다.
+  선행조건이 아니다. dev pair와 prod plan은 같은 version의 미병합 release record PR에 누적하고 운영 완료
+  전까지 그 PR을 병합하지 않는다.
 - Store 심사처럼 외부 대기가 있는 범위는 제출 마커 태그와 대기 범위를 남기고 `in_progress`로 유지한다.
 - Store 승인, 운영 출시, 기본 smoke, 모바일 릴리스 태그, 제출 마커 증빙 이관/삭제가 끝나기 전에는 Mobile Store 범위를 `released`로 닫지 않는다.
 - 후속 릴리스가 대기 중인 Store 또는 cutover 범위를 대체하면 억지 완료 증빙을 만들지 않고 `superseded`로 닫는다.
@@ -299,10 +287,8 @@
 - [ ] 포함·제외 scope와 `N/A` 근거가 release metadata와 사람이 읽는 mirror에서 일치하는가?
 - [ ] 전체 상태가 scope 결과에서 파생된 상태와 일치하고, 허용되지 않은 역전이나 기준점 변경이 없는가?
 - [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
-- [ ] DB migration root가 현재 단계와 일치하고 dev·failed 이력까지 모두 도달 가능하며, 운영 실행 전 prod
+- [ ] DB migration root가 현재 단계와 일치하고 exact dev pair가 prod plan에 결속되며, 운영 실행 전 prod
       plan root를 담은 현재 PR head의 preflight를 통과했는가?
-- [ ] delayed DB checkpoint의 과거 API commit을 사용했다면 API/contracts scope가 없고 exact checkpoint
-      consumption·`origin/main` ancestry·trusted source 검증을 모두 통과했는가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [릴리스 태그 정책](release-tag-policy.md), Gate 순서는 릴리스 게이트 플로우, 실행 라우팅과
       공통 명령은 운영 릴리스 실행 런북을 단일 기준으로 사용하는가?

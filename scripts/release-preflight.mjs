@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +25,6 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
-import { dbMigrationMaintenanceEvidenceSchema } from "./db-migration-maintenance-artifacts.mjs";
 
 const docsRoot = process.cwd();
 const validateReleaseRecordsScript = fileURLToPath(
@@ -732,19 +730,17 @@ function validateDbMigrationOperationalAdmission(releaseRecord, validationErrors
     `content/releases/evidence/db-migrations/${releaseRecord.version}/prod/plan.json`;
   if (["planned", "pending"].includes(dbResult?.status)) {
     validationErrors.push(
-      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan root with null execution`,
+      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan`,
     );
     return;
   }
   if (
     dbResult?.status === "in_progress" &&
-    (dbResult?.evidence?.schema !== dbMigrationMaintenanceEvidenceSchema ||
-      dbResult?.evidence?.kind !== "canonical" ||
-      dbResult?.evidence?.plan?.path !== expectedProdPlanPath ||
+    (dbResult?.evidence?.plan?.path !== expectedProdPlanPath ||
       dbResult?.evidence?.execution !== null)
   ) {
     validationErrors.push(
-      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan root with null execution`,
+      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan`,
     );
     return;
   }
@@ -939,8 +935,7 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
     const refsRequiringCurrentOrigin = resolvedRefs.filter(
       (ref) =>
         !ref.frozenArtifact &&
-        !frozenGroups.has(ref.group ?? "default") &&
-        !isFrozenDbCheckpointBasis(state, ref, releaseRecord),
+        !frozenGroups.has(ref.group ?? "default"),
     );
     validateResolvedBasisMatchesOriginMain(
       state.name,
@@ -949,71 +944,6 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
       errors,
     );
   }
-}
-
-function isFrozenDbCheckpointBasis(state, ref, releaseRecord) {
-  if (
-    state.name !== "coupler-api" ||
-    ref.type !== "commit" ||
-    !releaseRecord.model.releaseScopes.has("db-migration") ||
-    releaseRecord.model.releaseScopes.has("coupler-api") ||
-    releaseRecord.model.releaseScopes.has("contracts-package")
-  ) {
-    return false;
-  }
-
-  const dbResult = releaseRecord.metadata?.scopeResults?.["db-migration"];
-  const eligibleDbStatuses = new Set(["in_progress", "released", "rolled_back"]);
-  const evidenceRoot =
-    `content/releases/evidence/db-migrations/${releaseRecord.version}`;
-  const prodPlanPath = `${evidenceRoot}/prod/plan.json`;
-  if (
-    !eligibleDbStatuses.has(dbResult?.status) ||
-    dbResult?.evidence?.kind !== "canonical" ||
-    dbResult.evidence.plan?.path !== prodPlanPath ||
-    !releaseRecord.pendingRef
-  ) {
-    return false;
-  }
-
-  const devPlanPath = `${evidenceRoot}/dev/plan.json`;
-  const devExecutionPath = `${evidenceRoot}/dev/execution.jsonl`;
-  const baseDevPlan = readGitReleaseArtifact("origin/main", devPlanPath);
-  const baseDevExecution = readGitReleaseArtifact("origin/main", devExecutionPath);
-  const pendingDevPlan = readGitReleaseArtifact(releaseRecord.pendingRef, devPlanPath);
-  const pendingDevExecution = readGitReleaseArtifact(
-    releaseRecord.pendingRef,
-    devExecutionPath,
-  );
-  const prodPlanSource = readGitReleaseArtifact(releaseRecord.pendingRef, prodPlanPath);
-  if (
-    !Buffer.isBuffer(baseDevPlan) ||
-    !Buffer.isBuffer(baseDevExecution) ||
-    !Buffer.isBuffer(pendingDevPlan) ||
-    !Buffer.isBuffer(pendingDevExecution) ||
-    !Buffer.isBuffer(prodPlanSource) ||
-    !baseDevPlan.equals(pendingDevPlan) ||
-    !baseDevExecution.equals(pendingDevExecution)
-  ) {
-    return false;
-  }
-
-  try {
-    const prodPlan = JSON.parse(prodPlanSource.toString("utf8"));
-    const devPlan = JSON.parse(baseDevPlan.toString("utf8"));
-    return (
-      prodPlan.apiSourceRef === ref.commit &&
-      devPlan.apiSourceRef === ref.commit &&
-      prodPlan.devPlan?.sha256 === sha256Hex(baseDevPlan) &&
-      prodPlan.devExecution?.sha256 === sha256Hex(baseDevExecution)
-    );
-  } catch {
-    return false;
-  }
-}
-
-function sha256Hex(source) {
-  return createHash("sha256").update(source).digest("hex");
 }
 
 function requiresOriginTag(policy, releaseStatus) {

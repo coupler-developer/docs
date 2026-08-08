@@ -30,10 +30,7 @@ import {
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
-import {
-  isTerminalCanonicalMaintenanceEvidence,
-  validateMaintenanceDbMigrationEvidence,
-} from "./db-migration-maintenance-artifacts.mjs";
+import { validateDbMigrationEvidence } from "./db-migration-evidence.mjs";
 
 export {
   findReleasePlaceholderSignals,
@@ -376,7 +373,7 @@ function validateScopeResult(
 
   if (scopeName === "db-migration" && result.evidence) {
     errors.push(
-      ...validateMaintenanceDbMigrationEvidence({
+      ...validateDbMigrationEvidence({
         evidence: result.evidence,
         version: metadata.version,
         apiSourceRef: metadata.versionMapping?.["coupler-api"]?.commit,
@@ -1421,30 +1418,6 @@ function validateApiRuntimeRecoveryEvidence(
   const stateSafety = runtimeRecovery.stateSafety;
   if (!stateSafety || typeof stateSafety !== "object" || Array.isArray(stateSafety)) {
     errors.push(`${context}: release-metadata ${fieldPath}.stateSafety must be an object`);
-  } else if (stateSafety.source === "db-maintenance-execution") {
-    validateExactObjectKeys({
-      value: stateSafety,
-      allowedKeys: ["source", "scope"],
-      context,
-      fieldPath: `${fieldPath}.stateSafety`,
-      errors,
-    });
-    const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
-    if (stateSafety.scope !== "db-migration" || !releaseScopes.includes("db-migration")) {
-      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety must reference an included db-migration scope`);
-    }
-    const dbResult = metadata.scopeResults?.["db-migration"];
-    const dbEvidence = dbResult?.evidence;
-    const terminalCanonicalExecution = isTerminalCanonicalMaintenanceEvidence(
-      dbEvidence,
-      metadata.version,
-    );
-    if (
-      (!["released", "rolled_back"].includes(dbResult?.status) ||
-        !terminalCanonicalExecution)
-    ) {
-      errors.push(`${context}: release-metadata ${fieldPath}.stateSafety requires a terminal canonical prod DB maintenance execution`);
-    }
   } else if (stateSafety.source === "application-evidence") {
     validateExactObjectKeys({
       value: stateSafety,

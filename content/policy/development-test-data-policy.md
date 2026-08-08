@@ -255,7 +255,7 @@
 
 ### 12) DB migration과 데이터 보정 경계
 
-- 테스트 데이터 insert·update·delete 이력을 `schema_migrations`에 기록하지 않는다.
+- 테스트 데이터 insert·update·delete는 서비스 DB migration plan/execution에 포함하지 않는다.
 - feeder 구현을 위해 schema, index, constraint, 기준정보 계약을 바꿔야 하면 별도 DB migration 작업으로 분리하고 DB Migration Gate를 적용한다.
 - 기존 개발계 행의 결측·오류를 발견해도 feeder가 보정하지 않고 별도 data repair 작업으로 보고한다.
 - DB schema version이 scenario catalog의 지원 범위 밖이면 부분 적용하지 않고 즉시 중단한다.

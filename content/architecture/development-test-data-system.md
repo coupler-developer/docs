@@ -52,10 +52,10 @@ cron fence는 운영 cron을 바꾸는 기능이 아니라 합성 데이터 작�
 
 서비스 DB 마이그레이션 흐름은 기존과 같다. 회원, 매칭, 그룹미팅, 결제 같은 서비스 기능의
 테이블·컬럼·인덱스·제약조건·뷰 또는 필수 기준정보를 바꾸는 동일한 승인 SQL을 개발계에 한 번 적용하고,
-검증이 끝나면 운영계에 한 번 적용한다. 각 DB는 자신의 migration ledger에 완료 상태를 기록하며
+검증이 끝나면 운영계에 한 번 적용한다. exact plan/execution과 live TARGET으로 완료 상태를 판정하며
 [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)을 그대로 따른다.
 
-합성 데이터 `apply`, `verify`, `reset`은 서비스 DB 마이그레이션이 아니며 migration ledger에 기록하지
+합성 데이터 `apply`, `verify`, `reset`은 서비스 DB 마이그레이션이 아니며 그 plan/execution에 포함하지
 않는다. 개발 데이터 관리 때문에 서비스 DB 마이그레이션 적용 환경이나 횟수가 늘어나지 않는다. DB
 마이그레이션이 feeder 관련 table·column·view·FK를 바꿀 때만 DB contract, schema fingerprint,
 ownership query, scenario version과 verifier를 함께 갱신한다. 관련 없는 마이그레이션은 기존 namespace를

@@ -57,8 +57,8 @@
 
 - 최종 상태의 API, Mobile, Admin 코드가 하나의 canonical 계약(스키마/enum/상태전이)으로 동작하도록 고정한다.
 - 도메인/상태/에러/문서 역할 분류 체계가 단일 기준으로 설명되고, 코드와 문서에서 같은 축을 사용한다.
-- API 변경은 직전 운영 Mobile/Admin 계약, DB 변경은 직전 운영 API runtime을 기본 호환 대상으로 둔다.
-  API 계약 cutover와 DB maintenance cutover를 하나의 상태로 합치지 않는다.
+- API 변경은 직전 운영 Mobile/Admin 계약을 기본 호환 대상으로 둔다. DB 전이와 API 배포 상태를 하나의
+  엔진 계약으로 합치지 않는다.
 - DB/API/Admin/Mobile 책임 경계가 코드에서 즉시 드러나게 유지한다.
 - Finding 처리는 [코드 리뷰 정책](code-review-policy.md)의 1회 수정·재리뷰 및 자동 실행 `BLOCKED` 기준을 따른다.
 
@@ -67,8 +67,7 @@
 - 스펙 단일화: 요청/응답 필드명, enum, nullable 규칙은 한 가지 표현만 허용한다.
 - 책임 분리: 상세 기준은 본 문서 `레이어 책임 분리 (단일 SoT)`를 단일 기준으로 따른다.
 - 하위 호환 우선: 공개 API 변경은 `API cutover: No | Yes`를 구현 전에 판정한다. DB 변경은 전역
-  `Compatible/Cutover` 라벨로 축약하지 않고, 실제 이전·현재·혼합 runtime과 시작·최종 DB의 허용 조합을
-  migration plan에 폐쇄형으로 선언한다.
+  `Compatible/Cutover` 라벨로 축약하지 않고 current trio의 START/TARGET/PARTIAL을 폐쇄형으로 정의한다.
 - 호환 장치 통제: additive 계약과 기존 공개 계약의 정상 지원은 임시 호환 장치가 아니다. 제거 예정
   adapter·dual-write·fallback은 기본 금지하며 불가피하면 `API cutover: Yes`로 분류하고 제거 조건을
   추적한다. 같은 의미의 구·신 로직 교체에만 Shadow Cutover를 적용한다.
@@ -82,19 +81,19 @@
 
 | 기술 이행 유형 | 적용 조건 | 허용 구조 | Exit Gate |
 | --- | --- | --- | --- |
-| `최종 상태` | 일반 구현과 하위 호환 API/DB 변경 | 하나의 canonical 내부 계약, additive 공개 계약, transition 계층 0건 | 계약·책임·품질 게이트, 적용 시 `API cutover: No`와 DB runtime 조합 증빙 통과 |
+| `최종 상태` | 일반 구현과 하위 호환 API/DB 변경 | 하나의 canonical 내부 계약, additive 공개 계약, transition 계층 0건 | 계약·책임·품질 게이트, 적용 시 `API cutover: No`; DB 변경은 별도 current trio 검증 |
 | `contract cutover` | 직전/다음 공개 API 계약이 동시에 성립하지 않음 | 승인된 전환 장벽과 제거 범위로 한정된 transition | `API cutover: Yes`, 전환 순서·차단 수단·rollback·제거 검증 |
 | `Shadow Cutover` | 같은 입력에서 같은 의미의 결과를 내야 하는 구·신 로직 교체 | 병렬 계산과 diff 계측 | 검증 범위가 명시된 불일치 0건 |
 | `운영 legacy cutover` | 이미 배포된 API adapter, parser, dual-write를 실제 제거 | 제거 대상으로 고정된 경로의 삭제만 허용 | `API cutover: Yes`, release-scoped 소비자 case·결정론적 차단·client rollback·적용 Gate 충족 |
-| `DB migration` | DDL, backfill, read/write 기준 변경, contract/drop | 모든 writer·effect producer가 중지된 유지보수 실행 | runtime 조합, plan/checksum, postcondition, ledger, FENCED smoke와 재개/복구 증빙 통과 |
+| `DB migration` | DDL, backfill, read/write 기준 변경, contract/drop | 모든 writer가 중지·drain된 뒤 DB-only 전이 | exact current trio, backup, plan/journal, START/TARGET/PARTIAL 통과 |
 
 - `Shadow Cutover`는 구·신 결과의 의미가 같아 diff 0건을 기대할 수 있을 때만 적용한다.
-- DB 변경은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 plan과 postcondition을 먼저 고정한다.
+- DB 변경은 [DB Migration 정책](db-migration-gate-policy.md)의 plan과 state classifier를 먼저 고정한다.
 
-### 2-2) API 계약과 runtime-state 안전성의 독립 판정
+### 2-2) API 계약과 DB 전이 안전성의 독립 판정
 
 Store 출시·NextPush 적용과 공개 API contract cutover는 서로 다른 축이다. DB는 별도 cutover 라벨이 아니라
-실제 runtime·schema 조합과 상태 표면으로 판정한다.
+current trio의 START/TARGET/PARTIAL로 판정한다.
 
 릴리스마다 지원 소비자 inventory를 먼저 고정한다. Store의 직전 지원 build와 제출·출시할 build,
 플랫폼별 OTA label/cohort와 target binary, 운영 Admin artifact, REST·WebSocket·bootstrap·version endpoint를
@@ -116,31 +115,23 @@ Store 출시·NextPush 적용과 공개 API contract cutover는 서로 다른 �
    `violation` 증빙으로 실패 요구조건, 영향 소비자 ref, 관측·미관측 범위, 운영 처분과 후속 통제를 기록한다.
    이 처분은 정상 cutover Gate나 이후 릴리스의 호환성 증빙으로 사용할 수 없다.
 
-DB 변경은 계획 시 이전·현재·필요한 혼합 runtime set의 unit별 source ref/compatibility-config SHA/역할,
-변경된 read/write/state 경계, 시작·최종 schema와의 허용 조합, DB·queue·외부효과 표면을 선언한다.
-실행 시 관측한
-runtime set·schema fingerprint가 선언과 정확히 일치하고, `RESUMED`에 허용한 모든 경계가 성공해야 한다.
-update·backfill·delete·DDL이라는 SQL 형태만으로 안전 여부를 판정하지 않는다.
-
-`RESUMED` 뒤의 이전 릴리스 rollback은 이전 client/API 계약뿐 아니라 그 시점까지 수락한 write, queue
-cursor·in-flight 작업, idempotency와 외부효과를 보존·재생·보상할 수 있을 때만 허용한다. 이 증빙이 없으면
-snapshot/PITR로 코드를 되돌리지 않고 forward fix 또는 통제된 무손실 reconciliation을 수행한다. 이전
-API로 되돌리는 전략은 inventory의 이전·현재 모든 소비자 interface가 이전 API와 final DB에서 성공한
-rollback case를 정확히 하나씩 가져야 한다.
+DB 변경은 current SQL이 바꾸는 read/write/state 경계와 시작·최종 schema를 정의한다. DB 엔진은 source
+bytes, DB identity, backup, lease, START/TARGET/PARTIAL, SQL과 journal만 검증한다. API 배포·queue·외부효과
+검증과 rollback은 서비스 릴리스 절차가 별도로 소유한다. update·backfill·delete·DDL이라는 SQL 형태만으로
+안전 여부를 판정하지 않는다.
 
 릴리스 순서는 [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md),
-DB 실행 안전은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)을 따른다.
+DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른다.
 
 ### 2-3) 현재 source 정렬과 운영 contract cutover 분리
 
 - API package source와 Admin/Mobile의 현재 source dependency·lockfile, 실제 runtime 공개 표면은 같은
   canonical 계약을 가리켜야 한다. 이 정렬은 새 source의 코드 일치 증빙이지 이미 설치된 이전 Mobile 계약의
   차단 증빙이 아니다.
-- API 변경 리뷰는 source 정렬 뒤 `API cutover`를 판정하고, DB 변경 리뷰는 plan에 선언된 runtime/schema
-  조합과 상태 표면을 별도로 검증한다. API `Yes`이면 실제 요청 장벽, DB migration이면 FENCED/RESUMED/
-  RECOVERING 실행 증빙을 확인한다.
+- API 변경 리뷰는 source 정렬 뒤 `API cutover`를 판정하고, DB 변경 리뷰는 current trio와 DB-only
+  plan/journal을 별도로 검증한다. API `Yes`이면 실제 요청 장벽을 확인한다.
 - 운영 legacy cutover 증빙은 API adapter, parser, dual-write처럼 기존 공개 계약 경로를 실제 제거하는
-  작업에만 적용한다. DB contract/drop은 별도 runtime 조합 판정을 따른다. source 검색 결과로 설치된
+  작업에만 적용한다. DB contract/drop은 별도 current trio 판정을 따른다. source 검색 결과로 설치된
   소비자의 실제 요청을 추론하지 않는다.
 - 브랜치 이름, Store 승인, 강제 업데이트 설정, NextPush 이력 또는 장시간 traffic 관찰 중 하나만으로
   cutover 완료를 판정하지 않는다.
@@ -236,8 +227,8 @@ DB 실행 안전은 [DB Migration 유지보수 정책](db-migration-gate-policy.
 - `contract cutover`는 `API cutover: Yes` 근거, 결정론적 요청 차단, 적용 순서, rollback과 Exit Gate를 충족한다.
 - `운영 legacy cutover`는 제거 대상으로 고정한 호환 경로가 0건이고 남은 소비 범위가 단일 계약을 가리킨다.
 - `Shadow Cutover`는 같은 의미의 구·신 결과에 대해 검증 범위가 명시된 불일치 0건을 충족한다.
-- `DB migration`은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 중지·drain·backup·plan·
-  ledger·FENCED smoke·재개/복구 조건을 충족한다.
+- `DB migration`은 [DB Migration 정책](db-migration-gate-policy.md)의 외부 중지·drain 전제와 DB backup·
+  plan/journal·live state 조건을 충족한다.
 - 분류 체계가 단일 축으로 설명된다. 같은 이름이 도메인, 제품면, 상태, 동작을 동시에 뜻하지 않는다.
 - fallback/normalize로 계약 위반을 숨기지 않고 실패가 명시적으로 드러난다.
 - 레거시/호환 경로는 필수 요구사항의 호환 장치 통제 원칙을 충족한다.
@@ -523,7 +514,7 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 
 ### DB Migration 유지보수 인덱스
 
-- DB 마이그레이션 검증은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 plan, fixture와 ledger를 기준으로 수행한다.
+- DB 마이그레이션 검증은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)의 plan, exact current trio와 live state를 기준으로 수행한다.
 - 본 문서는 상위 원칙(Fail-closed/No Findings)만 유지하고, DB 마이그레이션 세부 게이트 정의는 분리 문서를 단일 기준으로 사용한다.
 
 ### 안전한 로직 이행 (Shadow Cutover)

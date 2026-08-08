@@ -83,8 +83,7 @@
 - API 계약 판정: `API cutover: No | Yes | N/A`와 근거
 - 소비자/API 증빙: Store/OTA/Admin release-scoped inventory와 REST·WebSocket·bootstrap·version
   consumer-interface case
-- DB runtime 증빙: 이전·현재·실제 혼합 runtime unit/ref/config, 시작·최종 DB 조합, 변경 경계,
-  FENCED/RESUMED/RECOVERING과 상태 표면·복구 결과 또는 `N/A` 근거
+- DB 증빙: current trio, START/TARGET/PARTIAL, backup, plan/journal과 외부 stop/drain 선행 순서 또는 `N/A` 근거
 - API 계약 판정 범위: `하위 호환 변경` / `contract cutover` / `운영 legacy cutover` / `N/A`
 - 현재 source 정렬: API package source, Admin/Mobile dependency·lockfile, 실제 runtime 공개 표면,
   요청·응답 wire 계약 정렬 결과
@@ -140,9 +139,9 @@
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
 - [ ] 외부 의존성을 추가·대체하면 [에이전트 운영 규칙](../AGENTS.md)의 `범위와 권한`에 따른 명시적 승인 기록과 [엔지니어링 가드레일](engineering-guardrails.md)의 `외부 의존성 변경 사전 검토` 근거를 확인
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
-- [ ] API/DB 변경이면 API 소비자 inventory/case와 DB runtime/schema 조합·상태 표면을 기록하고,
-  API `Yes`이면 activation·old-readable bootstrap/upgrade·client rollback, DB migration이면
-  FENCED/RESUMED/RECOVERING·post-resume state/effect 복구를 기록
+- [ ] API/DB 변경이면 API 소비자 inventory/case와 DB current trio·live state를 각각 기록하고, API `Yes`이면
+  activation·old-readable bootstrap/upgrade·client rollback, DB migration이면 backup·plan/journal과 외부
+  stop/drain 선행 순서를 기록
 - [ ] API 계약 리뷰가 `하위 호환 변경`, `contract cutover`, `운영 legacy cutover`, `N/A` 중 어디인지 먼저
   고정하고 source 정렬을 운영 구버전 차단 증빙으로 오인하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
@@ -328,14 +327,14 @@
 
 - 기술 이행 전제는 [엔지니어링 가드레일](engineering-guardrails.md)의 `기술 이행 유형`에서 먼저 고정한다.
 - API 변경의 기본 전제는 release-scoped 지원 이전 소비자가 현재 API+최종 DB에서 성공하는
-  `하위 호환 변경`이다. Store 출시와 NextPush는 별도 모바일 활성화 범위다. DB 변경은 실제 이전·현재·혼합
-  runtime과 최종 DB 조합을 plan에 선언한다.
-- API `No`와 DB의 허용 runtime/schema 조합은 consumer-interface case와 실행 증빙으로 증명한다.
+  `하위 호환 변경`이다. Store 출시와 NextPush는 별도 모바일 활성화 범위다. DB 변경은 current trio의
+  START/TARGET/PARTIAL을 plan에 선언한다.
+- API `No`와 DB 전이는 각각 consumer-interface case와 DB 실행 증빙으로 증명한다.
   강제 업데이트, mandatory, 현재 source 정렬 또는 버전을 구분할 수 없는 traffic 0건으로 대신하지 않는다.
 - API `Yes`이면 혼합 계약 요청을 서버·proxy·유지보수 상태에서 결정론적으로 차단할 수 있어야
   한다. 앱 팝업만으로 차단을 주장하면 Finding이다.
-- DB migration이면 writer/effect producer 중지, backup, FENCED final-DB smoke, durable RESUMED와
-  post-resume state/effect 복구가 있어야 한다.
+- DB migration이면 운영 런북의 traffic/writer 중지·drain 선행 순서와 DB backup·plan/journal·DONE/TARGET이
+  있어야 한다. API smoke와 재개 증빙을 DB journal에 넣지 않는다.
 - 운영 legacy 제거는 source 검색이 아니라 release-scoped 소비자 inventory/case와 실제 요청 차단으로
   확인한다. 장시간 traffic 관찰은 완료 Gate로 사용하지 않는다.
 
