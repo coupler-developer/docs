@@ -76,6 +76,7 @@ export function validateReleaseMetadata(
   {
     readArtifact,
     readApiArtifact,
+    isApiAncestor,
     requireTrustedApiSource = false,
     listArtifacts,
     requireCurrentSchema = false,
@@ -112,6 +113,7 @@ export function validateReleaseMetadata(
   validateScopeResults(metadata, context, errors, {
     readArtifact,
     readApiArtifact,
+    isApiAncestor,
     requireTrustedApiSource,
     listArtifacts,
   });
@@ -280,7 +282,7 @@ function validateScopeResults(
   metadata,
   context,
   errors,
-  { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
+  { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
 ) {
   const scopeResults = metadata.scopeResults;
   const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
@@ -308,7 +310,7 @@ function validateScopeResults(
       scopeResults[scopeName],
       context,
       errors,
-      { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
+      { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
     );
   }
 }
@@ -319,7 +321,7 @@ function validateScopeResult(
   result,
   context,
   errors,
-  { readArtifact, readApiArtifact, requireTrustedApiSource, listArtifacts },
+  { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
 ) {
   const descriptor = releaseScopeDescriptors[scopeName];
   if (!descriptor) {
@@ -380,6 +382,7 @@ function validateScopeResult(
         scopeStatus: result.status,
         readArtifact,
         readApiArtifact,
+        isApiAncestor,
         requireTrustedApiSource,
         listArtifacts,
         context: `${context}: release-metadata scopeResults.db-migration.evidence`,

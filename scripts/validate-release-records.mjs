@@ -35,6 +35,7 @@ const trustedApiRoot = process.env.DB_MIGRATION_API_ROOT ?? null;
 const readApiArtifact = requireTrustedApiSource || trustedApiRoot
   ? readTrustedApiArtifact
   : undefined;
+const isApiAncestor = trustedApiRoot ? isTrustedApiAncestor : undefined;
 const releasesRoot = path.join(docsRoot, "content", "releases");
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
 const dbMigrationEvidencePattern =
@@ -159,6 +160,7 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
     validateReleaseMetadata(metadata, relativePath, tag, errors, {
       readArtifact: readWorkingTreeReleaseArtifact,
       readApiArtifact,
+      isApiAncestor,
       requireTrustedApiSource,
       listArtifacts: listWorkingTreeReleaseArtifacts,
       requireCurrentSchema: Boolean(baseRef),
@@ -252,6 +254,25 @@ function readTrustedApiArtifact(sourceRef, relativePath) {
     });
   } catch {
     return null;
+  }
+}
+
+function isTrustedApiAncestor(ancestor, descendant) {
+  if (
+    !trustedApiRoot ||
+    !/^[0-9a-f]{40}$/u.test(ancestor ?? "") ||
+    !/^[0-9a-f]{40}$/u.test(descendant ?? "")
+  ) {
+    return false;
+  }
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+      cwd: trustedApiRoot,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 

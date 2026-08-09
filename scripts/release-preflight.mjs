@@ -611,6 +611,8 @@ function validateReleaseRecordMetadata(releaseRecord, repoStates, validationErro
       readArtifact: (relativePath) =>
         readPendingReleaseArtifact(args.pendingRef, relativePath),
       readApiArtifact: createTrustedApiArtifactReader(apiRoot),
+      isApiAncestor: (ancestor, descendant) =>
+        Boolean(apiRoot) && gitCommitIsAncestor(apiRoot, ancestor, descendant),
       requireTrustedApiSource: true,
       listArtifacts: (prefix) => listPendingReleaseArtifacts(args.pendingRef, prefix),
       requireCurrentSchema: true,
@@ -748,6 +750,7 @@ function validateDbMigrationOperationalAdmission(releaseRecord, validationErrors
 
 function validatePendingReleaseTransition(pendingRef, repoStates, validationErrors) {
   const docsState = repoStates.find((state) => state.name === "docs");
+  const apiRoot = repoStates.find((state) => state.name === "coupler-api")?.root ?? null;
   if (
     !pendingRef ||
     !docsState?.clean ||
@@ -762,6 +765,9 @@ function validatePendingReleaseTransition(pendingRef, repoStates, validationErro
       [validateReleaseRecordsScript, "--base-ref", "origin/main"],
       {
         cwd: docsRoot,
+        env: apiRoot
+          ? { ...process.env, DB_MIGRATION_API_ROOT: apiRoot }
+          : process.env,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       },
