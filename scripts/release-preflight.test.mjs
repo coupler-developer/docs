@@ -190,31 +190,6 @@ describe("release preflight for unpublished PR records", () => {
     );
   });
 
-  it("rejects a sealed catalog that does not exist at the plan API commit", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    git(workspace.docsRoot, ["checkout", "-b", "docs/forged-db-catalog"]);
-    writePendingRelease(workspace.docsRoot, {
-      dbMigration: true,
-      apiRef,
-      forgeDbCatalog: true,
-    });
-    const pendingRef = commit(workspace.docsRoot, "forge DB catalog");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/forged-db-catalog"]);
-
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
-
-    assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /must use the exact single-current plan shape/);
-  });
-
   it("rejects an API source that exists locally but is not in origin/main history", () => {
     const workspace = createWorkspace();
     git(workspace.apiRoot, ["checkout", "-b", "unmerged/db-source"]);
@@ -273,6 +248,41 @@ describe("release preflight for unpublished PR records", () => {
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /preflight repos: docs, coupler-api/);
+    assert.match(result.stdout, /Result: PASS/);
+  });
+
+  it("keeps DB plan source A when an unrelated API commit B reaches main", () => {
+    const workspace = createWorkspace();
+    const dbPlanApiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
+    fs.writeFileSync(path.join(workspace.apiRoot, "UNRELATED.md"), "# Unrelated API change\n");
+    const releaseApiRef = commitAndPush(workspace.apiRoot, "advance API main without DB drift");
+
+    git(workspace.docsRoot, ["checkout", "-b", "docs/db-release-after-api-advance"]);
+    writePendingRelease(workspace.docsRoot, {
+      dbMigration: true,
+      apiRef: releaseApiRef,
+      dbPlanApiRef,
+      status: "in_progress",
+      dbMigrationStage: "prod-planned",
+    });
+    const pendingRef = commit(workspace.docsRoot, "bind DB plan A to release API B");
+    git(workspace.docsRoot, [
+      "push",
+      "-u",
+      "origin",
+      "docs/db-release-after-api-advance",
+    ]);
+
+    const result = runPreflight([
+      "--version",
+      "v9.9.0",
+      "--pending-ref",
+      pendingRef,
+      "--workspace-root",
+      tempRoot,
+    ], workspace.docsRoot);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
   });
 
@@ -682,6 +692,9 @@ function createRepository(name) {
   if (name === "coupler-api") {
     for (const [relativePath, source] of Object.entries({
       ...dbMigrationInputSources,
+      "scripts/db-migration-workflow.ts": "export {};\n",
+      "scripts/db-migration-executor.ts": "export {};\n",
+      "scripts/db-schema-contract.ts": "export {};\n",
     })) {
       const absolutePath = path.join(repositoryRoot, relativePath);
       fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
@@ -725,12 +738,12 @@ function writePendingRelease(
     dbMigration = false,
     contractsPackage = false,
     apiRef = null,
+    dbPlanApiRef = apiRef,
     apiTag = null,
     status = "pending",
     dbMigrationStatus = status,
     dbMigrationStage = "dev-planned",
     devPlanCreatedAt = "2026-08-04T00:00:00.000Z",
-    forgeDbCatalog = false,
     mobileStoreMapping = null,
     version = "v9.9.0",
   } = {},
@@ -756,35 +769,16 @@ function writePendingRelease(
       "db-migrations",
       version,
     );
-    const evidenceInputSources = {
-      ...dbMigrationInputSources,
-      ...(forgeDbCatalog
-        ? {
-            "db/schema/schema-contract.json":
-              `${JSON.stringify(
-                { kind: "db-schema-contract", migrations: [], unexpected: true },
-                null,
-                2,
-              )}\n`,
-          }
-        : {}),
-    };
     const devPlanValue = dbMigrationPlanFor("dev", {
-        apiSourceRef: apiRef,
+        apiSourceRef: dbPlanApiRef,
         createdAt: devPlanCreatedAt,
       });
-    if (forgeDbCatalog) {
-      devPlanValue.catalog = {
-        path: "db/schema/schema-contract.json",
-        sha256: sha256Hex(evidenceInputSources["db/schema/schema-contract.json"]),
-      };
-    }
     const devPlan = Buffer.from(`${JSON.stringify(devPlanValue, null, 2)}\n`);
     const devPlanSha256 = sha256Hex(devPlan);
     const devExecution = Buffer.from(dbMigrationExecution("dev", devPlanValue, "done"));
     const devExecutionSha256 = sha256Hex(devExecution);
     const prodPlanValue = dbMigrationPlanFor("prod", {
-          apiSourceRef: apiRef,
+          apiSourceRef: dbPlanApiRef,
           devPlan: {
             path: `.runtime/db-migration/dev/plan.json`,
             sha256: devPlanSha256,
@@ -794,12 +788,6 @@ function writePendingRelease(
             sha256: devExecutionSha256,
           },
         });
-    if (forgeDbCatalog) {
-      prodPlanValue.catalog = {
-        path: "db/schema/schema-contract.json",
-        sha256: sha256Hex(evidenceInputSources["db/schema/schema-contract.json"]),
-      };
-    }
     const prodPlan = Buffer.from(`${JSON.stringify(prodPlanValue, null, 2)}\n`);
     const prodPlanSha256 = sha256Hex(prodPlan);
     const prodExecution = Buffer.from(dbMigrationExecution("prod", prodPlanValue, "done"));

@@ -13,6 +13,12 @@ import {
 
 const version = "v9.9.0";
 const apiSourceRef = "a".repeat(40);
+const releaseApiSourceRef = "b".repeat(40);
+const migrationExecutionSourceFiles = [
+  "scripts/db-migration-workflow.ts",
+  "scripts/db-migration-executor.ts",
+  "scripts/db-schema-contract.ts",
+];
 const canonical = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 function scenario(environment = "prod", { outcome, execution = true } = {}) {
@@ -60,14 +66,26 @@ function scenario(environment = "prod", { outcome, execution = true } = {}) {
   };
 }
 
-function validate(current, scopeStatus, apiSources = dbMigrationInputSources) {
+function validate(
+  current,
+  scopeStatus,
+  apiSources = dbMigrationInputSources,
+  { releaseRef = apiSourceRef, ancestor = true, driftedExecutionSource = null } = {},
+) {
   return validateDbMigrationEvidence({
     evidence: current.evidence,
     version,
-    apiSourceRef,
+    apiSourceRef: releaseRef,
     scopeStatus,
     readArtifact: (artifactPath) => current.artifacts[artifactPath] ?? null,
-    readApiArtifact: (_sourceRef, artifactPath) => apiSources[artifactPath] ?? null,
+    readApiArtifact: (sourceRef, artifactPath) => {
+      if (apiSources[artifactPath] !== undefined) return apiSources[artifactPath];
+      if (!migrationExecutionSourceFiles.includes(artifactPath)) return null;
+      return sourceRef === releaseRef && artifactPath === driftedExecutionSource
+        ? "drifted execution source\n"
+        : `${artifactPath}\n`;
+    },
+    isApiAncestor: () => ancestor,
     requireTrustedApiSource: true,
     listArtifacts: (prefix) =>
       Object.keys(current.artifacts).filter((artifactPath) => artifactPath.startsWith(prefix)),
@@ -98,21 +116,61 @@ test("accepts released, restored, in-progress, and dev current evidence", () => 
   assert.deepEqual(validate(scenario("dev"), "pending"), []);
 });
 
-test("rejects version, catalog, ledger, and singleton evidence discriminator fields", () => {
+test("accepts release API source B while dev and prod stay bound to ancestor A", () => {
   const current = scenario("prod");
-  for (const [key, value] of [
-    ["version", 1],
-    ["catalog", {}],
-    ["ledgerCompatibility", {}],
-  ]) {
-    const invalidPlan = { ...current.plan, [key]: value };
-    const source = canonical(invalidPlan);
-    current.artifacts[current.evidence.plan.path] = source;
-    current.evidence.plan.sha256 = sha256Hex(source);
-    assert.match(validate(current, "released").join("\n"), /exact single-current plan shape/);
+  assert.deepEqual(
+    validate(current, "released", dbMigrationInputSources, {
+      releaseRef: releaseApiSourceRef,
+    }),
+    [],
+  );
+  assert.equal(current.plan.apiSourceRef, apiSourceRef);
+
+  assert.deepEqual(
+    validateDbMigrationEvidence({
+      evidence: current.evidence,
+      version,
+      apiSourceRef: releaseApiSourceRef,
+      scopeStatus: "released",
+      readArtifact: (artifactPath) => current.artifacts[artifactPath] ?? null,
+      listArtifacts: (prefix) =>
+        Object.keys(current.artifacts).filter((artifactPath) => artifactPath.startsWith(prefix)),
+      context: "lightweight db evidence",
+    }),
+    [],
+  );
+});
+
+test("rejects non-ancestor release source and migration execution source drift", () => {
+  const current = scenario("prod");
+  assert.match(
+    validate(current, "released", dbMigrationInputSources, {
+      releaseRef: releaseApiSourceRef,
+      ancestor: false,
+    }).join("\n"),
+    /plan source must be an ancestor of the release API source/,
+  );
+  for (const relativePath of migrationExecutionSourceFiles) {
+    assert.match(
+      validate(current, "released", dbMigrationInputSources, {
+        releaseRef: releaseApiSourceRef,
+        driftedExecutionSource: relativePath,
+      }).join("\n"),
+      new RegExp(`execution source changed after dev validation: ${relativePath}`),
+    );
   }
+});
+
+test("rejects unexpected plan and evidence fields", () => {
+  const current = scenario("prod");
+  const invalidPlan = { ...current.plan, unexpected: true };
+  const source = canonical(invalidPlan);
+  current.artifacts[current.evidence.plan.path] = source;
+  current.evidence.plan.sha256 = sha256Hex(source);
+  assert.match(validate(current, "released").join("\n"), /exact single-current plan shape/);
+
   const invalid = scenario("prod");
-  invalid.evidence.schema = "db-migration-evidence";
+  invalid.evidence.unexpected = true;
   assert.deepEqual(validate(invalid, "released"), [
     "db evidence must contain only plan and execution",
   ]);
@@ -233,10 +291,10 @@ test("requires DONE for release and START observation for rollback", () => {
   );
 });
 
-test("rejects extra artifacts instead of creating a history layer", () => {
+test("rejects extra artifacts", () => {
   const current = scenario("prod");
   current.artifacts[
-    `content/releases/evidence/db-migrations/${version}/history/manifest.json`
+    `content/releases/evidence/db-migrations/${version}/unexpected.json`
   ] = "{}\n";
   assert.match(validate(current, "released").join("\n"), /unsupported artifact/);
 });
@@ -249,18 +307,35 @@ test("rejects an unreferenced execution file when metadata still says unexecuted
   assert.match(validate(current, "in_progress").join("\n"), /unsupported artifact/);
 });
 
-test("rejects release and service markers inside the DB journal", () => {
-  const current = scenario("prod");
-  const events = current.execution.trimEnd().split("\n").map(JSON.parse);
-  events[0].data.docsCommit = "d".repeat(40);
-  events[1].data["resume-authorized"] = true;
-  const source = `${events.map(JSON.stringify).join("\n")}\n`;
-  current.artifacts[current.evidence.execution.path] = source;
-  current.evidence.execution.sha256 = sha256Hex(source);
-  assert.match(
-    validate(current, "released").join("\n"),
-    /transition-started data must contain only DB evidence|transition-done data must contain only DB observations/,
-  );
+test("rejects unexpected fields inside DB journal events", () => {
+  for (const { outcome, scopeStatus, eventIndex, expected } of [
+    {
+      outcome: "done",
+      scopeStatus: "released",
+      eventIndex: 0,
+      expected: /transition-started data must contain only DB evidence/,
+    },
+    {
+      outcome: "done",
+      scopeStatus: "released",
+      eventIndex: 1,
+      expected: /transition-done data must contain only DB observations/,
+    },
+    {
+      outcome: "restored",
+      scopeStatus: "rolled_back",
+      eventIndex: 1,
+      expected: /transition-restored data must contain only DB observations/,
+    },
+  ]) {
+    const current = scenario("prod", { outcome });
+    const events = current.execution.trimEnd().split("\n").map(JSON.parse);
+    events[eventIndex].data.unexpected = true;
+    const source = `${events.map(JSON.stringify).join("\n")}\n`;
+    current.artifacts[current.evidence.execution.path] = source;
+    current.evidence.execution.sha256 = sha256Hex(source);
+    assert.match(validate(current, scopeStatus).join("\n"), expected);
+  }
 });
 
 test("binds START, DONE, and RESTORED schema observations to the sealed plan", () => {

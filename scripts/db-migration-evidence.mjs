@@ -8,6 +8,11 @@ const eventTypes = new Set([
   "transition-done",
   "transition-restored",
 ]);
+const migrationExecutionSourceFiles = [
+  "scripts/db-migration-workflow.ts",
+  "scripts/db-migration-executor.ts",
+  "scripts/db-schema-contract.ts",
+];
 
 export function sha256Hex(source) {
   return createHash("sha256").update(source).digest("hex");
@@ -184,13 +189,20 @@ function validatePlanShape(plan, environment, context, errors) {
   return true;
 }
 
-function validateApiSource(plan, readApiArtifact, requireTrustedApiSource, context, errors) {
+function validateApiSource(
+  plan,
+  sourceRef,
+  readApiArtifact,
+  requireTrustedApiSource,
+  context,
+  errors,
+) {
   if (typeof readApiArtifact !== "function") {
     if (requireTrustedApiSource) errors.push(`${context} requires a trusted API source reader`);
     return;
   }
   const readSource = (artifactPath) => {
-    const source = readApiArtifact(plan.apiSourceRef, artifactPath);
+    const source = readApiArtifact(sourceRef, artifactPath);
     return Buffer.isBuffer(source) ? source.toString("utf8") : source;
   };
   for (const reference of Object.values(plan.source ?? {}).filter(
@@ -216,6 +228,54 @@ function validateApiSource(plan, readApiArtifact, requireTrustedApiSource, conte
       }
     } catch {
       errors.push(`${context} ${label} lock is invalid JSON`);
+    }
+  }
+}
+
+function validateApiTransition(
+  plan,
+  releaseApiSourceRef,
+  readApiArtifact,
+  isApiAncestor,
+  requireTrustedApiSource,
+  context,
+  errors,
+) {
+  if (!releaseApiSourceRef || plan.apiSourceRef === releaseApiSourceRef) return;
+  if (typeof isApiAncestor !== "function") {
+    if (requireTrustedApiSource) {
+      errors.push(`${context} requires a trusted API ancestry checker`);
+    }
+    return;
+  }
+  if (!isApiAncestor(plan.apiSourceRef, releaseApiSourceRef)) {
+    errors.push(`${context} plan source must be an ancestor of the release API source`);
+    return;
+  }
+  validateApiSource(
+    plan,
+    releaseApiSourceRef,
+    readApiArtifact,
+    requireTrustedApiSource,
+    context,
+    errors,
+  );
+  for (const relativePath of migrationExecutionSourceFiles) {
+    const planSource = readApiArtifact?.(plan.apiSourceRef, relativePath);
+    const releaseSource = readApiArtifact?.(releaseApiSourceRef, relativePath);
+    if (
+      (typeof planSource !== "string" && !Buffer.isBuffer(planSource)) ||
+      (typeof releaseSource !== "string" && !Buffer.isBuffer(releaseSource))
+    ) {
+      errors.push(`${context} trusted API source is missing ${relativePath}`);
+      continue;
+    }
+    const planBytes = Buffer.isBuffer(planSource) ? planSource : Buffer.from(planSource);
+    const releaseBytes = Buffer.isBuffer(releaseSource) ? releaseSource : Buffer.from(releaseSource);
+    if (!planBytes.equals(releaseBytes)) {
+      errors.push(
+        `${context} DB migration execution source changed after dev validation: ${relativePath}`,
+      );
     }
   }
 }
@@ -383,7 +443,6 @@ function expectedEvidencePaths(version, scopeStatus) {
 function validateBoundDevPair({
   version,
   prodPlan,
-  apiSourceRef,
   readArtifact,
   readApiArtifact,
   requireTrustedApiSource,
@@ -424,10 +483,7 @@ function validateBoundDevPair({
     errors.push(`${context}.boundDevPlan must use canonical JSON`);
   }
   validatePlanShape(devPlan, "dev", `${context}.boundDevPlan`, errors);
-  if (
-    devPlan.apiSourceRef !== prodPlan.apiSourceRef ||
-    (apiSourceRef && devPlan.apiSourceRef !== apiSourceRef)
-  ) {
+  if (devPlan.apiSourceRef !== prodPlan.apiSourceRef) {
     errors.push(`${context}.boundDevPlan must use the same API source as the prod plan`);
   }
   if (canonicalJson(devPlan.runtime) !== canonicalJson(prodPlan.runtime)) {
@@ -438,6 +494,7 @@ function validateBoundDevPair({
   }
   validateApiSource(
     devPlan,
+    devPlan.apiSourceRef,
     readApiArtifact,
     requireTrustedApiSource,
     `${context}.boundDevPlan`,
@@ -459,6 +516,7 @@ export function validateDbMigrationEvidence({
   scopeStatus,
   readArtifact,
   readApiArtifact,
+  isApiAncestor,
   requireTrustedApiSource = false,
   listArtifacts,
   context,
@@ -490,15 +548,27 @@ export function validateDbMigrationEvidence({
   }
   if (planSource !== canonicalJson(plan)) errors.push(`${context}.plan must use canonical JSON`);
   validatePlanShape(plan, paths.environment, `${context}.plan`, errors);
-  if (apiSourceRef && plan.apiSourceRef !== apiSourceRef) {
-    errors.push(`${context}.plan API source ref does not match release metadata`);
-  }
-  validateApiSource(plan, readApiArtifact, requireTrustedApiSource, `${context}.plan`, errors);
+  validateApiSource(
+    plan,
+    plan.apiSourceRef,
+    readApiArtifact,
+    requireTrustedApiSource,
+    `${context}.plan`,
+    errors,
+  );
+  validateApiTransition(
+    plan,
+    apiSourceRef,
+    readApiArtifact,
+    isApiAncestor,
+    requireTrustedApiSource,
+    `${context}.plan`,
+    errors,
+  );
   if (paths.environment === "prod") {
     validateBoundDevPair({
       version,
       prodPlan: plan,
-      apiSourceRef,
       readArtifact,
       readApiArtifact,
       requireTrustedApiSource,
