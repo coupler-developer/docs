@@ -22,7 +22,7 @@
 
 | 판정 책임 | 단일 SoT | 이 문서의 역할 |
 | --- | --- | --- |
-| 공통 Fail-closed, 책임 분리, 구조 단순화, API 계약 하위 호환·cutover, DB runtime/schema 조합, Shadow Cutover | 이 문서 | 최종 규칙 |
+| 공통 Fail-closed, 책임 분리, 구조 단순화, API 계약 하위 호환·cutover, DB current trio 전이, Shadow Cutover | 이 문서 | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
 | 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
@@ -145,8 +145,8 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 - 책임 검증: 서버 판단 로직의 클라이언트 중복 구현 0건
 - 레거시 검증: 제거 조건 없는 호환 분기/파생 normalize 0건
 - 최종 구조 검증: 최종 구조, 최종 공통 계약, canonical SoT 구현, cutover 범위 안의 transition 계층(임시 호환/중간 산출물 계층) 0건
-- API/DB 호환성 검증: release-scoped 소비자 inventory, `API cutover` 판정, 이전·현재·혼합 runtime과
-  시작·최종 DB 조합, 상태 표면·복구 증빙 누락 0건
+- 전이 검증: API는 release-scoped 소비자 inventory와 `API cutover` case, DB는 exact current trio와
+  START/TARGET/PARTIAL 조건 누락 0건
 - 안전성 검증: 조용한 실패(핵심 원칙 정의) 0건
 - 추적성 검증: 변경 근거 문서/이슈/로그 링크 누락 0건
 
@@ -222,8 +222,8 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 ### 4) 완료 정의 (Definition of Done)
 
 - `기술 이행 유형`이 명시되고 해당 유형의 Exit Gate를 충족한다.
-- API/DB를 바꾸는 `최종 상태`는 적용 시 `API cutover: No`, 선언된 runtime/schema 조합과 상태 표면의
-  증빙을 충족하고 transition 계층이 0건이다.
+- API를 바꾸는 `최종 상태`는 적용 시 `API cutover: No`, 선언된 소비자 case를 충족하고 transition 계층이
+  0건이다.
 - `contract cutover`는 `API cutover: Yes` 근거, 결정론적 요청 차단, 적용 순서, rollback과 Exit Gate를 충족한다.
 - `운영 legacy cutover`는 제거 대상으로 고정한 호환 경로가 0건이고 남은 소비 범위가 단일 계약을 가리킨다.
 - `Shadow Cutover`는 같은 의미의 구·신 결과에 대해 검증 범위가 명시된 불일치 0건을 충족한다.
@@ -537,7 +537,8 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 금지 사항:
     - 불일치 0건 확인 전 기존 로직을 제거하거나 의미를 변경하는 행위
     - 삭제 대상으로 지정되지 않은 기존 기능을 레거시로 간주해 제거하는 행위
-    - DB read/write 기준·계산식·조회 경로를 바꾸면서 migration별 diff/postcondition을 생략하는 행위
+    - DB read/write 기준·계산식·조회 경로를 바꾸면서 exact current trio와 START/TARGET/PARTIAL 검증을
+      생략하는 행위
     - 제거 조건, 목표 시점, 추적 이슈가 없는 파생 호환 로직을 장기 잔존시키는 행위
 
 ## 관련 문서

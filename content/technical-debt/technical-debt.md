@@ -91,7 +91,7 @@
 - 현상: 외부 식별자, 레거시 명칭, 운영 `ritzy` schema가 남아 있다.
 - 영향: 변경 대상과 보존 대상을 구분하기 어렵다.
 - 조치: 잔존 사용처를 분류하고 DB 삭제는 backup·Migration Gate 확보 후 별도 승인한다.
-- 완료: 미분류 명칭 0건, DB 정리 시 versioned SQL·backup·rollback 근거 확보.
+- 완료: 미분류 명칭 0건, DB 정리 시 exact current trio·backup·plan/journal·START/TARGET/PARTIAL 근거 확보.
 
 ## 12) Mobile patch-package 의존 `P2` `S`
 
@@ -152,14 +152,14 @@
 ## 20) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
 - 현상: 현재 source 계약은 수렴했지만 Store/OTA/Admin의 실제 지원 소비자 inventory와 REST·WebSocket·
-  bootstrap·version case, 이전·현재 runtime의 final DB 조합 기록이 없다.
+  bootstrap·version case가 없다.
 - 영향: source package 정렬이나 강제 업데이트를 하위 호환 증빙으로 오인하거나 후속 제거가 필요한 임시
   경로를 API `No`로 닫을 수 있다.
 - 조치: [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
   release-scoped 소비자 inventory와 case를 검증하고 `API cutover`를 판정한다. DB 변경은 별도 DB 런북의
   current trio와 plan/journal로 분리한다.
 - 완료: exact package, 모든 지원 consumer-interface case, API 판정과 적용 시 activation/client rollback,
-  DB migration의 START/TARGET/PARTIAL·DONE과 legacy 제거 근거 확보.
+  legacy 제거 근거 확보.
 
 ## 21) API success DTO schema 정리 미완료 `P2` `L`
 
