@@ -46,6 +46,8 @@ table 결합은 direct reference와 `JOIN ... ON`만 허용하고 괄호·comma�
 view DDL은 환경별 migration 계정이 definer가 되지 않도록 `SQL SECURITY INVOKER`를 반드시 명시한다.
 engine 전용 `RETURNING` 절은 canonical subset에서 허용하지 않는다.
 current·fixture·state는 session/user variable을 읽거나 쓰지 않는다.
+state는 DB에 저장된 값과 승인된 결정적 함수만 사용하며 시간·난수·connection·직전 statement 결과에 의존하는
+표현은 거부한다.
 
 data 변경은 대상·비대상·0건·중복, 현재 값, PK·UK·FK·cascade와 재실행 영향을 검토한다. state SQL이 변경한
 DB-local persistent 불변조건을 관측할 수 없거나 외부 effect가 필요한 작업은 current에 넣지 않는다.
@@ -65,6 +67,11 @@ pnpm db:migration finalize
 plan은 exact API source의 baseline/current bytes, DB identity, DB engine·SQL mode, START/TARGET fingerprint를
 봉인한다. prod plan만 같은 engine·SQL mode에서 완료된 dev plan/execution hash를 추가로 봉인한다. 실행 입력 파일은 환경별 backup JSON
 하나다. lexer 의미를 바꾸는 `ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES` mode는 허용하지 않는다.
+
+dev/prod plan source를 A라 한다. clean API main B에서 운영 명령을 계속하려면 A가 B의 조상이고, plan에 봉인된
+`db/schema/` 6개 파일과 `db-migration-workflow.ts`, `db-migration-executor.ts`, `db-schema-contract.ts`의 bytes가
+같아야 한다. prod plan은 A를 유지하며 제품 릴리스 API commit B와 같을 필요가 없다. package script, lockfile,
+install hook, `pnpm verify` 호출 graph는 DB source 결속 대상이 아니며 현재 main의 표준 CI·리뷰가 검증한다.
 
 엔진이 직접 판정하는 항목은 다음으로 제한한다.
 
@@ -109,9 +116,9 @@ DONE 이후 API 배포·health/smoke·traffic/writer 재개는 API 배포와 운
 ## Baseline 승격과 증거
 
 `finalize`는 exact prod DONE과 live TARGET만 확인해 target lock을 baseline으로 승격하고 current trio를
-제거하는 patch를 만든다. plan source commit은 현재 main의 조상이고 sealed schema bytes는 그대로여야 한다.
-리뷰·병합 뒤 같은 명령이 전체 API verify와 localhost scratch의 Idle baseline replay를 직접 통과하고, plan
-source commit의 exact state SQL로 운영 DB identity와 TARGET을 다시 확인한 경우에만 local runtime을 비운다.
+제거하는 patch를 만든다. 리뷰·병합된 현재 main을 C라 하면 A는 C의 조상이고 위 3개 실행 source bytes가
+같아야 한다. 같은 명령이 C의 표준 전체 API verify와 localhost scratch의 Idle baseline replay를 직접 통과하고,
+A의 exact state SQL로 운영 DB identity와 TARGET을 다시 확인한 경우에만 local runtime을 비운다.
 Git commit과 Docs 증거 게시는 자동 수행하지 않는다.
 
 Docs는 제품 릴리스 버전 아래 복사된 `plan.json`과 `execution.jsonl`만 검증한다. current engine은 게시된 과거
