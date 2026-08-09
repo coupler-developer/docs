@@ -101,8 +101,10 @@ content/releases/evidence/db-migrations/vX.Y.Z/dev/execution.jsonl
 
 위 DB 연결 환경변수를 운영 endpoint 값으로 바꾸고 expected identity를 비운다. `status` 출력의 운영
 database/server identity를 승인된 인프라 inventory와 대조해 운영 digest를 설정한 뒤 `status`를 다시 통과한다.
-남아 있는 dev slot은 운영 identity와 다르므로 `UNBOUND`로 표시되는 것이 정상이다. 그 다음 같은 clean API
-main에서 실행한다. dev와 prod의 DB identity는 달라야 하지만 engine version과 SQL mode는 같아야 한다.
+남아 있는 dev slot은 운영 identity와 다르므로 `UNBOUND`로 표시되는 것이 정상이다. dev plan source A 이후
+clean API main이 B로 전진했어도 A가 B의 조상이고 sealed schema 입력과 정책의 고정 DB 실행 source 3개가
+같으면 실행할 수 있으며 prod plan source는 A를 유지한다. dev와 prod의 DB identity는 달라야 하지만 engine
+version과 SQL mode는 같아야 한다.
 두 환경의 migration session은 `autocommit=1`, `foreign_key_checks=1`, `unique_checks=1`이어야 하며 DB
 migration 엔진은 다른 값을 실행 전에 거부한다.
 
@@ -126,8 +128,9 @@ Docs PR을 push한 뒤 exact pending ref로 preflight를 실행한다.
 yarn release:preflight --version vX.Y.Z --pending-ref "$(git rev-parse HEAD)"
 ```
 
-Docs provenance workflow는 repository secret `COUPLER_CI_READ_TOKEN`으로 API main의 sealed source bytes를
-읽는다. GitHub App과 `COUPLER_DEV_TOKEN`은 사용하지 않는다.
+Docs provenance workflow는 repository secret `COUPLER_CI_READ_TOKEN`으로 API main의 A→B ancestry, sealed
+source bytes와 고정 DB 실행 source 3개를 읽는다. release API commit은 B이고 DB plan source A와 같을 필요가
+없다. GitHub App과 `COUPLER_DEV_TOKEN`은 사용하지 않는다.
 
 ## 4. 운영 실행
 
@@ -159,18 +162,19 @@ DONE 뒤에는 [API 운영 배포 런북](api-production-deploy-flow.md)으로 e
 prod 실행 뒤 `plan.json`과 `execution.jsonl`을 Docs의 같은 버전 `prod/` 경로에 복사하고 release metadata를
 실제 결과로 갱신한다. 별도 input snapshot, manifest, archive, history reader를 만들지 않는다.
 
-API main에서 다음 명령을 실행하면 baseline 승격/current 제거 patch가 생긴다.
-prod plan commit은 현재 main의 조상이어야 하고 sealed baseline/current bytes는 그대로여야 한다. 무관한 API
-commit이 main에 추가된 것은 허용하지만 current trio는 finalize까지 바꾸지 않는다.
+API main에서 다음 명령을 실행하면 baseline 승격/current 제거 patch가 생긴다. prod plan source A는 현재
+main의 조상이어야 하고 sealed baseline/current bytes와 고정 DB 실행 source 3개는 그대로여야 한다. 무관한
+API commit이 main에 추가된 것은 허용하지만 current trio는 finalize까지 바꾸지 않는다.
 
 ```bash
 pnpm db:migration finalize
 ```
 
-patch를 리뷰·검증·병합한 뒤 clean main에서 같은 명령을 다시 실행한다. 이 두 번째 실행은 `pnpm verify`와
-localhost 전용 `db:schema:verify`의 Idle baseline replay를 직접 통과하고, plan의 API commit에 봉인된 state
-SQL로 운영 DB identity와 TARGET을 다시 확인한 뒤에만 local runtime을 비운다. 위 1절의 `DB_SCHEMA_*`
-scratch 설정을 사용한다. 명령은 commit, Docs 수정, 배포를 자동 수행하지 않는다.
+patch를 리뷰·검증·병합한 현재 clean main C에서 같은 명령을 다시 실행한다. 이 두 번째 실행은 C의 표준
+`pnpm verify`와 localhost 전용 `db:schema:verify`의 Idle baseline replay를 직접 통과하고, A에 봉인된 state
+SQL로 운영 DB identity와 TARGET을 다시 확인한 뒤에만 local runtime을 비운다. A의 과거 verify body나 하위
+script graph는 고정하지 않는다. 위 1절의 `DB_SCHEMA_*` scratch 설정을 사용한다. 명령은 commit, Docs 수정,
+배포를 자동 수행하지 않는다.
 
 ## 금지
 

@@ -128,8 +128,9 @@
   참조한다. `planned`는 null/null, `pending`은 dev plan/null 또는 completed dev pair, `in_progress`는 완료된
   dev pair를 내부에 묶은 prod plan/null, terminal은 prod plan/execution을 root로 둔다. 개발계 완료 뒤 root를 prod plan으로
   전진시킨 같은 미병합 PR에서 preflight를 통과한 뒤 운영계를 실행한다. 검증기는 prod plan이 완료된 exact dev
-  pair를 결속하는지, API current trio bytes와 execution environment/plan이 일치하는지 확인하고 이 네 파일 외
-  artifact를 거부한다.
+  pair와 같은 DB plan source A를 결속하는지 확인한다. 제품 릴리스 API commit B는 A와 달라도 되지만 A의 후손이어야
+  하며, sealed schema 입력과 고정된 DB 실행 source 3개가 같아야 한다. 검증기는 이 네 evidence 파일 외 artifact를
+  거부한다.
 - Canonical executor는 plan/execution 의미와 live DB 결과를 검증하고, Docs는 신규 기록의 root artifact,
   bytes SHA-256과 plan/execution envelope만 묶는다. 과거 기록과 DB artifact는
   schema·상태·증빙을 읽지 않고 경로·blob 불변성만 확인한다.
