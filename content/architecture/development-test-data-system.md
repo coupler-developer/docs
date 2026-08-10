@@ -242,8 +242,8 @@ scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `re
 - 누락 여부와 계약을 검증하며 기존 값을 자동 수정하지 않는다.
 - 필요한 기준정보가 없거나 계약과 다르면 해당 suite를 중단하고 migration 또는 data repair 필요성을 보고한다.
 - N:N 그룹미팅은 namespace owner와 분리된 기존 QA 발행 CMS 관리자를
-  `GROUP_MEETING_HOST_MANAGER_USER_ID` 계약으로 식별한다. 해당 관리자의 호스트 연결, 로그인 가능한 기존 QA
-  회원 Toto·dummy-female·m1·m2와 각 회원의 `CHARGE` 또는 `SHARE` 배정을 외부 기준정보로 사용한다.
+  `GROUP_MEETING_HOST_MANAGER_USER_ID` 계약으로 식별한다. 해당 관리자의 호스트 연결, private 구현 계약이
+  식별하는 기존 QA 기준 회원 4명과 각 회원의 `CHARGE` 또는 `SHARE` 배정을 외부 기준정보로 사용한다.
   plan·apply claim 전·verify·upgrade 전환 전에는 read-only로 검사하고 생성 transaction에서는 다시 검사해 잠근다.
 
 ### 2) Actor pool
@@ -340,7 +340,8 @@ TypeScript 문법이나 model import만으로 실제 DB 변경을 증명하지 �
 ### N:N 그룹미팅 `group-meeting-all`
 
 - 초안, 삭제, 공개 활성, 신청 접수 기한 경과 OPEN, 모집 마감, 종료, 취소 저장 상태와 저장 `CONFIRMED`·실효 `FINISHED` 시간 분기, 공개 활성·확정 취소 진입 상태
-- 신청, 승인, 승인 취소, 채팅방 탈퇴와 참여 가능한 모든 행사의 기준 여성 참여자 `tt@test.com`(`Toto`)·`dummy-female@coupler.dev`, 신청 접수 기한 경과 OPEN 3인 분기의 `m1@dev`, OPEN·CONFIRMED 왕복·종료 4인 분기의 `m1@dev`·`m2@coupler`
+- 신청, 승인, 승인 취소, 채팅방 탈퇴와 참여 가능한 모든 행사의 기본 기준 여성 참여자 2명, 신청 접수 기한 경과
+  OPEN 3인 분기의 추가 기준 참여자 1명, OPEN·CONFIRMED 왕복·종료 4인 분기의 추가 기준 참여자 2명
 - 모집 마감·행사 종료·취소와 참여자 입장·승인 취소·탈퇴 시스템 메시지
 - `persisted_status`·`effective_status`·`chat_initialized` 축과 최초 모집 마감 뒤 재개 OPEN·CONFIRMED 재진입,
   OPEN 신청 접수 재개, FINISHED, 초기화 후 CANCELED 조합의 상태별 채팅 멤버십
