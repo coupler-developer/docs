@@ -4,7 +4,7 @@
 
 - 역할: `규범`
 - 문서 종류: `policy`
-- 충돌 시 우선 문서: 이 문서
+- 충돌 시 우선 문서: 로그 레벨·형식·운영 INFO 허용 범위는 이 문서, 개인정보 분류·마스킹은 [데이터 거버넌스 정책](data-governance-policy.md)
 - 기준 성격: `as-is`
 
 ## 목적
@@ -29,12 +29,12 @@
 ```javascript
 // 개발 로그
 if (process.env.NODE_ENV === "development") {
-  console.log("[ModuleName] debug info:", data);
+  console.log("[ModuleName] debug summary:", debugSummary);
 }
 
 // 운영 로그 (에러, 경고만)
-console.error("[ModuleName] error:", error);
-console.warn("[ModuleName] warning:", message);
+console.error("[ModuleName] error:", safeError);
+console.warn("[ModuleName] warning:", safeWarning);
 ```
 
 #### Frontend (coupler-mobile-app, coupler-admin-web)
@@ -42,11 +42,11 @@ console.warn("[ModuleName] warning:", message);
 ```javascript
 // 개발 로그
 if (__DEV__) {
-  console.log("[ComponentName] debug info:", data);
+  console.log("[ComponentName] debug summary:", debugSummary);
 }
 
 // 운영 로그 (에러만, 모니터링 시스템으로 전송)
-console.error("[ComponentName] error:", error);
+console.error("[ComponentName] error:", safeError);
 ```
 
 ### 2. 로그 레벨 구분
@@ -79,16 +79,16 @@ console.error("[ComponentName] error:", error);
 
 ```javascript
 // ✅ 명확하고 읽기 쉬운 형식
-console.log("[uploadImages] directory:", directory);
+console.log("[uploadImages] type:", uploadType);
 console.log("[uploadImages] files count:", req.files.length);
-console.log("[SignupScreen] payload.profile_image_paths:", images);
-console.error("[auth.js] signup failed:", error.message);
+console.log("[SignupScreen] selected images count:", images.length);
+console.error("[auth.js] signup failed:", safeErrorMessage);
 
 // ✅ 여러 값은 별도 로그로 분리
 if (__DEV__) {
-  console.log("[Step3] nextList:", nextList);
-  console.log("[Step3] filtered:", filtered);
-  console.log("[Step3] gender:", gender);
+  console.log("[Step3] next count:", nextList.length);
+  console.log("[Step3] filtered count:", filtered.length);
+  console.log("[Step3] can proceed:", canProceed);
 }
 ```
 
@@ -96,23 +96,23 @@ if (__DEV__) {
 
 ```javascript
 // ❌ 태그 없음
-console.log("directory", directory);
+console.log("type", uploadType);
 
 // ❌ 불명확한 메시지
-console.log("디버그:", data);
+console.log("디버그:", debugSummary);
 
 // ❌ 여러 값을 한 줄에 섞음 (가독성 저하)
 console.log(
   "[Step3] nextList:",
-  nextList,
-  "filtered:",
-  filtered,
-  "gender:",
-  gender,
+  nextList.length,
+  "filtered count:",
+  filtered.length,
+  "can proceed:",
+  canProceed,
 );
 
 // ❌ JSON.stringify 남용 (자동 포맷팅이 더 읽기 쉬움)
-console.log("[Step3] data:", JSON.stringify(data));
+console.log("[Step3] summary:", JSON.stringify(debugSummary));
 ```
 
 ### Convention
@@ -135,10 +135,7 @@ console.log("[Step3] data:", JSON.stringify(data));
 
 ```javascript
 exports.uploadImages = async (req, res) => {
-  const directory = file.getDir("image", req.params.type);
-
   if (process.env.NODE_ENV === "development") {
-    console.log("[uploadImages] directory:", directory);
     console.log("[uploadImages] files count:", req.files.length);
   }
 
@@ -151,7 +148,7 @@ exports.uploadImages = async (req, res) => {
 ```javascript
 const handleSubmit = () => {
   if (__DEV__) {
-    console.log("[SignupScreen] submitting with data:", payload);
+    console.log("[SignupScreen] submit started");
   }
 
   // API 호출...
@@ -170,9 +167,9 @@ try {
     request_id: requestId,
     error_source: "MODULE_NAME",
     error_code: "MODULE_OPERATION_FAILED",
-    message: error.message,
-    stack: error.stack,
-    context: relevantData, // 개인정보 제외
+    message: safeErrorMessage,
+    stack: sanitizedStack,
+    context: safeContext,
   });
 }
 ```
@@ -183,18 +180,20 @@ try {
 
 ### ❌ 개인정보/민감정보 로깅 금지
 
+개발·운영 환경 모두 개인정보 분류와 마스킹은 [데이터 거버넌스 정책](data-governance-policy.md)을 따른다.
+개발 환경은 원문 식별자와 개인정보 로깅의 예외가 아니다.
+
 ```javascript
 // ❌ 절대 금지
 console.log("User password:", user.pwd);
 console.log("Card number:", payment.card_number);
-console.log("User email:", user.email); // 개발 환경에서만 허용
+console.log("User email:", user.email);
+console.log("User ID:", user.id);
 
 // ✅ 허용
-console.log("User ID:", user.id);
+console.log("User ID:", maskedUserId);
+console.log("User email:", maskedEmail);
 console.log("Payment status:", payment.status);
-if (__DEV__) {
-  console.log("User email (dev only):", user.email);
-}
 ```
 
 ### ❌ 과도한 반복 로그 금지
@@ -221,7 +220,7 @@ console.log("Entire state:", GlobalState);
 
 // ✅ 허용 (필요한 부분만)
 if (__DEV__) {
-  console.log("User profile images:", GlobalState.me.profile.profile_image_paths);
+  console.log("User profile images count:", GlobalState.me.profile.profile_image_paths.length);
 }
 ```
 
@@ -305,5 +304,5 @@ NODE_ENV=development node app.js | grep '\[uploadImages\]'
 // 허용되는 운영 INFO 로그 예시
 console.log("[app.js] Server started on port:", PORT);
 console.log("[cron.js] Daily cleanup completed:", { deleted: count });
-console.log("[auth.js] User signup completed:", { userId, timestamp });
+console.log("[auth.js] User signup completed:", { timestamp });
 ```

@@ -422,52 +422,8 @@ flowchart TD
 수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.
 이 문서는 라운지 parent 구조와 표시 기준만 설명하고, 댓글/대댓글 발송 대상은 정책 문서에서만 정의한다.
 
-## 데이터 모델
+## 삭제 감사 이력
 
-### t_lounge
-
-| 필드        | 설명                 |
-| ----------- | -------------------- |
-| member      | 작성자 ID            |
-| category    | 카테고리             |
-| title       | 제목                 |
-| content     | 내용                 |
-| photo       | 첨부 이미지 (# 구분) |
-| mini_public | 프로필 공개 여부     |
-| best        | 베스트 여부          |
-| alias       | 비공개 시 닉네임     |
-| visit_cnt   | 조회수               |
-| like_cnt    | 좋아요 수            |
-| cmt_cnt     | 레거시 저장 댓글 수 캐시. 앱 응답은 viewer별 노출 댓글 수를 다시 계산한다. |
-| status      | 라운지 콘텐츠 현재 상태 SoT |
-
-### t_lounge_cmt
-
-| 필드    | 설명                   |
-| ------- | ---------------------- |
-| lounge  | 게시글 ID              |
-| member  | 작성자 ID              |
-| parent  | 직접 부모 댓글 ID (0=없음) |
-| content | 댓글 내용              |
-| alias   | 비공개 시 닉네임       |
-| status  | 라운지 댓글 현재 상태 SoT |
-
-### t_lounge_moderation_log
-
-작성자와 관리자의 삭제 상태 전이를 추가 전용으로 보존하는 운영 감사 원장이다. 콘텐츠 현재 상태를
-판정하는 테이블이 아니다.
-
-| 필드 | 설명 |
-| --- | --- |
-| target_type/target_id | `LOUNGE` 또는 `COMMENT` 대상과 콘텐츠 ID |
-| admin_id/member_id | 관리자 또는 작성자 행위자. 한 이력에는 하나만 존재 |
-| previous_status/next_status | 변경 전후 콘텐츠 상태 |
-| reason | 관리자 입력 사유. 작성자 삭제는 값 없음 |
-| created_at | 행위 시각 |
-
-- 삭제 이력 기본 키 `id`는 CMS `deletion_history` 항목의 `id`이고, 관리자 삭제 명령 응답에서는
-  `audit_id`로 반환해 운영 로그와 연결한다.
-- `request_id`는 별도로 저장하지 않는다. CMS가 멱등 키를 보내지 않는 현재 구조에서 서버가 임의 생성한
-  요청 ID는 중복 실행을 막지 못하고 감사 로그 기본 키와 역할이 겹친다.
-- 행위자, 사유, 변경 전후 상태 같은 감사 필드는 `t_lounge`/`t_lounge_cmt`에 추가하지 않는다.
-- 콘텐츠가 나중에 정리되더라도 감사 기록을 보존할 수 있도록 콘텐츠/행위자 FK에 의존하지 않는다.
+게시글·댓글의 현재 상태는 `lounge.post`와 `lounge.comment`가 판정하고, 작성자·관리자의 삭제 이력은
+[신고·제재 시스템](moderation-system.md)의 `moderation.content-action-history`가 추가 전용으로 보존한다.
+감사 이력은 원천 콘텐츠의 현재 상태를 대신하지 않으며 콘텐츠 정리와 독립적으로 유지한다.

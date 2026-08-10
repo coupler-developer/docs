@@ -62,19 +62,11 @@ flowchart LR
 
 <!-- markdownlint-enable MD046 -->
 
-## 결제 아이템 (IAP_ITEM)
+## 결제 상품 노출
 
-> SKU 식별자(`ritzy.iap.item*`)는 스토어에 등록된 프로덕션 값이므로 변경하지 않는다.
-
-| SKU | 기본 키 | 보너스 | 가격(원) | 비고 |
-|-----|--------|--------|----------|------|
-| ritzy.iap.item07 | 666 | 234 | 660,000 | Android 전용 |
-| ritzy.iap.item06 | 333 | 117 | 330,000 | |
-| ritzy.iap.item05 | 155 | 45 | 154,000 | HOT |
-| ritzy.iap.item04 | 77 | 23 | 77,000 | BEST |
-| ritzy.iap.item03 | 55 | 15 | 55,000 | |
-| ritzy.iap.item02 | 11 | 2 | 11,000 | NEW |
-| ritzy.iap.item01 | 5 | 1 | 5,500 | |
+- 구체적인 SKU·가격·지급량·플랫폼 허용값은 배포 가능한 구현과 Store 등록 상태에서 관리하며 이 문서에
+  목록을 복제하지 않는다.
+- Mobile은 현재 플랫폼에 비허용으로 표시된 상품을 노출하지 않는다.
 
 ## 결제 플랫폼
 

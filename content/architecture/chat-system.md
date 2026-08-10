@@ -10,6 +10,9 @@
 네 종류의 채팅 시스템 아키텍처를 정리한 문서이다.
 현재 범위에서는 채팅 시스템의 구조와 흐름 설명에 집중하며, 별도 규범 문서는 두지 않는다.
 매칭 채팅의 상태 전이, 키 차감, 일정 판정은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
+계약 소비자 정렬과 Store·NextPush 활성화는
+[API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md), 실제 배포와
+rollback은 [운영 릴리스 실행 런북](../flows/cross-project/production-deploy-command-runbook.md)을 따른다.
 
 ## 논리 데이터 모델
 
@@ -151,10 +154,8 @@ Mobile 채팅 하단 탭의 빨간점은 현재 회원이 접근 가능한 지�
 응답도 폐기한다. 실패하면 마지막 성공 값을 유지하고 alert·전역 spinner 없이 `1초 → 5초` 두 번만 재시도한다.
 로그아웃은 즉시 `false`로 초기화한다.
 
-이 endpoint의 success DTO는 API 계약 패키지의 다음 사용 가능한 stable version으로 발행하고 API source,
-Admin, Mobile의 manifest와 lockfile을 같은 exact version으로 맞춘다. Android·iOS NextPush는 둘 다 mandatory로
-활성화하며 API·Admin·두 Mobile 배포와 mandatory 기준을 같은 검증 기준점으로 롤백한다. Admin UI 동작과 DB
-schema는 바꾸지 않는다.
+이 endpoint의 success DTO는 API 계약 패키지의 공통 계약으로 관리한다. Admin UI 동작과 DB schema는 바꾸지
+않는다.
 
 ## 메시지 타입 (MSG_TYPE)
 
@@ -348,14 +349,11 @@ sequenceDiagram
 
 ### 운영 구조와 확장 제약
 
-- API 배포 전에 외부 `api.ritzy.fourhundred.co.kr`의 reverse proxy/load balancer가
-  `/realtime/member`, `/realtime/admin`의 HTTP Upgrade와 `Connection: upgrade`를 API 프로세스로 전달하는지
-  확인한다.
+- 외부 reverse proxy/load balancer는 `/realtime/member`, `/realtime/admin`의 HTTP Upgrade와
+  `Connection: upgrade`를 API 프로세스로 전달한다.
 - 현재 PM2 단일 프로세스에서는 큐레이터·매칭 채팅이 공유하는 인증 회원 연결 집합과 관리자 연결 집합을
   메모리에서 관리한다. PM2 cluster 또는 다중 인스턴스로 확장하기 전 인스턴스 간 이벤트 broker와
   재동기화 전략을 먼저 확정해야 한다.
-- API 계약 package, API, Admin, Android·iOS NextPush는 같은 계약 snapshot의 단일 배포 단위다. 실제 배포
-  순서·검증·rollback은 [운영 릴리스 실행 런북](../flows/cross-project/production-deploy-command-runbook.md)을 따른다.
 
 ## 매칭 채팅
 
@@ -436,18 +434,12 @@ sequenceDiagram
   durable 알림 outbox·재시도는 [기술 부채 정리](../technical-debt/technical-debt.md)의
   `상태 전이 후 푸시 전달 재시도 미완료` 범위에서 추적한다.
 
-### 운영·확장·롤백
+### 운영·확장 제약
 
-- `t_match_chat`의 nullable 멱등 키 current 전이와 exact state classifier를
-  [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)의 대상 환경 START/TARGET·column·unique
-  index·check clause·invalid identity 검증으로 통과한 뒤에만 contracts·API·Admin·Mobile 단일 배포
-  단위를 활성화한다. 하나라도 없으면 배포를 시작하지 않는다.
+- 메시지 멱등 키의 DB 전환은 [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)을 따른다.
 - 큐레이터·매칭 이벤트는 한 `/realtime/member` 연결과 API 프로세스 메모리 연결 집합을 공유한다. 현재 단일
   프로세스에서는 별도 broker가 필요 없지만 다중 인스턴스 전환 전에는 인스턴스 간 이벤트 전달과 HTTP 재동기화
   전략을 먼저 확정한다.
-- 문제가 있으면 API·Admin·Android·iOS NextPush를 같은 직전 검증 기준점으로 함께 롤백한다. nullable expand
-  스키마는 과거 행 보존을 위해 유지하지만 누락 필드 수용이나 offset 목록 endpoint를 새로 추가하지 않는다. DB
-  스키마를 즉시 축소하거나 기존 메시지를 삭제하지 않는다.
 - 이번 범위에는 presence, typing, 첨부 미디어, 메시지 수정·삭제, durable outbox, 다중 인스턴스 broker를
   포함하지 않는다.
 

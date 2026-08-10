@@ -245,26 +245,26 @@
 
 ## 30) Apple 팀 이전 회원 `sub` 단건 이관 대기 `P1` `S`
 
-- 현상: 팀 이전 전 Apple 회원 `member_id=2101`은 운영에 이전 팀 `sub`를 보유하고, 신규 팀 `sub` 전용 조회
-  변경은 API `main`에 병합됐지만 미배포다.
+- 현상: 팀 이전 영향 대상 Apple 회원 1명은 운영에 이전 팀 `sub`를 보유하고, 신규 팀 `sub` 전용 조회 변경은
+  API `main`에 병합됐지만 미배포다.
 - 영향: 이관 없이 API를 배포하면 새 팀 `sub`로 기존 계정을 찾지 못해 가입 흐름으로 진입한다.
 - 조치: 다음 API 운영 릴리스의 최종 API 배포 직전,
   [Apple TN3159](https://developer.apple.com/documentation/technotes/tn3159-migrating-sign-in-with-apple-users-for-an-app-transfer)에
-  따라 교환한 신규 팀 `sub`를 승인된 [DB migration](../policy/db-migration-gate-policy.md)으로 해당 회원 한 행에
-  반영한다. 기존값 조건·사전 backup·transaction·영향 행 1건·중복 0건·사후 조회 중 하나라도 실패하면
-  rollback하고 배포를 중단한다.
+  따라 교환한 신규 팀 `sub`와 승인된 대상 식별자를 실행 입력으로 전달하고
+  [DB migration](../policy/db-migration-gate-policy.md)으로 해당 회원 한 행에 반영한다. 기존값 조건·사전
+  backup·transaction·영향 행 1건·중복 0건·사후 조회 중 하나라도 실패하면 rollback하고 배포를 중단한다.
 - 완료: 단건 이관과 최종 API 배포 후 기존 회원 ID 로그인·신규 Apple 가입·재실행 자동 로그인의 운영 smoke가
   릴리스 기록에 남은 상태.
 
 ## 31) 미반영 Apple 결제 복구 대기 `P1` `M`
 
-- 현상: `member_id=2348`의 2026-08-02 Apple `ritzy.iap.item01` 5,500원 결제가 Store에만 있고 운영
-  `t_iap`·`t_member_key_log`는 0건, 보유 Key는 0이다.
-- 영향: 6 Key가 미지급 상태이며, 원거래 식별자 없는 수동 지급은 거래 재전송 시 중복 지급을 만들 수 있다.
+- 현상: 복구 대상 Apple 거래 1건이 Store에만 있고 운영 결제·Key 원장과 지급 결과에는 반영되지 않았다.
+- 영향: 구매 상품의 Key가 미지급 상태이며, 원거래 식별자 없는 수동 지급은 거래 재전송 시 중복 지급을 만들
+  수 있다.
 - 조치: [결제 운영 정책](../policy/payment-ops-policy.md)에 따라 일반회원 결제 변경을 포함한 다음 API 운영
   릴리스에서 실행 직전 잔액을 기록하고 미완료 StoreKit 거래를 재전송한다. 재전송이 불가능하면 원
   `transaction_id`와 receipt를 확보해 기존 결제 API 계약으로 복구하며, 식별자 없는 수동 지급은 하지 않는다.
-- 완료: 원 거래 ID 기준 `t_iap` 1건·`t_member_key_log` +6 1건·실행 직전 대비 잔액 +6,
+- 완료: 원 거래 ID 기준 결제 원장 1건·Key 원장 1건과 상품 계약에 맞는 잔액 증가,
   `finishTransaction` 완료와 동일 거래 재전송 시 추가 지급 0건이 릴리스 기록에 남은 상태.
 
 ## 32) 매칭 환불 실차감 조회와 환불 트랜잭션 경계 분리 `P1` `S`

@@ -72,7 +72,7 @@ uploads/
 | ---------------------- | ------------------------------------------------------------------------------------ | ------------------- | ----------------------------------------------------------------------------------------- |
 | 이미지                 | 기본: 원본 저장, `manager-list`는 `webp` 변환 + 최대 `720x1280` 최적화               | Sharp (libvips)     | `_thumb` 생성 없음                                                                        |
 | 인증 서류 이미지       | 실제 바이트를 판독하고 Crop 없이 최대 `2560x2560`, 품질 90의 JPEG로 정규화           | GraphicsMagick + Sharp | HEVC 기반 HEIC/HEIF는 HEIF 지원 `gm`으로 디코딩하며 결과 경로는 `.jpg`                  |
-| 긴 manager 상세 이미지 | 원본 업로드 → pending version 생성 → background worker가 `manager-detail-slice` 생성 | Sharp (libvips)     | `target_width=1080`, `slice_height=2048`, `status=ready`일 때만 `detail_profile_set` 반환 |
+| 긴 manager 상세 이미지 | 원본 업로드 → 대기 버전 생성 → background worker가 표시 조각 생성 | Sharp (libvips)     | 변환이 끝난 버전만 조회 허용 |
 | 비디오                 | 10초 프레임 추출 → JPG 썸네일                                                        | FFmpeg              | 썸네일 실패 시 에러 응답                                                                  |
 | 오디오                 | 원본 → MP3 변환 후 원본 삭제                                                         | FFmpeg              |                                                                                           |
 | 파일                   | 없음                                                                                 | -                   |                                                                                           |
@@ -102,40 +102,12 @@ Mobile의 갤러리/카메라 선택과 Crop 여부는 업로드 API 호출 전 
 ## manager 상세 긴 이미지 구조
 
 - Admin는 긴 세로 포스터를 `/admin/manager/detail-profile/upload`로 업로드한다.
-- API는 업로드 요청에서 원본만 `manager-detail-source`로 옮기고 `pending` version row를 만든 뒤 즉시 응답한다.
-- background worker가 원본에서 ordered slice N장을 직접 생성하고 `status=ready`가 되면 `detail_profile_set`이 조회 가능해진다.
-- DB는 `t_manager.detail_profile_version_id`로 현재 활성 버전을 가리키고, 실제 slice 메타데이터는
-  `t_manager_detail_profile_version`, `t_manager_detail_profile_slice`에 저장한다. manager 상세 구조는
-  `t_manager.detail_profile` 레거시 컬럼을 사용하지 않는다.
-- `t_manager_detail_profile_version`의 source 메타데이터는 `source_image_path`, `source_width`, `source_height` 3개 컬럼으로 유지한다.
-- `t_manager_detail_profile_version`은 `status(pending/processing/ready/failed/discarded)`와 `error_message`를 가지며, save는 `ready` version id만 허용한다.
-- save에서 새 `detail_profile_version_id`를 attach하거나 `null`로 clear하면, 이전 활성 version은 `discarded`로 retire되고 source/slice 파일 cleanup 대상으로 넘긴다.
+- 상세 이미지 데이터의 소유권과 생명주기는 [클럽매니저 시스템](club-manager-system.md)의
+  `club-manager.detail-profile-version`, `club-manager.detail-profile-slice`를 따른다.
+- API는 원본과 대기 버전을 만든 뒤 응답하고, background worker가 원본에서 표시 순서대로 조각을 생성한다.
+- 변환이 끝난 버전만 저장·조회할 수 있으며 교체하거나 해제한 이전 버전은 원본·조각 정리 대상으로 넘긴다.
 - Admin는 `status/:id` polling으로 완료 여부를 보고, `ready` 전에는 save를 막는다.
-- Mobile 상세 화면은 `/app/manager/detail/:id`에서 `ready` 상태의 `detail_profile_set.slices`만 순서대로 렌더링하고, 선택 리스트에서는 상세 이미지를 preload하지 않는다.
-
-### `detail_profile_set` 예시
-
-```json
-{
-  "version_id": 31,
-  "source_image_path": "uploads/image/manager-detail-source/2026/3/10/image_1700000000000.png",
-  "source_width": 1170,
-  "source_height": 30000,
-  "target_width": 1080,
-  "slice_height": 2048,
-  "slice_count": 14,
-  "total_bytes": 1842231,
-  "slices": [
-    {
-      "index": 0,
-      "image_url": "uploads/image/manager-detail-slice/2026/3/10/image_1700000000000_slice_000.webp",
-      "width": 1080,
-      "height": 2048,
-      "byte_size": 164221
-    }
-  ]
-}
-```
+- Mobile 상세 화면은 완료된 조각만 순서대로 렌더링하고 선택 리스트에서는 상세 이미지를 preload하지 않는다.
 
 ## API 응답 형식
 
@@ -213,8 +185,6 @@ flowchart TD
 - media proxy 502 실패 응답은 API ErrorData taxonomy 밖의 transport/proxy 실패로 처리하며, HTTP 502와 proxy 실패 로그만 사용한다
 - 긴 manager 상세 이미지는 전체 `master.webp`를 만들지 않고 원본에서 직접 slice를 생성해야 GM dimension limit에 걸리지 않는다
 - 긴 manager 상세 이미지는 request thread에서 동기 후처리를 끝내면 dev EC2 worker를 묶어 timeout이 나므로, 업로드는 즉시 응답하고 slice 생성은 background worker로 분리해야 한다
-- 이 구조는 개발 환경에서 파일 저장소를 공유하기 위한 임시 방편이다
-- 제거/전환 조건: 충분한 사용자와 파일 트래픽이 확보되어 저장/서빙 가용성, 비용, 운영 자동화가 실제 병목이 되거나 추가 개발 여력이 생겨 미디어 인프라 개선을 진행할 때 S3/CDN 전환을 별도 작업으로 확정한다
 
 ## 설정
 
@@ -224,19 +194,8 @@ flowchart TD
 | `server.base_url`    | URL                       | 운영환경 기준 URL         |
 | `DEV_EC2_SERVER_URL` | private 구현 값            | 개발 EC2 origin           |
 
-## To-Be 방향: S3 직접 업로드
-
-| 항목      | 현행 (As-Is)                     | 목표 (To-Be)                    |
-| --------- | -------------------------------- | ------------------------------- |
-| 업로드    | multer.diskStorage → 로컬 디스크 | multer-s3 → S3 직접 업로드      |
-| 서빙      | express.static + media_proxy     | CloudFront CDN                  |
-| 썸네일    | GM/FFmpeg 서버 내 동기처리       | Lambda 비동기 처리 (선택)       |
-| 로컬 개발 | Dev EC2 프록시 필수              | S3 직접 접근 (media_proxy 제거) |
-
-**핵심 목표**: API 서버는 비즈니스 로직만 담당하고, 파일 저장/서빙은 S3/CDN으로 관심사를 분리한다
-현재 단계에서는 위 제거/전환 조건 전까지 별도 진행 대상으로 보지 않는다.
-
 ## 관련 문서
 
 - [레포지토리 요약](repo-overview.md)
+- [클럽매니저 시스템](club-manager-system.md)
 - [기술 부채 정리](../technical-debt/technical-debt.md)
