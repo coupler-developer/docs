@@ -1,17 +1,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-
-import {
-  dbMigrationExecution,
-  dbMigrationInputSources,
-  dbMigrationPlanFor,
-} from "./db-migration-evidence-test-fixtures.mjs";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const preflightScript = path.join(scriptsRoot, "release-preflight.mjs");
@@ -163,7 +156,7 @@ describe("release preflight for unpublished PR records", () => {
     );
   });
 
-  it("rejects a DB pending dev root as operational preflight admission", () => {
+  it("accepts a pending DB scope without a plan artifact", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
     git(workspace.docsRoot, ["checkout", "-b", "docs/db-release"]);
@@ -183,11 +176,8 @@ describe("release preflight for unpublished PR records", () => {
       tempRoot,
     ], workspace.docsRoot);
 
-    assert.notEqual(result.status, 0);
-    assert.match(
-      result.stdout,
-      /DB migration operational preflight requires an in_progress canonical prod plan/,
-    );
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Result: PASS/);
   });
 
   it("rejects an API source that exists locally but is not in origin/main history", () => {
@@ -202,7 +192,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef: unmergedApiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(workspace.docsRoot, "reference local-only API source");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/unmerged-db-source"]);
@@ -215,11 +204,10 @@ describe("release preflight for unpublished PR records", () => {
     ], workspace.docsRoot);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /trusted API source is missing/);
     assert.match(result.stdout, /버전 매핑 ref가 origin\/main 계보에 없습니다/);
   });
 
-  it("revalidates an in-progress DB release after recording dev execution and the prod plan", () => {
+  it("revalidates an in-progress DB release without plan or execution artifacts", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
     git(workspace.docsRoot, ["checkout", "-b", "docs/db-release-in-progress"]);
@@ -227,7 +215,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(workspace.docsRoot, "in-progress DB release");
     git(workspace.docsRoot, [
@@ -251,9 +238,8 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /Result: PASS/);
   });
 
-  it("keeps DB plan source A when an unrelated API commit B reaches main", () => {
+  it("keeps the release API source when an unrelated API commit reaches main", () => {
     const workspace = createWorkspace();
-    const dbPlanApiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
     fs.writeFileSync(path.join(workspace.apiRoot, "UNRELATED.md"), "# Unrelated API change\n");
     const releaseApiRef = commitAndPush(workspace.apiRoot, "advance API main without DB drift");
 
@@ -261,11 +247,9 @@ describe("release preflight for unpublished PR records", () => {
     writePendingRelease(workspace.docsRoot, {
       dbMigration: true,
       apiRef: releaseApiRef,
-      dbPlanApiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
-    const pendingRef = commit(workspace.docsRoot, "bind DB plan A to release API B");
+    const pendingRef = commit(workspace.docsRoot, "bind DB migration release API source");
     git(workspace.docsRoot, [
       "push",
       "-u",
@@ -303,7 +287,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(docsWorktree, "nested worktree DB release");
     git(docsWorktree, ["push", "-u", "origin", "docs/nested-db-release"]);
@@ -340,7 +323,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(externalRoot, "external worktree DB release");
     git(externalRoot, ["push", "-u", "origin", "docs/external-db-release"]);
@@ -368,7 +350,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(workspace.docsRoot, "invalid explicit workspace root");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/invalid-workspace-root"]);
@@ -388,7 +369,7 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /Workspace root must contain coupler-api, coupler-admin-web, and coupler-mobile-app/);
   });
 
-  it("allows later non-DB preflight after the DB scope has terminal execution evidence", () => {
+  it("allows later non-DB preflight after the DB scope is terminal", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
     git(workspace.docsRoot, ["checkout", "-b", "docs/db-complete-release-in-progress"]);
@@ -397,7 +378,6 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       status: "in_progress",
       dbMigrationStatus: "released",
-      dbMigrationStage: "prod-completed",
     });
     const pendingRef = commit(workspace.docsRoot, "DB complete with remaining release work");
     git(workspace.docsRoot, [
@@ -420,16 +400,21 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /Result: PASS/);
   });
 
-  it("rejects same-version DB artifacts when operational metadata omits the DB scope", () => {
+  it("rejects new DB artifacts when operational metadata omits the DB scope", () => {
     const docsRoot = createRepository("docs");
     git(docsRoot, ["checkout", "-b", "docs/unowned-db-artifacts"]);
     writePendingRelease(docsRoot, {
       dbMigration: true,
       apiRef: "a".repeat(40),
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     writePendingRelease(docsRoot, { status: "in_progress" });
+    const unownedArtifact = path.join(
+      docsRoot,
+      "content/releases/evidence/db-migrations/v9.9.0/dev/plan.json",
+    );
+    fs.mkdirSync(path.dirname(unownedArtifact), { recursive: true });
+    fs.writeFileSync(unownedArtifact, "new artifact is forbidden\n");
     const pendingRef = commit(docsRoot, "omit DB scope with artifacts");
     git(docsRoot, ["push", "-u", "origin", "docs/unowned-db-artifacts"]);
 
@@ -441,7 +426,7 @@ describe("release preflight for unpublished PR records", () => {
     ], docsRoot);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /same-version DB migration artifacts require a canonical db-migration scope/);
+    assert.match(result.stdout, /new DB migration evidence artifacts are not allowed/);
   });
 
   it("rejects unrelated published release edits through the shared transition validator", () => {
@@ -503,7 +488,6 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       apiTag: "v9.9.0",
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(workspace.docsRoot, "record immutable tagged release");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/tagged-release"]);
@@ -649,7 +633,6 @@ describe("release preflight for unpublished PR records", () => {
       dbMigration: true,
       apiRef,
       status: "in_progress",
-      dbMigrationStage: "prod-planned",
     });
     const pendingRef = commit(workspace.docsRoot, "record stale untagged release");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/untagged-release"]);
@@ -689,18 +672,6 @@ function createRepository(name) {
   git(repositoryRoot, ["config", "user.name", "Release Preflight Test"]);
   git(repositoryRoot, ["remote", "add", "origin", remoteRoot]);
   fs.writeFileSync(path.join(repositoryRoot, "README.md"), "# Test\n");
-  if (name === "coupler-api") {
-    for (const [relativePath, source] of Object.entries({
-      ...dbMigrationInputSources,
-      "scripts/db-migration-workflow.ts": "export {};\n",
-      "scripts/db-migration-executor.ts": "export {};\n",
-      "scripts/db-schema-contract.ts": "export {};\n",
-    })) {
-      const absolutePath = path.join(repositoryRoot, relativePath);
-      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-      fs.writeFileSync(absolutePath, source);
-    }
-  }
   commitAndPush(repositoryRoot, "initial main");
   return repositoryRoot;
 }
@@ -738,12 +709,9 @@ function writePendingRelease(
     dbMigration = false,
     contractsPackage = false,
     apiRef = null,
-    dbPlanApiRef = apiRef,
     apiTag = null,
     status = "pending",
     dbMigrationStatus = status,
-    dbMigrationStage = "dev-planned",
-    devPlanCreatedAt = "2026-08-04T00:00:00.000Z",
     mobileStoreMapping = null,
     version = "v9.9.0",
   } = {},
@@ -761,82 +729,10 @@ function writePendingRelease(
     },
   };
   if (dbMigration) {
-    const artifactRoot = path.join(
-      docsRoot,
-      "content",
-      "releases",
-      "evidence",
-      "db-migrations",
-      version,
-    );
-    const devPlanValue = dbMigrationPlanFor("dev", {
-        apiSourceRef: dbPlanApiRef,
-        createdAt: devPlanCreatedAt,
-      });
-    const devPlan = Buffer.from(`${JSON.stringify(devPlanValue, null, 2)}\n`);
-    const devPlanSha256 = sha256Hex(devPlan);
-    const devExecution = Buffer.from(dbMigrationExecution("dev", devPlanValue, "done"));
-    const devExecutionSha256 = sha256Hex(devExecution);
-    const prodPlanValue = dbMigrationPlanFor("prod", {
-          apiSourceRef: dbPlanApiRef,
-          devPlan: {
-            path: `.runtime/db-migration/dev/plan.json`,
-            sha256: devPlanSha256,
-          },
-          devExecution: {
-            path: `.runtime/db-migration/dev/execution.jsonl`,
-            sha256: devExecutionSha256,
-          },
-        });
-    const prodPlan = Buffer.from(`${JSON.stringify(prodPlanValue, null, 2)}\n`);
-    const prodPlanSha256 = sha256Hex(prodPlan);
-    const prodExecution = Buffer.from(dbMigrationExecution("prod", prodPlanValue, "done"));
-    const prodExecutionSha256 = sha256Hex(prodExecution);
-    fs.mkdirSync(path.join(artifactRoot, "dev"), { recursive: true });
-    fs.mkdirSync(path.join(artifactRoot, "prod"), { recursive: true });
-    fs.writeFileSync(path.join(artifactRoot, "dev", "plan.json"), devPlan);
-    if (dbMigrationStage !== "dev-planned") {
-      fs.writeFileSync(
-        path.join(artifactRoot, "dev", "execution.jsonl"),
-        devExecution,
-      );
-    }
-    if (["prod-planned", "prod-completed"].includes(dbMigrationStage)) {
-      fs.writeFileSync(path.join(artifactRoot, "prod", "plan.json"), prodPlan);
-    }
-    if (dbMigrationStage === "prod-completed") {
-      fs.writeFileSync(
-        path.join(artifactRoot, "prod", "execution.jsonl"),
-        prodExecution,
-      );
-    }
     scopeResults["db-migration"] = {
       status: dbMigrationStatus,
       summary: `DB migration ${dbMigrationStatus}`,
-      evidence: {
-        plan:
-          ["prod-planned", "prod-completed"].includes(dbMigrationStage)
-            ? {
-                path: `content/releases/evidence/db-migrations/${version}/prod/plan.json`,
-                sha256: prodPlanSha256,
-              }
-            : {
-                path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
-                sha256: devPlanSha256,
-              },
-        execution:
-          dbMigrationStage === "prod-completed"
-            ? {
-                path: `content/releases/evidence/db-migrations/${version}/prod/execution.jsonl`,
-                sha256: prodExecutionSha256,
-              }
-            : dbMigrationStage === "dev-completed"
-            ? {
-                path: `content/releases/evidence/db-migrations/${version}/dev/execution.jsonl`,
-                sha256: devExecutionSha256,
-              }
-            : null,
-      },
+      evidence: {},
     };
   }
   if (contractsPackage) {
@@ -960,9 +856,6 @@ function writePendingRelease(
   );
 }
 
-function sha256Hex(source) {
-  return createHash("sha256").update(source).digest("hex");
-}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

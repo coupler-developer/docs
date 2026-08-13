@@ -52,7 +52,7 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 | Admin | exact package와 최종 operation만 소비, 운영 artifact smoke 통과 |
 | Mobile Store | 제출·승인·출시 build와 API 대상, platform/build ref 및 smoke 고정 |
 | Mobile NextPush | 플랫폼별 app/deployment/label/cohort, target binary와 적용 smoke 고정 |
-| DB | 별도 DB 런북의 current trio, plan/execution, START/TARGET/PARTIAL |
+| DB | 별도 DB 런북의 migration 파일, 기존 적용 이력, 개발계와 운영계의 동일 소스 커밋 |
 
 ## 메인 흐름
 
@@ -77,7 +77,7 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 5. API `Yes`이면 old-readable bootstrap/version 성공 case와 incompatible product request의 결정론적
    거부 case를 검증하고, activation·client rollback이 참조할 case ID를 고정한다. activation case에는
    선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
-6. DB migration이 있으면 별도 런북에서 current trio를 검증하고 dev DONE pair를 만든다.
+6. DB migration이 있으면 로컬 Docker MySQL·MariaDB 검증 후 개발계에 적용하고 소스 커밋을 고정한다.
 
 ### 2) 운영 반영 전 Gate
 
@@ -86,9 +86,9 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 - 소비자 inventory가 Store, OTA, Admin, REST, WebSocket, bootstrap/version 표면을 exact-set으로 포함한다.
 - package source/published stable/consumer dependency와 각 artifact ref가 일치한다.
 - API contract case와 API `No | Yes` 판정이 일치한다.
-- DB prod plan은 같은 API source의 완료된 dev plan/execution을 참조한다.
+- 운영 DB checkout은 개발계에서 적용·검증한 마이그레이션 소스 커밋과 정확히 같다.
 - API `Yes`이면 activation 장벽, old-readable bootstrap/upgrade, client rollback case가 준비돼 있다.
-- DB migration이면 traffic/writer 중지·drain과 backup을 운영 전제로 준비한다.
+- DB migration별 운영 주의사항과 별도 조치가 있으면 해당 변경의 검토·런북에 명시한다.
 
 ### 3) Store 출시
 
@@ -97,8 +97,8 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 2. API `No`이면 migration 실행과 API 배포 뒤에도 지원 이전 앱 case가 통과한 상태에서 승인 build를 출시한다.
 3. API `Yes`이면 승인·출시 가능 상태에서 activation 장벽을 닫고 API/Admin/Store를 전환한다. 장벽 안에서도
    bootstrap/version은 old-readable해야 하며 product request 거부 응답을 확인한다.
-4. DB migration이 포함되면 별도 maintenance window에서 DB DONE을 먼저 확인하고 API 배포·smoke·traffic
-   재개는 이 릴리스 절차로 이어간다. API 상태를 DB journal에 기록하지 않는다.
+4. DB migration이 포함되면 같은 소스 커밋에서 운영 `status prod`와 `apply prod`가 성공한 뒤 API 배포·smoke를
+   이어간다.
 5. 출시·activation 시각, case ID, artifact ref, smoke와 복구 기준을 같은 릴리스 기록에 남긴다.
 
 ### 4) NextPush 배포
@@ -114,7 +114,7 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 - 소비자 inventory의 현재·이전 case와 실제 운영 artifact가 일치한다.
 - API `No`이면 모든 지원 이전 소비자가 성공하고 이번 변경이 만든 후속 공개 계약 전환 작업이 0건이다.
 - API `Yes`이면 activation·거부·bootstrap/upgrade·client rollback case가 실제 순서에서 통과했다.
-- DB migration이면 prod plan/execution이 DONE/TARGET이고 현재 API 릴리스 smoke는 별도로 완료됐다.
+- DB migration이면 운영 `status prod`의 pending이 0이고 현재 API 릴리스 smoke도 완료됐다.
 - 이전 API rollback을 허용했다면 final DB 조합 smoke와 수락 write·queue·외부효과의 무손실
   보존 증빙이 있다. 없으면 forward fix/통제된 reconciliation만 복구 경로로 남긴다.
 - package exact version 정렬과 각 저장소 표준 품질 게이트가 통과했다.
@@ -137,8 +137,8 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 - 이전 API/runtime rollback은 release-scoped inventory의 이전·현재 모든 소비자 interface가 이전 API와
   final DB에서 성공한 rollback case를 정확히 하나씩 가질 때만 허용한다. 이 case 전체가
   `runtimeRecovery.previousReleaseCaseIds`와 일치해야 한다.
-- API binary rollback은 persisted/queued/external-effect application evidence를 통과해야 한다. DB
-  DONE/TARGET 뒤 pre-run backup 복원은 허용하지 않는다.
+- API binary rollback은 persisted/queued/external-effect application evidence를 통과해야 한다. DB 변경의
+  rollback·복구 판단은 DB 전용 런북의 명시적 절차와 개별 migration 검토를 따른다.
 
 ## 검증 체크리스트
 
@@ -148,8 +148,8 @@ Silent fallback과 여러 레이어의 임시 분기는 금지한다.
 - [ ] API `Yes`이면 old-readable bootstrap/upgrade와 결정론적 거부, activation/client rollback이 있는가?
 - [ ] 이전 API/runtime rollback이면 모든 release-scoped 소비자 interface의 이전 API 성공 case가 정확히
   하나씩 있고 선택된 rollback case와 일치하는가?
-- [ ] DB scope가 있으면 별도 런북의 current trio, dev/prod pair, DONE/TARGET 조건이 검증됐는가?
-- [ ] API smoke·traffic 재개·rollback 증거가 DB journal과 분리됐는가?
+- [ ] DB scope가 있으면 로컬 양 엔진 검증, 개발계 적용, 동일 소스 커밋의 운영계 적용이 확인됐는가?
+- [ ] API smoke와 rollback 판단이 DB migration 실행 결과와 구분되는가?
 - [ ] 마지막 변경 이후 각 저장소의 표준 품질 게이트가 통과했는가?
 
 ## 비포함 / 금지

@@ -128,7 +128,7 @@
 | 권한/보안 | 권한별 허용/거부 검증 |
 | 결제 | 중복 결제, 환불, 키 지급/회수 검증 |
 | 푸시 | 발송, 스킵, 중복 방지, 저장 결과 검증 |
-| DB | [DB Migration 정책](db-migration-gate-policy.md)의 current trio scratch replay, START/TARGET/PARTIAL, plan/journal 검증 |
+| DB | [DB Migration 정책](db-migration-gate-policy.md)의 append-only source 검사, Docker MySQL 8.4·MariaDB 10.6 실제 replay, 재실행 skip 검증 |
 | 배포 | 배포 후 핵심 응답, 로그, 롤백 기준 검증 |
 | 네이티브/모바일 릴리스 | 실기기 또는 배포 리허설 검증 |
 | 다중 레포 변경 | 각 레포 품질 게이트와 교차 계약 검증 |
@@ -222,18 +222,16 @@
 - 릴리스 기록 검증(로컬): `yarn validate:release-records`
 - API 에러 문서 검증(로컬): `yarn validate:api-error-docs`
 - 릴리스 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
-    DB migration dev/prod pair의 고정 경로, 실제 bytes SHA-256, plan/execution 결속, extra artifact 거부와
-    과거 릴리스 파일의 최종 트리 불변성 테스트를 이 runner에 포함한다.
+    과거에 게시된 DB migration evidence bytes의 최종 트리 불변성 테스트를 유지하되 새 migration 실행은
+    별도 plan/execution artifact를 만들지 않는다.
 - 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증 leaf(로컬): `yarn validate:docs`
 - 문서 표준 통합 검증(로컬): `yarn verify`
 - 문서 공통 정적 검증(full CI): `yarn validate:docs-static`
 - 경량 릴리스 검증(CI): `yarn validate:docs-sensitive`, `node scripts/validate-release-records.mjs`
-- DB migration provenance(CI): 보호된 base의 validator가 PR head를 실행하지 않고 데이터로 읽으며,
-  `COUPLER_CI_READ_TOKEN`으로 checkout한 `coupler-api`의 `main` 이력과 plan이 참조한 source bytes를 대조한다. token은
-  `coupler-api` 단일 저장소의 `Contents: read` fine-grained PAT만 허용하고 GitHub App은 사용하지 않는다.
-  결과는 `DB Migration Provenance / exact-head` status로 검증한 PR head SHA에 직접 결속한다.
+- DB migration source 검증(CI): API workflow가 보호된 base와 PR source를 비교해 기존 migration 및 baseline
+  변경·삭제와 과거 ID 삽입을 거부하고, Docker 양 엔진에서 전체 source를 실제 replay한다.
 - 문서 lint(CI): 로컬과 같은 `yarn lint:md`
 - 문서 build(CI): Python 의존성 설치 후 로컬과 같은 `yarn build:docs`
 
@@ -241,11 +239,6 @@
 
 - 서비스 레포(coupler-\*): 기본적으로 `pull_request` 이벤트에서만 CI를 트리거한다.
 - docs 레포: `Docs Validation` 검증 워크플로는 `pull_request(main)`에서만 동작하며 merge gate로 사용한다.
-- docs 레포: `DB Migration Provenance`는 `pull_request_target(main)`의 보호된 base 코드만 실행한다. PR head와
-  API checkout은 별도 경로에 두고 후보의 script·dependency·workflow는 실행하지 않으며, credential·ref·원본
-  조회가 없거나 실패하면 exact-head status를 실패시킨다. 최초 도입 PR은 DB evidence를 포함하지 않는 trusted
-  bootstrap으로 병합하고 canary 실행 뒤 위 status를 required check로 지정한다. 그 전에는 DB evidence PR을
-  병합하지 않는다.
 - docs 레포: full mode는 로컬과 같은 `yarn validate:docs-static`을 실행한다. 개별 validator 목록을 workflow에
   다시 열거하지 않는다. PR base SHA는 `DOCUMENT_LIFECYCLE_BASE_REF`로 공통 runner에 주입해 current registry와
   retirement ledger의 현재 상태·전환을 한 번에 검증한다. 경량 mode만 공통 runner가 없으므로 lifecycle
@@ -269,14 +262,14 @@
 - 상세 판정 기준은 [DB Migration 정책](db-migration-gate-policy.md)을 단일 기준으로 사용한다.
 - API `No`는 release-scoped Store/OTA/Admin consumer-interface가 현재 API+최종 DB에서 성공하는 자동
   계약·통합 테스트 또는 재현 가능한 smoke로 검증한다.
-- DB는 baseline+fixture START, current의 모든 proper prefix PARTIAL, 최종 TARGET과 전체 schema lock 일치를
-  검증한다. plan과 journal은 DB identity·backup·schema/state digest 외 marker를 거부한다.
-- API 배포·health/smoke·traffic 재개와 API rollback 검증은 DB plan/journal이 아니라 API·릴리스 테스트가
+- API CI는 baseline과 정렬된 전체 migration을 MariaDB 10.6과 MySQL 8.4에서 실제 실행하고, 최종 schema lock,
+  재실행 시 SQL 0건, append-only·checksum·leading-prefix 계약을 검증한다.
+- API 배포·health/smoke·traffic 재개와 API rollback 검증은 DB migration runner가 아니라 API·릴리스 테스트가
   별도로 소유한다.
 - Store 강제 업데이트, NextPush mandatory와 버전을 구분할 수 없는 traffic 0건은 위 case나 runtime
   조합 테스트를 대체하지 않는다.
-- CI는 API admission·local MariaDB replay와 docs evidence 계약만 검증한다. 실제 운영 DB 상태, credential,
-  topology, backup 복구 가능성을 정적 CI가 확인했다고 표현하지 않는다.
+- CI는 API source admission·Docker 양 엔진 replay와 과거 docs 기록 불변성만 검증한다. 실제 운영 DB 상태,
+  credential, topology를 정적 CI가 확인했다고 표현하지 않는다.
 
 ## 관련 문서
 

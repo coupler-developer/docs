@@ -75,8 +75,7 @@ const repoStates = releaseRecord
   : [];
 
 if (releaseRecord) {
-  validateReleaseRecordMetadata(releaseRecord, repoStates, errors);
-  validateDbMigrationOperationalAdmission(releaseRecord, errors);
+  validateReleaseRecordMetadata(releaseRecord, errors);
   inspectReleaseRecord(releaseRecord, repoStates, errors);
   validatePendingReleaseTransition(args.pendingRef, repoStates, errors);
 }
@@ -597,160 +596,21 @@ function readReleaseRecord(version, errors, pendingRef) {
   };
 }
 
-function validateReleaseRecordMetadata(releaseRecord, repoStates, validationErrors) {
+function validateReleaseRecordMetadata(releaseRecord, validationErrors) {
   if (!releaseRecord.metadata) {
     return;
   }
-  const apiRoot = repoStates.find((state) => state.name === "coupler-api")?.root ?? null;
   validateReleaseMetadata(
     releaseRecord.metadata,
     releaseRecord.version,
     releaseRecord.version,
     validationErrors,
-    {
-      readArtifact: (relativePath) =>
-        readPendingReleaseArtifact(args.pendingRef, relativePath),
-      readApiArtifact: createTrustedApiArtifactReader(apiRoot),
-      isApiAncestor: (ancestor, descendant) =>
-        Boolean(apiRoot) && gitCommitIsAncestor(apiRoot, ancestor, descendant),
-      requireTrustedApiSource: true,
-      listArtifacts: (prefix) => listPendingReleaseArtifacts(args.pendingRef, prefix),
-      requireCurrentSchema: true,
-    },
+    { requireCurrentSchema: true },
   );
-}
-
-function createTrustedApiArtifactReader(apiRoot) {
-  return (sourceRef, relativePath) => {
-    if (
-      !apiRoot ||
-      !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
-      !relativePath ||
-      path.posix.isAbsolute(relativePath) ||
-      path.posix.normalize(relativePath) !== relativePath ||
-      relativePath.split("/").includes("..")
-    ) {
-      return null;
-    }
-    try {
-      execFileSync("git", ["merge-base", "--is-ancestor", sourceRef, "origin/main"], {
-        cwd: apiRoot,
-        stdio: "ignore",
-      });
-      return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
-        cwd: apiRoot,
-        encoding: null,
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-    } catch {
-      return null;
-    }
-  };
-}
-
-function readPendingReleaseArtifact(pendingRef, relativePath) {
-  return readGitReleaseArtifact(pendingRef, relativePath);
-}
-
-function readGitReleaseArtifact(ref, relativePath) {
-  if (
-    typeof relativePath !== "string" ||
-    path.isAbsolute(relativePath) ||
-    relativePath.includes("\\") ||
-    path.posix.normalize(relativePath) !== relativePath ||
-    !relativePath.startsWith("content/releases/evidence/db-migrations/")
-  ) {
-    return null;
-  }
-  let treeEntry;
-  try {
-    treeEntry = git(docsRoot, [
-      "ls-tree",
-      ref,
-      "--",
-      relativePath,
-    ]);
-  } catch {
-    return null;
-  }
-  const [metadata, listedPath] = treeEntry.split("\t");
-  if (
-    listedPath !== relativePath ||
-    !/^100(?:644|755) blob [0-9a-f]{40}$/u.test(metadata)
-  ) {
-    return null;
-  }
-  try {
-    return execFileSync("git", ["show", `${ref}:${relativePath}`], {
-      cwd: docsRoot,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch {
-    return null;
-  }
-}
-
-function listPendingReleaseArtifacts(pendingRef, prefix) {
-  return listGitReleaseArtifacts(pendingRef, prefix);
-}
-
-function listGitReleaseArtifacts(ref, prefix) {
-  if (
-    typeof prefix !== "string" ||
-    !prefix.startsWith("content/releases/evidence/db-migrations/") ||
-    !prefix.endsWith("/") ||
-    path.posix.normalize(prefix) !== prefix
-  ) {
-    return null;
-  }
-  try {
-    const output = git(docsRoot, [
-      "ls-tree",
-      "-r",
-      "--name-only",
-      ref,
-      "--",
-      prefix,
-    ]);
-    return output
-      .split("\n")
-      .filter((relativePath) => relativePath.startsWith(prefix))
-      .sort();
-  } catch {
-    return null;
-  }
-}
-
-function validateDbMigrationOperationalAdmission(releaseRecord, validationErrors) {
-  const dbResult = releaseRecord.metadata?.scopeResults?.["db-migration"];
-  const hasDbScope = releaseRecord.metadata?.releaseScopes?.includes("db-migration") || dbResult;
-  if (!hasDbScope) {
-    return;
-  }
-
-  const expectedProdPlanPath =
-    `content/releases/evidence/db-migrations/${releaseRecord.version}/prod/plan.json`;
-  if (["planned", "pending"].includes(dbResult?.status)) {
-    validationErrors.push(
-      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan`,
-    );
-    return;
-  }
-  if (
-    dbResult?.status === "in_progress" &&
-    (dbResult?.evidence?.plan?.path !== expectedProdPlanPath ||
-      dbResult?.evidence?.execution !== null)
-  ) {
-    validationErrors.push(
-      `${releaseRecord.version}: DB migration operational preflight requires an in_progress canonical prod plan`,
-    );
-    return;
-  }
 }
 
 function validatePendingReleaseTransition(pendingRef, repoStates, validationErrors) {
   const docsState = repoStates.find((state) => state.name === "docs");
-  const apiRoot = repoStates.find((state) => state.name === "coupler-api")?.root ?? null;
   if (
     !pendingRef ||
     !docsState?.clean ||
@@ -765,9 +625,7 @@ function validatePendingReleaseTransition(pendingRef, repoStates, validationErro
       [validateReleaseRecordsScript, "--base-ref", "origin/main"],
       {
         cwd: docsRoot,
-        env: apiRoot
-          ? { ...process.env, DB_MIGRATION_API_ROOT: apiRoot }
-          : process.env,
+        env: process.env,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       },
