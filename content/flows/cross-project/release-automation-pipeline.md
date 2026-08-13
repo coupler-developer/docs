@@ -67,8 +67,8 @@
 
 ## 메인 흐름
 
-DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation-flow.md)의 `dev-run`으로 만든 exact
-dev pair가 이 릴리스 흐름의 입력이다. 실행 graph나 실패 history는 만들지 않는다.
+DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation-flow.md)에서 개발계에 적용·검증한
+마이그레이션 소스 커밋이 이 릴리스 흐름의 입력이다. 별도 plan·execution artifact는 만들지 않는다.
 
 ### 0) Scope Gate
 
@@ -83,8 +83,8 @@ dev pair가 이 릴리스 흐름의 입력이다. 실행 graph나 실패 history
 2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채운다.
 3. 릴리스 실행 기준점은 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
    반영한다.
-4. DB migration은 `prod-prepare`로 completed dev pair에 결속된 prod plan을 만들고 prod plan/null을
-   `in_progress` root로 둔다. Docs evidence에는 dev/prod plan/execution 네 파일만 허용한다.
+4. DB migration은 개발계 `apply dev`에서 확인한 마이그레이션 소스 커밋을 고정한다. 이후 merge된 migration을
+   이번 운영 적용에 포함하지 않는다.
 5. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
 
 ### 2) Static Preflight Gate
@@ -94,8 +94,8 @@ dev pair가 이 릴리스 흐름의 입력이다. 실행 graph나 실패 history
 2. preflight는 정책과 공통 schema/derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
 3. 미병합 `pending | in_progress` 기록만 입력으로 사용하고 `PASS` 결과와 실행 로그를 릴리스 기록에 남긴다.
    실패하면 원인을 수정하고 다시 실행한다.
-4. DB migration은 완료된 dev pair를 참조하는 prod plan을 canonical root로 고정한 현재 PR head로 운영 실행
-   전에 이 Gate를 통과한다. 이 Gate는 개발계 executor 실행의 선행조건이 아니다.
+4. DB migration은 운영 서버에서 개발계와 같은 마이그레이션 소스 커밋을 checkout한 뒤 전용 런북의
+   `status prod`로 pending 범위와 DB identity를 확인한다.
 5. preflight는 원격 최신성 확인을 위한 fetch/tag 조회만 수행하며 배포성 side effect를 실행하지 않는다.
 
 ### 3) Clean Main Gate
@@ -119,9 +119,9 @@ dev pair가 이 릴리스 흐름의 입력이다. 실행 graph나 실패 history
    적용해 cutover 결과를 고정한다.
 3. `contracts-package`는 [API 클라이언트 계약 패키지 정책](../../policy/api-client-contract-package-policy.md)의
    발행·소비 정렬 결과와 증빙을 고정한다.
-4. `db-migration`은 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)의 runtime plan과
-   운영 진입 조건을 고정한다.
-5. 확정한 API evidence와 DB plan을 Deploy Evidence Gate로 전달한다.
+4. `db-migration`은 [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)에 따라 개발계에서
+   적용·검증한 마이그레이션 소스 커밋을 고정한다.
+5. 확정한 API evidence와 DB 마이그레이션 소스 커밋을 Deploy Evidence Gate로 전달한다.
 
 ### 6) Deploy Evidence Gate
 
@@ -193,7 +193,7 @@ dev pair가 이 릴리스 흐름의 입력이다. 실행 graph나 실패 history
 - 서비스 레포 태그를 docs 태그로 대체하지 않는다.
 - Store 출시 activation, 강제 업데이트, NextPush mandatory 또는 현재 source 정렬을 API/DB 호환
   증빙으로 사용하지 않는다.
-- API `No`에 임시 adapter·dual-write를 남기거나 DB plan에서 실제 runtime/schema 조합을 누락하지 않는다.
+- API `No`에 임시 adapter·dual-write를 남기거나 DB migration 검토에서 실제 runtime/schema 조합을 누락하지 않는다.
 - API `Yes`인데 API/Admin과 Mobile 전환 전 요청을 서버 측에서 결정론적으로 차단할 수
   없으면 운영 실행을 시작하지 않는다.
 

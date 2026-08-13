@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -8,12 +7,6 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { parseReleaseMetadataBlock } from "./release-record-metadata.mjs";
-import {
-  dbMigrationExecution,
-  dbMigrationInputSources,
-  dbMigrationPlanFor,
-} from "./db-migration-evidence-test-fixtures.mjs";
-
 const testFilePath = fileURLToPath(import.meta.url);
 const scriptsRoot = path.dirname(testFilePath);
 const validateScript = path.join(scriptsRoot, "validate-release-records.mjs");
@@ -43,8 +36,7 @@ afterEach(() => {
 });
 
 describe("validate release records metadata sync", () => {
-  it("binds a new DB migration record to exact working-tree artifact bytes", () => {
-    const evidence = writePendingDbEvidence();
+  it("accepts a new DB migration scope without plan or execution artifacts", () => {
     writeReleaseRecord({
       releaseStatus: "pending",
       apiContractCutover: null,
@@ -59,37 +51,19 @@ describe("validate release records metadata sync", () => {
         "db-migration": {
           status: "pending",
           summary: "DB migration pending",
-          evidence,
+          evidence: {},
         },
       },
       scopeTargetLine: "`docs`, `coupler-api`",
       pendingScopeLine: "개발계와 운영계 DB migration 실행",
-      verificationNote: "DB plan artifact SHA-256 fixed before execution",
+      verificationNote: "DB migration source commit fixed before production execution",
     });
 
     const valid = runValidator();
     assert.equal(valid.status, 0, valid.stdout + valid.stderr);
-
-    fs.writeFileSync(
-      path.join(
-        tempRoot,
-        "content",
-        "releases",
-        "evidence",
-        "db-migrations",
-        "v9.9.0",
-        "dev",
-        "plan.json",
-      ),
-      "changed bytes\n",
-    );
-    const changed = runValidator();
-    assert.notEqual(changed.status, 0);
-    assert.match(changed.stderr, /plan checksum mismatch/);
   });
 
-  it("fails closed when required API provenance cannot be read", () => {
-    const evidence = writePendingDbEvidence();
+  it("rejects new DB migration plan or execution evidence", () => {
     writeReleaseRecord({
       releaseStatus: "pending",
       apiContractCutover: null,
@@ -104,21 +78,18 @@ describe("validate release records metadata sync", () => {
         "db-migration": {
           status: "pending",
           summary: "DB migration pending",
-          evidence,
+          evidence: { plan: { path: "plan.json" } },
         },
       },
       scopeTargetLine: "`docs`, `coupler-api`",
       pendingScopeLine: "개발계와 운영계 DB migration 실행",
-      verificationNote: "DB plan artifact SHA-256 fixed before execution",
+      verificationNote: "DB migration source commit fixed before production execution",
     });
 
-    const result = runValidator(null, {
-      DB_MIGRATION_REQUIRE_API_PROVENANCE: "1",
-      DB_MIGRATION_API_ROOT: path.join(tempRoot, "missing-api-checkout"),
-    });
+    const result = runValidator();
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /trusted API source is missing/);
+    assert.match(result.stderr, /scopeResults\.db-migration\.evidence must be empty/);
   });
 
   it("keeps API cutover Gate out of the base release record template", () => {
@@ -418,7 +389,7 @@ describe("published release record immutability", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stderr,
-      /same-version DB migration artifacts require a canonical db-migration scope/,
+      /new DB migration evidence artifacts are not allowed/,
     );
   });
 
@@ -434,7 +405,7 @@ describe("published release record immutability", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stderr,
-      /DB migration artifacts must be added with their same-version release record/,
+      /new DB migration evidence artifacts are not allowed/,
     );
   });
 
@@ -462,7 +433,7 @@ describe("published release record immutability", () => {
     assert.notEqual(result.status, 0);
     assert.match(
       result.stderr,
-      /same-version release record|vMAJOR\.MINOR\.PATCH namespace/,
+      /new DB migration evidence artifacts are not allowed/,
     );
   });
 
@@ -476,7 +447,7 @@ describe("published release record immutability", () => {
     const result = runValidator(baseRef);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /DB migration evidence must be stored under a vMAJOR\.MINOR\.PATCH namespace/);
+    assert.match(result.stderr, /new DB migration evidence artifacts are not allowed/);
   });
 
   it("does not parse or revalidate an unchanged release record already present at base", () => {
@@ -500,7 +471,7 @@ describe("published release record immutability", () => {
     const result = runValidator(baseRef);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /published release cannot receive new untracked or tracked DB migration evidence/);
+    assert.match(result.stderr, /new DB migration evidence artifacts are not allowed/);
   });
 
   it("rejects editing a release record already present at base", () => {
@@ -1212,26 +1183,9 @@ function writePendingDbEvidence({ completed = false, version = "v9.9.0" } = {}) 
     "db-migrations",
     version,
   );
-  const devPlan = Buffer.from(
-    `${JSON.stringify(dbMigrationPlanFor("dev"), null, 2)}\n`,
-  );
-  const planSha256 = createHash("sha256").update(devPlan).digest("hex");
   fs.mkdirSync(path.join(root, "dev"), { recursive: true });
-  fs.writeFileSync(path.join(root, "dev", "plan.json"), devPlan);
-  let execution = null;
+  fs.writeFileSync(path.join(root, "dev", "plan.json"), "opaque legacy plan\n");
   if (completed) {
-    const devExecution = Buffer.from(dbMigrationExecution("dev", JSON.parse(devPlan), "done"));
-    fs.writeFileSync(path.join(root, "dev", "execution.jsonl"), devExecution);
-    execution = {
-      path: `content/releases/evidence/db-migrations/${version}/dev/execution.jsonl`,
-      sha256: createHash("sha256").update(devExecution).digest("hex"),
-    };
+    fs.writeFileSync(path.join(root, "dev", "execution.jsonl"), "opaque legacy execution\n");
   }
-  return {
-    plan: {
-      path: `content/releases/evidence/db-migrations/${version}/dev/plan.json`,
-      sha256: planSha256,
-    },
-    execution,
-  };
 }

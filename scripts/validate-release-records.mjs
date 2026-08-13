@@ -27,15 +27,7 @@ import {
   parseScopeFields,
   setsAreEqual,
 } from "./release-record-parser.mjs";
-import { validateDbMigrationEvidence } from "./db-migration-evidence.mjs";
-
 const docsRoot = process.cwd();
-const requireTrustedApiSource = process.env.DB_MIGRATION_REQUIRE_API_PROVENANCE === "1";
-const trustedApiRoot = process.env.DB_MIGRATION_API_ROOT ?? null;
-const readApiArtifact = requireTrustedApiSource || trustedApiRoot
-  ? readTrustedApiArtifact
-  : undefined;
-const isApiAncestor = trustedApiRoot ? isTrustedApiAncestor : undefined;
 const releasesRoot = path.join(docsRoot, "content", "releases");
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
 const dbMigrationEvidencePattern =
@@ -57,7 +49,6 @@ const forbiddenPatterns = [
   /이 문서가 포함된/,
 ];
 const errors = [];
-const releaseMetadataByVersion = new Map();
 let baseRef = null;
 try {
   baseRef = resolveBaseRef(process.argv.slice(2));
@@ -82,15 +73,12 @@ if (fs.existsSync(releasesRoot)) {
     }
     const absolutePath = path.join(releasesRoot, entry.name);
     const source = fs.readFileSync(absolutePath, "utf8");
-    const metadata = validateReleaseRecord(relativePath, source, tag, errors);
-    if (metadata) {
-      releaseMetadataByVersion.set(tag, metadata);
-    }
+    validateReleaseRecord(relativePath, source, tag, errors);
   }
 }
 
 if (baseRef) {
-  validateChangedDbMigrationEvidenceOwnership(baseRef, releaseMetadataByVersion, errors);
+  validateNoNewDbMigrationEvidence(baseRef, errors);
 }
 
 if (errors.length > 0) {
@@ -158,11 +146,6 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
   const metadata = parseReleaseMetadataBlock(source, relativePath, errors);
   if (metadata) {
     validateReleaseMetadata(metadata, relativePath, tag, errors, {
-      readArtifact: readWorkingTreeReleaseArtifact,
-      readApiArtifact,
-      isApiAncestor,
-      requireTrustedApiSource,
-      listArtifacts: listWorkingTreeReleaseArtifacts,
       requireCurrentSchema: Boolean(baseRef),
     });
   }
@@ -170,11 +153,7 @@ function readReleaseMetadata(relativePath, source, tag, errors) {
   return metadata;
 }
 
-function validateChangedDbMigrationEvidenceOwnership(
-  baseRef,
-  metadataByVersion,
-  validationErrors,
-) {
+function validateNoNewDbMigrationEvidence(baseRef, validationErrors) {
   const changedPaths = git([
     "diff",
     "--name-only",
@@ -189,197 +168,13 @@ function validateChangedDbMigrationEvidenceOwnership(
     "--",
     "content/releases/evidence/db-migrations",
   ]).split("\n").filter(Boolean);
-  const evidencePaths = [...new Set([...changedPaths, ...untrackedPaths])];
-  for (const artifactPath of evidencePaths) {
-    if (!dbMigrationEvidencePattern.test(artifactPath)) {
+  for (const artifactPath of new Set([...changedPaths, ...untrackedPaths])) {
+    if (!gitObjectExists(`${baseRef}:${artifactPath}`)) {
       validationErrors.push(
-        `${artifactPath}: DB migration evidence must be stored under a vMAJOR.MINOR.PATCH namespace`,
+        `${artifactPath}: new DB migration evidence artifacts are not allowed; use the migration source commit and existing application history`,
       );
     }
   }
-  const versions = new Set(
-    evidencePaths
-      .map((artifactPath) => artifactPath.match(dbMigrationEvidencePattern)?.[1] ?? null)
-      .filter(Boolean),
-  );
-
-  for (const version of versions) {
-    const releasePath = `content/releases/${version}.md`;
-    if (gitObjectExists(`${baseRef}:${releasePath}`)) {
-      validationErrors.push(
-        `${releasePath}: a published release cannot receive new untracked or tracked DB migration evidence`,
-      );
-      continue;
-    }
-    const metadata = metadataByVersion.get(version);
-    if (metadata) {
-      const dbResult = metadata.scopeResults?.["db-migration"];
-      if (
-        !metadata.releaseScopes?.includes("db-migration") ||
-        !dbResult?.evidence?.plan
-      ) {
-        validationErrors.push(
-          `${releasePath}: same-version DB migration artifacts require a canonical db-migration scope in the release record`,
-        );
-      }
-      continue;
-    }
-
-    validationErrors.push(
-      `${releasePath}: DB migration artifacts must be added with their same-version release record`,
-    );
-  }
-}
-
-function readTrustedApiArtifact(sourceRef, relativePath) {
-  if (
-    !trustedApiRoot ||
-    !/^[0-9a-f]{40}$/u.test(sourceRef ?? "") ||
-    !relativePath ||
-    path.posix.isAbsolute(relativePath) ||
-    path.posix.normalize(relativePath) !== relativePath ||
-    relativePath.split("/").includes("..")
-  ) {
-    return null;
-  }
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", sourceRef, "origin/main"], {
-      cwd: trustedApiRoot,
-      stdio: "ignore",
-    });
-    return execFileSync("git", ["show", `${sourceRef}:${relativePath}`], {
-      cwd: trustedApiRoot,
-      encoding: null,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    return null;
-  }
-}
-
-function isTrustedApiAncestor(ancestor, descendant) {
-  if (
-    !trustedApiRoot ||
-    !/^[0-9a-f]{40}$/u.test(ancestor ?? "") ||
-    !/^[0-9a-f]{40}$/u.test(descendant ?? "")
-  ) {
-    return false;
-  }
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
-      cwd: trustedApiRoot,
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function listWorkingTreeReleaseArtifacts(prefix) {
-  if (
-    typeof prefix !== "string" ||
-    !prefix.startsWith("content/releases/evidence/db-migrations/") ||
-    !prefix.endsWith("/") ||
-    path.posix.normalize(prefix) !== prefix
-  ) {
-    return null;
-  }
-  const inspectedRoot = inspectWorkingTreeEvidencePath(prefix.slice(0, -1), "directory");
-  if (inspectedRoot.status === "missing") {
-    return [];
-  }
-  if (inspectedRoot.status !== "ok") {
-    return null;
-  }
-  const artifacts = [];
-  let invalidEntry = false;
-  const visit = (directory) => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) {
-        invalidEntry = true;
-      } else if (entry.isDirectory()) {
-        visit(absolutePath);
-      } else if (entry.isFile()) {
-        artifacts.push(path.relative(docsRoot, absolutePath).split(path.sep).join("/"));
-      } else {
-        invalidEntry = true;
-      }
-    }
-  };
-  visit(inspectedRoot.absolutePath);
-  return invalidEntry ? null : artifacts.sort();
-}
-
-function readWorkingTreeReleaseArtifact(relativePath) {
-  if (
-    typeof relativePath !== "string" ||
-    path.isAbsolute(relativePath) ||
-    relativePath.includes("\\") ||
-    path.posix.normalize(relativePath) !== relativePath ||
-    !relativePath.startsWith("content/releases/evidence/db-migrations/")
-  ) {
-    return null;
-  }
-  const inspected = inspectWorkingTreeEvidencePath(relativePath, "file");
-  if (inspected.status !== "ok") {
-    return null;
-  }
-  try {
-    return fs.readFileSync(inspected.absolutePath);
-  } catch {
-    return null;
-  }
-}
-
-function inspectWorkingTreeEvidencePath(relativePath, expectedKind) {
-  const evidenceRoot = "content/releases/evidence/db-migrations";
-  if (
-    typeof relativePath !== "string" ||
-    path.isAbsolute(relativePath) ||
-    relativePath.includes("\\") ||
-    path.posix.normalize(relativePath) !== relativePath ||
-    (relativePath !== evidenceRoot && !relativePath.startsWith(`${evidenceRoot}/`))
-  ) {
-    return { status: "invalid" };
-  }
-
-  let absolutePath = path.resolve(docsRoot);
-  for (const component of relativePath.split("/")) {
-    absolutePath = path.join(absolutePath, component);
-    let stat;
-    try {
-      stat = fs.lstatSync(absolutePath);
-    } catch (error) {
-      return { status: error?.code === "ENOENT" ? "missing" : "invalid" };
-    }
-    if (stat.isSymbolicLink()) {
-      return { status: "invalid" };
-    }
-  }
-
-  let stat;
-  try {
-    stat = fs.lstatSync(absolutePath);
-    const realEvidenceRoot = fs.realpathSync(path.resolve(docsRoot, evidenceRoot));
-    const realPath = fs.realpathSync(absolutePath);
-    if (
-      realPath !== realEvidenceRoot &&
-      !realPath.startsWith(`${realEvidenceRoot}${path.sep}`)
-    ) {
-      return { status: "invalid" };
-    }
-  } catch {
-    return { status: "invalid" };
-  }
-  if (
-    (expectedKind === "file" && !stat.isFile()) ||
-    (expectedKind === "directory" && !stat.isDirectory())
-  ) {
-    return { status: "invalid" };
-  }
-  return { status: "ok", absolutePath };
 }
 
 function validateScopeMetadataSync(relativePath, source, releaseModel, errors) {

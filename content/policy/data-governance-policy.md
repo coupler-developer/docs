@@ -119,10 +119,12 @@
     - 로그 마스킹 검증 결과
     - 삭제/정정/복구 절차 영향 범위
 - 운영 원문 `dump`를 로컬에 반입한 경우 아래를 추가로 남긴다.
-    - 반입 목적과 적용한 migration plan/checksum
+    - 반입 목적, 검증에 사용한 마이그레이션 소스 커밋과 대상 filename/checksum
     - 반입 시각, 삭제 완료 시각
     - 저장 위치와 접근 통제 방식
-- DB 구조 변경은 환경별 plan과 execution 결과로 기록한다.
+- DB 구조 변경의 실행 기록은 [DB Migration 유지보수 정책](db-migration-gate-policy.md)과
+  [릴리스 프로세스](release-process.md)를 따른다. 이 문서는 별도 환경별 plan/execution artifact를 추가로
+  요구하지 않는다.
 
 ## 체크리스트
 

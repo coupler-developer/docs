@@ -20,15 +20,6 @@ const workflow = fs.readFileSync(
     path.join(docsRoot, ".github", "workflows", "lint.yml"),
     "utf8",
 );
-const dbMigrationProvenanceWorkflow = fs.readFileSync(
-    path.join(
-        docsRoot,
-        ".github",
-        "workflows",
-        "db-migration-provenance.yml",
-    ),
-    "utf8",
-);
 const operationalRunbookPaths = [
     "db-migration-operation-flow.md",
     "admin-web-production-deploy-flow.md",
@@ -356,45 +347,6 @@ test("lightweight release validation remains separate from the full runner", () 
     assert.doesNotMatch(
         workflow,
         /ready_for_review|converted_to_draft|--draft/,
-    );
-});
-
-test("DB migration provenance uses protected code and a read-only API checkout", () => {
-    assert.match(dbMigrationProvenanceWorkflow, /pull_request_target:/);
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+path: trusted/,
-    );
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /repository: \$\{\{ github\.event\.pull_request\.head\.repo\.full_name \}\}\n\s+ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}\n\s+path: candidate/,
-    );
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /repository: coupler-developer\/coupler-api\n\s+ref: main\n\s+token: \$\{\{ secrets\.COUPLER_CI_READ_TOKEN \}\}/,
-    );
-    assert.doesNotMatch(dbMigrationProvenanceWorkflow, /COUPLER_DEV_TOKEN/);
-    assert.equal(
-        [...dbMigrationProvenanceWorkflow.matchAll(/persist-credentials: false/g)].length,
-        3,
-    );
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /working-directory: candidate[\s\S]*DB_MIGRATION_REQUIRE_API_PROVENANCE: "1"[\s\S]*node \.\.\/trusted\/scripts\/validate-release-records\.mjs/,
-    );
-    assert.match(dbMigrationProvenanceWorkflow, /statuses: write/);
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}[\s\S]*repos\/\$\{GITHUB_REPOSITORY\}\/statuses\/\$\{HEAD_SHA\}[\s\S]*DB Migration Provenance \/ exact-head/,
-    );
-    assert.match(
-        dbMigrationProvenanceWorkflow,
-        /if: always\(\) && steps\.provenance\.outcome != 'success'[\s\S]*run: exit 1/,
-    );
-    assert.match(testingStrategy, /최초 도입 PR[\s\S]*trusted[\s\S]*canary[\s\S]*required check/);
-    assert.doesNotMatch(
-        dbMigrationProvenanceWorkflow,
-        /(?:node|yarn|npm|pnpm) candidate\//,
     );
 });
 

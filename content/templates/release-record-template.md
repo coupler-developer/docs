@@ -93,8 +93,9 @@
   증빙을 대신하지 않는다.
 - API contract cutover가 있을 때만
   [API contract cutover Gate 템플릿](api-contract-cutover-gate-template.md)을 `검증 근거` 아래에 삽입한다.
-- DB migration은 [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)의 canonical
-  artifact 경로와 bytes SHA-256을 연결한다.
+- DB migration은 [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)에 따라 개발계와
+  운영계에 사용한 동일한 마이그레이션 소스 커밋과 최종 pending 0건을 사람이 읽는 결과에 기록한다. 별도
+  plan·execution artifact는 만들지 않는다.
 - `main`에 이미 병합된 릴리스 기록과 evidence는 수정·삭제·개명·대체하거나 현재 계약으로 재검증하지 않는다.
 - 개인 사용자명·로컬 home/tmp 경로·secret을 기록하지 않는다. 변동 값에는 확인 시각과 timezone을 남긴다.
 - 최종 후보에서 `yarn release:preflight --pending-ref <40자 commit SHA>`와 적용 docs 품질 Gate를 실행한다.
@@ -116,7 +117,7 @@
 - Preflight 명령·결과:
 - Scope별 Gate·smoke·artifact:
 - API cutover: `No | Yes` + 근거
-- DB migration artifact 경로·SHA-256:
+- DB 마이그레이션 소스 커밋·개발계/운영계 결과:
 - Workflow·로그·수동 검증 링크:
 
 ### Mobile 개발계 QA 빌드 기록

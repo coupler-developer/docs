@@ -193,14 +193,14 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
   실제 서비스 업무 스키마 catalog나 운영 데이터 예시로 확장하지 않는다.
 - 현재 동작을 추적하기 위한 최소한의 물리 식별자 참조는 허용하지만, 공개 문서가 물리 스키마의 완전한
   복제본이나 독립 SoT가 되어서는 안 된다.
-- 물리 스키마의 단일 기준은 private 서비스 저장소의 schema-only baseline, current SQL/state/fixture와
-  생성된 schema lock이다. 실제 환경은 exact plan/execution과 live schema+state로 판정한다.
-- baseline과 lock은 생성물이며 직접 편집하지 않는다. 공개 논리 문서와 private 물리 산출물 사이에 동일한
-  테이블·컬럼 설명을 이중 관리하지 않는다.
+- 물리 스키마의 단일 기준은 private 서비스 저장소의 immutable schema-only baseline, append-only migration
+  SQL과 MariaDB replay로 생성한 schema lock이다. 실제 환경의 새 source 적용 여부는 기존
+  `schema_migrations`의 filename+checksum으로 판정한다.
+- baseline은 현행 source 전환 뒤 수정하지 않고 schema lock은 migration 검증 명령으로만 동기화한다. 공개
+  논리 문서와 private 물리 산출물 사이에 동일한 테이블·컬럼 설명을 이중 관리하지 않는다.
 - 물리 테이블·컬럼 의미는 migration의 DB native `COMMENT`를 schema lock에 포함해 한 번만 관리한다. 별도
   컬럼 사전 파일을 추가하지 않는다.
-- 기존 `COMMENT` 누락·오탈자·문자 깨짐은 생성된 baseline에서 고치지 않고 다음 `current.sql`의 최종 전이에
-  통합해 정정한다.
+- 기존 `COMMENT` 누락·오탈자·문자 깨짐은 baseline에서 고치지 않고 다음 append-only migration으로 정정한다.
 
 ## 문서 동기화 책임
 
@@ -208,8 +208,8 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 - 문서 갱신이 필요하면 동일 작업 단위(PR/changeset)에서 코드와 함께 반영한다.
 - 문서 갱신이 불필요하면 PR/작업 보고에 `문서 갱신 불필요` 판단 근거(관련 경로/라인/로그)를 남긴다.
 - 작업 완료는 `코드 반영 + 검증 통과 + 문서 동기화(또는 불필요 근거 명시)`까지 포함한다.
-- 모든 DB 변경은 private 물리 schema contract 갱신 필요성을 판정한다. 물리 구조가 바뀌면 current trio와
-  schema lock 검증을 통과해야 한다.
+- 모든 DB 변경은 private 물리 schema contract 갱신 필요성을 판정한다. 물리 구조가 바뀌면 append-only SQL의
+  Docker MySQL·MariaDB replay와 생성 schema lock 검증을 통과해야 한다.
 - DB 변경이 도메인 관계, 소유권, 데이터 분류, 불변 조건, 보관·삭제 생명주기 또는 외부 계약을 바꾸면 공개
   논리 문서를 연결된 docs PR에서 함께 갱신한다.
 - 새 물리 객체를 추가하거나 기존 객체를 분할·통합하면 private 논리 모델 매핑에서 공개 논리 ID,
@@ -334,8 +334,8 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 - 과거 릴리스 기록의 역사적 사실을 taxonomy 정리를 이유로 소급 변경하거나 새 schema로 재검증하지 않는다.
   후속 설명은 이슈·장애 기록에서 추적하고, 실제 새 배포가 없는 정정용 릴리스 기록은 만들지 않는다.
   적용하지 않을 문서는 예외 목록이 아니라 목표 taxonomy의 비포함 범위와 근거로 명시한다.
-- DB 관점이 적용되면 공개 논리 모델 영향, private schema source 갱신, current 전이, schema lock drift와
-  live state 판정을 함께 확인한다.
+- DB 관점이 적용되면 공개 논리 모델 영향, append-only private migration source, schema lock drift와 기존
+  적용 이력 계약을 함께 확인한다.
 - 관점별 상세 로그/일반 의견은 남기지 않고, 판정/근거와 병합된 Finding만 기록한다.
 - Finding에는 발견 관점(대표 관점 1개 이상)을 기록한다.
 - 필수 확인 항목은 아래와 같다.

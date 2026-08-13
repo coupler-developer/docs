@@ -416,12 +416,12 @@ unread 절을 따른다.
 
 ## DB 계약 경계와 운영 기준
 
-이 문서는 논리 상태, 관계, 불변조건만 설명한다. current SQL/state/fixture·checksum·schema lock·DB native
-`COMMENT`와 환경별 적용 상태는 `coupler-api`의 private 물리 계약과 exact plan/execution이 단일 기준이다. 날짜별
-적용 현황이나 물리 객체 수를 이 문서에 복제하지 않는다.
+이 문서는 논리 상태, 관계, 불변조건만 설명한다. append-only migration source·checksum·schema lock·DB native
+`COMMENT`와 환경별 기존 적용 이력은 `coupler-api`의 private 물리 계약이 단일 기준이다. 날짜별 적용 현황이나
+물리 객체 수를 이 문서에 복제하지 않는다.
 
-그룹미팅 runtime을 활성화하기 전에는 대상 환경에서 START 판정, 최종 schema+TARGET 검증, runtime smoke를
-모두 통과해야 한다. 환경별 실행 증거는 API PR 또는 릴리스 기록에 남긴다.
+그룹미팅 runtime을 활성화하기 전에는 대상 환경의 pending migration 적용, 최종 schema 검증과 runtime smoke를
+모두 통과해야 한다.
 group-meeting 논리 ID는 운영 API·Admin·Mobile과 대상 DB에 반영된 현행 모델이다. 개별 FCM·WebSocket·
 scheduler 검증 상태와 API 호환성 판정은 이 논리 모델 단계와 분리한다. 현재 미확인 운영 smoke 증빙은
 [기술 부채 인벤토리](../technical-debt/technical-debt.md)의

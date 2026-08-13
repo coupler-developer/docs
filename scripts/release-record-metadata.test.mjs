@@ -1106,7 +1106,7 @@ describe("release metadata scope results", () => {
     }
   });
 
-  it("allows new DB migration records with one terminal prod root pair", () => {
+  it("allows new DB migration records without plan or execution artifacts", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1117,7 +1117,7 @@ describe("release metadata scope results", () => {
     assert.deepEqual(validate(metadata), []);
   });
 
-  it("rejects DB migration artifact aliases, extra evidence, and byte digest mismatch", () => {
+  it("rejects any new DB migration evidence artifact", () => {
     const buildReleased = () => buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1126,26 +1126,15 @@ describe("release metadata scope results", () => {
       },
     });
 
-    const alias = buildReleased();
-    alias.scopeResults["db-migration"].evidence.plan.path =
-      `content/releases/evidence/db-migrations/${version}/dev/../dev/plan.json`;
-    assert.match(validate(alias).join("\n"), /evidence\.plan must bind .*prod\/plan\.json/);
-
     const extra = buildReleased();
-    extra.scopeResults["db-migration"].evidence.extra = {
-      path: "extra",
-      sha256: checksum,
-    };
-    assert.match(validate(extra).join("\n"), /must contain only plan and execution/);
-
-    const digest = buildReleased();
-    const validationErrors = validate(digest, {
-      readArtifact: () => Buffer.from("different bytes\n"),
-    });
-    assert.match(validationErrors.join("\n"), /evidence\.plan checksum mismatch/);
+    extra.scopeResults["db-migration"].evidence.plan = { path: "plan.json" };
+    assert.match(
+      validate(extra).join("\n"),
+      /scopeResults\.db-migration\.evidence must be empty/,
+    );
   });
 
-  it("allows a planned or completed dev root while pending and requires prod execution at terminal status", () => {
+  it("uses the same empty DB migration evidence shape for pending and terminal statuses", () => {
     const pendingMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1156,17 +1145,6 @@ describe("release metadata scope results", () => {
     });
     assert.deepEqual(validate(pendingMetadata), []);
 
-    pendingMetadata.scopeResults["db-migration"].evidence.execution =
-      dbMigrationArtifactRef("dev", "execution.jsonl");
-    assert.deepEqual(validate(pendingMetadata), []);
-
-    pendingMetadata.scopeResults["db-migration"].evidence.plan = null;
-    assert(
-      validate(pendingMetadata).some((error) =>
-        /evidence\.plan must bind .*dev\/plan\.json/.test(error),
-      ),
-    );
-
     const releasedMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1174,15 +1152,10 @@ describe("release metadata scope results", () => {
         "db-migration": "released",
       },
     });
-    releasedMetadata.scopeResults["db-migration"].evidence.execution = null;
-    assert(
-      validate(releasedMetadata).some((error) =>
-        /evidence\.execution must bind .*prod\/execution\.jsonl/.test(error),
-      ),
-    );
+    assert.deepEqual(validate(releasedMetadata), []);
   });
 
-  it("requires an in-progress DB scope to advance its root to the prod plan", () => {
+  it("allows an in-progress DB scope without a prod plan artifact", () => {
     const inProgressMetadata = buildMetadata({
       scopes: ["docs", "db-migration"],
       statuses: {
@@ -1193,13 +1166,6 @@ describe("release metadata scope results", () => {
     });
     assert.deepEqual(validate(inProgressMetadata), []);
 
-    const evidence = inProgressMetadata.scopeResults["db-migration"].evidence;
-    evidence.plan = dbMigrationArtifactRef("dev", "plan.json");
-    assert(
-      validate(inProgressMetadata).some((error) =>
-        /evidence\.plan must bind .*prod\/plan\.json/.test(error),
-      ),
-    );
   });
 
   it("derives coupler-api preflight repo for DB migration evidence", () => {
@@ -1843,27 +1809,10 @@ function evidenceFor(scopeName, status) {
   }
 
   if (scopeName === "db-migration") {
-    return dbMigrationEvidence(status);
+    return {};
   }
 
   return {};
-}
-
-function dbMigrationEvidence(status) {
-  const environment = status === "planned" ? null : status === "pending" ? "dev" : "prod";
-  return {
-    plan: environment ? dbMigrationArtifactRef(environment, "plan.json") : null,
-    execution: ["released", "rolled_back"].includes(status)
-      ? dbMigrationArtifactRef(environment, "execution.jsonl")
-      : null,
-  };
-}
-
-function dbMigrationArtifactRef(environment, fileName) {
-  return {
-    path: `content/releases/evidence/db-migrations/${version}/${environment}/${fileName}`,
-    sha256: checksum,
-  };
 }
 
 function releasedApiContractCutover() {

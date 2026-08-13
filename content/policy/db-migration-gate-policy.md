@@ -9,124 +9,113 @@
 
 ## 목적
 
-마지막 운영 DB 상태에서 목표 상태까지의 최종 전이 하나만 관리한다. DB 엔진의 책임은 DB identity, backup
-입력, lease, live state, SQL 실행과 durable journal에 닫는다.
+여러 SQL migration이 계속 추가·병합되는 동안 개발계와 운영계의 적용 지점이 달라도, 개발계에서 확인한
+exact source만 운영계에 순서대로 적용한다. 개발자 절차는 로컬 검증 후 개발계 적용, 같은 source의 운영계
+적용이라는 두 단계로 유지한다.
 
 ## Source 계약
 
-API `db/schema/`는 두 상태만 허용한다.
+API의 private 물리 source는 다음 세 기준 파일과 append-only migration 파일이다.
 
-| 상태 | 파일 |
-| --- | --- |
-| Idle | `baseline.sql`, `baseline.lock.json`, 같은 `schema.lock.json` |
-| Active | Idle 파일 + `current.sql`, `current.fixture.sql`, `current.state.sql` |
-
-- `current.sql`: 마지막 baseline에서 목표까지의 최소·직접 전이
-- `current.fixture.sql`: scratch 검증 전용 경계 데이터
-- `current.state.sql`: `source_ok`, `target_ok`, `evidence` 한 행을 반환하는 read-only `SELECT`
-
-어느 대상 DB에도 실행되지 않은 current trio는 merge 여부와 무관하게 직접 수정·통합·삭제할 수 있다. 리뷰나
-개발 실패마다 새 번호, 보정 SQL, recovery SQL을 추가하지 않는다. 번호·catalog·manifest·kind·DB ledger·
-compatibility reader·history 계층은 두지 않는다. 과거는 Git history와 이미 게시된 release evidence에만 남는다.
-
-## 작성 Gate
-
-운영 계열인 MariaDB 10.6 scratch 검증은 다음을 모두 만족해야 한다.
-
-1. baseline+fixture가 START다.
-2. current 전체 적용 뒤 TARGET이다.
-3. 여러 문장인 current의 모든 proper prefix가 PARTIAL이다.
-4. 전체 managed schema가 각각 baseline lock과 target lock에 정확히 일치한다.
-5. state SQL 오류, 잘못된 결과 shape, 양쪽 true/false, schema drift는 PARTIAL이다.
-
-현재 lock이 표현하지 않는 trigger, event, function, procedure, database/schema DDL은 거부한다.
-`current.sql`은 대상 schema의 table/view/index DDL과 `INSERT`·`REPLACE`·`UPDATE`·`DELETE`만,
-fixture는 schema를 바꾸지 않는 `SELECT`와 같은 DML만 허용한다. 그 밖의 서버·관리 문장은 거부한다.
-table 결합은 direct reference와 `JOIN ... ON`만 허용하고 괄호·comma·`USING`은 허용하지 않는다.
-view DDL은 환경별 migration 계정이 definer가 되지 않도록 `SQL SECURITY INVOKER`를 반드시 명시한다.
-engine 전용 `RETURNING` 절은 canonical subset에서 허용하지 않는다.
-current·fixture·state는 session/user variable을 읽거나 쓰지 않는다.
-state는 DB에 저장된 값과 승인된 결정적 함수만 사용하며 시간·난수·connection·직전 statement 결과에 의존하는
-표현은 거부한다.
-
-data 변경은 대상·비대상·0건·중복, 현재 값, PK·UK·FK·cascade와 재실행 영향을 검토한다. state SQL이 변경한
-DB-local persistent 불변조건을 관측할 수 없거나 외부 effect가 필요한 작업은 current에 넣지 않는다.
-
-## 엔진 경계
-
-공개 명령은 다음 다섯 개뿐이며 제품 버전과 `--` 구분자를 받지 않는다.
-
-```bash
-pnpm db:migration status
-pnpm db:migration dev-run
-pnpm db:migration prod-prepare
-pnpm db:migration prod-run
-pnpm db:migration finalize
+```text
+db/schema/baseline.sql
+db/schema/baseline.lock.json
+db/schema/schema.lock.json
+db/migrations/<17자리 UTC ID>_<snake_case 이름>.sql
 ```
 
-plan은 exact API source의 baseline/current bytes, DB identity, DB engine·SQL mode, START/TARGET fingerprint를
-봉인한다. prod plan만 같은 engine·SQL mode에서 완료된 dev plan/execution hash를 추가로 봉인한다. 실행 입력 파일은 환경별 backup JSON
-하나다. lexer 의미를 바꾸는 `ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES` mode는 허용하지 않는다.
+- migration 한 파일에는 SQL 문장을 여러 개 작성할 수 있다.
+- ID가 실행 순서를 정하고 filename이 migration identity가 된다.
+- checksum은 SQL 파일 원본 bytes의 SHA-256이다.
+- canonical main에 병합된 migration은 수정·삭제·이름 변경·재정렬하지 않는다. 변경은 더 큰 ID의 새
+  migration으로 추가한다.
+- CI는 중복 ID, 기존 파일 변경·삭제, main의 마지막 ID보다 앞선 신규 ID를 거부한다. 병렬 PR은 최신 main을
+  반영한 뒤 충돌한 ID를 다시 생성한다.
+- 릴리스 완료를 이유로 migration을 flush, finalize, baseline 승격 또는 삭제하지 않는다.
 
-dev/prod plan source를 A라 한다. clean API main B에서 운영 명령을 계속하려면 A가 B의 조상이고, plan에 봉인된
-`db/schema/` 6개 파일과 `db-migration-workflow.ts`, `db-migration-executor.ts`, `db-schema-contract.ts`의 bytes가
-같아야 한다. prod plan은 A를 유지하며 제품 릴리스 API commit B와 같을 필요가 없다. package script, lockfile,
-install hook, `pnpm verify` 호출 graph는 DB source 결속 대상이 아니며 현재 main의 표준 CI·리뷰가 검증한다.
+`schema_migrations`는 개발·운영 DB에 이미 존재하는 내부 적용 기록이다. 새 ledger를 만들거나 교체하지 않고,
+새 source 파일의 적용 여부 확인에만 최소 사용한다.
 
-엔진이 직접 판정하는 항목은 다음으로 제한한다.
+```text
+같은 filename의 행 없음               → pending
+같은 filename + 같은 checksum         → applied, skip
+같은 filename + 다른 checksum         → SQL 실행 전 실패
+```
 
-- canonical clean API source와 sealed SQL bytes
-- 명시적 DNS endpoint·검증된 TLS와 DB identity·engine·SQL mode, session `autocommit=1`·
-  `foreign_key_checks=1`·`unique_checks=1`, backup 입력의 identity 결속
-- 대상 schema `ALL PRIVILEGES`와 target DB session 관측용 global `PROCESS`만 가진 계정
-- server-wide DB advisory lease와 실행 직전 target-default session, server active session, InnoDB transaction 0건
-- 전체 schema와 state SQL로 분류한 START/TARGET/PARTIAL
-- SQL 문장 실행과 fsync journal
+Runner는 source에 있는 filename만 조회한다. 개발 DB의 기존 96행과 운영 DB의 기존 87행을 비교하거나 새 ID
+계산에 사용하지 않으며, 다른 과거 행을 수정하지 않는다. migration SQL은 `schema_migrations`를 직접 읽거나
+쓰지 않는다.
 
-엔진 event는 `transition-started`, `transition-done`, `transition-restored`뿐이다. event data에는 DB identity,
-backup, schema/state digest만 허용한다. Docs commit, traffic/writer, API deploy·health·smoke, resume/restore 승인
-marker를 plan이나 journal에 넣지 않으며 이를 대체하는 protocol도 만들지 않는다.
+## 작성·검증 Gate
 
-## 운영 경계
+Mac의 API root에서 다음 두 명령을 사용한다.
 
-traffic과 모든 application·batch·event writer의 중지·drain은 운영 릴리스 절차가 `prod-run` 호출 전에
-완료해야 하는 human precondition이다. DB 엔진은 외부 control plane을 관측했다고 주장하지 않는다. 엔진의
-active DB session/transaction 검사는 호출 순간의 DB-local 방어이며 writer가 계속 차단됐음을 증명하지 않는다.
+```bash
+pnpm db:migration new <name>
+pnpm db:migration verify
+```
 
-DB 엔진은 다음 상태까지만 담당한다.
+`verify`는 disposable Docker MariaDB 10.6과 MySQL 8.4에서 각각 baseline과 정렬된 전체 migration을 실제
+실행하고 다음을 확인한다. MariaDB replay 결과로 생성물 `schema.lock.json`을 동기화하며 CI는 그 diff가
+source에 포함되지 않으면 실패한다.
 
-| journal | live | 행동 |
-| --- | --- | --- |
-| 없음 | START | backup·identity·lease 확인 후 시작 |
-| 없음 | TARGET/PARTIAL | 중단하고 수동 검토 |
-| STARTED | TARGET | SQL 재실행 없이 DONE 기록 |
-| STARTED | START/PARTIAL | 자동 재실행 금지; 외부 복원 또는 수동 검토 |
-| DONE | TARGET | DB 전이 종료 |
-| DONE | START/PARTIAL | 불일치로 중단 |
-| RESTORED | START | 기존 시도 종료; fresh plan 필요 |
+1. baseline SQL이 기준 schema를 재현한다.
+2. 모든 migration을 ID 순서로 실행할 수 있다.
+3. MariaDB 10.6의 최종 schema가 `schema.lock.json`과 일치한다.
+4. MySQL 8.4에서도 같은 영속 객체 집합까지 실행된다.
+5. 정상 완료 뒤 같은 source를 재실행하면 SQL 실행이 0건이다.
 
-`transition-restored`는 운영자가 수행한 외부 복원의 provenance를 증명하지 않는다. 엔진이 명시 승인된 현재
-DB identity, plan과 같은 논리 database 이름·engine·SQL mode, exact START를 관측했다는 뜻만 가진다.
-snapshot/PITR로 새 instance가 되면 hostname·port·server id는 달라질 수 있으며 fresh plan이 새 identity를
-봉인한다. TARGET을 확인해 DONE을 기록한 뒤에는 해당 backup 복원을 금지한다.
+table/view/index DDL과 `INSERT`·`REPLACE`·`UPDATE`·`DELETE`를 허용한다. standalone `SELECT`, 외부 schema 접근, 서버 관리,
+외부 파일·네트워크 effect, session/user variable, runner의 `schema_migrations` 소유권 침범은 거부한다. View는
+`SQL SECURITY INVOKER`를 사용한다. DML은 대상·비대상·0건·중복, 현재 값, PK·UK·FK·cascade 영향을 리뷰와
+Docker 양 엔진 실행으로 확인한다.
 
-DONE 이후 API 배포·health/smoke·traffic/writer 재개는 API 배포와 운영 릴리스 런북이 별도로 담당한다. 그
-결과는 DB 완료 조건이 아니다.
+로컬 Docker 통과는 운영 데이터에서의 결과를 대신하지 않는다. 온라인 실행 가능 여부를 자동 분류하거나
+expand/backfill/contract 절차를 자동 생성하지 않으며, 각 SQL의 live traffic 호환성은 작성·리뷰에서
+명시적으로 판단한다.
 
-## Baseline 승격과 증거
+## 개발·운영 적용 Gate
 
-`finalize`는 exact prod DONE과 live TARGET만 확인해 target lock을 baseline으로 승격하고 current trio를
-제거하는 patch를 만든다. 리뷰·병합된 현재 main을 C라 하면 A는 C의 조상이고 위 3개 실행 source bytes가
-같아야 한다. 같은 명령이 C의 표준 전체 API verify와 localhost scratch의 Idle baseline replay를 직접 통과하고,
-A의 exact state SQL로 운영 DB identity와 TARGET을 다시 확인한 경우에만 local runtime을 비운다.
-Git commit과 Docs 증거 게시는 자동 수행하지 않는다.
+공개 실행 명령은 다음 두 종류다.
 
-Docs는 제품 릴리스 버전 아래 복사된 `plan.json`과 `execution.jsonl`만 검증한다. current engine은 게시된 과거
-release bytes를 다시 읽거나 현재 형식으로 해석하지 않는다.
+```bash
+pnpm db:migration status <dev|prod>
+pnpm db:migration apply <dev|prod>
+```
+
+`dev`는 `config/development.json`, `prod`는 `config/production.json`의 DB 연결을 사용한다. 출력과 typed
+confirmation에는 환경, DB hostname/port/database/current user, 전체 HEAD SHA, `schema_migrations` 전체 행 수와 이 source의
+applied/pending 목록을 표시한다. credential은 출력하거나 source에 기록하지 않는다.
+
+`status`와 `apply`는 canonical repository의 clean exact HEAD만 받는다. 이 SHA를 **마이그레이션 소스 커밋**이라
+부른다. 개발계에 적용한 SHA 이후 main에 다른 migration이 병합되어도 운영계는 최신 main이 아니라 같은
+마이그레이션 소스 커밋을 detached checkout해 실행한다. 별도 watermark 파일이나 기능은 두지 않는다.
+
+Runner끼리의 동시 실행은 대상 DB의 advisory lock으로 직렬화한다. 서비스 writer 전체 중지나 target DB의 다른
+session 0건은 모든 migration의 보편 조건으로 두지 않는다. 특정 SQL이 별도 운영 조치를 요구하면 그 migration
+리뷰와 제품 릴리스 절차에서 명시하며 runner가 자동 판정했다고 주장하지 않는다.
+
+## 실행 결과와 한계
+
+정상 완료한 migration은 SQL 성공 뒤 기존 `schema_migrations`에 filename과 checksum을 기록한다. 같은 source의
+정상 재실행은 해당 SQL을 모두 건너뛴다.
+
+SQL 실행 중 오류가 나거나 SQL 완료 후 적용 기록 전에 process가 중단되면 자동 재실행하지 않는다. live DB를
+수동 확인한 뒤 별도 판단한다. 이 정책은 새 장애 복구 체계, DML 부분 적용 처리, 감사 receipt/evidence,
+온라인 가능 여부 분류, expand/backfill/contract 자동화, bootstrap baseline, 범용 adopt를 신설하지 않는다.
+
+## 현행 Source 전환
+
+개발·운영 DB에는 `schema_migrations`와 `t_iap_notification`이 이미 존재한다. 따라서 기존
+`DROP schema_migrations`와 `CREATE t_iap_notification` current SQL은 어느 DB에도 실행하지 않는다.
+
+- 기준 schema source에 두 테이블을 모두 포함한다.
+- `current.sql`, `current.fixture.sql`, `current.state.sql`을 제거한다.
+- IAP용 새 migration이나 적용 이력을 만들지 않는다.
+- 이 전환으로 개발·운영 DB를 변경하지 않는다.
 
 ## 연결 문서
 
 - [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)
-- [운영 릴리스 실행 런북](../flows/cross-project/production-deploy-command-runbook.md)
-- [API 운영 배포 런북](../flows/cross-project/api-production-deploy-flow.md)
 - [테스트 전략](testing-strategy.md)
+- [코드 리뷰 정책](code-review-policy.md)

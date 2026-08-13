@@ -222,16 +222,17 @@ printf 'RELEASE_RUN=%s\nPAGES_RUN=%s\nRELEASE_URL=%s\nPAGES_URL=%s\nASSET=%s\n' 
 
 ## 검증 기록
 
-각 절의 실제 commit, 명령 결과, 외부 응답, workflow와 rollback 기준을
-[릴리스 프로세스](../../policy/release-process.md)의 scope별 evidence에 기록한다. 포함 범위의 postcheck가
-하나라도 실패하면 완료나 태그 가능 상태로 판정하지 않는다.
+각 절의 실제 commit, 명령 결과, 외부 응답, workflow와 rollback 기준은
+[릴리스 프로세스](../../policy/release-process.md)의 scope별 현행 계약에 따라 기록한다. DB migration은 별도
+evidence를 만들지 않고 사람이 읽는 릴리스 결과에 개발·운영의 동일한 마이그레이션 소스 커밋과 최종 pending
+0건을 기록한다. 포함 범위의 postcheck가 하나라도 실패하면 완료나 태그 가능 상태로 판정하지 않는다.
 
 ## 예외 흐름
 
 - 변경 명령 도중 중단되면 블록 전체를 다시 실행하지 않는다. 먼저 해당 scope의 status, history, remote ref와
   외부 응답으로 실제 반영 지점을 확인한 뒤 postcheck 재개 또는 승인된 rollback/reconciliation을 선택한다.
 - DB 실행 중단·실패는 같은 SQL이나 저수준 단계를 재실행하지 않고
-  [DB Migration 실행 런북](db-migration-operation-flow.md)의 예외 흐름을 따른다.
+  [DB Migration 실행 런북](db-migration-operation-flow.md)의 자동 재실행 금지·live DB 수동 확인 규칙을 따른다.
 - API 배포 실패와 rollback은 [API 운영 배포 런북](api-production-deploy-flow.md)의 예외 흐름을 따른다.
 - Admin rollback은 [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)의 롤백 흐름을 따른다.
 - Mobile Store 출시 또는 NextPush 배포 실패와 rollback은

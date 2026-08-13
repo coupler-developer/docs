@@ -91,7 +91,7 @@
 - 현상: 외부 식별자, 레거시 명칭, 운영 `ritzy` schema가 남아 있다.
 - 영향: 변경 대상과 보존 대상을 구분하기 어렵다.
 - 조치: 잔존 사용처를 분류하고 DB 삭제는 backup·Migration Gate 확보 후 별도 승인한다.
-- 완료: 미분류 명칭 0건, DB 정리 시 exact current trio·backup·plan/journal·START/TARGET/PARTIAL 근거 확보.
+- 완료: 미분류 명칭 0건, DB 정리 시 append-only migration source·동일 소스 커밋·기존 적용 이력 확인.
 
 ## 12) Mobile patch-package 의존 `P2` `S`
 
@@ -157,7 +157,7 @@
   경로를 API `No`로 닫을 수 있다.
 - 조치: [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
   release-scoped 소비자 inventory와 case를 검증하고 `API cutover`를 판정한다. DB 변경은 별도 DB 런북의
-  current trio와 plan/journal로 분리한다.
+  append-only migration source와 개발계·운영계 동일 소스 커밋 절차로 분리한다.
 - 완료: exact package, 모든 지원 consumer-interface case, API 판정과 적용 시 activation/client rollback,
   legacy 제거 근거 확보.
 

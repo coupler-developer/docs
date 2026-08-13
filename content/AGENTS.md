@@ -171,7 +171,7 @@
 - [테스트용 개발 데이터 정책](policy/development-test-data-policy.md) - 개발계 합성 데이터 생성/검증/reset 기준
 - [서비스 용어 정책](policy/service-terminology-policy.md) - 클럽/클럽매니저 UI 노출명과 신규 N:N 그룹미팅 식별자 전환 기준
 - [코드 리뷰 정책](policy/code-review-policy.md) - PR 작성 및 리뷰 가이드
-- [DB Migration 유지보수 정책](policy/db-migration-gate-policy.md) - current trio·중지·drain·plan·live state·복구 규칙
+- [DB Migration 유지보수 정책](policy/db-migration-gate-policy.md) - append-only source·기존 적용 이력·동일 소스 커밋 적용 규칙
 - [논리 데이터 모델 정책](policy/logical-data-model-policy.md) - 공개 논리 모델 taxonomy와 private 매핑
 - [문서 거버넌스 정책](policy/document-governance-policy.md) - 문서 역할, SoT, 동기화 기준
 - [엔지니어링 가드레일](policy/engineering-guardrails.md) - 스펙 고정, Optional/가드, 네이밍

@@ -30,8 +30,6 @@ import {
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
-import { validateDbMigrationEvidence } from "./db-migration-evidence.mjs";
-
 export {
   findReleasePlaceholderSignals,
   knownRepoNames,
@@ -73,14 +71,7 @@ export function validateReleaseMetadata(
   context,
   expectedVersion,
   errors,
-  {
-    readArtifact,
-    readApiArtifact,
-    isApiAncestor,
-    requireTrustedApiSource = false,
-    listArtifacts,
-    requireCurrentSchema = false,
-  } = {},
+  { requireCurrentSchema = false } = {},
 ) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
@@ -110,13 +101,7 @@ export function validateReleaseMetadata(
 
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
-  validateScopeResults(metadata, context, errors, {
-    readArtifact,
-    readApiArtifact,
-    isApiAncestor,
-    requireTrustedApiSource,
-    listArtifacts,
-  });
+  validateScopeResults(metadata, context, errors);
   validateVersionMapping(metadata.versionMapping, metadata.schema, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
@@ -278,12 +263,7 @@ function validateExtraRepoRefs(metadata, context, errors) {
   });
 }
 
-function validateScopeResults(
-  metadata,
-  context,
-  errors,
-  { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
-) {
+function validateScopeResults(metadata, context, errors) {
   const scopeResults = metadata.scopeResults;
   const releaseScopes = Array.isArray(metadata.releaseScopes) ? metadata.releaseScopes : [];
 
@@ -304,14 +284,7 @@ function validateScopeResults(
       errors.push(`${context}: release-metadata scopeResults has scope not listed in releaseScopes: ${scopeName}`);
     }
 
-    validateScopeResult(
-      metadata,
-      scopeName,
-      scopeResults[scopeName],
-      context,
-      errors,
-      { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
-    );
+    validateScopeResult(metadata, scopeName, scopeResults[scopeName], context, errors);
   }
 }
 
@@ -321,7 +294,6 @@ function validateScopeResult(
   result,
   context,
   errors,
-  { readArtifact, readApiArtifact, isApiAncestor, requireTrustedApiSource, listArtifacts },
 ) {
   const descriptor = releaseScopeDescriptors[scopeName];
   if (!descriptor) {
@@ -347,7 +319,13 @@ function validateScopeResult(
 
   if (!result.evidence || typeof result.evidence !== "object" || Array.isArray(result.evidence)) {
     errors.push(`${context}: release-metadata scopeResults.${scopeName}.evidence must be a JSON object`);
-  } else if (scopeName !== "db-migration") {
+  } else if (scopeName === "db-migration") {
+    if (Object.keys(result.evidence).length > 0) {
+      errors.push(
+        `${context}: release-metadata scopeResults.db-migration.evidence must be empty; DB migration uses the source commit and existing application history without plan/execution artifacts`,
+      );
+    }
+  } else {
     validateScopeEvidenceKeys(metadata, scopeName, result.evidence, context, errors);
     validateScopeEvidenceShape(metadata, scopeName, result.evidence, context, errors);
     validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
@@ -371,23 +349,6 @@ function validateScopeResult(
         { terminal, scopeStatus: result.status },
       );
     }
-  }
-
-  if (scopeName === "db-migration" && result.evidence) {
-    errors.push(
-      ...validateDbMigrationEvidence({
-        evidence: result.evidence,
-        version: metadata.version,
-        apiSourceRef: metadata.versionMapping?.["coupler-api"]?.commit,
-        scopeStatus: result.status,
-        readArtifact,
-        readApiArtifact,
-        isApiAncestor,
-        requireTrustedApiSource,
-        listArtifacts,
-        context: `${context}: release-metadata scopeResults.db-migration.evidence`,
-      }),
-    );
   }
 
   if (result.status === "superseded") {
