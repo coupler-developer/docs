@@ -1,4 +1,14 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { initializeReleaseRecord } from "./init-release-record.mjs";
+
+const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
+const docsRoot = path.dirname(scriptsRoot);
+const releaseRecordSmokeVersion = "v987654321.0.0";
 
 const candidateExecutables = [
   process.env.DOCS_PYTHON,
@@ -55,10 +65,57 @@ if (!selectedPython) {
   process.exit(1);
 }
 
-const build = spawnSync(
-  selectedPython,
-  ["-m", "mkdocs", "build", "--strict"],
-  { stdio: "inherit" },
+const sourceBuild = runMkdocsBuild({ cwd: docsRoot });
+if (sourceBuild.status !== 0) {
+  process.exit(sourceBuild.status ?? 1);
+}
+
+const smokeDocsRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), "docs-release-record-build-"),
 );
 
-process.exit(build.status ?? 1);
+try {
+  copyReleaseRecordBuildSurface(smokeDocsRoot);
+  initializeReleaseRecord({
+    docsRoot: smokeDocsRoot,
+    version: releaseRecordSmokeVersion,
+  });
+  console.log(
+    `[docs-build] generated release record smoke: ${releaseRecordSmokeVersion}`,
+  );
+  const smokeBuild = runMkdocsBuild({
+    cwd: smokeDocsRoot,
+    siteDir: path.join(smokeDocsRoot, "site"),
+  });
+  process.exitCode = smokeBuild.status ?? 1;
+} catch (error) {
+  console.error("[docs-build] generated release record smoke failed");
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+} finally {
+  fs.rmSync(smokeDocsRoot, { recursive: true, force: true });
+}
+
+function copyReleaseRecordBuildSurface(targetRoot) {
+  fs.cpSync(path.join(docsRoot, "content"), path.join(targetRoot, "content"), {
+    recursive: true,
+  });
+  for (const relativePath of [
+    "document-lifecycle-registry.json",
+    "document-retirement-ledger.json",
+    "mkdocs.yml",
+  ]) {
+    fs.copyFileSync(
+      path.join(docsRoot, relativePath),
+      path.join(targetRoot, relativePath),
+    );
+  }
+}
+
+function runMkdocsBuild({ cwd, siteDir }) {
+  const args = ["-m", "mkdocs", "build", "--strict"];
+  if (siteDir) {
+    args.push("--site-dir", siteDir);
+  }
+  return spawnSync(selectedPython, args, { cwd, stdio: "inherit" });
+}

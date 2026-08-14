@@ -55,9 +55,9 @@
 
 ## 범위
 
-- 대상:
-- 포함 범위:
-- 제외 범위:
+- 대상: `docs`
+- 포함 범위: docs 릴리스 기록 계획
+- 제외 범위: 초기화 뒤 실제 `releaseScopes`에 맞게 갱신
 
 ## 상위 규범 문서
 
@@ -74,12 +74,10 @@
 
 ## 버전 매핑
 
-- `docs`:
-- `coupler-api`:
-- `coupler-admin-web`:
-- `coupler-mobile-app` Android Store:
-- `coupler-mobile-app` iOS Store:
-- `coupler-mobile-app` NextPush:
+- `docs`: 기록 버전 `vX.Y.Z`, 태그 `N/A`, 커밋 `N/A`
+- `coupler-api`: 태그 `N/A`, 커밋 `N/A`
+- `coupler-admin-web`: 태그 `N/A`, 커밋 `N/A`
+- `coupler-mobile-app`: Store 기준 `N/A`, NextPush `N/A`, NextPush 커밋 `N/A`
 - Store 제출 마커 태그와 증빙 이관/삭제:
 
 ## 작성 기준
@@ -96,8 +94,8 @@
 - `release-metadata`가 기계 판정 SoT이고 본문은 사람이 읽는 mirror다. 두 표현의 범위·상태·버전 기준을 맞춘다.
 - terminal scope는 정책과 descriptor가 요구하는 concrete evidence로 닫는다. placeholder나 `N/A`로 완료
   증빙을 대신하지 않는다.
-- API contract cutover가 있을 때만
-  [API contract cutover Gate 템플릿](api-contract-cutover-gate-template.md)을 `검증 근거` 아래에 삽입한다.
+- API contract cutover가 있을 때만 `content/templates/api-contract-cutover-gate-template.md`를
+  `검증 근거` 아래에 삽입한다.
 - DB migration은 [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)에 따라 개발계와
   운영계에 사용한 동일한 마이그레이션 소스 커밋과 최종 pending 0건을 사람이 읽는 결과에 기록한다. 별도
   plan·execution artifact는 만들지 않는다.
@@ -107,9 +105,7 @@
 
 ## 릴리스 결과
 
-| Scope | 상태 | 결과·증빙 |
-| --- | --- | --- |
-|  |  |  |
+- 현재 결과: `planned` - docs 초기 기록만 생성했으며 실제 scope·기준점·증빙은 아직 확정하지 않았다.
 
 ## 메인 흐름
 
@@ -137,9 +133,7 @@
 
 ## 롤백 기준
 
-| Scope | Trigger | 기준점·금지 사항 | 실행 결과 |
-| --- | --- | --- | --- |
-|  |  |  |  |
+- docs: 운영 변경 전 `planned` 상태이므로 rollback 대상이 없다. 초기화 변경은 같은 PR에서 보정한다.
 
 ## 후속 작업
 

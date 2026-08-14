@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -296,6 +297,17 @@ describe("release record initializer", () => {
     };
 
     initializeReleaseRecord({ docsRoot, version });
+
+    const validation = spawnSync(
+      process.execPath,
+      [path.join(scriptsRoot, "validate-release-records.mjs")],
+      { cwd: docsRoot, encoding: "utf8" },
+    );
+    assert.equal(
+      validation.status,
+      0,
+      validation.stderr || validation.stdout,
+    );
 
     assert.equal(
       read(`content/releases/${version}.md`),

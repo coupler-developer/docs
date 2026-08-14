@@ -134,5 +134,6 @@ CI를 확인한 뒤 `pending`으로 전환한다. 전환된 현재 PR head의 �
   `document-retirement-ledger.json`에 stable ID와 모든 과거 경로를 예약한다.
 - 논리 데이터 모델의 상세 표를 바꿨다면 `yarn generate:logical-data-model`로 쉬운 그림과 catalog를 다시
   만든다.
-- `yarn build:docs`는 내부적으로 `python3 -m mkdocs build --strict`를 실행한다.
+- `yarn build:docs`는 현재 문서와 임시 디렉터리에 초기화한 미래 릴리스 기록을 각각
+  `python3 -m mkdocs build --strict`로 빌드한다. 임시 기록과 빌드 결과는 실행 뒤 삭제한다.
 - `yarn verify`는 `yarn validate:docs`를 통해 공통 정적 검증, Markdown lint, MkDocs strict build를 순서대로 실행한다.

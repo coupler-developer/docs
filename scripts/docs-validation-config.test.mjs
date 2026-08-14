@@ -32,6 +32,10 @@ const releaseRecordInitializer = fs.readFileSync(
     path.join(docsRoot, "scripts", "init-release-record.mjs"),
     "utf8",
 );
+const mkdocsBuildRunner = fs.readFileSync(
+    path.join(docsRoot, "scripts", "run-mkdocs-build.mjs"),
+    "utf8",
+);
 const workflow = fs.readFileSync(
     path.join(docsRoot, ".github", "workflows", "lint.yml"),
     "utf8",
@@ -206,6 +210,10 @@ test("release record initialization stays wired to one public command", () => {
     assert.match(releaseRecordTemplate, /전체 상태: `planned`/);
     assert.match(releaseRecordTemplate, /현재 PR head에 적용된 필수 CI/);
     assert.match(
+        releaseRecordTemplate,
+        /`content\/templates\/api-contract-cutover-gate-template\.md`/,
+    );
+    assert.match(
         releaseProcess,
         /원격 PR head 및 해당 head에 적용된 필수 CI를 확인해/,
     );
@@ -227,6 +235,8 @@ test("release record initialization stays wired to one public command", () => {
         operationalRunbooks.get("production-deploy-command-runbook.md"),
         /전환된 현재 PR head의 필수 CI가 성공한 것을 확인한 뒤에만/,
     );
+    assert.match(mkdocsBuildRunner, /initializeReleaseRecord\(\{/);
+    assert.match(mkdocsBuildRunner, /generated release record smoke/);
 });
 
 test("agent workflow validation is part of the shared static gate", () => {

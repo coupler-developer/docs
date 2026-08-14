@@ -224,7 +224,8 @@
 - 릴리스 preflight·기록 불변성·CI mode 스크립트 검증(로컬): `yarn test:release-preflight`
     과거에 게시된 DB migration evidence bytes의 최종 트리 불변성 테스트를 유지하되 새 migration 실행은
     별도 plan/execution artifact를 만들지 않는다.
-- 문서 빌드(로컬): `yarn build:docs` (`python3 -m mkdocs build --strict`)
+- 문서 빌드(로컬): `yarn build:docs` (현재 문서와 임시 초기화한 미래 릴리스 기록을 각각
+  `python3 -m mkdocs build --strict`로 검증)
 - 문서 lint(로컬): `yarn lint:md`
 - 문서 통합 검증 leaf(로컬): `yarn validate:docs`
 - 문서 표준 통합 검증(로컬): `yarn verify`
@@ -233,7 +234,8 @@
 - DB migration source 검증(CI): API workflow가 보호된 base와 PR source를 비교해 기존 migration 및 baseline
   변경·삭제와 과거 ID 삽입을 거부하고, Docker 양 엔진에서 전체 source를 실제 replay한다.
 - 문서 lint(CI): 로컬과 같은 `yarn lint:md`
-- 문서 build(CI): Python 의존성 설치 후 로컬과 같은 `yarn build:docs`
+- 문서 build(CI): Python 의존성 설치 후 로컬과 같은 `yarn build:docs`. initializer가 만든 릴리스 기록을
+  생성 위치에서 strict build해 템플릿 위치에만 유효한 상대 링크와 nav drift를 차단한다.
 
 ## CI 전략
 
