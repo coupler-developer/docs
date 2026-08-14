@@ -501,6 +501,8 @@ flowchart TD
 - FCM `GROUP_MEETING_CHAT_MESSAGE(82)`는 사용자 알림과 재진입 보조 수단이다. foreground에서 WebSocket이
   연결돼 있으면 같은 FCM으로 상태 갱신 이벤트를 중복 적용하지 않고, 연결이 끊긴 경우에만 HTTP snapshot 갱신
   신호로 사용한다. WebSocket·FCM 실패는 DB 저장을 되돌리지 않으며 HTTP 원본으로 복구한다.
+- 방별 `message_notification_enabled`가 꺼진 구성원은 82의 FCM·`t_alarm` 대상에서만 제외한다. 메시지 저장,
+  `group_meeting:message`, 전역 unread invalidation과 read watermark는 현재 구성원 전체를 계속 대상으로 한다.
 - canonical 메시지 payload 실시간 이벤트는 `USER`만 다룬다. 참가자 합류·취소·퇴장·행사 상태의 `SYSTEM`
   메시지는 payload 없는 `chat:unread:invalidated`로 전역 빨간점 snapshot을 갱신하고, 실제 메시지 내용은 기존
   reconnect/focus HTTP snapshot으로 복구한다.

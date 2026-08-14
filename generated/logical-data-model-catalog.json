@@ -424,7 +424,7 @@
       "lifecycleRole": "child",
       "entityShape": "association",
       "recordRole": "state",
-      "responsibility": "승인된 채팅 참여 자격과 읽음 경계",
+      "responsibility": "승인된 채팅 참여 자격, 읽음 경계와 방별 USER 메시지 알림 선택",
       "classification": "내부",
       "lifecycle": "자격 종료 뒤에도 메시지 문맥을 위해 보존 가능"
     },
@@ -2259,6 +2259,13 @@
       "relatedEntityId": "group-meeting.review",
       "statement": "최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다",
       "basis": "이 문서",
+      "ownerDocument": "content/architecture/group-meeting-system.md"
+    },
+    {
+      "id": "GROUP-MEETING-INV-013",
+      "relatedEntityId": "group-meeting.participant",
+      "statement": "방별 새 USER 메시지 알림 선택은 82의 FCM·알림함만 통제하고 메시지·WebSocket·unread/read와 다른 그룹미팅 알림은 바꾸지 않는다",
+      "basis": "[푸시알림 운영 정책](../policy/push-notification-policy.md)",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },
     {

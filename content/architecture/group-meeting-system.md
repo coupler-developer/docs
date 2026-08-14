@@ -112,6 +112,7 @@ flowchart LR
 - 종료한 N:N 행사에서 현재 APPROVED인 신청의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다
 - OPEN·CONFIRMED는 서로 전환할 수 있고 최초 모집 마감 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다
 - 채팅 초기화 뒤 승인된 참가자는 승인 안내 메시지부터 이력을 볼 수 있고 승인 전 메시지는 볼 수 없다
+- 방별 새 USER 메시지 알림 선택은 82의 FCM·알림함만 통제하고 메시지·WebSocket·unread/read와 다른 그룹미팅 알림은 바꾸지 않는다
 - 최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다
 
 <!-- markdownlint-disable MD046 -->
@@ -127,7 +128,7 @@ flowchart LR
     | `group-meeting.detail-version` | 행사 상세 이미지 버전 | child | entity | snapshot | 긴 상세 이미지 원본과 변환 상태 | 내부 | 현재 버전 유지, 실패·교체 버전 정리 가능 |
     | `group-meeting.detail-slice` | 행사 상세 이미지 조각 | child | entity | snapshot | 상세 이미지 버전의 표시용 조각 | 내부 | 상위 버전 정리 시 파일과 함께 정리 |
     | `group-meeting.application` | 그룹미팅 신청 | child | association | state | 신청·승인·확정 취소·채팅 자격 종료 | 민감 | 행사 종료 뒤 신청 당시 별칭과 상태를 비식별 이력으로 보존 가능 |
-    | `group-meeting.participant` | 그룹미팅 참여자 | child | association | state | 승인된 채팅 참여 자격과 읽음 경계 | 내부 | 자격 종료 뒤에도 메시지 문맥을 위해 보존 가능 |
+    | `group-meeting.participant` | 그룹미팅 참여자 | child | association | state | 승인된 채팅 참여 자격, 읽음 경계와 방별 USER 메시지 알림 선택 | 내부 | 자격 종료 뒤에도 메시지 문맥을 위해 보존 가능 |
     | `group-meeting.review` | 그룹미팅 후기 | child | entity | history | 종료 행사 후기와 보상 연결 | 민감 | 개인정보 정리 시 자유문 비식별화, 보상 이력 보존 |
     | `group-meeting.action-history` | 그룹미팅 행위 이력 | child | entity | history | 상태 변경과 중요 운영 행위의 행위자·사유 | 내부 | append-only 감사 이력으로 보존 |
 
@@ -166,6 +167,7 @@ flowchart LR
     | `GROUP-MEETING-INV-009` | `group-meeting.application` | 종료한 N:N 행사에서 현재 APPROVED인 신청의 미작성 후기가 있으면 다른 N:N 행사에 신규 신청할 수 없다 | 이 문서 |
     | `GROUP-MEETING-INV-010` | `group-meeting.event` | OPEN·CONFIRMED는 서로 전환할 수 있고 최초 모집 마감 뒤 채팅 principal·구성원·메시지는 이 운영 상태와 독립적으로 보존한다 | 이 문서 |
     | `GROUP-MEETING-INV-011` | `group-meeting.participant` | 채팅 초기화 뒤 승인된 참가자는 승인 안내 메시지부터 이력을 볼 수 있고 승인 전 메시지는 볼 수 없다 | 이 문서 |
+    | `GROUP-MEETING-INV-013` | `group-meeting.participant` | 방별 새 USER 메시지 알림 선택은 82의 FCM·알림함만 통제하고 메시지·WebSocket·unread/read와 다른 그룹미팅 알림은 바꾸지 않는다 | [푸시알림 운영 정책](../policy/push-notification-policy.md) |
     | `GROUP-MEETING-INV-012` | `group-meeting.review` | 최초 후기 보상은 서버 설정 금액을 사용하고 후기·Key 잔액·Key 원장을 같은 transaction에서 한 번만 반영한다 | 이 문서 |
 
 <!-- markdownlint-enable MD046 -->
@@ -251,6 +253,8 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
   부호는 fallback하지 않고 전체 transaction을 실패시킨다.
 - 알림은 원천 transaction commit 뒤 기존 `sendFCMPush()` 한 경로에서만 발송·저장한다. 그룹미팅 코드가
   `t_alarm`을 직접 추가하지 않는다.
+- 방별 새 USER 메시지 알림 선택은 현재 호스트 또는 APPROVED 참가자가 자기 채팅 principal에 멱등 갱신한다.
+  기본값은 수신이며, 전역 `alarm_chat`과 방별 선택이 모두 켜진 수신자만 82의 FCM·`t_alarm` 대상이 된다.
 - 행사당 채팅은 하나이며 최초 모집 마감 시각으로 초기화 여부만 기록한다. OPEN·CONFIRMED 왕복은 채팅
   principal·구성원·메시지를 변경하지 않는다. 송신 가능 여부는 유효 행사 상태와 KST 기준 최신 행사 일시의
   전날 오후 1시 개방 경계, 참가자 자격은 신청 상태에서 매 요청 판정한다. FINISHED·CANCELED 채팅 이력은
@@ -315,10 +319,12 @@ canonical `GroupMeetingChatUserMessageItem`을 재사용하며 새 저장에만 
 채팅방·메시지 HTTP snapshot이다. `USER` 발신자의 read watermark가 새 메시지까지 전진하므로 전역 unread
 invalidation에는 발신자도 포함한다. 상세 전송·병합 계약은 [채팅 시스템](chat-system.md)의 N:N 절과 전역
 unread 절을 따른다.
+방별 새 메시지 알림을 끈 구성원도 메시지·WebSocket·전역 unread 대상에는 계속 포함하며, 82의 FCM과
+`t_alarm`만 생략한다. 77~81·83~85는 행사 알림 설정과 각 발송 조건을 그대로 따른다.
 
 ## API와 DTO 계약
 
-- Swagger/OpenAPI가 19개 Mobile operation과 27개 Admin operation의 path/query/body 요청 DTO와 성공
+- Swagger/OpenAPI가 21개 Mobile operation과 27개 Admin operation의 path/query/body 요청 DTO와 성공
   `data` DTO의 단일 SoT다.
 - contracts package는 기존 operation metadata, operation input type, 성공 data map, envelope type과 named
   request/read DTO를 공개한다. 정원 2/18/20은 행사 생성·수정 operation의 generated
@@ -349,6 +355,9 @@ unread 절을 따른다.
   호환 경로에만 사용한다. 실제 `member_id` 해석과 동일 행사 소속 검증은 API 내부 책임이며 Mobile DTO에
   노출하지 않는다. 과거 메시지 추가 page, 메시지 전송·읽음·신고·나가기는 증분 조회 또는 동작 명령으로
   분리한다.
+- 채팅방 응답의 `self.message_notification_enabled`가 현재 방 82 수신 선택을 제공한다.
+  `PUT /group-meetings/{event_id}/chat/message-notification`은 strict boolean 하나로 현재 principal의 같은 값을
+  교체하고 적용된 값을 반환한다. 별도 조회 API·audit table·optimistic version은 두지 않는다.
 - 새 사용자 메시지의 WebSocket payload는 별도 public DTO나 계약 package version을 만들지 않고 기존
   `GroupMeetingChatUserMessageItem`을 그대로 사용한다. 전송·읽음 write와 복구 read의 HTTP shape도 바꾸지
   않는다.
@@ -373,7 +382,7 @@ unread 절을 따른다.
 | `AdminGroupMeetingEventDetail` | 행사 상세, ready 이미지, 신청 집계, 전체·미처리 신고 수, Admin 운영 정보 |
 | `GroupMeetingApplicantItem` | 신청 상태와 신청 당시 표시 정보 |
 | `AdminGroupMeetingApplicantItem` | Admin 신청 운영용 회원 ID·이메일·탈퇴/취소 시각 |
-| `GroupMeetingChatRoom` | 행사별 호출자, 승인 구성원의 익명 공개 프로필, 최초 메시지, 종료 후기 상태와 채팅·신청 ID 경계 |
+| `GroupMeetingChatRoom` | 행사별 호출자와 방별 새 메시지 알림 선택, 승인 구성원의 익명 공개 프로필, 최초 메시지, 종료 후기 상태와 채팅·신청 ID 경계 |
 | `GroupMeetingChatMessageItem` | 메시지, 송신자 역할, 운영 삭제 상태 |
 | `GroupMeetingReviewState` | 후기 작성 가능 여부, 기존 후기, 서버 보상값 |
 
@@ -389,6 +398,10 @@ unread 절을 따른다.
 - 신규 N:N은 기존 메뉴의 형제 위치에 별도 `클럽 Host 단체미팅 관리` 상위 메뉴를 두고, 그 아래
   `미팅 내역` 하나만 노출한다. 진입 라우트는 `/group-meeting/list`이며 행사 상세에서 신청, 채팅,
   후기, 신고, 프로필 열람 이력을 종속시켜 본다. 이 메뉴는 Super Admin과 일반 클럽매니저 모두에게 노출한다.
+- 행사 목록은 ID·호스트·제목·일시·장소·사진 공개·상태·미처리 신고 수·생성일 헤더에서 전체 필터 결과의
+  서버 ASC/DESC 정렬을 제공한다. 썸네일과 승인 수/정원이 함께 표시되는 복합 열은 정렬하지 않는다.
+  정렬을 선택하지 않으면 기존 활성 행사 우선·생성 역순을 유지하고, 컬럼이나 방향을 바꾸면 첫 page부터 다시
+  조회한다. 현재 page 배열만 클라이언트에서 재정렬하지 않는다.
 - `groupMeetingChatUserReport` 알림은 미처리 신고가 있는 N:N 행사만 표시하는
   `/group-meeting/list?pending_reports=1`로 이동한다. 행사 목록은 `pending_report_count`를 표시하고 해당 수를
   누르면 행사 상세의 신고 탭을 바로 연다. 기존 2:2 신고 화면으로 연결하지 않는다.
