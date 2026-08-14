@@ -194,6 +194,7 @@
 
 ### Releases
 
+- [2.5.0 릴리스 실행 기록](releases/v2.5.0.md) - 그룹미팅 알림·CMS 정렬의 DB/API/Admin/NextPush 운영 릴리스 기록
 - [2.4.1 릴리스 실행 기록](releases/v2.4.1.md) - Android 2.4.0·iOS 2.4.1 Store 결과와 source 한계 기록
 - [2.4.0 릴리스 실행 기록](releases/v2.4.0.md) - 운영 DB migration 98·99 재검증과 canonical execution 부재 기록
 - [2.3.0 릴리스 실행 기록](releases/v2.3.0.md) - DB/API/Admin, Mobile Store 2.3.0 (101), NextPush 통합 릴리스 진행 기록
