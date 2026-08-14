@@ -14,7 +14,8 @@
 ## 범위
 
 - 시작 조건: [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 공통 preflight가 같은 입력으로 `PASS`했고 Mobile commit·platform·binary 또는 Store artifact가 확정된 상태
-- 종료 조건: 포함된 Mobile scope의 artifact·commit·운영 이력·smoke·rollback 기준이 릴리스 기록에 남은 상태
+- 종료 조건: Mobile Store scope는 artifact·commit·운영 이력·smoke·rollback 기준, Mobile NextPush scope는
+  app/deployment/label·target binary·bundle hash·운영 이력·rollback target이 릴리스 기록에 남은 상태
 - 제외 범위: Store build/upload 도구의 미확정 UI 절차, API/DB/Admin 실행, 서비스 릴리스 태그
 
 ## Mobile NextPush
@@ -64,8 +65,9 @@ yarn "${SCRIPT}"
 nextpush deployment history "${APP_ID}" Production --format json
 ```
 
-배포 전·후 history에서 새 release, target binary와 bundle hash를 확인하고 platform별 smoke와 rollback target을
-릴리스 기록에 남긴다.
+배포 전·후 history에서 새 release, target binary와 bundle hash를 확인하고 rollback target을 릴리스 기록에
+남긴다. 실제 기기 접근이 승인돼 별도 smoke를 수행한 경우에는 실행 주체와 결과를 보조 증빙으로 남길 수 있지만,
+NextPush terminal 판정의 필수 조건으로 사용하지 않는다.
 
 ## Mobile Store
 

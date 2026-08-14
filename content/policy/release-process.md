@@ -150,6 +150,10 @@
   구조화한다. 이는 Gate 통과가 아니며 이후 릴리스의 사전 조건이나 호환성 증빙으로 재사용하지 않는다.
 - `scopeResults.coupler-api.evidence.publicContract`는 release-scoped 소비자 inventory, API ref와 contract
   case를 소유하고 `runtimeRecovery`는 persisted/queued/external-effect 안전성과 복구 전략을 소유한다.
+  NextPush-only 릴리스에서 Store binary를 새로 출시하지 않으면 current Store consumer는 실제 fallback
+  binary의 기존 contracts version을 그대로 기록하고, 새 contracts version은 current NextPush consumer에
+  연결한다. 같은 OTA source를 current Store와 current NextPush에 중복 귀속하지 않는다. Mobile Store가
+  release scope인 경우에만 current Store consumer를 current published contracts version과 일치시킨다.
   previous-release 복구는 inventory의 모든 consumer-interface에 대한 이전 API 성공 rollback case
   exact-set을 요구한다. `apiContractCutover`는 이 case ID를 참조하는 activation/client rollback만
   소유하며 activation에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다. 단, `violated`는 당시

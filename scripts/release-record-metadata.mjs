@@ -26,6 +26,7 @@ import {
   releaseMetadataRequiredTopLevelKeys,
   releaseMetadataTopLevelKeys,
   semverTagPattern,
+  sha256Pattern,
   supportedReleaseMetadataSchemas,
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
@@ -480,7 +481,8 @@ function validateEvidenceShapeValue({
   if (
     valueType === "concreteEvidence" ||
     valueType === "contractsPackageVersion" ||
-    valueType === "mobileStore"
+    valueType === "mobileStore" ||
+    valueType === "sha256"
   ) {
     if (value !== null && typeof value !== "string") {
       errors.push(`${context}: release-metadata ${fieldPath} must be a string or null`);
@@ -1135,9 +1137,15 @@ function validateApiPublicContractEvidence(
       } else if (consumer.contractRef !== null && !isNonEmptyString(consumer.contractRef)) {
         errors.push(`${context}: release-metadata ${consumerPath}.contractRef must be a string or null`);
       }
+      const currentConsumerMustUseCurrentContract =
+        consumer.generation === "current" &&
+        !(
+          consumer.surface === "mobile-store" &&
+          !releaseScopes.includes("mobile-store")
+        );
       if (
         terminal &&
-        consumer.generation === "current" &&
+        currentConsumerMustUseCurrentContract &&
         consumer.contractRef !== publicContract.contractRefs?.[consumer.generation]
       ) {
         errors.push(`${context}: release-metadata ${consumerPath}.contractRef must match publicContract.contractRefs.${consumer.generation}`);
@@ -1916,6 +1924,13 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
   if (evidence.valueType === "commitSha") {
     if (!isFullCommitSha(value)) {
       errors.push(`${context}: terminal ${scopeName} evidence ${fieldPath} must be a full 40-character commit SHA`);
+    }
+    return;
+  }
+
+  if (evidence.valueType === "sha256") {
+    if (typeof value !== "string" || !sha256Pattern.test(value)) {
+      errors.push(`${context}: terminal ${scopeName} evidence ${fieldPath} must be a 64-character SHA-256`);
     }
     return;
   }

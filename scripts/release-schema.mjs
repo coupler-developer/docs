@@ -238,6 +238,16 @@ export const releaseScopeDescriptors = {
         valueType: "concreteEvidence",
       },
       {
+        label: "mobile NextPush Android package hash",
+        metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "androidPackageHash"],
+        valueType: "sha256",
+      },
+      {
+        label: "mobile NextPush iOS package hash",
+        metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "iosPackageHash"],
+        valueType: "sha256",
+      },
+      {
         label: "mobile NextPush target binary",
         metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "targetBinary"],
         valueType: "concreteEvidence",
@@ -245,6 +255,16 @@ export const releaseScopeDescriptors = {
       {
         label: "mobile NextPush uploaded at",
         metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "uploadedAt"],
+        valueType: "concreteEvidence",
+      },
+      {
+        label: "mobile NextPush history",
+        metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "history"],
+        valueType: "concreteEvidence",
+      },
+      {
+        label: "mobile NextPush rollback target",
+        metadataPath: ["scopeResults", "mobile-nextpush", "evidence", "rollbackTarget"],
         valueType: "concreteEvidence",
       },
       {
