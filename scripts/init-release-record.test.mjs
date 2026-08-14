@@ -288,6 +288,18 @@ describe("release record initializer", () => {
         fs.readFileSync(path.join(workspaceDocsRoot, relativePath), "utf8"),
       );
     }
+    runGit(["init", "--quiet"]);
+    runGit(["add", "."]);
+    runGit([
+      "-c",
+      "user.name=Release Record Test",
+      "-c",
+      "user.email=release-record-test@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "fixture baseline",
+    ]);
 
     const before = {
       agents: read("content/AGENTS.md"),
@@ -300,7 +312,11 @@ describe("release record initializer", () => {
 
     const validation = spawnSync(
       process.execPath,
-      [path.join(scriptsRoot, "validate-release-records.mjs")],
+      [
+        path.join(scriptsRoot, "validate-release-records.mjs"),
+        "--base-ref",
+        "HEAD",
+      ],
       { cwd: docsRoot, encoding: "utf8" },
     );
     assert.equal(
@@ -420,6 +436,11 @@ function write(relativePath, source) {
   const absolutePath = path.join(docsRoot, relativePath);
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
   fs.writeFileSync(absolutePath, source);
+}
+
+function runGit(args) {
+  const result = spawnSync("git", args, { cwd: docsRoot, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 
 function snapshot() {
