@@ -96,6 +96,20 @@
 5. IDE에서 워크스페이스 루트를 열고 작업한다(개별 레포 단독 오픈 금지).
 6. 첫 작업 전에는 `docs/content/AGENTS.md`를 열고 `ACK: BOOT@YYYY-MM-DD`를 출력한 뒤 요청·단계별 필수 문서를 라우팅한다.
 
+## 릴리스 기록 초기화
+
+신규 릴리스 기록은 docs worktree에서 아래 명령으로 초기화한다.
+
+```bash
+yarn release:record:init vX.Y.Z
+```
+
+이 명령은 릴리스 기록 템플릿, lifecycle registry, `content/AGENTS.md` 인덱스와 `mkdocs.yml` nav를 한 번에
+갱신한다. 같은 버전·ID·경로가 이미 있거나 필수 등록 위치를 찾을 수 없으면 파일을 변경하지 않고 실패한다.
+생성된 기록은 `planned` 상태다. 범위·기준 SHA·검증·rollback 기준을 작성하고 PR에 push한 현재 head의 필수
+CI를 확인한 뒤 `pending`으로 전환한다. 전환된 현재 PR head의 필수 CI 성공 후에만 preflight를 실행한다.
+명령은 commit, push, PR 또는 배포를 수행하지 않는다.
+
 ## 문서 검증
 
 1. Node 의존성 설치: `yarn install --frozen-lockfile`

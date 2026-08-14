@@ -16,6 +16,22 @@ const docsRoot = path.dirname(scriptsRoot);
 const packageJson = JSON.parse(
     fs.readFileSync(path.join(docsRoot, "package.json"), "utf8"),
 );
+const contentReadme = fs.readFileSync(
+    path.join(docsRoot, "content", "README.md"),
+    "utf8",
+);
+const releaseRecordTemplate = fs.readFileSync(
+    path.join(docsRoot, "content", "templates", "release-record-template.md"),
+    "utf8",
+);
+const releaseProcess = fs.readFileSync(
+    path.join(docsRoot, "content", "policy", "release-process.md"),
+    "utf8",
+);
+const releaseRecordInitializer = fs.readFileSync(
+    path.join(docsRoot, "scripts", "init-release-record.mjs"),
+    "utf8",
+);
 const workflow = fs.readFileSync(
     path.join(docsRoot, ".github", "workflows", "lint.yml"),
     "utf8",
@@ -166,6 +182,50 @@ test("verification aliases cannot drift from CI", () => {
     assert.match(
         testingStrategy,
         /개발자용 전체 검증 진입점은 `verify` 하나만 사용한다/,
+    );
+});
+
+test("release record initialization stays wired to one public command", () => {
+    assert.equal(
+        packageJson.scripts["release:record:init"],
+        "node scripts/init-release-record.mjs",
+    );
+    assert.ok(
+        VALIDATION_TASKS["test:release-preflight"].args.some((arg) =>
+            arg.endsWith("init-release-record.test.mjs"),
+        ),
+    );
+    assert.match(contentReadme, /yarn release:record:init vX\.Y\.Z/);
+    assert.match(contentReadme, /생성된 기록은 `planned` 상태/);
+    assert.match(contentReadme, /현재 PR head의 필수 CI 성공 후에만 preflight/);
+    assert.match(releaseRecordTemplate, /yarn release:record:init vX\.Y\.Z/);
+    assert.equal(
+        (releaseRecordTemplate.match(/"status": "planned"/g) ?? []).length,
+        2,
+    );
+    assert.match(releaseRecordTemplate, /전체 상태: `planned`/);
+    assert.match(releaseRecordTemplate, /현재 PR head에 적용된 필수 CI/);
+    assert.match(
+        releaseProcess,
+        /원격 PR head 및 해당 head에 적용된 필수 CI를 확인해/,
+    );
+    assert.match(releaseRecordInitializer, /현재 PR head의 필수 CI를 확인하세요/);
+    for (const source of [
+        contentReadme,
+        releaseRecordTemplate,
+        releaseProcess,
+        releaseRecordInitializer,
+        operationalRunbooks.get("production-deploy-command-runbook.md"),
+    ]) {
+        assert.doesNotMatch(source, /경량 CI/);
+    }
+    assert.match(
+        operationalRunbooks.get("production-deploy-command-runbook.md"),
+        /yarn release:record:init "\$\{VERSION\}"/,
+    );
+    assert.match(
+        operationalRunbooks.get("production-deploy-command-runbook.md"),
+        /전환된 현재 PR head의 필수 CI가 성공한 것을 확인한 뒤에만/,
     );
 });
 

@@ -49,6 +49,7 @@ export const VALIDATION_TASKS = Object.freeze({
   ),
   "test:release-preflight": task(
     "--test",
+    script("init-release-record.test.mjs"),
     script("generate-release-notes.test.mjs"),
     script("release-record-metadata.test.mjs"),
     script("validate-release-records.test.mjs"),

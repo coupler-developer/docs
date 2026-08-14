@@ -4,7 +4,7 @@
 {
   "schema": "release-metadata/v3",
   "version": "vX.Y.Z",
-  "status": "pending",
+  "status": "planned",
   "releaseScopes": [
     "docs"
   ],
@@ -33,7 +33,7 @@
   },
   "scopeResults": {
     "docs": {
-      "status": "pending",
+      "status": "planned",
       "summary": "배포 기준을 고정한 뒤 최종 릴리스 기록과 docs tag를 준비한다.",
       "evidence": {}
     }
@@ -68,7 +68,7 @@
 ## 릴리스 상태
 
 - 목표 버전: `vX.Y.Z`
-- 전체 상태: `pending`
+- 전체 상태: `planned`
 - 완료 범위:
 - 대기 범위:
 
@@ -84,10 +84,15 @@
 
 ## 작성 기준
 
+- 신규 기록은 템플릿을 직접 복사하지 않고 docs 레포 루트에서 `yarn release:record:init vX.Y.Z`로 초기화해
+  lifecycle registry, `content/AGENTS.md` 인덱스와 `mkdocs.yml` nav를 같은 변경 단위로 준비한다.
 - 이 파일은 입력 골격이다. 상태·scope·evidence의 규범과 closed value는
   [릴리스 프로세스](../policy/release-process.md)의 `릴리스 운영 모델`과 `릴리스 기록 상태값`을 따른다.
-- 위 `release-metadata`는 docs-only `pending` 시작형이다. 실제 `releaseScopes`와 같은 key만 `scopeResults`에
+- 위 `release-metadata`는 docs-only `planned` 시작형이다. 실제 `releaseScopes`와 같은 key만 `scopeResults`에
   추가하고, `scripts/release-schema.mjs`가 정의하지 않은 key나 별도 완료 축을 만들지 않는다.
+- scope, exact commit, 검증 시나리오와 rollback 기준을 확정하고 현재 PR head에 적용된 필수 CI를 확인한 뒤
+  전체 상태와 nonterminal `scopeResults`를 `pending`으로 전환한다. 전환을 push한 현재 PR head의 필수 CI
+  성공을 다시 확인하기 전에는 preflight나 운영 실행을 시작하지 않는다.
 - `release-metadata`가 기계 판정 SoT이고 본문은 사람이 읽는 mirror다. 두 표현의 범위·상태·버전 기준을 맞춘다.
 - terminal scope는 정책과 descriptor가 요구하는 concrete evidence로 닫는다. placeholder나 `N/A`로 완료
   증빙을 대신하지 않는다.
