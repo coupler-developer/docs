@@ -152,10 +152,10 @@ M1이 dev에만 있음: dev M1 skip, prod M1 pending
 
 과거 96행과 87행은 그대로 보존되고 새 source 판정에서 직접 비교되지 않는다.
 
-### IAP가 이미 존재하는 경우
+### Source 밖 변경이 이미 반영된 경우
 
-양쪽 DB의 `t_iap_notification`과 `schema_migrations`를 변경하지 않는다. IAP migration을 만들거나 기존 DROP
-current SQL을 실행하지 않는다. source 기준 파일만 실제 공통 schema와 정렬된 상태다.
+`schema_migrations`를 직접 수정하지 않는다. 실제 상태를 확인한 뒤 기반영 환경에서는 no-op하고 미반영
+환경에서는 적용되는 새 append-only migration으로 정렬하며, 안전하게 정렬할 수 없으면 중단한다.
 
 ### 서버 경로와 계정이 다른 경우
 
