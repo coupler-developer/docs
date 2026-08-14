@@ -135,8 +135,9 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 ### 7) Tag Gate
 
-1. Deploy Evidence Gate 결과를 [릴리스 태그 정책](../../policy/release-tag-policy.md)에 적용해 생성 가능한 태그를
-   판정한다.
+1. Deploy Evidence Gate의 각 서비스 scope 운영 postcheck 결과를 다른 릴리스 Gate 없이 바로 다음 입력으로 사용하고,
+   [릴리스 태그 정책](../../policy/release-tag-policy.md)의 `서비스 배포-태그 연속 실행`에 따라 생성 가능한
+   태그를 판정한다.
 2. 허용된 태그만 [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 서비스 태그 절차로
    생성·검증한다.
 3. 생성·보류·이관·삭제 결과를 릴리스 기록에 반영한다.

@@ -204,10 +204,9 @@
   metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
   `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration
   실행 범위는 Docs artifact가 아니라 `coupler-api`의 마이그레이션 소스 커밋으로 고정한다.
-- 서비스 버전 매핑은 원격 annotated 태그가 확정되기 전에는 해당 레포의 현재 `origin/main`과 정확히
-  일치해야 한다. 배포·검증 뒤 원격 annotated 태그와 commit이 같은 기준점으로 고정되면 그 태그가 불변
-  릴리스 기준이 되며, 후속 작업으로 `main`이 전진해도 이미 배포된 commit을 새 `main`으로 바꾸지 않는다.
-  태그가 없거나 원격에서 확인되지 않거나 tag/commit이 다르면 과거 commit을 릴리스 기준으로 허용하지 않는다.
+- 서비스 버전 매핑의 태그 전 기준점과 태그 확정은 [릴리스 태그 정책](release-tag-policy.md)의
+  `서비스 배포-태그 연속 실행`을 따른다. 확인된 원격 annotated tag와 commit을 불변 릴리스 기준으로 기록하며,
+  이후 `main` 전진으로 바꾸지 않는다.
 - 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ## 태그 규칙

@@ -55,7 +55,8 @@ head에 적용된 필수 CI가 성공하면 전체 상태와 nonterminal `scopeR
 
 API 계약 변경과 `mobile-store` 또는 `mobile-nextpush`가 함께 포함되면
 [API 계약 변경 모바일 릴리스 플로우](api-contract-mobile-release-flow.md)를 조건부로 적용한다.
-서비스 태그는 포함 scope의 운영 반영·검증 뒤 태그 정책의 허용 판정에 따라 이 문서의 서비스 태그 절에서 만든다.
+서비스 태그는 포함 scope의 운영 postcheck 바로 다음 Gate에서 [릴리스 태그 정책](../../policy/release-tag-policy.md)의
+`서비스 배포-태그 연속 실행`에 따라 이 문서의 서비스 태그 절로 진입한다.
 
 ## 실행 계약
 
