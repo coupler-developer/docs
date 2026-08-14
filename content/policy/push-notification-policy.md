@@ -54,7 +54,8 @@
 
 ### 2) 발송 조건 통제
 
-- 사용자 알림 설정(`alarm_chat`, `alarm_match`, `alarm_event`)을 서버 발송 경로에서 일관되게 적용한다.
+- 사용자 알림 설정(`alarm_chat`, `alarm_match`, `alarm_event`)과 그룹미팅 방별 새 메시지 알림 선택을 서버
+  발송 경로에서 일관되게 적용한다.
 
 | 대상 | 적용 조건 | 결과 |
 | --- | --- | --- |
@@ -62,7 +63,7 @@
 | `MATCH_NEW_CHAT(22)` | `alarm_chat = NO` 또는 `alarm_match = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `CONCIERGE_CHAT(67)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | 그룹미팅 77~81, 83~85 | `alarm_event = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
-| `GROUP_MEETING_CHAT_MESSAGE(82)` | `alarm_chat = NO` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
+| `GROUP_MEETING_CHAT_MESSAGE(82)` | `alarm_chat = NO` 또는 현재 방 `message_notification_enabled = false` | FCM 전송과 `t_alarm` 저장을 모두 건너뜀 |
 | `MATCH_VOICE_CALL(53)` | 항상 | FCM 전송과 `t_alarm` 저장을 모두 건너뛰고 알림 목록에서 제외 |
 | FCM 토큰 없음 | 다른 발송·저장 조건은 충족 | FCM만 건너뛰고 `t_alarm`은 저장 |
 | `sendPush = false` 또는 `OFFLINE_MODE` | 다른 발송·저장 조건은 충족 | FCM만 건너뛰고 `t_alarm`은 저장 |
@@ -76,6 +77,8 @@
   WebSocket이 연결돼 있으면 같은 FCM으로 그룹미팅 방·통합 채팅 목록 상태를 중복 갱신하지 않고, 연결이 끊긴
   경우에만 FCM 이벤트를 HTTP snapshot 갱신 보조 경로로 사용한다. 메시지 원본과 연결·복구 기준은
   [채팅 시스템](../architecture/chat-system.md)의 N:N 그룹미팅 채팅 절을 따른다.
+- 방별 새 메시지 알림 선택은 82의 FCM과 `t_alarm`만 통제한다. 메시지 저장·WebSocket·unread/read와
+  그룹미팅 77~81·83~85에는 적용하지 않으며, 전역 `alarm_chat`과 방별 선택이 모두 켜진 수신자만 82를 받는다.
 - 토큰 없음/발송 비활성 조건은 명시적으로 기록하고 스킵 사유를 남긴다.
 - 동일 이벤트의 다중 발송을 방지하기 위해 idempotency key 또는 중복 체크 키를 사용한다.
 
@@ -157,8 +160,8 @@
 - [ ] 1:1 매칭 12~30·70·71·86~89와 그룹미팅 77~85가 폐쇄형 설정 매핑과 일치하는가?
 - [ ] `CONCIERGE_CHAT(67)`은 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고, WebSocket·FCM 상태
       갱신을 중복 적용하지 않는가?
-- [ ] `GROUP_MEETING_CHAT_MESSAGE(82)`는 `alarm_chat` 비활성 시 FCM과 `t_alarm`을 모두 건너뛰고,
-      foreground 표시를 유지하면서 WebSocket 연결 중 상태 갱신을 중복 적용하지 않는가?
+- [ ] `GROUP_MEETING_CHAT_MESSAGE(82)`는 `alarm_chat` 또는 현재 방 새 메시지 알림이 비활성일 때 FCM과
+      `t_alarm`만 건너뛰고, 메시지·WebSocket·unread와 77~81·83~85를 유지하는가?
 - [ ] `GROUP_MEETING_CHAT_OPENED(85)`는 개방 경계의 현재 구성원과 개방 이후 새 승인자를 구분하고, 새
       승인자 외 기존 구성원에게 같은 경계 알림을 중복 발송하지 않는가?
 - [ ] 토큰 부재·`sendPush = false`·`OFFLINE_MODE`는 FCM만 생략하고, `MATCH_VOICE_CALL(53)`은 FCM과

@@ -172,7 +172,8 @@ flowchart LR
 | 85 | `GROUP_MEETING_CHAT_OPENED` | 행사 전날 KST 13시 채팅 접근 개방 | 채팅 이력 |
 
 그룹미팅 알림 본문은 실제 행사 제목을 포함한다. 82는 실제 메시지 내용을 함께 포함하고 발신자를 제외한 현재
-채팅 구성원에게 발송한다. 85는 호스트와 현재 APPROVED 참가자를 대상으로 같은 개방 경계에 한 번만 발송하며,
+채팅 구성원 중 전역 `alarm_chat`과 해당 방 `message_notification_enabled`가 모두 켜진 회원에게 발송·저장한다.
+방 설정은 메시지·WebSocket·unread와 77~81·83~85에는 영향을 주지 않는다. 85는 호스트와 현재 APPROVED 참가자를 대상으로 같은 개방 경계에 한 번만 발송하며,
 행사 일시가 변경되어 경계가 달라지면 새 경계를 기준으로 다시 계산한다. 수신자 준비나 내구성 있는 알림 저장이 실패하면
 선점한 채팅 구성원별 개방 경계를 복구해 다음 실행에서 재시도한다. 채팅 개방 뒤 Admin이 참가자를 새로
 승인하면 78과 85를 해당 참가자에게 함께 발송하고, 승인 transaction에서 그 구성원의 현재 개방 경계를
@@ -201,14 +202,19 @@ FCM 상태 갱신 보조 경로는 [푸시알림 운영 정책](../policy/push-n
 
 ```mermaid
 sequenceDiagram
+    participant M as GroupMeeting model
     participant C as Controller
     participant Common as common.js
     participant FCM as fcm.js
     participant Firebase as Firebase
     participant DB as t_alarm
 
+    opt type 82
+        M->>M: 방별 새 메시지 알림 수신자만 선별
+    end
+    M-->>C: push command와 수신자
     C->>Common: sendFCMPush(user_data, type, data)
-    Common->>Common: 알림 설정 체크 (alarm_chat, alarm_match, alarm_event)
+    Common->>Common: 전역 알림 설정 체크 (alarm_chat, alarm_match, alarm_event)
     alt 알림 허용
         opt token 있음 AND sendPush AND not OFFLINE_MODE
             Common->>FCM: send(token, type, title, content, data)
