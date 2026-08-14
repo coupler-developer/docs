@@ -113,10 +113,12 @@ test("commit preview renders release-record links and the exact target commit", 
       "## 목적",
       "",
       "- preview release",
+      "  with a continued purpose line",
       "",
       "## 릴리스 상태",
       "",
       "- completed",
+      "  with a continued status line",
       "",
       "## 릴리스 결과",
       "",
@@ -125,6 +127,7 @@ test("commit preview renders release-record links and the exact target commit", 
       "## 메인 흐름",
       "",
       "1. deploy",
+      "   with a continued deployment line",
       "",
       "## 검증 근거",
       "",
@@ -147,6 +150,9 @@ test("commit preview renders release-record links and the exact target commit", 
     /blob\/v1\.1\.0\/content\/releases\/v1\.1\.0\.md/,
   );
   assert.ok(preview.stdout.includes("docs tag commit: `" + targetCommit + "`"));
+  assert.match(preview.stdout, /- preview release\n  with a continued purpose line/);
+  assert.match(preview.stdout, /- completed\n  with a continued status line/);
+  assert.match(preview.stdout, /1\. deploy\n   with a continued deployment line/);
 
   const missingTag = execute(
     "git",
