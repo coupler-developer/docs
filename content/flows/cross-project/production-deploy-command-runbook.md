@@ -23,6 +23,23 @@
 - [릴리스 태그 정책](../../policy/release-tag-policy.md)
 - [DB Migration 유지보수 정책](../../policy/db-migration-gate-policy.md)
 
+## 신규 릴리스 기록 준비
+
+아직 릴리스 기록이 없으면 열린 docs worktree의 docs 레포 루트에서 한 번만 초기화한다.
+
+```bash
+: "${VERSION:?set VERSION}"
+yarn release:record:init "${VERSION}"
+```
+
+명령은 `planned` 상태의 `content/releases/${VERSION}.md`, lifecycle registry, `content/AGENTS.md` 인덱스와
+`mkdocs.yml` nav를 함께 준비하며 commit, push, PR 또는 운영 변경을 수행하지 않는다. 생성된 기록에 scope,
+exact commit, 검증 시나리오와 rollback 기준을 작성하고 `yarn verify`를 통과시킨 뒤 PR에 push한다. 현재 PR
+head에 적용된 필수 CI가 성공하면 전체 상태와 nonterminal `scopeResults`를 `pending`으로 전환해 다시 push하고,
+**전환된 현재 PR head의 필수 CI가 성공한 것을 확인한 뒤에만** 아래 공통 preflight와 실행 범위로 진입한다.
+`planned` 상태에서는 preflight가 실패한다. 같은 버전이 이미 있으면 명령을 다시 실행하지 않고 기존 기록을
+사용한다.
+
 ## 실행 범위 라우팅
 
 릴리스 기록의 `releaseScopes`를 기준으로 포함 범위를 고정한다. 제외 범위는 해당 기록에 `N/A` 근거를 남긴다.
