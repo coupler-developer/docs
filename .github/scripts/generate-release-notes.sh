@@ -85,7 +85,7 @@ print_release_record_items() {
   local empty_message="$3"
   local item_type="$4"
   local raw_section=""
-  local count=0
+  local rendered_items=""
 
   if [[ ! -f "${RELEASE_RECORD_PATH}" ]]; then
     printf -- '- %s\n' "${empty_message}"
@@ -98,33 +98,49 @@ print_release_record_items() {
     exit 1
   fi
 
-  while IFS= read -r line; do
-    [[ -z "${line}" ]] && continue
+  case "${item_type}" in
+    bullet | numbered)
+      ;;
+    *)
+      echo "Unknown item type: ${item_type}" >&2
+      exit 1
+      ;;
+  esac
 
-    case "${item_type}" in
-      bullet)
-        [[ "${line}" =~ ^-  ]] || continue
-        ;;
-      numbered)
-        [[ "${line}" =~ ^[0-9]+\.[[:space:]]+ ]] || continue
-        ;;
-      *)
-        echo "Unknown item type: ${item_type}" >&2
-        exit 1
-        ;;
-    esac
+  rendered_items="$(awk -v item_type="${item_type}" -v max_items="${max_items}" '
+    function is_item_start(line) {
+      if (item_type == "bullet") {
+        return line ~ /^- /
+      }
+      return line ~ /^[0-9]+\.[[:space:]]+/
+    }
 
-    printf '%s\n' "${line}"
-    count=$((count + 1))
-    if [[ "${count}" -ge "${max_items}" ]]; then
-      break
-    fi
-  done <<< "${raw_section}"
+    is_item_start($0) {
+      if (count >= max_items) {
+        exit
+      }
+      count += 1
+      collecting = 1
+      print
+      next
+    }
 
-  if [[ "${count}" -eq 0 ]]; then
+    collecting && /^[[:space:]]+/ {
+      print
+      next
+    }
+
+    {
+      collecting = 0
+    }
+  ' <<< "${raw_section}")"
+
+  if [[ -z "${rendered_items}" ]]; then
     echo "Release record section has no ${item_type} items: ${section_title}" >&2
     exit 1
   fi
+
+  printf '%s\n' "${rendered_items}"
 }
 
 print_release_record_section() {
