@@ -66,6 +66,24 @@
 - 출시 뒤 사후 생성한 `submitted/*` 태그는 원래 submission-time marker가 아니다. 이런 태그의 object나
   commit을 정상 제출 증빙으로 이관하지 않고 platform별 `unavailable-historical` 한계에만 기록한다.
 
+## 서비스 배포-태그 연속 실행
+
+이 절은 서비스 레포(`coupler-api`, `coupler-admin-web`, `coupler-mobile-app`)의 `vX.Y.Z` 릴리스 태그에만
+적용한다. `docs` 태그와 제출 마커 태그에는 적용하지 않는다.
+
+- 해당 scope의 운영 postcheck 성공부터 같은 `DEPLOY_COMMIT`의 원격 annotated tag 확인까지를 하나의 연속
+  실행으로 본다. 이는 경과 시간이나 같은 shell이 아니라, Tag Gate가 postcheck의 바로 다음 릴리스 Gate라는
+  뜻이다.
+- 태그 생성 직전에 fresh `origin/main`이 `DEPLOY_COMMIT`과 정확히 같아야 한다. ancestor 관계는 이 동등성
+  검사를 대체하지 않는다.
+- Tag Gate 시작 전에 다른 릴리스 Gate가 시작되거나 실행이 중단되면 기존 postcheck 결과를 재사용하지 않는다.
+  `origin/main`이 같으면 같은 commit의 postcheck부터, 바뀌었으면 최신 `origin/main`의 운영 반영 또는 출시와
+  postcheck부터 다시 수행해 새 연속 실행을 시작한다.
+- Tag Gate 도중 중단되면 scope별 exact local/remote tag 상태를 먼저 확인한다. 양쪽에 태그가 없으면 기존
+  postcheck를 재사용하지 않고 바로 앞 규칙에 따라 새 연속 실행을 시작한다. 한쪽에라도 태그가 있으면 새로
+  만들거나 삭제·이동하지 않고 exact ref를 확인한 뒤 누락된 push 또는 원격 확인만 재개한다. 원격 annotated
+  tag의 peeled commit이 `DEPLOY_COMMIT`과 같으면 해당 scope의 연속 실행이 끝난다.
+
 ## 증빙/추적
 
 제출 마커 태그 메시지에는 최소 아래를 남긴다.
@@ -91,6 +109,8 @@
 - [ ] 릴리스 태그가 `vMAJOR.MINOR.PATCH` 형식인가?
 - [ ] 태그가 annotated tag인가?
 - [ ] 릴리스 태그가 운영 반영과 검증이 완료된 커밋을 가리키는가?
+- [ ] 서비스 태그가 운영 postcheck의 바로 다음 Gate에서 생성됐고, 생성 직전 fresh
+      `origin/main == DEPLOY_COMMIT`과 원격 peeled commit을 확인했는가?
 - [ ] Mobile Store 포함 시 제출한 각 platform에 `submitted/android-*` 또는 `submitted/ios-*` 마커와 해당
   platform만의 artifact tuple을 남겼는가?
 - [ ] Mobile Store gate에 묶인 통합 릴리스라면 태그 보류/완료 범위를 릴리스 기록에 구분했는가?
