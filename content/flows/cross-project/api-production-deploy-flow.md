@@ -78,10 +78,18 @@ test "${PM2_STATE}" = "online|production|${DEPLOY_ROOT}"
 curl --fail-with-body --show-error -i http://127.0.0.1:3002/
 curl --fail-with-body --show-error -i https://api.ritzy.fourhundred.co.kr/
 pm2 logs coupler-api --lines 100 --nostream
+git grep -n "router.get('/" "${TARGET_COMMIT}" -- routes/admin/cron.ts
+sudo crontab -l
 ```
 
 exact commit, action, PM2 상태, 내부·외부 응답과 릴리스 기록의 기능별 smoke·지표를 모두 증빙한다. 하나라도 실패하면
 배포 완료나 서비스 태그 가능 상태로 판정하지 않는다.
+
+API source 배포는 운영 root crontab을 변경하지 않는다. 출력한 cron route와
+[Cron 작업](../../architecture/cron-jobs.md)의 운영 호출 상태를 대조해 활성 작업은 exact endpoint와 주기가
+root crontab에 있고, 의도적 중지 작업은 호출이 없거나 주석 상태인지 확인한다. 새 활성 route는 다음 예약 실행의
+cron 로그와 비식별화한 상태 변경·알림 저장 결과까지 확인한다. 의도적 중지 route를 배포됐다는 이유로 활성화하거나,
+삭제성 endpoint를 검증 목적으로 직접 호출하지 않는다.
 
 ## 예외 흐름
 

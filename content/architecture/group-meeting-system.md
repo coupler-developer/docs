@@ -435,10 +435,7 @@ unread 절을 따른다.
 
 그룹미팅 runtime을 활성화하기 전에는 대상 환경의 pending migration 적용, 최종 schema 검증과 runtime smoke를
 모두 통과해야 한다.
-group-meeting 논리 ID는 운영 API·Admin·Mobile과 대상 DB에 반영된 현행 모델이다. 개별 FCM·WebSocket·
-scheduler 검증 상태와 API 호환성 판정은 이 논리 모델 단계와 분리한다. 현재 미확인 운영 smoke 증빙은
-[기술 부채 인벤토리](../technical-debt/technical-debt.md)의
-`그룹미팅 FCM·실시간·scheduler 운영 smoke 증빙 미확인`에서 비차단 후속 검증으로 추적한다.
+group-meeting 논리 ID는 운영 API·Admin·Mobile과 대상 DB에 반영된 현행 모델이다.
 
 ## 관련 문서
 

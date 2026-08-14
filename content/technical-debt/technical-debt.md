@@ -168,28 +168,14 @@
 - 조치: 신규·직접 수정 operation부터 Swagger success DTO와 generated contract를 구체화한다. 내부 필드를 읽지 않고 값 전체를 전달·보관하는 opaque JSON passthrough는 제외한다.
 - 완료: 구조를 읽는 소비 success data의 명시 타입과 exact DTO 소비, local 계약 보정 0건.
 
-## 22) 그룹미팅 FCM·실시간·scheduler 운영 smoke 증빙 미확인 `P1` `M`
-
-- 현상: 그룹미팅 API·Admin·Mobile·DB는 2.3.0 운영에 반영됐지만 신규 발송 FCM 77~79·81~85의 runtime·
-  저장, 현재 구성원의 `group_meeting:message` 수신과 foreground FCM·연결 단절 fallback, 채팅 개방
-  scheduler의 통제된 운영 smoke 근거가 릴리스 기록에 없다. 이는 배포 미완료나 논리 모델 `to-be` 상태를
-  뜻하지 않는다.
-- 영향: 운영 반영 사실과 개별 알림·실시간·예약 실행의 검증 범위를 구분할 수 없어 장애 조사와 회귀 판정에서
-  source·unit test를 운영 동작 증빙으로 오인할 수 있다.
-- 조치: 통제된 행사·대상 계정으로 FCM runtime/저장, WebSocket 수신·HTTP snapshot 복구, scheduler 경계·
-  구성원별 중복 방지를 각각 실행하고 시각·대상 artifact·응답·저장·로그 근거를 한 운영 검증 기록에 묶는다.
-- 완료: FCM 77~79·81~85의 runtime·저장, 타입 80의 Mobile 호환 재진입, 인증된 현재 구성원의
-  `group_meeting:message`와 foreground/단절 fallback, 채팅 개방 scheduler·중복 방지 smoke의 concrete
-  근거가 확보되고 이 항목이 삭제된 상태.
-
-## 23) API public request DTO 생성/소비 전환 미완료 `P2` `L`
+## 22) API public request DTO 생성/소비 전환 미완료 `P2` `L`
 
 - 현상: contracts package는 직접 수정한 일부 named request DTO만 제공하고 소비자 local wire type이 남아 있다.
 - 영향: request 필드 drift가 compile 단계에서 차단되지 않는다.
 - 조치: Swagger에서 type-only request DTO를 생성하고 Admin/Mobile local DTO를 제거한다.
 - 완료: 소비 operation request schema 명시, 세 레포 exact package, local wire DTO 0건.
 
-## 24) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
+## 23) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
 - 현상: API catalog v13과 N:N scenario v10 계약은 독립 lifecycle·채팅 이력 경계, 3인·4인 참여 분기와
   `GROUP_MEETING_HOST_MANAGER_USER_ID` 발행 관리자 기준정보 검증을 포함하지만 공유 개발계
@@ -205,14 +191,14 @@
   reset·orphan·asset 검증을 수행한다.
 - 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate, 전체 catalog generation 장애 복구·rollback, 공유 개발계 current generation, 권한별 route 검증과 최종 reset 증빙 통과.
 
-## 25) Admin compiled theme 제거 미완료 `P2` `L`
+## 24) Admin compiled theme 제거 미완료 `P2` `L`
 
 - 현상: Admin은 Bootstrap 5와 foundation 규칙을 포함한 compiled Color Admin `app.min.css`를 함께 로드하고 공통 골격이 Color Admin class와 theme asset에 의존한다.
 - 영향: import 순서와 selector specificity가 스타일 책임을 대신해 한 화면의 수정이 다른 운영 화면의 표시를 바꿀 수 있다.
 - 조치: 사용처 baseline과 감소형 gate를 만든 뒤 공통 골격부터 Bootstrap 5, Admin token, Coupler 소유 component·SCSS로 전환한다.
 - 완료: `app.min.css`·theme asset 사용, Color Admin 전용 class, 중복 foundation이 모두 0건이고 대표 화면 회귀 검증을 통과한다.
 
-## 26) 기존 API 페이지 조회 구조 감사·전환 미완료 `P2` `L`
+## 25) 기존 API 페이지 조회 구조 감사·전환 미완료 `P2` `L`
 
 - 현상: [API 조회·동작 설계 정책](../policy/api-operation-design-policy.md)을 신규·직접 수정 API에 적용하지만, 기존
   Mobile 화면·Admin route의 최초 요청 그래프 baseline과 준수·허용 분리·전환 필요 판정이 없다. 그룹미팅 채팅과
@@ -222,28 +208,28 @@
 - 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → `API cutover: Yes`, release-scoped 소비자 case와 이전 endpoint 요청의 서버 측 차단 확인 후 legacy endpoint 제거.
 - 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 소비자 case·결정론적 요청 차단·client rollback 증빙 및 제거.
 
-## 27) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
+## 26) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
 
 - 현상: [보안/접근통제 정책](../policy/security-access-control-policy.md)이 역할·범위 매트릭스를 정의하지만 `super = 0` 관리자의 현재 클럽매니저 연결 판정이 공통 인가 경계에 없고, Admin 상위 메뉴의 `manager` 표시값이 하위 직접 route에 일관되게 상속되지 않으며, 설정·통계·기존 2:2·라운지·매니저 조회·결제 상태 변경·상담 상세/전송·보조 업로드/조회 등 일부 API는 인증 또는 목록 필터만으로 접근한다. 일반 클럽매니저 화면도 호출하는 `manager/all`은 공개 선택 목록 전용 projection 없이 관리자 전체 DTO의 `user_id`, `password`, `password_raw`, 로그인 메타데이터를 반환한다. 회원 저장도 호출자의 현재 `CHARGE` 배정은 확인하지만 payload의 전담(`CHARGE`)·공유(`SHARE`) 배정 변경 권한을 분리하지 않아 operation별 `GLOBAL/ASSIGNED/OWNED/SHARED/SELF/NONE` 인가가 완결되지 않았다.
 - 영향: 일반 클럽매니저가 숨겨진 URL이나 직접 API 요청으로 허용 범위를 벗어난 데이터와 운영 액션에 접근할 수 있고, 공유매니저 선택에 필요하지 않은 관리자 자격증명·로그인 정보가 노출된다.
 - 조치: 모든 Admin component route와 API operation을 기능군·행위·데이터 범위에 매핑하고 서버 인가를 먼저 적용한 뒤, `manager/all`의 각 목록 item을 `id`, `nickname`만 반환하는 공개 선택 DTO로 분리하며, 명시적 route audience와 역할별 허용·거부·타 담당/소유자·응답 필드 회귀 테스트를 같은 변경 단위로 반영한다.
 - 완료: Admin route·API operation 매핑 100%, 미정의 operation 0건, 직접 URL/API 우회 0건, `manager/all`이 `cnt`, `list` envelope를 유지하면서 각 목록 item은 `id`, `nickname`으로만 구성되고 `user_id`, `password`, `password_raw`, 로그인·인증 설정 필드가 없다는 회귀 테스트, Super Admin·유효 연결 일반 클럽매니저·연결 누락 관리자·타 담당/소유자의 허용/거부 테스트 통과.
 
-## 28) 운영 cron 서비스 인증 경계 증빙 미완료 `P1` `L`
+## 27) 운영 cron 서비스 인증 경계 증빙 미완료 `P1` `L`
 
 - 현상: 개발 cron은 loopback·`x-dev-cron-token`으로 fail-closed하지만 production에서는 개발 guard가 통과하고 `/admin/cron/*` route 자체의 서비스 인증이 없다. 외부 scheduler와 network/ingress 제한이 실제 접근 경계라면 그 설정·negative smoke 근거가 repository에 없다.
 - 영향: 운영 ingress가 잘못 열리거나 설정이 drift하면 상태 전이·알림·삭제 작업을 권한 없는 호출자가 실행할 수 있다.
 - 조치: 운영 scheduler 호출 경로·보안그룹·reverse proxy baseline 확인 → 서비스 인증 또는 검증 가능한 private ingress 계약 확정 → scheduler credential/header cutover → 외부 거부·정상 호출·회전·rollback smoke를 기록한다.
 - 완료: 운영 `/admin/cron/*`의 허용 호출자와 인증·network 경계가 문서·설정·자동 negative test로 일치하고, 삭제성 endpoint를 포함한 운영 scheduler smoke와 credential 회전·rollback 증빙 통과.
 
-## 29) 상태 전이 후 푸시 전달 재시도 미완료 `P1` `L`
+## 28) 상태 전이 후 푸시 전달 재시도 미완료 `P1` `L`
 
 - 현상: 그룹미팅을 포함한 도메인 상태 transaction이 commit된 뒤 FCM을 직접 발송하며 provider 실패를 기록만 하고 durable outbox·재시도·전송 멱등 원장이 없다.
 - 영향: 상태는 정상 변경돼도 사용자 알림이 유실될 수 있고 장애 복구 뒤 어떤 대상을 재발송해야 하는지 확정할 수 없다.
 - 조치: 알림 intent outbox와 멱등 key·시도 상태·재시도/격리 정책을 정의하고 기존 `t_alarm` 의미와 중복 없이 worker가 처리하도록 전환한 뒤 provider 실패·process crash·중복 실행을 검증한다.
 - 완료: 상태 commit과 알림 intent가 원자적으로 기록되고, provider 실패·process crash 뒤 재시도와 중복 억제·운영 관측·격리/재처리 smoke 통과.
 
-## 30) Apple 팀 이전 회원 `sub` 단건 이관 대기 `P1` `S`
+## 29) Apple 팀 이전 회원 `sub` 단건 이관 대기 `P1` `S`
 
 - 현상: 팀 이전 영향 대상 Apple 회원 1명은 운영에 이전 팀 `sub`를 보유하고, 신규 팀 `sub` 전용 조회 변경은
   API `main`에 병합됐지만 미배포다.
@@ -256,7 +242,7 @@
 - 완료: 단건 이관과 최종 API 배포 후 기존 회원 ID 로그인·신규 Apple 가입·재실행 자동 로그인의 운영 smoke가
   릴리스 기록에 남은 상태.
 
-## 31) 미반영 Apple 결제 복구 대기 `P1` `M`
+## 30) 미반영 Apple 결제 복구 대기 `P1` `M`
 
 - 현상: 복구 대상 Apple 거래 1건이 Store에만 있고 운영 결제·Key 원장과 지급 결과에는 반영되지 않았다.
 - 영향: 구매 상품의 Key가 미지급 상태이며, 원거래 식별자 없는 수동 지급은 거래 재전송 시 중복 지급을 만들
@@ -267,7 +253,7 @@
 - 완료: 원 거래 ID 기준 결제 원장 1건·Key 원장 1건과 상품 계약에 맞는 잔액 증가,
   `finishTransaction` 완료와 동일 거래 재전송 시 추가 지급 0건이 릴리스 기록에 남은 상태.
 
-## 32) 매칭 환불 실차감 조회와 환불 트랜잭션 경계 분리 `P1` `S`
+## 31) 매칭 환불 실차감 조회와 환불 트랜잭션 경계 분리 `P1` `S`
 
 - 현상: 남성이 여성 사진 프로필을 열람할 때의 실차감 스냅샷과 열람 여부를 환불 트랜잭션 밖에서 조회한
   뒤, 계산한 금액을 환불 트랜잭션에 전달한다.
@@ -278,7 +264,7 @@
 - 완료: 모든 남성 환불 경로가 `match -> member` 잠금 순서와 같은 환불 helper를 사용하고, 열람과 환불의 두
   실행 순서를 검증하는 실제 transaction 경쟁 테스트에서 과소·중복 환불이 0건인 상태.
 
-## 33) 환불 완료된 매칭의 유료 프로필 사진 신규 열람 서버 차단 미완료 `P1` `S`
+## 32) 환불 완료된 매칭의 유료 프로필 사진 신규 열람 서버 차단 미완료 `P1` `S`
 
 - 현상: 일반 유료 프로필 사진의 최초 열람 요청과 열람 상태 UPDATE가 환불 완료 상태를 거부하는 서버 조건을
   갖지 않는다.
@@ -288,6 +274,13 @@
   거부한다.
 - 완료: 환불 완료 상태에서 새로운 프로필 열람 상태 전이와 Key 차감이 0건이고, 환불과 열람의 두 실행
   순서를 검증하는 실제 transaction 경쟁 테스트가 통과한 상태.
+
+## 33) match2Day 운영 scheduler 주기 드리프트 `P2` `L`
+
+- 현상: 운영 root crontab의 `match2Day` 표현이 `*,30 * * * *`이어서 30분 기준과 달리 매분 API를 호출한다.
+- 영향: 불필요한 호출과 DB 조회가 반복되고, 문서의 기준 주기와 운영 실행이 일치하지 않는다.
+- 조치: 운영 root crontab을 매시 00·30분 표현으로 교체하고 다음 두 예약 실행의 cron 로그와 비식별화한 처리 결과를 확인한다.
+- 완료: 운영 root crontab과 [Cron 작업](../architecture/cron-jobs.md)의 30분 기준이 일치하고 연속 두 예약 실행 사이 추가 호출이 없는 상태.
 
 ## 분리 관리
 

@@ -13,22 +13,30 @@
 
 ## 작업 목록
 
-| 작업                      | 주기            | 설명                          |
-| ------------------------- | --------------- | ----------------------------- |
-| checkSignup               | 매일 13시, 17시 | 가입심사 미완료 알림          |
-| match2Day                 | 30분 간격       | D-2일 매칭 채팅 활성화        |
-| matchToday                | 매일 10시       | D-day 매칭 알림               |
-| checkReview               | 30분 간격       | 만남 3시간 후 후기 상태 전환  |
-| finishGroupMeetings       | 30분 간격       | N:N D-1 13시 개방 알림·시작 24시간 후 종료 영속화 |
-| checkMeetMember           | 30분 간격       | 모임 30분 전 인원 미달 체크   |
-| checkMatch                | 1분 간격        | 만료 매칭 자동 취소           |
-| checkMember               | 매일 0시        | 6개월 미접속 → HOLD           |
-| checkMatchCall            | 30분 간격       | 만남 15분 전 보이스콜 활성화  |
-| checkDirectFinishMember   | 매일 0시 5분    | 직진만남일 10일 경과 처리     |
-| autoDeleteMember          | 매일            | 정책 기준 경과 후 데이터 삭제 |
-| remindMatchCard           | 1분 간격        | 카드 만료 3시간 전 알림       |
-| sendAutoMatching          | 30분 간격       | 예약 매칭 자동 발송           |
-| cleanupOldProfileVersions | 매일            | 정책 기준 프로필 버전 정리    |
+API route 배포와 운영 scheduler 활성화는 별개다. 아래 기준 주기는 의도한 운영 주기이며, `의도적 중지`는
+route는 배포되어 있지만 운영 scheduler가 호출하지 않는 상태다. route가 존재한다는 사실만으로 운영 실행
+중이라고 판정하지 않는다.
+
+| 작업                      | 기준 주기       | 운영 호출     | 설명                          |
+| ------------------------- | --------------- | ------------- | ----------------------------- |
+| checkSignup               | 매일 13시, 17시 | 활성          | 가입심사 미완료 알림          |
+| match2Day                 | 30분 간격       | 활성          | D-2일 매칭 채팅 활성화        |
+| matchToday                | 매일 10시       | 활성          | D-day 매칭 알림               |
+| checkReview               | 30분 간격       | 활성          | 만남 3시간 후 후기 상태 전환  |
+| finishGroupMeetings       | 매시 00·30분    | 활성          | N:N D-1 13시 개방 알림·시작 24시간 후 종료 영속화 |
+| checkMeetMember           | 30분 간격       | 활성          | 모임 30분 전 인원 미달 체크   |
+| checkMatch                | 1분 간격        | 활성          | 만료 매칭 자동 취소           |
+| checkMember               | 매일 0시        | 의도적 중지   | 6개월 미접속 → HOLD           |
+| checkMatchCall            | 30분 간격       | 활성          | 만남 15분 전 보이스콜 활성화  |
+| checkDirectFinishMember   | 매일 0시 5분    | 활성          | 직진만남일 10일 경과 처리     |
+| autoDeleteMember          | 매일            | 활성          | 정책 기준 경과 후 데이터 삭제 |
+| remindMatchCard           | 1분 간격        | 활성          | 카드 만료 3시간 전 알림       |
+| sendAutoMatching          | 30분 간격       | 활성          | 예약 매칭 자동 발송           |
+| cleanupOldProfileVersions | 매일            | 의도적 중지   | 정책 기준 프로필 버전 정리    |
+
+`match2Day`의 현재 운영 root crontab 표현은 `*,30 * * * *`이므로 실효 주기는 매분이다. 위 30분 기준과 다른
+현행 설정이며, 정상화 전까지 실제 호출은 매분 발생한다. 후속 정상화는
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `match2Day 운영 scheduler 주기 드리프트`에서 추적한다.
 
 ## 매칭 자동 상태 변경
 
@@ -158,8 +166,13 @@ GET /admin/cron/cleanupOldProfileVersions
 
 ## 실행 방식
 
-- 외부 스케줄러에서 HTTP 호출
+- 운영은 root crontab의 외부 스케줄러에서 HTTP 호출
+- API 배포는 root crontab을 추가·수정하지 않으므로 route와 운영 호출 상태를 별도로 확인
+- 의도적 중지 작업은 route를 제거하지 않고 root crontab에서 호출하지 않음
 - 내부 node-cron 등 미사용
+
+운영 API 배포 뒤 route와 root crontab을 대조하는 절차는
+[API 운영 배포 런북](../flows/cross-project/api-production-deploy-flow.md)을 따른다.
 
 ### 개발계 안전 실행
 
