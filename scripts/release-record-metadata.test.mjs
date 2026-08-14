@@ -676,7 +676,7 @@ describe("release metadata scope results", () => {
     publicContract.apiRefs.previous = "d".repeat(7);
     publicContract.contractRefs.previous = "old-contract";
     publicContract.consumers.find(
-      ({ id }) => id === "current-store",
+      ({ id }) => id === "current-admin",
     ).contractRef = "@coupler-developer/coupler-api-contracts@9.8.0";
     publicContract.consumers.find(
       ({ id }) => id === "previous-store",
@@ -722,7 +722,7 @@ describe("release metadata scope results", () => {
     );
     assert(
       errors.some((error) =>
-        /consumers\.1\.contractRef must match publicContract\.contractRefs\.current/.test(error),
+        /consumers\.5\.contractRef must match publicContract\.contractRefs\.current/.test(error),
       ),
     );
     assert(
@@ -1283,6 +1283,7 @@ describe("release metadata scope results", () => {
     currentStore.artifact.mappingRef = "Android 9.9.0 (900); iOS 9.9.1 (900)";
     currentStore.artifact.androidVersionBuild = "9.9.0 (900)";
     currentStore.artifact.iosVersionBuild = "9.9.1 (900)";
+    currentStore.contractRef = "@coupler-developer/coupler-api-contracts@9.8.0";
 
     assert.deepEqual(validate(metadata), []);
 
@@ -1290,6 +1291,31 @@ describe("release metadata scope results", () => {
     assert(
       validate(metadata).some((error) =>
         /iosVersionBuild must match .*store\.ios\.versionBuild/.test(error),
+      ),
+    );
+  });
+
+  it("requires the current contracts package when Mobile Store is release-scoped", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    const currentStore = metadata.scopeResults["coupler-api"].evidence.publicContract.consumers
+      .find(({ id }) => id === "current-store");
+    currentStore.artifact.mappingRef = "Android 9.9.0 (900); iOS 9.9.1 (900)";
+    currentStore.artifact.androidVersionBuild = "9.9.0 (900)";
+    currentStore.artifact.iosVersionBuild = "9.9.1 (900)";
+    currentStore.contractRef = "@coupler-developer/coupler-api-contracts@9.8.0";
+
+    assert(
+      validate(metadata).some((error) =>
+        /contractRef must match publicContract\.contractRefs\.current/.test(error),
       ),
     );
   });
@@ -1377,12 +1403,29 @@ describe("release metadata scope results", () => {
         "mobile-nextpush": "released",
       },
     });
-    metadata.scopeResults["mobile-nextpush"].evidence.rollout = "pending";
+    metadata.scopeResults["mobile-nextpush"].evidence.rollbackTarget = "pending";
 
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /mobile-nextpush evidence scopeResults\.mobile-nextpush\.evidence\.rollout/.test(error)),
+      errors.some((error) => /mobile-nextpush evidence scopeResults\.mobile-nextpush\.evidence\.rollbackTarget/.test(error)),
+    );
+  });
+
+  it("requires platform package SHA-256 values when Mobile NextPush is released", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-nextpush"],
+      statuses: {
+        docs: "released",
+        "mobile-nextpush": "released",
+      },
+    });
+    metadata.scopeResults["mobile-nextpush"].evidence.androidPackageHash = "not-a-sha256";
+
+    assert(
+      validate(metadata).some((error) =>
+        /androidPackageHash must be a 64-character SHA-256/.test(error),
+      ),
     );
   });
 
@@ -1800,8 +1843,12 @@ function evidenceFor(scopeName, status) {
     return {
       app: concrete ? "CodePush app Coupler" : "pending",
       productionLabel: concrete ? "Production v99" : "pending",
+      androidPackageHash: concrete ? "a".repeat(64) : "pending",
+      iosPackageHash: concrete ? "b".repeat(64) : "pending",
       targetBinary: concrete ? "9.9.0 (900)" : "pending",
       uploadedAt: concrete ? "2026-07-09 11:00 KST" : "pending",
+      history: concrete ? "Production history confirms both current labels" : "pending",
+      rollbackTarget: concrete ? "Android Production v98; iOS Production v98" : "pending",
       rollout: concrete ? "100%" : "pending",
       mandatory: concrete ? "mandatory false" : "pending",
       disabled: concrete ? "disabled false" : "pending",

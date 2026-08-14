@@ -51,7 +51,7 @@ Store·NextPush·Admin·API가 함께 바뀌어도 실제 소비자를 빠뜨리
 | API | 현재 Swagger/runtime 정렬, inventory의 contract case 통과 |
 | Admin | exact package와 최종 operation만 소비, 운영 artifact smoke 통과 |
 | Mobile Store | 제출·승인·출시 build와 API 대상, platform/build ref 및 smoke 고정 |
-| Mobile NextPush | 플랫폼별 app/deployment/label/cohort, target binary와 적용 smoke 고정 |
+| Mobile NextPush | 플랫폼별 app/deployment/label/cohort, target binary, bundle hash·운영 history와 rollback target 고정 |
 | DB | 별도 DB 런북의 migration 파일, 기존 적용 이력, 개발계와 운영계의 동일 소스 커밋 |
 
 ## 메인 흐름
