@@ -282,6 +282,22 @@
 - 조치: 운영 root crontab을 매시 00·30분 표현으로 교체하고 다음 두 예약 실행의 cron 로그와 비식별화한 처리 결과를 확인한다.
 - 완료: 운영 root crontab과 [Cron 작업](../architecture/cron-jobs.md)의 30분 기준이 일치하고 연속 두 예약 실행 사이 추가 호출이 없는 상태.
 
+## 34) 매칭 후보 조회의 DB row·조건 모델 타입 경계 미완료 `P2` `S`
+
+- 현상: 매칭 예약 후보 조회가 DB 회원 row를 `Record<string, unknown>`으로 전달하고, 다수의 `unknown` 위치 인자와
+  controller·model의 개별 변환으로 후보 범위와 선호 점수 조건을 조립한다. 이는 공개 API success DTO가 아니라
+  `coupler-api` 내부 DB row와 매칭 도메인 사이의 미완료 타입 경계다.
+- 영향: 같은 선호 조건의 nullable 의미가 후보 필터와 점수 SQL에서 달라지거나, 위치 인자 순서와 변환 시점이
+  어긋나도 호출부에서 드러나기 어렵고 잘못된 DB 값이 매칭 예약 배치의 깊은 실행 단계에서야 실패할 수 있다.
+- 조치: DB 조회 직후 raw row를 typed 매칭 회원 모델로 검증·매핑하고, 선호연령을 포함한 `MatchingCriteria`를 한 번
+  조립해 후보 조회와 점수 계산이 공유하도록 service/usecase 경계를 둔다. 후보 조회의 위치 인자는 명명된 options
+  객체로 교체하고 repository 밖으로 raw row와 `unknown`을 전파하지 않는다. 세부 구조는
+  [엔지니어링 가드레일](../policy/engineering-guardrails.md)과
+  [매칭 시스템](../architecture/matching-system.md)을 따른다.
+- 완료: 매칭 예약 생성 경로에서 DB row의 typed mapping 100%, 선호 조건의 단일 typed criteria 조립, 후보 필터와
+  점수 계산의 criteria 공유, 후보 조회의 `unknown` 위치 인자 0건을 달성하고 nullable·유효 범위·비정상 row·인자
+  오배치 회귀 테스트가 통과한다.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
