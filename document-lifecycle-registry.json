@@ -419,6 +419,11 @@
             "routing": "historical"
         },
         {
+            "id": "releases.v2.5.1",
+            "path": "releases/v2.5.1.md",
+            "routing": "historical"
+        },
+        {
             "id": "technical-debt.firebase-apple-sdk-cocoapods-migration-plan",
             "path": "technical-debt/firebase-apple-sdk-cocoapods-migration-plan.md",
             "routing": "closure"
