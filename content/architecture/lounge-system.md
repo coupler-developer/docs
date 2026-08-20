@@ -285,14 +285,16 @@ type CommentParentRef =
 - 이미 배포된 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
   Admin·Mobile 조회 응답의 `best`는 wire 호환 식별자로만 유지한다. 실제 저장 컬럼은
   `t_lounge.pinned`다.
-- Admin 목록은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 generated DTO의 `best`를 화면 `pinned`
-  상태로 변환한다. 상세 편집은 베스트글 시절 동작을 유지하기 위해 기존 wire 필드 `best`를 draft에 보관한다.
-  API는 controller 진입점에서 두 저장 요청의 `best`를 내부 `pinned` 명령으로 변환해 `t_lounge.pinned`에
-  저장하고, 조회 projection에서만 `pinned AS best`로 호환 응답을 만든다.
-- 현행 Admin은 고정글 설정·해제를 목록과 상세에 노출한다. 상세의 고정글 라디오 선택은 화면 draft에만
-  반영하며, 상단 저장 확인 시 기존 `/admin/lounge/save` 요청 한 번에 다른 상세 편집 값과 `best`를 함께
-  전송한다. 상세 저장은 `/admin/lounge/best`를 추가 호출하거나 저장 뒤 상세를 재조회하지 않으며 type 40
-  알림을 만들지 않는다. 목록의 설정·해제는 기존 `/admin/lounge/best` 전용 명령과 알림 동작을 유지한다.
+- Admin은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 목록·상세 generated DTO의 `best`를 화면
+  `pinned` 상태로 한 번만 변환한다. 상세 draft와 DOM도 `pinned`만 사용하며, 저장 request를 만드는 같은
+  경계에서만 `pinned`를 wire `best`로 직렬화한다. API는 controller 진입점에서 두 저장 요청의 `best`를 내부
+  `pinned` 명령으로 변환해 `t_lounge.pinned`에 저장하고, 조회 projection에서만 `pinned AS best`로 호환
+  응답을 만든다.
+- 현행 Admin은 고정글 설정·해제를 목록과 상세에 노출한다. 상세의 고정글 라디오 선택은 화면 `pinned`
+  draft에만 반영하며, 상단 저장 확인 시 기존 `/admin/lounge/save` 요청 한 번에 다른 상세 편집 값과 wire
+  `best`를 함께 전송한다. 상세 저장은 `/admin/lounge/best`를 추가 호출하거나 저장 뒤 상세를 재조회하지
+  않으며 type 40 알림을 만들지 않는다. 목록의 설정·해제는 기존 `/admin/lounge/best` 전용 명령과 알림
+  동작을 유지한다.
 - 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 배포된 식별자를
   실제로 제거하려면 별도 versioned contract cutover와 소비자 inventory를 먼저 승인한다.
 - `best` → `pinned` 물리 컬럼 rename은 기존 데이터를 보존하는 append-only migration으로 수행한다. 구 API
