@@ -135,7 +135,7 @@ flowchart LR
 
 | 코드 | 이름               | 접근 제한   |
 | ---- | ------------------ | ----------- |
-| 1    | 베스트             | -           |
+| 1    | 고정               | -           |
 | 2    | 플레이스           | -           |
 | 3    | 자유               | -           |
 | 4    | 연애               | -           |
@@ -279,6 +279,41 @@ type CommentParentRef =
 
 ## CMS 응답 계약
 
+### 고정글 명명 경계
+
+- 제품·도메인·화면에서 사용하는 canonical 용어는 `고정글`, 코드 식별자는 `pinned`다.
+- 이미 배포된 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
+  Admin·Mobile 조회 응답의 `best`는 wire 호환 식별자로만 유지한다. 실제 저장 컬럼은
+  `t_lounge.pinned`다.
+- Admin은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 generated DTO의 `best`를 화면 `pinned` 상태로
+  한 번만 변환한다. API는 controller 진입점에서 전용 고정 요청의 `best`를 `pinned` 명령으로 변환해
+  `t_lounge.pinned`에 저장하고, 조회 projection에서만 `pinned AS best`로 구버전 응답을 만든다.
+- 현행 Admin은 고정글 설정·해제를 목록의 전용 명령으로만 노출한다. 상세 일반 저장은 배포된 request DTO가
+  요구하는 조회 당시 `best` 값을 전달하지만 API는 호환성 검증 후 이 필드를 폐기한다. 따라서 오래 열린 상세
+  화면의 일반 저장이 전용 고정 명령의 최신 상태를 덮어쓸 수 없다.
+- 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 배포된 식별자를
+  실제로 제거하려면 별도 versioned contract cutover와 소비자 inventory를 먼저 승인한다.
+- `best` → `pinned` 물리 컬럼 rename은 기존 데이터를 보존하는 append-only migration으로 수행한다. 구 API
+  바이너리는 rename 이후 동작할 수 없으므로 실제 DB 적용과 새 API 배포는 같은 점검 창에서 조정한다.
+
+### Mobile bundle 하위 호환과 DB cutover
+
+- 이 변경의 장기 하위 호환 대상은 이미 설치된 구 Mobile bundle이다. Admin은 서버와 함께 배포하는 현재
+  source만 대상으로 하며 과거 Admin bundle의 일반 저장 동작을 별도 보존하지 않는다.
+- 구·신 Mobile은 모두 기존 `/lounge/list`, `/lounge/myList`, `/lounge/detail` operation을 사용한다. API는 두
+  bundle에 계속 `best` 응답 필드를 제공하고 FCM type 숫자 `40`을 유지한다. 신 Mobile의 차이는 같은 값을
+  `📌`로 표시하는 것뿐이며 `pinned` wire alias를 요구하지 않는다.
+- `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
+  메인 목록은 category `0`을 보내고, `/lounge/myList`의 category `1`은 내 활동 탭 구분값이므로 고정 필터와
+  혼합하지 않는다.
+- 물리 컬럼 rename은 구·신 API 바이너리의 rolling coexistence를 지원하지 않는 maintenance cutover다. 운영
+  적용 순서는 `API traffic drain/전체 instance stop → migration 적용 → 새 API 배포 → 구 Mobile 계약 smoke →
+  traffic 재개`로 고정한다. smoke는 위 세 조회 operation의 `best` 필수 응답,
+  `/lounge/list?category=1` 고정 필터와 type `40` navigation을 확인한다.
+- DDL 적용 전 실패하면 구 API를 재시작할 수 있다. DDL 적용 후에는 구 API binary rollback을 금지하고 새 API를
+  forward-fix한다. 불가피하게 구 API로 복귀하려면 적용된 migration을 수정하지 않고 `pinned`를 `best`로
+  되돌리는 새 append-only reverse migration을 먼저 검증·적용한다.
+
 CMS 라운지 목록·댓글·상세·신고 목록도 같은 contracts package의 operation DTO를 직접 사용한다.
 게시글/댓글 신고 목록 row는 `report_status`와 콘텐츠 상태를 구분하고, `reporter`, `target`,
 `post` 또는 `comment`로 중첩한다. DB 조회 결과의 flat alias는 API canonical mapper 밖으로
@@ -313,9 +348,9 @@ API가 DB 전이를 명시적인 `action`과 `actor_type`으로 투영하므로 
 - 위 표에서 request DTO가 명시된 JSON mutation body는 Swagger의
   `additionalProperties: false`와 같은 exact generated DTO shape로 API 진입점에서 한 번
   검증하고, 통과한 뒤에는 controller/usecase가 해당 DTO를 신뢰한다.
-- 수정과 베스트 설정 API도 `WHERE status = NORMAL` 조건으로만 갱신하며, tombstone 또는
+- 수정과 고정글 설정 API도 `WHERE status = NORMAL` 조건으로만 갱신하며, tombstone 또는
   강제삭제 상태에는 `LOUNGE_MODERATION_STATE_CONFLICT`를 반환한다.
-- 따라서 CMS UI를 우회하거나 삭제 전이와 요청이 겹쳐도 삭제 상태 콘텐츠의 원문과 베스트 값은
+- 따라서 CMS UI를 우회하거나 삭제 전이와 요청이 겹쳐도 삭제 상태 콘텐츠의 원문과 고정글 값은
   새로 갱신하지 않는다.
 
 ### 댓글 작성 parent 허용 기준
@@ -385,12 +420,20 @@ API가 DB 전이를 명시적인 `action`과 `actor_type`으로 투영하므로 
 - CMS의 기존 `삭제` 버튼은 `강제삭제`로 대체하며, `신고삭제` 버튼을 별도로 제공한다.
 - 상태 전이, 미처리 신고 처리, 감사 로그 저장은 한 DB 트랜잭션으로 수행한다.
 
-## 베스트 선정
+## 고정글 설정
 
-- 관리자 수동 선정 (`/admin/lounge/best`)
+- 관리자가 수동으로 설정 (`/admin/lounge/best`; 배포된 legacy wire path)
 - `NORMAL` 게시글만 설정/해제 가능
-- `t_lounge.best = 'Y'`로 설정
-- 선정 시 작성자에게 FCM 알림 (LOUNGE_BEST)
+- API 경계에서 request `best`를 명령 `pinned`로 변환하고 `t_lounge.pinned`에 저장
+- 실제 `N → Y` 전이와 type 40 알림 intent를 같은 transaction에 저장한다. 알림 이력은 FCM 전에 한 번만
+  저장하고, intent 선점에 성공한 요청만 FCM을 전송한다.
+- API 요청은 intent 저장 뒤 bounded worker를 깨우고 즉시 끝난다. worker는 시작 직후와 30초마다 pending,
+  1분 지난 failed, 5분 이상 멈춘 processing intent를 읽어 최초 시도를 포함해 최대 3회 처리한다. 따라서 claim
+  직후 API instance가 종료돼도 사용자의 같은 요청 재호출 없이 복구한다.
+- type 40은 provider rejection을 전달하는 strict FCM 경계를 사용한다. FCM 성공과 outbox 완료 사이의 결과가
+  불명확한 장애에는 유실 방지를 위해 `at-least-once`로 재전송한다. 알림함 이력은 계속 한 건이며 payload의
+  안정적인 `event_id = lounge-pinned:<outbox ID>`로 같은 이벤트를 식별한다. 구 Mobile은 additive 필드를
+  무시하므로 이 드문 구간에서 OS 알림이 중복될 수 있다는 한계는 명시적으로 수용한다.
 
 ## 프로필 비공개 처리
 
@@ -416,7 +459,7 @@ flowchart TD
 | ---- | ------------------------ | ----------- |
 | 38   | LOUNGE_NEW_COMMENT       | 새 댓글     |
 | 39   | LOUNGE_NEW_CHILD_COMMENT | 대댓글      |
-| 40   | LOUNGE_BEST              | 베스트 선정 |
+| 40   | LOUNGE_PINNED            | 고정글 설정 |
 | 41   | LOUNGE_BLAME             | 신고        |
 
 수신자 기준은 [푸시알림 운영 정책](../policy/push-notification-policy.md)의 라운지 댓글/대댓글 수신자 기준을 따른다.

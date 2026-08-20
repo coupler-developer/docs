@@ -134,7 +134,7 @@ flowchart LR
 |----|------|------|
 | 38 | LOUNGE_NEW_COMMENT | 새 댓글 |
 | 39 | LOUNGE_NEW_CHILD_COMMENT | 대댓글 |
-| 40 | LOUNGE_BEST | 베스트 선정 |
+| 40 | LOUNGE_PINNED | 고정글 설정 |
 | 41 | LOUNGE_BLAME | 신고 |
 | 68 | LOUNGE_LIKE | 게시글 좋아요 수 변경 |
 
@@ -282,7 +282,7 @@ N:N 그룹미팅 채팅 절을 따른다.
 | Admin cron | 스케줄 작업 | D-DAY, 만남 당일, 카드 만료 |
 | Match 도메인 | 매칭 액션 | 프로필 수락, 채팅, 일정 |
 | Admin member | 회원 관리 | 심사 승인, 관리자 Key 지급/차감 |
-| Lounge 도메인 | 라운지 | 댓글, 베스트 |
+| Lounge 도메인 | 라운지 | 댓글, 고정글 |
 
 ## 다국어 지원
 
