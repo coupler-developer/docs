@@ -285,12 +285,14 @@ type CommentParentRef =
 - 이미 배포된 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
   Admin·Mobile 조회 응답의 `best`는 wire 호환 식별자로만 유지한다. 실제 저장 컬럼은
   `t_lounge.pinned`다.
-- Admin은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 generated DTO의 `best`를 화면 `pinned` 상태로
-  한 번만 변환한다. API는 controller 진입점에서 전용 고정 요청의 `best`를 `pinned` 명령으로 변환해
-  `t_lounge.pinned`에 저장하고, 조회 projection에서만 `pinned AS best`로 구버전 응답을 만든다.
-- 현행 Admin은 고정글 설정·해제를 목록의 전용 명령으로만 노출한다. 상세 일반 저장은 배포된 request DTO가
-  요구하는 조회 당시 `best` 값을 전달하지만 API는 호환성 검증 후 이 필드를 폐기한다. 따라서 오래 열린 상세
-  화면의 일반 저장이 전용 고정 명령의 최신 상태를 덮어쓸 수 없다.
+- Admin 목록은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 generated DTO의 `best`를 화면 `pinned`
+  상태로 변환한다. 상세 편집은 베스트글 시절 동작을 유지하기 위해 기존 wire 필드 `best`를 draft에 보관한다.
+  API는 controller 진입점에서 두 저장 요청의 `best`를 내부 `pinned` 명령으로 변환해 `t_lounge.pinned`에
+  저장하고, 조회 projection에서만 `pinned AS best`로 호환 응답을 만든다.
+- 현행 Admin은 고정글 설정·해제를 목록과 상세에 노출한다. 상세의 고정글 라디오 선택은 화면 draft에만
+  반영하며, 상단 저장 확인 시 기존 `/admin/lounge/save` 요청 한 번에 다른 상세 편집 값과 `best`를 함께
+  전송한다. 상세 저장은 `/admin/lounge/best`를 추가 호출하거나 저장 뒤 상세를 재조회하지 않으며 type 40
+  알림을 만들지 않는다. 목록의 설정·해제는 기존 `/admin/lounge/best` 전용 명령과 알림 동작을 유지한다.
 - 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 배포된 식별자를
   실제로 제거하려면 별도 versioned contract cutover와 소비자 inventory를 먼저 승인한다.
 - `best` → `pinned` 물리 컬럼 rename은 기존 데이터를 보존하는 append-only migration으로 수행한다. 구 API
@@ -298,8 +300,8 @@ type CommentParentRef =
 
 ### Mobile bundle 하위 호환과 DB cutover
 
-- 이 변경의 장기 하위 호환 대상은 이미 설치된 구 Mobile bundle이다. Admin은 서버와 함께 배포하는 현재
-  source만 대상으로 하며 과거 Admin bundle의 일반 저장 동작을 별도 보존하지 않는다.
+- 이 변경의 장기 하위 호환 대상은 이미 설치된 구 Mobile bundle이다. Admin도 기존 상세 편집 동작과
+  `best` request shape를 유지하지만 별도 장기 bundle 공존 대상으로 관리하지는 않는다.
 - 구·신 Mobile은 모두 기존 `/lounge/list`, `/lounge/myList`, `/lounge/detail` operation을 사용한다. API는 두
   bundle에 계속 `best` 응답 필드를 제공하고 FCM type 숫자 `40`을 유지한다. 신 Mobile의 차이는 같은 값을
   `📌`로 표시하는 것뿐이며 `pinned` wire alias를 요구하지 않는다.
@@ -422,11 +424,13 @@ API가 DB 전이를 명시적인 `action`과 `actor_type`으로 투영하므로 
 
 ## 고정글 설정
 
-- 관리자가 수동으로 설정 (`/admin/lounge/best`; 배포된 legacy wire path)
+- 관리자가 목록에서 수동으로 설정 (`/admin/lounge/best`; 배포된 legacy wire path)
+- 상세의 라디오 선택은 상단 저장 시 `/admin/lounge/save`의 기존 `best` 필드로 함께 반영하며 type 40 알림을
+  만들지 않는다.
 - `NORMAL` 게시글만 설정/해제 가능
-- API 경계에서 request `best`를 명령 `pinned`로 변환하고 `t_lounge.pinned`에 저장
-- 실제 `N → Y` 전이와 type 40 알림 intent를 같은 transaction에 저장한다. 알림 이력은 FCM 전에 한 번만
-  저장하고, intent 선점에 성공한 요청만 FCM을 전송한다.
+- API 경계에서 두 request의 `best`를 명령 `pinned`로 변환하고 `t_lounge.pinned`에 저장
+- `/admin/lounge/best`의 실제 `N → Y` 전이와 type 40 알림 intent를 같은 transaction에 저장한다. 알림
+  이력은 FCM 전에 한 번만 저장하고, intent 선점에 성공한 요청만 FCM을 전송한다.
 - API 요청은 intent 저장 뒤 bounded worker를 깨우고 즉시 끝난다. worker는 시작 직후와 30초마다 pending,
   1분 지난 failed, 5분 이상 멈춘 processing intent를 읽어 최초 시도를 포함해 최대 3회 처리한다. 따라서 claim
   직후 API instance가 종료돼도 사용자의 같은 요청 재호출 없이 복구한다.
