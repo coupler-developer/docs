@@ -298,6 +298,26 @@
   점수 계산의 criteria 공유, 후보 조회의 `unknown` 위치 인자 0건을 달성하고 nullable·유효 범위·비정상 row·인자
   오배치 회귀 테스트가 통과한다.
 
+## 35) 라운지 `best` wire 호환 제거 대기 `P1` `L`
+
+- 현상: v2.5.2에서 DB·도메인·Admin 화면 상태는 `pinned`로 전환됐지만 공개 wire의
+  `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`와 Admin·Mobile 조회
+  응답 `best`가 남아 있다. 현행 Admin과 Store·NextPush Mobile도 이 호환 계약을 계속 사용하므로 API의
+  `best ↔ pinned` request mapper와 조회 projection을 제거할 수 없다.
+- 영향: 지원 중인 공개 계약이라는 이유로 교체 계획을 재검토하지 않으면 legacy 이름과 경계 mapper가 기한 없이
+  남고, source 이름 정렬만 보고 제거하면 설치된 Mobile과 Admin 요청·응답이 깨진다.
+- 조치: 목표 시점은 v2.5.2 다음 `coupler-api` 운영 릴리스다. 해당 릴리스의 PLAN 단계에서
+  [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `contract cutover`와 `운영 legacy cutover`,
+  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 적용해
+  versioned canonical `pinned` 공개 계약과 contracts package, Admin, Store·NextPush Mobile 소비자를 함께
+  전환한다. release-scoped 소비자와 REST·WebSocket·bootstrap·version consumer-interface exact set,
+  old-readable upgrade 경로, 기존 `best` 제품 요청의 결정론적 차단, activation/client rollback을 검증한 뒤
+  `API cutover: Yes`로 전환한다.
+- 완료: 지원 소비자가 `pinned` 단일 공개 계약을 사용하고, 이전 지원 경계 밖의 `best` 요청이 activation 뒤
+  결정론적으로 거부되며, 활성 API·contracts·Admin·Mobile과 현행 계약·architecture·flow 문서에서 `best`
+  endpoint·request/response 필드·adapter·projection이 0건인 상태로 계약·소비자·운영 smoke와 rollback 검증을
+  통과한다. 역사적 사실을 보존하는 불변 release 기록과 migration 이력은 제거 대상에서 제외한다.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.

@@ -81,6 +81,7 @@
 - 예방 통제 baseline(코드/기능 변경 시): failure mode별 `기존 통제 경로+재사용` / `신설 필요+사용자 계획 결정+최종 구현 경로` / `N/A+근거`
 - 검증 방법: 테스트/검증 스크립트/로그/수동 시나리오
 - 상태 분류: 없음/회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백
+- 기술 이행 수명주기: [엔지니어링 가드레일](engineering-guardrails.md)의 폐쇄형 `기술 이행 유형`과 cutover 완료 여부를 각각 기록한다. Exit Gate가 남으면 legacy·compatibility·adapter·fallback의 exact set, 지원 소비자, 제거 조건, 목표 시점과 기술부채 링크를 기록하고, 완료했으면 제거 증빙과 완료된 부채 삭제를 기록한다. 문서-only 등 기술 이행 비적용은 `N/A` 근거를 남긴다.
 - N/A 사유: 회귀 영향이 없다고 판단한 근거
 - API 계약 판정: `API cutover: No | Yes | N/A`와 근거
 - 소비자/API 증빙: Store/OTA/Admin release-scoped inventory와 REST·WebSocket·bootstrap·version
@@ -140,6 +141,7 @@
   별도 표적 검증을 실행했다면 허용 사유·명령·결과를, 환경 실패가 있었다면 실패·미실행 하위 Gate의 재시도
   근거를 확인
 - [ ] [엔지니어링 가드레일](engineering-guardrails.md)의 `회귀 안전성 게이트` 기준으로 영향 범위/보호 동작/검증 방법/상태 분류/N/A 사유를 기록
+- [ ] 기술 이행 유형과 cutover 완료 여부를 구분하고, Exit Gate가 남으면 legacy·compatibility·adapter·fallback의 exact set·소비자·제거 조건·목표 시점·기술부채 링크를, 완료했으면 제거 증빙·완료 부채 삭제를 기록했는지 확인한다. 기술 이행 비적용은 `N/A` 근거를 확인한다.
 - [ ] 외부 의존성을 추가·대체하면 [에이전트 운영 규칙](../AGENTS.md)의 `범위와 권한`에 따른 명시적 승인 기록과 [엔지니어링 가드레일](engineering-guardrails.md)의 `외부 의존성 변경 사전 검토` 근거를 확인
 - [ ] 도메인/상태/enum/error source/code/surface/문서 역할 분류 체계(taxonomy)가 변경되거나 영향을 받으면 기준 문서와 코드가 같은 축을 쓰는지 기록
 - [ ] API/DB 변경이면 API 소비자 inventory/case와 DB append-only source·적용 순서를 각각 기록하고, API
