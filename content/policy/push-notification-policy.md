@@ -120,8 +120,9 @@
 
 #### 라운지 고정글 알림 기준
 
-- `LOUNGE_PINNED(40)`은 게시글이 실제 `N → Y`로 전이할 때 작성자에게 생성한다. 이미 `Y`인 일반 중복
-  요청은 새 알림 세대를 만들지 않는다.
+- `LOUNGE_PINNED(40)`은 목록의 전용 `/admin/lounge/best` 명령으로 게시글이 실제 `N → Y`로 전이할 때
+  작성자에게 생성한다. 이미 `Y`인 일반 중복 요청은 새 알림 세대를 만들지 않는다. 베스트글 시절 동작을
+  유지하는 상세 `/admin/lounge/save`의 `best` 저장은 이 알림의 발생 조건이 아니다.
 - 전이와 알림 outbox intent는 같은 transaction에 저장한다. `t_alarm` 이력은 intent row lock 안에서 한 번만
   연결한 뒤 OS FCM을 전송하므로 FCM 실패 재시도가 알림함 이력을 중복 생성하지 않는다.
 - API 요청은 intent 저장 후 worker를 깨우고 응답하며 외부 FCM 성공 여부에 의존하지 않는다. 각 API instance의
