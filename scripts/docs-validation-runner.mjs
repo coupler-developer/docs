@@ -52,6 +52,7 @@ export const VALIDATION_TASKS = Object.freeze({
     script("init-release-record.test.mjs"),
     script("generate-release-notes.test.mjs"),
     script("release-record-metadata.test.mjs"),
+    script("validate-docs-release-tag-ready.test.mjs"),
     script("validate-release-records.test.mjs"),
     script("release-status-gate.test.mjs"),
     script("release-validation-mode.test.mjs"),

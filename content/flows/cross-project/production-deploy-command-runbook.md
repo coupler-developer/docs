@@ -151,6 +151,7 @@ git rev-parse --verify "${DOCS_COMMIT}^{commit}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 LOCAL_TAG="$(git tag --list "${TAG}")"
 test -z "${LOCAL_TAG}"
+node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
 
 git checkout main
 git merge --ff-only "${DOCS_COMMIT}"
@@ -184,6 +185,7 @@ git fetch --tags origin
 test "$(git rev-parse --verify "${DOCS_COMMIT}^{commit}")" = "${DOCS_COMMIT}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
+node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
 
 yarn verify
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"

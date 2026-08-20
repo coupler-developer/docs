@@ -97,8 +97,11 @@
 - `docs` `main` push는 문서 사이트 배포(MkDocs Pages), `v*.*.*` 태그 push는 Docs GitHub Release 생성으로 사용한다.
 - `coupler-api`, `coupler-admin-web`, `coupler-mobile-app` 태그 push는 GitHub Release 또는 zip artifact를 자동 생성하지 않는다.
 - `docs` 버전은 릴리스 기록 번호로 사용하고, 서비스 레포의 실제 배포 버전은 `버전 매핑`으로 별도 고정한다.
-- 신규 릴리스 기록은 실제 새 릴리스 범위를 기록한 최종본으로 한 번 병합한다. `main`에 이미 존재하는 릴리스
-  기록은 상태와 무관하게 파일 전체가 불투명한 최종본이며 이후 수정·삭제·이름 변경·대체하지 않는다.
+- 신규 릴리스 기록은 실제 새 릴리스 범위를 기록한 terminal 최종본으로 한 번 병합한다. nonterminal
+  `planned | pending | in_progress` 기록의 PR은 Draft로 유지하고 terminal 전환 뒤에만 Ready/병합한다.
+- `main`에 존재하는 terminal 릴리스 기록은 파일 전체가 불투명한 최종본이며 이후 수정·삭제·이름 변경·대체하지
+  않는다. nonterminal 기록이 `main`에 잘못 병합된 경우에는 아래 `게시된 nonterminal 기록 복구`의 단일
+  terminalization만 허용하며, 일반 사실 정정·증빙 backfill 예외로 확대하지 않는다.
 - 기존 `content/releases/evidence/db-migrations/**` 파일은 과거 릴리스 기록의 일부로 불투명하게 보존하며
   수정·삭제·이름 변경·대체하지 않는다. 새 DB migration 절차는 이 경로에 plan·execution 파일을 만들지 않는다.
 - `버전 매핑` 섹션은 이 기준 이후 작성하는 신규 릴리스 기록부터 필수로 둔다.
@@ -209,6 +212,20 @@
   이후 `main` 전진으로 바꾸지 않는다.
 - 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
+### 게시된 nonterminal 기록 복구
+
+- 진입 조건은 `main`의 기록이 `pending`, docs scope만 `pending`, 나머지 모든 scope가 `released`이고 해당 docs
+  tag와 GitHub Release가 모두 없음을 원격에서 확인한 경우로 닫는다. 하나라도 다르면 이 복구를 사용하지 않고
+  이슈·장애 기록에서 별도 처분을 결정한다.
+- 복구 PR은 전체 상태와 docs scope를 `released`로 한 번 전환하고 docs summary 및 사람이 읽는 `전체 상태`·
+  `완료 범위`·`대기 범위`·`현재 결과`·`기록 복구`·`남은 범위` bullet만 정렬할 수 있다. 다른 scope
+  metadata/evidence, 버전 매핑, API cutover와 그 밖의 본문은 base ref와 byte-equivalent여야 한다.
+- validator는 위 허용 집합 밖의 수정·삭제·개명·재복구를 fail-closed로 거부하고, 복구 후보 전체를 현행 schema와
+  terminal evidence Gate로 다시 검증한다. 복구 PR은 terminal 후보이므로 Draft 강제 대상이 아니며 병합 뒤
+  해당 파일은 일반 terminal 불변 규칙으로 돌아간다.
+- 복구 병합 커밋이 최종 docs tag 대상이다. 태그 전용 validator가 전체 상태·docs scope·version mapping tag의
+  `released`/exact 일치를 확인한 뒤에만 Release Note preview와 annotated tag 단계로 진행한다.
+
 ## 태그 규칙
 
 - 태그 이름, 생성 시점, 제출 마커 태그, 증빙 기준은 [릴리스 태그 정책](release-tag-policy.md)을 따른다.
@@ -230,8 +247,9 @@
   따라 `released`로 닫는다.
 - `superseded`로 닫을 때는 대체한 후속 릴리스, 완료하지 않은 범위, 태그 생성 여부, 후속 추적 불필요 사유를 릴리스 기록에 남긴다.
 - `released`, `rolled_back`, `superseded`로 닫힌 기록을 `planned`, `pending`, `in_progress`로 되돌리지 않는다.
-  `main` 병합 뒤 기록은 내용과 상태를 재판정하지 않는다. 실제 후속 운영 반영 또는 rollback을 실행하면 그
-  실행의 새 기록을 만들고, 단순 사실 정정은 이슈·장애 기록에서만 추적한다.
+  `main` 병합 뒤 기록은 내용과 상태를 재판정하지 않는다. 단, 위 진입 조건을 모두 만족하는 게시된
+  nonterminal 기록은 서비스 사실을 바꾸지 않는 단일 terminalization으로 이 불변조건을 복구한다. 실제 후속
+  운영 반영 또는 rollback을 실행하면 그 실행의 새 기록을 만들고, 단순 사실 정정은 이슈·장애 기록에서만 추적한다.
 
 ## 운영 상태 전이 기준
 
@@ -266,8 +284,9 @@
 - docs tag push 전에는 Release Note preview, `yarn verify`,
   [문서 안정성 평가](document-governance-policy.md)를 완료한다. Release와 site artifact는 tag push 뒤
   postcheck하며 사전 metadata hard gate로 사용하지 않는다.
-- `main`에 병합된 릴리스 기록과 이미 발행한 Release Note는 해당 버전의 최종본이다. 사유와 범위에 관계없이
-  기존 릴리스 기록 파일을 수정·삭제·이름 변경·대체하지 않는다.
+- `main`에 병합된 terminal 릴리스 기록과 이미 발행한 Release Note는 해당 버전의 최종본이다. 기존 릴리스
+  기록 파일은 수정·삭제·이름 변경·대체하지 않는다. 게시된 nonterminal 기록은 태그/Release 생성 전의
+  fail-closed terminalization만 위 복구 절차로 허용한다.
 - Release workflow 실패, Release 본문·artifact 누락, 사실 오류 또는 증빙 보강은 기존 버전과 릴리스
   기록을 바꾸지 않고 이슈·장애 기록에서 추적한다. 실제 rollback 또는 대체 운영 반영을 수행할 때만 새 docs
   버전의 릴리스 기록을 만들고 원래 버전과 후속 사유를 참조한다. 새 기록은 Release Note preview,
@@ -284,7 +303,10 @@
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [릴리스 태그 정책](release-tag-policy.md), Gate 순서는 릴리스 게이트 플로우, 실행 라우팅과
       공통 명령은 운영 릴리스 실행 런북을 단일 기준으로 사용하는가?
-- [ ] `main`에 존재하는 릴리스 기록이 변경·삭제·이름 변경·대체·재검증되지 않았고, 정정만을 위한 새 버전도 만들지 않았는가?
+- [ ] nonterminal 릴리스 PR이 Draft이며 terminal 후보에서만 Ready/병합되는가?
+- [ ] `main`에 존재하는 릴리스 기록이 변경·삭제·이름 변경·대체·재검증되지 않았는가? 예외라면 게시된
+      nonterminal 복구의 진입 조건·exact 허용 집합·원격 tag/Release 부재·단일 terminalization을 모두 충족하는가?
+- [ ] 정정만을 위한 새 버전을 만들지 않았는가?
 
 ## 관련 문서
 

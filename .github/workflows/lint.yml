@@ -3,7 +3,7 @@ name: Docs Validation
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 permissions:
   contents: read
@@ -40,9 +40,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            mode=$(node scripts/release-validation-mode.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA")
+            mode=$(node scripts/release-validation-mode.mjs --base-ref "$BASE_SHA" --head-ref "$HEAD_SHA" --pr-draft "$PR_DRAFT")
           else
             mode=full
           fi

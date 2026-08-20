@@ -20,6 +20,7 @@ import {
   parseReleaseStatus,
   validateReleaseStatusGate,
 } from "./release-status-gate.mjs";
+import { isAllowedPublishedReleaseFinalization } from "./release-record-finalization.mjs";
 import {
   extractHeadingSection,
   extractRepoNames,
@@ -49,6 +50,7 @@ const forbiddenPatterns = [
   /이 문서가 포함된/,
 ];
 const errors = [];
+const publishedReleaseFinalizationPaths = new Set();
 let baseRef = null;
 try {
   baseRef = resolveBaseRef(process.argv.slice(2));
@@ -57,7 +59,11 @@ try {
 }
 
 if (baseRef) {
-  validatePublishedReleaseImmutability(baseRef, errors);
+  validatePublishedReleaseImmutability(
+    baseRef,
+    errors,
+    publishedReleaseFinalizationPaths,
+  );
 }
 
 if (fs.existsSync(releasesRoot)) {
@@ -68,7 +74,11 @@ if (fs.existsSync(releasesRoot)) {
 
     const tag = entry.name.replace(/\.md$/, "");
     const relativePath = path.posix.join("content", "releases", entry.name);
-    if (baseRef && gitObjectExists(`${baseRef}:${relativePath}`)) {
+    if (
+      baseRef &&
+      gitObjectExists(`${baseRef}:${relativePath}`) &&
+      !publishedReleaseFinalizationPaths.has(relativePath)
+    ) {
       continue;
     }
     const absolutePath = path.join(releasesRoot, entry.name);
@@ -490,7 +500,11 @@ function resolveBaseRef(argv) {
   return null;
 }
 
-function validatePublishedReleaseImmutability(baseRef, validationErrors) {
+function validatePublishedReleaseImmutability(
+  baseRef,
+  validationErrors,
+  finalizationPaths,
+) {
   const changedPaths = git([
     "diff",
     "--name-only",
@@ -505,9 +519,26 @@ function validatePublishedReleaseImmutability(baseRef, validationErrors) {
       releaseRecordPattern.test(releasePath) &&
       gitObjectExists(`${baseRef}:${releasePath}`)
     ) {
-      validationErrors.push(
-        `${releasePath}: a release record already present in the base ref is final and immutable; it cannot be modified, deleted, renamed, or replaced`,
-      );
+      const currentPath = path.join(docsRoot, releasePath);
+      const baseSource = git(["show", `${baseRef}:${releasePath}`]);
+      const currentSource = fs.existsSync(currentPath)
+        ? fs.readFileSync(currentPath, "utf8").trim()
+        : null;
+
+      if (
+        currentSource &&
+        isAllowedPublishedReleaseFinalization({
+          releasePath,
+          baseSource,
+          currentSource,
+        })
+      ) {
+        finalizationPaths.add(releasePath);
+      } else {
+        validationErrors.push(
+          `${releasePath}: a release record already present in the base ref is final and immutable; only a fail-closed pending docs finalization may modify it`,
+        );
+      }
     }
     const evidenceMatch = releasePath.match(dbMigrationEvidencePattern);
     if (!evidenceMatch) {

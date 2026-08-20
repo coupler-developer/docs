@@ -39,8 +39,8 @@
 
 ## 운영 상태 전이
 
-릴리스 기록은 열린 PR 안에서 운영 상태를 따라가고 terminal 최종본으로 한 번만 병합한다. 병합 뒤에는
-파일 전체가 불변이다.
+릴리스 기록은 열린 Draft PR 안에서 운영 상태를 따라가고 terminal 최종본으로 전환한 뒤 Ready 상태에서 한
+번만 병합한다. 병합 뒤에는 파일 전체가 불변이다.
 
 1. 열린 docs PR과 릴리스 기록에서 릴리스 기준점을 고정한다.
 2. 원격 기준점·기록 계약·품질 Gate를 통과한 뒤 포함 범위만 실행한다.
@@ -49,6 +49,8 @@
 4. 포함 범위의 운영 검증과 서비스 태그가 끝나면 같은 PR에서 최종 기록을 검증하고 한 번만 병합한다.
 5. 병합된 docs 기준점의 태그·Release·artifact는 postcheck한다. 실패나 사실 오류는 이슈·장애 기록에서
    추적하고, 실제 새 운영 반영이 없으면 정정용 릴리스 기록을 만들지 않는다.
+6. nonterminal 기록이 잘못 병합되면 태그를 만들지 않는다. [릴리스 프로세스](../../policy/release-process.md)의
+   `게시된 nonterminal 기록 복구` 진입 조건과 exact 수정 집합을 통과한 단일 terminalization PR로만 복구한다.
 
 ## 릴리스 계약과 실행 책임 경계
 
@@ -147,6 +149,7 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 1. `docs` tag push 전 Release Note preview를 생성한다.
 2. 릴리스 기록 연결, 사람이 읽는 mirror와 검증 근거를 확인한다.
 3. 상태 정책이 tag 생성을 허용하지 않으면 같은 PR의 기록만 갱신하고 Final Record Gate를 보류한다.
+   이미 nonterminal 상태로 병합됐다면 태그를 만들지 않고 게시된 nonterminal 복구 Gate로 전환한다.
 4. tag push 뒤 Release와 site artifact를 postcheck한다. 실패 또는 사실 오류가 있으면 기존 기록을 건드리지
    않고 이슈·장애 기록에서 후속 처리한다. 실제 새 운영 반영이 없으면 정정용 docs 버전을 만들지 않는다.
 
@@ -154,10 +157,12 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 1. 릴리스 기록에 실제 태그/SHA, 운영 반영 시각, 검증 결과, 롤백 기준을 반영한다.
 2. 미완료·대기·대체 범위가 있으면 상태 정책에 맞는 값과 근거를 남긴다.
-3. 릴리스 기록 validator로 base에 존재한 과거 파일의 경로·blob 불변성과 신규 현재 기록만 확인한다.
+3. 릴리스 기록 validator로 base에 존재한 terminal 파일의 경로·blob 불변성, 신규 현재 기록과 허용된 단일
+   nonterminal terminalization만 확인한다.
 4. 마지막 수정 이후 독립 리뷰에서 열린 Finding 0건을 기록하고 같은 후보의 전체 `yarn verify`를 통과한
    기록을 한 번 병합한다.
-5. 병합된 docs 기준점에 허용된 태그를 생성하고 Release workflow와 artifact를 postcheck한다.
+5. 태그 전용 validator로 병합된 기록의 전체 상태·docs scope·version mapping tag가 terminal/exact인지 확인한
+   뒤 허용된 태그를 생성하고 Release workflow와 artifact를 postcheck한다.
 
 ## 자동화 범위
 
