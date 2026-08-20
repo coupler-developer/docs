@@ -282,9 +282,10 @@ type CommentParentRef =
 ### 고정글 명명 경계
 
 - 제품·도메인·화면에서 사용하는 canonical 용어는 `고정글`, 코드 식별자는 `pinned`다.
-- 이미 배포된 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
-  Admin·Mobile 조회 응답의 `best`는 wire 호환 식별자로만 유지한다. 실제 저장 컬럼은
-  `t_lounge.pinned`다.
+- 지원 중인 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
+  Admin·Mobile 조회 응답의 `best`는 공개 wire 계약이다. 실제 저장 컬럼과 내부 canonical 식별자는
+  `t_lounge.pinned`다. `API cutover: No`인 동안 `best ↔ pinned` 변환은 임시 adapter가 아니라 공개 계약과
+  내부 모델을 잇는 정상 경계다.
 - Admin은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 목록·상세 generated DTO의 `best`를 화면
   `pinned` 상태로 한 번만 변환한다. 상세 draft와 DOM도 `pinned`만 사용하며, 저장 request를 만드는 같은
   경계에서만 `pinned`를 wire `best`로 직렬화한다. API는 controller 진입점에서 두 저장 요청의 `best`를 내부
@@ -295,8 +296,10 @@ type CommentParentRef =
   `best`를 함께 전송한다. 상세 저장은 `/admin/lounge/best`를 추가 호출하거나 저장 뒤 상세를 재조회하지
   않으며 type 40 알림을 만들지 않는다. 목록의 설정·해제는 기존 `/admin/lounge/best` 전용 명령과 알림
   동작을 유지한다.
-- 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 배포된 식별자를
-  실제로 제거하려면 별도 versioned contract cutover와 소비자 inventory를 먼저 승인한다.
+- 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 공개 계약 교체의
+  목표 시점과 완료 조건은 [라운지 `best` wire 호환 제거 대기](../technical-debt/technical-debt.md#35-best-wire-p1-l)에서 추적하고, 구현·검증은
+  [엔지니어링 가드레일](../policy/engineering-guardrails.md)과
+  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
 - `best` → `pinned` 물리 컬럼 rename은 기존 데이터를 보존하는 append-only migration으로 수행한다. 구 API
   바이너리는 rename 이후 동작할 수 없으므로 실제 DB 적용과 새 API 배포는 같은 점검 창에서 조정한다.
 
@@ -304,9 +307,9 @@ type CommentParentRef =
 
 - 이 변경의 장기 하위 호환 대상은 이미 설치된 구 Mobile bundle이다. Admin도 기존 상세 편집 동작과
   `best` request shape를 유지하지만 별도 장기 bundle 공존 대상으로 관리하지는 않는다.
-- 구·신 Mobile은 모두 기존 `/lounge/list`, `/lounge/myList`, `/lounge/detail` operation을 사용한다. API는 두
-  bundle에 계속 `best` 응답 필드를 제공하고 FCM type 숫자 `40`을 유지한다. 신 Mobile의 차이는 같은 값을
-  `📌`로 표시하는 것뿐이며 `pinned` wire alias를 요구하지 않는다.
+- 공개 계약 교체 전 지원 Mobile은 기존 `/lounge/list`, `/lounge/myList`, `/lounge/detail` operation의 `best`
+  응답 필드와 FCM type 숫자 `40`을 사용하며, 화면에서는 같은 고정 상태를 `📌`로 표시한다. release별 소비자
+  상태와 향후 `pinned` 공개 계약 전환은 위 기술부채와 릴리스 기록에서 추적한다.
 - `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
   메인 목록은 category `0`을 보내고, `/lounge/myList`의 category `1`은 내 활동 탭 구분값이므로 고정 필터와
   혼합하지 않는다.
