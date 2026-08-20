@@ -44,6 +44,7 @@
 | FCM 타입 | 필수 payload | 선택 payload |
 | --- | --- | --- |
 | `LOUNGE_NEW_COMMENT(38)` | `target: positive integer` | `count: non-negative integer`, `title: string` |
+| `LOUNGE_PINNED(40)` | `target: positive integer`, `event_id: lounge-pinned:<outbox ID>` | `title: string` |
 | `LOUNGE_LIKE(68)` | `target: positive integer`, `count: non-negative integer` | 없음 |
 
 #### 인연찾기 `custom_data` 계약
@@ -116,6 +117,22 @@
 - 대댓글 작성 시 최초 게시글 작성자에게 `LOUNGE_NEW_COMMENT(38)`을 함께 발송하지 않는다.
 - 내가 쓴 댓글에 내가 대댓글을 다는 경우에는 `LOUNGE_NEW_CHILD_COMMENT(39)`을 발송하지 않는다.
 - 댓글/대댓글 알림의 `target`은 라운지 게시글 ID로 고정한다.
+
+#### 라운지 고정글 알림 기준
+
+- `LOUNGE_PINNED(40)`은 게시글이 실제 `N → Y`로 전이할 때 작성자에게 생성한다. 이미 `Y`인 일반 중복
+  요청은 새 알림 세대를 만들지 않는다.
+- 전이와 알림 outbox intent는 같은 transaction에 저장한다. `t_alarm` 이력은 intent row lock 안에서 한 번만
+  연결한 뒤 OS FCM을 전송하므로 FCM 실패 재시도가 알림함 이력을 중복 생성하지 않는다.
+- API 요청은 intent 저장 후 worker를 깨우고 응답하며 외부 FCM 성공 여부에 의존하지 않는다. 각 API instance의
+  bounded worker는 시작 직후와 30초마다 retry index를 읽는다. 실패 intent는 마지막 시도 1분 뒤, 처리 중
+  instance가 종료된 intent는 5분 뒤 재선점하며 최대 시도 횟수는 최초 시도를 포함해 3회다.
+- type 40 worker는 provider rejection을 throw하는 strict FCM 경계를 사용한다. provider가 성공을 응답했지만
+  outbox 완료 기록 전에 process/DB가 실패한 경우에는 전달 여부를 원자적으로 판별할 수 없으므로
+  `at-least-once`를 선택해 재전송한다. `t_alarm`은 한 건만 유지하고 모든 재시도 payload에 같은 `event_id`를
+  넣는다. 이미 설치된 Mobile은 이 additive 값을 무시할 수 있으며 이 드문 ambiguous 구간의 OS 알림 중복
+  가능성은 유실 방지를 위해 허용한다.
+- `Y → N`은 알림을 만들지 않는다. 이후 다시 `N → Y`가 되면 별도 intent를 생성한다.
 
 ### 3) 저장/전송 일관성
 
