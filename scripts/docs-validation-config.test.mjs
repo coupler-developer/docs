@@ -413,11 +413,15 @@ test("lightweight release validation remains separate from the full runner", () 
         testingStrategy,
         /문서 민감 인프라 식별자 검증\(로컬·경량 CI\): `yarn validate:docs-sensitive`/,
     );
-    assert.match(workflow, /types: \[opened, synchronize, reopened\]/);
-    assert.doesNotMatch(
+    assert.match(
         workflow,
-        /ready_for_review|converted_to_draft|--draft/,
+        /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/,
     );
+    assert.match(
+        workflow,
+        /PR_DRAFT: \$\{\{ github\.event\.pull_request\.draft \}\}/,
+    );
+    assert.match(workflow, /--pr-draft "\$PR_DRAFT"/);
 });
 
 test("operator runbook bash blocks are syntactically executable", () => {

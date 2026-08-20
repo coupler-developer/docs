@@ -253,6 +253,11 @@
 - docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면
   `docs-structure`에서 민감 인프라 식별자, 신규 metadata와 과거 기록 불변성을 경량 검증한다. `released`/terminal 기록,
   일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
+- docs 레포: nonterminal 릴리스 기록을 포함한 PR은 Draft일 때만 검증을 통과한다. `ready_for_review`와
+  `converted_to_draft`에서도 검증을 다시 실행해 terminal 전 Ready/병합을 차단한다.
+- docs 레포: 게시된 pending 기록 복구는 다른 scope metadata/evidence와 비허용 본문 변경을 거부하는
+  fail-closed fixture, 정상 단일 terminalization fixture, terminal 재수정 거부 fixture를 유지한다. docs tag
+  readiness는 전체 상태·docs scope·version mapping tag의 terminal/exact fixture로 별도 검증한다.
 - docs 레포: `markdown-lint`와 `build-docs`는 validation mode와 무관하게 `docs-structure`와 동시에 시작한다.
   full mode의 공통 정적 검증 목록은 계속 `yarn validate:docs-static` 한 곳에서만 소유한다.
 - docs 레포: 같은 PR의 새 push가 이전 검증과 겹치면 `concurrency`로 이전 실행을 취소한다. 자동 검증은 PR

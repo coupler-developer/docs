@@ -38,12 +38,34 @@ describe("release validation mode", () => {
     });
   }
 
+  it("rejects a ready PR while a changed release record is nonterminal", () => {
+    const base = git(["rev-parse", "HEAD"]);
+    writeRecord("pending");
+    commitAll("pending release");
+
+    const result = runClassifier(base, { prDraft: false });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /pending release records must remain in a draft PR/);
+  });
+
+  it("allows a draft PR to validate a nonterminal release record", () => {
+    const base = git(["rev-parse", "HEAD"]);
+    writeRecord("pending");
+    commitAll("pending release");
+
+    const result = runClassifier(base, { prDraft: true });
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), "lightweight");
+  });
+
   it("uses full validation for a released record", () => {
     const base = git(["rev-parse", "HEAD"]);
     writeRecord("released");
     commitAll("released evidence");
 
-    const result = runClassifier(base);
+    const result = runClassifier(base, { prDraft: false });
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.equal(result.stdout.trim(), "full");
@@ -122,10 +144,14 @@ function writeRecord(status) {
   );
 }
 
-function runClassifier(base) {
+function runClassifier(base, { prDraft = null } = {}) {
+  const args = [classifier, "--base-ref", base, "--head-ref", "HEAD"];
+  if (prDraft !== null) {
+    args.push("--pr-draft", String(prDraft));
+  }
   return spawnSync(
     process.execPath,
-    [classifier, "--base-ref", base, "--head-ref", "HEAD"],
+    args,
     { cwd: repoRoot, encoding: "utf8" },
   );
 }

@@ -91,6 +91,8 @@
 - scope, exact commit, 검증 시나리오와 rollback 기준을 확정하고 현재 PR head에 적용된 필수 CI를 확인한 뒤
   전체 상태와 nonterminal `scopeResults`를 `pending`으로 전환한다. 전환을 push한 현재 PR head의 필수 CI
   성공을 다시 확인하기 전에는 preflight나 운영 실행을 시작하지 않는다.
+- `planned | pending | in_progress` 동안 PR은 Draft로 유지한다. 모든 scope와 전체 상태를 terminal로 닫고
+  독립 리뷰·최종 검증을 통과한 뒤에만 Ready로 전환해 병합한다.
 - `release-metadata`가 기계 판정 SoT이고 본문은 사람이 읽는 mirror다. 두 표현의 범위·상태·버전 기준을 맞춘다.
 - terminal scope는 정책과 descriptor가 요구하는 concrete evidence로 닫는다. placeholder나 `N/A`로 완료
   증빙을 대신하지 않는다.
@@ -99,7 +101,8 @@
 - DB migration은 [DB Migration 실행 런북](../flows/cross-project/db-migration-operation-flow.md)에 따라 개발계와
   운영계에 사용한 동일한 마이그레이션 소스 커밋과 최종 pending 0건을 사람이 읽는 결과에 기록한다. 별도
   plan·execution artifact는 만들지 않는다.
-- `main`에 이미 병합된 릴리스 기록과 evidence는 수정·삭제·개명·대체하거나 현재 계약으로 재검증하지 않는다.
+- `main`에 이미 병합된 terminal 릴리스 기록과 evidence는 수정·삭제·개명·대체하거나 현재 계약으로 재검증하지
+  않는다. nonterminal 오병합은 릴리스 프로세스의 fail-closed 단일 terminalization만 사용한다.
 - 개인 사용자명·로컬 home/tmp 경로·secret을 기록하지 않는다. 변동 값에는 확인 시각과 timezone을 남긴다.
 - 최종 후보에서 `yarn release:preflight --pending-ref <40자 commit SHA>`와 적용 docs 품질 Gate를 실행한다.
 

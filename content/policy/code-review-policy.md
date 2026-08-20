@@ -155,6 +155,8 @@
 - [ ] 릴리스 태그 또는 스토어 제출 마커 태그 변경이 있으면 [릴리스 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리스 기록·자동화 변경이면 [릴리스 프로세스](release-process.md)의 적용 절과 체크리스트,
   공통 release schema/derived model, 전환 검증 결과를 확인
+- [ ] nonterminal 릴리스 기록 PR이 Draft인지, 게시된 nonterminal 복구라면 tag/Release 부재·docs-only 상태 전이·
+  비허용 metadata/evidence/body 불변·복구 뒤 재수정 차단·태그 readiness 증빙이 있는지 확인
 - [ ] 릴리스 schema·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
   같은 변경에서 검증되는지 확인
 - [ ] GitHub 원격 상태 또는 `gh` 인증을 확인했다면 아래 `GitHub 원격 상태 확인과 gh 인증 판정` 기준을 적용했는지 확인한다.

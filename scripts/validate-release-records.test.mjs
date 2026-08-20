@@ -372,6 +372,99 @@ describe("validate release records metadata sync", () => {
 
 describe("published release record immutability", () => {
 
+  it("allows one fail-closed docs finalization when a pending record was published", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /릴리스 기록 검증 통과/);
+  });
+
+  it("rejects a published pending finalization that changes non-docs evidence", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+    rewriteReleaseMetadata((metadata) => {
+      metadata.scopeResults["db-migration"].summary = "rewritten DB evidence";
+    });
+
+    assertImmutableReleaseFailure(runValidator(baseRef));
+  });
+
+  it("rejects semantic-only metadata reordering during published finalization", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+    const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+    const source = fs.readFileSync(releasePath, "utf8");
+    fs.writeFileSync(
+      releasePath,
+      source.replace(
+        '  "schema": "release-metadata/v3",\n  "version": "v9.9.0",',
+        '  "version": "v9.9.0",\n  "schema": "release-metadata/v3",',
+      ),
+    );
+
+    assertImmutableReleaseFailure(runValidator(baseRef));
+  });
+
+  it("rejects duplicate or missing allowed mirror bullets", () => {
+    for (const operation of ["duplicate", "missing"]) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-release-records-"));
+      initGitRepository();
+      const baseRef = writePublishedPendingDocsFinalizationBase();
+      finalizePublishedDocsRecord();
+      const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+      const source = fs.readFileSync(releasePath, "utf8");
+      const changedSource = operation === "duplicate"
+        ? source.replace(
+          "- 전체 상태: `released`",
+          "- 전체 상태: `released`\n- 전체 상태: `released`",
+        )
+        : source
+          .split("\n")
+          .filter((line) => !line.startsWith("- 완료 범위:"))
+          .join("\n");
+      fs.writeFileSync(releasePath, changedSource);
+
+      assertImmutableReleaseFailure(runValidator(baseRef));
+    }
+  });
+
+  it("rejects a published pending finalization that rewrites an unrelated section", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+    const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+    const source = fs.readFileSync(releasePath, "utf8");
+    fs.writeFileSync(
+      releasePath,
+      source.replace("- API contract cutover 검증 테스트 기록", "- rewritten purpose"),
+    );
+
+    assertImmutableReleaseFailure(runValidator(baseRef));
+  });
+
+  it("rejects any second edit after the published record is terminalized", () => {
+    initGitRepository();
+    writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+    commitAll("terminalize published release");
+    const terminalBaseRef = git(["rev-parse", "HEAD"]);
+    const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+    const source = fs.readFileSync(releasePath, "utf8");
+    fs.writeFileSync(
+      releasePath,
+      source.replace("- 현재 결과: `released`", "- 현재 결과: rewritten"),
+    );
+
+    assertImmutableReleaseFailure(runValidator(terminalBaseRef));
+  });
+
   it("rejects same-PR DB artifacts when the new release record omits the DB scope", () => {
     initGitRepository();
     fs.writeFileSync(path.join(tempRoot, "README.md"), "checkpoint baseline\n");
@@ -648,6 +741,88 @@ function assertImmutableReleaseFailure(result) {
   assert.match(
     result.stderr,
     /a release record already present in the base ref is final and immutable/,
+  );
+}
+
+function writePublishedPendingDocsFinalizationBase() {
+  writeReleaseRecord({
+    releaseStatus: "pending",
+    apiContractCutover: null,
+    includeCutoverGate: false,
+    metadataReleaseScopes: ["docs", "db-migration"],
+    metadataScopeResults: {
+      docs: {
+        status: "pending",
+        summary: "docs final record pending",
+        evidence: {},
+      },
+      "db-migration": {
+        status: "released",
+        summary: "DB migration released",
+        evidence: {},
+      },
+    },
+    markdownDocsCommit: "N/A",
+    pendingScopeLine: "docs final record merge",
+    scopeTargetLine: "`docs`, `coupler-api`",
+    verificationNote: "DB migration source verified",
+  });
+  rewriteReleaseMetadata((metadata) => {
+    metadata.versionMapping.docs.tag = "v9.9.0";
+    metadata.versionMapping.docs.commit = null;
+  });
+  const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+  const source = fs.readFileSync(releasePath, "utf8");
+  fs.writeFileSync(
+    releasePath,
+    source
+      .replace(
+        "- `docs`: 기록 버전 `v9.9.0`, 태그 `미생성`, 커밋 `N/A`",
+        "- `docs`: 기록 버전 `v9.9.0`, 태그 `v9.9.0`, 커밋 `N/A`",
+      )
+      .replace("- 아직 릴리스 전이다.", "- 현재 결과: `pending`")
+      .replace(
+        "## 관련 문서",
+        "## 후속 작업\n\n- 남은 범위: docs final tag postcheck\n\n## 관련 문서",
+      ),
+  );
+  commitAll("published pending release");
+  return git(["rev-parse", "HEAD"]);
+}
+
+function finalizePublishedDocsRecord() {
+  rewriteReleaseMetadata((metadata) => {
+    metadata.status = "released";
+    metadata.scopeResults.docs.status = "released";
+    metadata.scopeResults.docs.summary = "docs final record fixed";
+  });
+  const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+  const source = fs.readFileSync(releasePath, "utf8");
+  fs.writeFileSync(
+    releasePath,
+    source
+      .replace("- 전체 상태: `pending`", "- 전체 상태: `released`")
+      .replace("- 대기 범위: docs final record merge", "- 대기 범위: N/A")
+      .replace(
+        "- 현재 결과: `pending`",
+        "- 현재 결과: `released`\n- 기록 복구: published pending record terminalized",
+      ),
+  );
+}
+
+function rewriteReleaseMetadata(mutator) {
+  const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+  const source = fs.readFileSync(releasePath, "utf8");
+  const parseErrors = [];
+  const metadata = parseReleaseMetadataBlock(source, "v9.9.0", parseErrors);
+  assert.deepEqual(parseErrors, []);
+  mutator(metadata);
+  fs.writeFileSync(
+    releasePath,
+    source.replace(
+      /^```release-metadata\s*\n[\s\S]*?\n```$/m,
+      `\`\`\`release-metadata\n${JSON.stringify(metadata, null, 2)}\n\`\`\``,
+    ),
   );
 }
 
