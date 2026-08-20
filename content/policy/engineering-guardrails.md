@@ -10,10 +10,13 @@
 ## 목적
 
 - 코드와 문서가 같은 기술 기준으로 안전하게 갱신되도록 SoT, 검증, 기술 책임 경계를 고정한다.
+- 코드 변경 전에 관련 실패의 발생 가능성이나 피해 범위를 줄이는 기존 통제를 확인하고, 필요한 통제가 없으면
+  구현 계획과 범위를 먼저 결정하도록 한다.
 
 ## 적용 범위
 
 - API/Mobile/Admin의 공통 Fail-closed, 책임 분리, 구조 단순화, 상태별 안전 이행 원칙
+- 모든 코드 변경의 구현 전 예방·영향 제한 통제 baseline 판정
 - 코드와 문서 변경의 상위 기술 완료 기준
 - API 응답·에러·계약 package, DB migration, 테스트, 리뷰 운영의 세부 계약은 아래 범위별 단일 SoT에 위임한다.
 - 도메인 상태 전이와 비즈니스 규칙은 각 도메인 policy/FSM을 우선하며 이 문서에서 중복 정의하지 않는다.
@@ -22,7 +25,7 @@
 
 | 판정 책임 | 단일 SoT | 이 문서의 역할 |
 | --- | --- | --- |
-| 공통 Fail-closed, 책임 분리, 구조 단순화, API 계약 하위 호환·cutover, DB append-only migration, Shadow Cutover | 이 문서 | 최종 규칙 |
+| 공통 Fail-closed, 책임 분리, 구조 단순화, 코드 변경 전 예방·영향 제한 통제 baseline, API 계약 하위 호환·cutover, DB append-only migration, Shadow Cutover | 이 문서 | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
 | 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
@@ -148,6 +151,8 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 - 전이 검증: API는 release-scoped 소비자 inventory와 `API cutover` case, DB는 append-only source와
   개발·운영 exact source commit 및 pending 판정 누락 0건
 - 안전성 검증: 조용한 실패(핵심 원칙 정의) 0건
+- 예방 통제 검증: 변경되는 호출·데이터·상태 경로와 직접 영향 운영 경계의 baseline 미판정, 근거 없는 `N/A`,
+  미해결 구현 계획 결정 0건
 - 추적성 검증: 변경 근거 문서/이슈/로그 링크 누락 0건
 
 - 리뷰 대상 범위에서 finding이 1건이라도 있으면 완료로 간주하지 않는다.
@@ -232,6 +237,8 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 - 분류 체계가 단일 축으로 설명된다. 같은 이름이 도메인, 제품면, 상태, 동작을 동시에 뜻하지 않는다.
 - fallback/normalize로 계약 위반을 숨기지 않고 실패가 명시적으로 드러난다.
 - 레거시/호환 경로는 필수 요구사항의 호환 장치 통제 원칙을 충족한다.
+- 변경 영향 경로별 예방·영향 제한 통제 baseline이 폐쇄됐고, `신설 필요` 통제는 사용자와 결정한 구현 계획 및
+  최종 구현 경로가 기록돼 있다.
 - 회귀 안전성 게이트 기준으로 회귀/기준 변경/정책 위반/기존 부채/호환 예외/스펙 공백을 분류하고 필요한 검증 증빙을 남긴다.
 - 관련 문서(FSM/API 스펙/가드레일)와 코드가 같은 결론을 가리킨다.
 - 변경 레포 기준 [테스트/CI 전략](testing-strategy.md)의 표준 품질 게이트를 검증한다.
@@ -482,6 +489,24 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - 기존 패턴과 충돌하는 새 구조/유틸/상태 모델을 추가하기 전에는 재사용 가능한 기존 기준을 먼저 확인한다
 - lint/CI 통과를 merge 조건으로 둔다.
     - docs 검증과 문서 동기화 기준은 [테스트/CI 전략](testing-strategy.md)과 [문서 거버넌스 정책](document-governance-policy.md)을 따른다.
+
+### 구현 전 예방·영향 제한 통제 baseline
+
+- 모든 코드 변경은 첫 코드 수정 전에 적용 정책·계약/FSM·구체적 failure mode·위험도를 기준으로 필요한 예방·영향
+  제한 통제를 판정한다. 탐색 범위는 변경되는 호출·데이터·상태 경로와 직접 영향 운영 경계로 제한하며, 여러
+  failure mode가 있으면 각각 판정한다. 동작·계약·상태·데이터·운영 영향이 없는 `Low` 변경은 근거 있는
+  `N/A`로 닫는다.
+- 예방·영향 제한 통제는 failure mode의 발생 가능성 또는 피해 범위를 코드·데이터·운영 경계에서 줄이는
+  validation, transaction, constraint, lock, idempotency, outbox/retry, compatibility/cutover,
+  rollback/disable 경계다. 테스트·로그·리뷰는 통제의 존재와 효과를 확인하는 증빙이며 그 자체만으로 예방
+  통제가 존재한다고 판정하지 않는다.
+- 각 failure mode의 baseline 결과는 `기존 통제 경로+재사용`, `신설 필요`, `N/A+근거` 중 하나로 기록한다.
+  `신설 필요`는 구현 뒤 최종 통제 경로와 검증 근거까지 연결한다.
+- `신설 필요`이면 코드를 수정하기 전에 정책을 준수하는 통제안·대안·범위와 운영 영향을 사용자에게 제시해
+  구현 계획 또는 작업 범위를 결정한다. 이 결정은 새 권한 종류가 아니며 정책의 필수 통제를 단순 위험 수락으로
+  면제할 수 없다. 새 권한·외부 작업·의미 있는 범위 확대가 필요하면 [에이전트 운영 규칙](../AGENTS.md)의
+  범위·권한 Gate를 별도로 적용한다.
+- `기존 통제 경로+재사용` 또는 근거 있는 `N/A`에는 예방 통제 부재를 전제로 한 사용자 결정을 요구하지 않는다.
 
 ### 외부 의존성 변경 사전 검토
 
