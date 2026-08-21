@@ -25,6 +25,8 @@
   사진 공개를 제외한 필드와 행사·신청 마감 일시를 변경할 수 있고, OPEN에서 신청 접수 중일 때만 참가비·사진
   공개도 변경할 수 있다. FINISHED·CANCELED·DELETED에서는 수정할 수 없다. Mobile 호스트는 DRAFT에서만
   수정할 수 있으며 상태 변경은 두 주체 모두 별도 전이 명령으로만 수행한다.
+- 일반 클럽매니저는 신청이 없는 자신 소유 DRAFT만 정상 삭제할 수 있다. Super Admin은 필수 사유와 version을
+  받아 `DELETED`가 아닌 행사를 `DELETED`로 강제 전이할 수 있다. 두 삭제 모두 행과 종속 이력을 보존한다.
 - 남녀 정원은 각각 최소 2명이고 합계는 최대 20명이다. 반대 성별 최소값에서 파생되는 성별별 최대는
   18명이며 `10+10`, `18+2`, `7+5`를 허용하고 `11+10`은 거절한다.
 - 모집 마감에는 승인 인원 조건이 없다. 신청 수는 신청 접수가 가능한 동안 제한하지 않고 Admin 승인 시에만 성별 정원을
@@ -183,7 +185,7 @@ flowchart LR
 | 3 | CONFIRMED | 모집 마감 표시, 최초 진입 시 채팅 초기화 |
 | 4 | FINISHED | 행사 종료, 후기 가능 |
 | -1 | CANCELED | 행사 취소 |
-| -2 | DELETED | 공개 전 삭제 |
+| -2 | DELETED | 작성 중 정상 삭제 또는 Super Admin 강제삭제, Mobile 목록 제외 |
 
 Admin에서 `POST /admin/group-meetings/{event_id}/confirm`을 실행하는 버튼과 `CONFIRMED(3)` 상태·감사 이력의
 한국어 노출명은 모두 `모집 마감`이다. `CONFIRMED`, `EVENT_CONFIRMED`, `/confirm`은 배포된 기술 식별자로
@@ -193,6 +195,8 @@ Admin에서 `POST /admin/group-meetings/{event_id}/confirm`을 실행하는 버�
 `OPEN <-> CONFIRMED`로 전환할 수 있다. DRAFT는 DELETED, OPEN·CONFIRMED는 CANCELED로 종료할 수 있고,
 채팅이 초기화된 활성 상태는 행사 시작 +24시간에
 FINISHED가 된다. CONFIRMED 전 승인 인원 조건은 없다.
+일반 클럽매니저의 삭제는 신청이 없는 자신 소유 DRAFT에서만 `EVENT_DELETED`를 기록한다. Super Admin의
+강제삭제는 `DELETED`가 아닌 모든 상태에서 `EVENT_FORCE_DELETED`를 기록하며 hard delete하지 않는다.
 
 `OPEN`은 행사의 공개 활성 생명주기만 뜻하며 그 자체로 신청 접수 중임을 뜻하지 않는다. 실제 신청 접수 가능
 여부인 `application_is_open`은 `OPEN` 여부, `application_close_at`, 명시적 재개 marker를 함께 사용해 계산한다.
@@ -287,6 +291,9 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
 
 - 행사, 신청, 참여, 후기, 신고, 행위 이력은 hard delete하지 않는다. 실패·교체된 이미지 버전과 조각만
   media cleanup 정책에 따라 정리할 수 있다.
+- Super Admin 강제삭제도 행사와 신청·채팅·후기·신고를 그대로 보존하고 같은 transaction에 행위자·대상·
+  이전/이후 상태·필수 사유를 기록한다. `DELETED` 행사는 감사와 운영 확인을 위해 CMS 목록·상세에는 남기고,
+  Mobile의 전체·주최·참여 행사 목록과 전체 채팅 목록에서는 제외한다.
 - 그룹 채팅은 게시글 댓글 도메인이 아니다. Admin은 `USER` 메시지만 삭제할 수 있고 row를 지우지 않고 상태를
   `ADMIN_DELETED`로 바꾸며 조회 DTO는 content를 `삭제된 메시지입니다.`로 반환한다. 삭제 actor와 reason은
   같은 transaction의 행위 이력에 남긴다. `SYSTEM` 메시지는 상태 전이 이력이므로 삭제하지 않는다. 따라서
@@ -335,6 +342,9 @@ unread 절을 따른다.
   응답 cast, normalize, 호환 adapter를 두지 않는다.
 - Admin request boundary는 operation metadata에 따라 path parameter를 인코딩하고 multipart body를
   `FormData`로 직렬화한 뒤 strict envelope의 `ok`를 분기한다. 이는 전송 책임이며 DTO 변환 계층이 아니다.
+- `POST /admin/group-meetings/{event_id}/delete`는 같은 reason·version 요청과 상세 응답 계약 안에서 역할별
+  명령을 판정한다. 일반 클럽매니저는 신청이 없는 자신 소유 DRAFT를 정상 삭제하고, Super Admin은
+  `DELETED`가 아닌 모든 상태를 강제삭제한다. 서버는 두 행위를 서로 다른 감사 action으로 기록한다.
 - Admin이 사용하는 호스트 식별자는 매니저 관리의 로그인 ID인 `manager_user_id`다. 내부 연결·Admin·회원의
   숫자 PK는 요청 입력이나 운영자용 호스트 식별자로 노출하지 않는다.
 - Super Admin은 `manager_user_id`와 모바일 회원 이메일을 정확히 조회해 최초 호스트 연결을 만든다. 행사
@@ -348,7 +358,8 @@ unread 절을 따른다.
   현재 상태 기준으로 `OPEN` 모집 중, `CONFIRMED` 모집 마감, `FINISHED`·`CANCELED` 순서로 묶는다.
   `OPEN`·`CONFIRMED` 묶음은 가까운 행사 일시(`event_at ASC`) 순으로, `FINISHED`·`CANCELED` 묶음은
   최근 행사 일시(`event_at DESC`) 순으로 정렬한다. 같은 행사 일시 안에서는 최근 생성글(`created_at DESC`,
-  `id DESC`)을 먼저 노출한다. 직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
+  `id DESC`)을 먼저 노출한다. `DELETED`는 전체·주최·참여 행사 목록과 전체 채팅 목록에서 반환하지 않는다.
+  직접 URL 상세도 호스트·신청자·같은 클럽 회원이 아니면 노출하지 않는다.
 - 채팅방 진입은 `GET /group-meetings/{event_id}/chat` 한 건으로 행사, 호출자 `self`, 승인 구성원
   `members`와 익명 공개 프로필, 최초 메시지 page, 종료 후기 상태, 읽기 전용 여부를 구조화해 반환한다.
   `chat_member_id`는 내 메시지 판별과 신고 대상, 참가자의 `application_id`는 기존 앱의 무료 프로필 조회
@@ -412,6 +423,9 @@ unread 절을 따른다.
   별도 사건으로 보존하며 각 신고를 독립적으로 처리·기각한다.
 - 일반 클럽매니저 화면은 자신이 소유한 행사만 조회·변경하고, Super Admin 화면은 최초 호스트 연결과 전체
   운영 기능을 제공한다. 서버의 실제 허용 범위는 보안/접근통제 정책과 operation 인가 결과를 따른다.
+- 일반 클럽매니저 상세에는 신청이 없는 DRAFT의 `삭제`만 노출한다. Super Admin 상세에는 `DELETED`가 아닌
+  모든 상태에서 필수 사유를 받는 `강제삭제`를 노출하며, 완료 뒤에도 삭제 상태의 목록·상세와 감사 이력을
+  운영 확인용으로 유지한다.
 - 모임 만들기와 기존 모임 수정은 별도 중첩 모달 없이 같은 `미팅정보` 폼을 사용한다. 일반 클럽매니저의
   목록·상세·생성 화면에서는 내부 모임 ID와 매니저 ID를 숨기고 로그인 계정을 주최자로 자동 사용한다.
   Super Admin은 목록·상세에서 두 ID를 보고 검색할 수 있으며, 생성할 때 유효한 기존 호스트 연결 목록에서
