@@ -313,23 +313,11 @@ type CommentParentRef =
 - `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
   메인 목록은 category `0`을 보내고, `/lounge/myList`의 category `1`은 내 활동 탭 구분값이므로 고정 필터와
   혼합하지 않는다.
-- `/lounge/list`의 정렬은 `LIMIT/OFFSET` 적용 전에 정상 상태 고정글, 최근 `N -> Y` 전환,
-  게시글 `id` 최신순을 차례로 적용한다. 따라서 고정글은 페이지네이션 전체 순서에서 상단에
-  있고, 가장 나중에 고정된 글이 고정글 그룹의 맨 위에 있다. 작성자 삭제·신고삭제 tombstone은
-  `pinned` 값을 보존하더라도 상단 고정 대상이 아니며 일반 `id` 최신순에 위치한다.
-- private `t_lounge.pinned_at`은 고정 순서의 SoT다. Admin 상세 `/admin/lounge/save`와 목록
-  `/admin/lounge/best`는 실제 `N -> Y`일 때만 같은 원자적 게시글 update에서 시각을 갱신하고,
-  `Y -> Y`는 기존 시각을 보존하며 `Y -> N`은 시각을 `NULL`로 초기화한다. 이 시각은 public DTO에
-  노출하지 않는다.
-- `pinned_at` 도입 시 기존 `pinned = 'Y'` 행은 하나의 migration baseline 시각으로 묶고 `id`로
-  순서를 결정한다. 기록이 없는 과거 고정 시각을 생성일이나 알림 시각으로 추정하지 않는다.
-- 이 DB 변경은 추가형이며 public request/response shape를 바꾸지 않아 `API cutover: No`다. 구 API +
-  신 DB에서 Mobile·일반 API 트래픽과 `pinned` 불변 write는 호환되지만, 구 API의 CMS
-  `/admin/lounge/save`·`/admin/lounge/best` 고정 상태 전이는 `pinned_at`을 갱신하지 못해 DB constraint가
-  해당 요청만 fail-closed한다. 전체 API를 중지하지 않고 migration 적용부터 새 API 재시작까지 두 CMS
-  operation의 고정 상태 변경만 하지 않는다. 새 API + 구 DB는 호환되지 않으므로 배포는 migration 적용 후
-  API 순서로 진행하고, 재시작 뒤
-  `pinned = 'Y' AND pinned_at IS NULL` 또는 `pinned = 'N' AND pinned_at IS NOT NULL`인 행이 0건인지 확인한다.
+- `/lounge/list`의 정렬은 `LIMIT/OFFSET` 적용 전에 정상 상태 고정글을 먼저 묶고, 고정글을 포함한
+  각 그룹 안에서는 게시글 `id` 최신순을 유지한다. 따라서 복수 고정글은 페이지네이션 전체 순서에서
+  상단에 있고 그중 가장 최근에 작성된 글이 맨 위에 있다. 작성자 삭제·신고삭제 tombstone은 `pinned`
+  값을 보존하더라도 상단 고정 대상이 아니며 일반 `id` 최신순에 위치한다. 별도 고정 시각 컬럼이나
+  migration은 사용하지 않는다.
 - 물리 컬럼 rename은 구·신 API 바이너리의 rolling coexistence를 지원하지 않는 maintenance cutover다. 운영
   적용 순서는 `API traffic drain/전체 instance stop → migration 적용 → 새 API 배포 → 구 Mobile 계약 smoke →
   traffic 재개`로 고정한다. smoke는 위 세 조회 operation의 `best` 필수 응답,
