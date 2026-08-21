@@ -313,6 +313,11 @@ type CommentParentRef =
 - `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
   메인 목록은 category `0`을 보내고, `/lounge/myList`의 category `1`은 내 활동 탭 구분값이므로 고정 필터와
   혼합하지 않는다.
+- `/lounge/list`의 정렬은 `LIMIT/OFFSET` 적용 전에 정상 상태 고정글을 먼저 묶고, 고정글을 포함한
+  각 그룹 안에서는 게시글 `id` 최신순을 유지한다. 따라서 복수 고정글은 페이지네이션 전체 순서에서
+  상단에 있고 그중 가장 최근에 작성된 글이 맨 위에 있다. 작성자 삭제·신고삭제 tombstone은 `pinned`
+  값을 보존하더라도 상단 고정 대상이 아니며 일반 `id` 최신순에 위치한다. 별도 고정 시각 컬럼이나
+  migration은 사용하지 않는다.
 - 물리 컬럼 rename은 구·신 API 바이너리의 rolling coexistence를 지원하지 않는 maintenance cutover다. 운영
   적용 순서는 `API traffic drain/전체 instance stop → migration 적용 → 새 API 배포 → 구 Mobile 계약 smoke →
   traffic 재개`로 고정한다. smoke는 위 세 조회 operation의 `best` 필수 응답,
