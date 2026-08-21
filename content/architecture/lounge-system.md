@@ -324,7 +324,12 @@ type CommentParentRef =
 - `pinned_at` 도입 시 기존 `pinned = 'Y'` 행은 하나의 migration baseline 시각으로 묶고 `id`로
   순서를 결정한다. 기록이 없는 과거 고정 시각을 생성일이나 알림 시각으로 추정하지 않는다.
 - 이 DB 변경은 추가형이며 public request/response shape를 바꾸지 않아 `API cutover: No`다. 구 API +
-  신 DB는 호환되고 신 API + 구 DB는 호환되지 않으므로, 배포는 migration 적용 후 API 순서로 진행한다.
+  신 DB에서 Mobile·일반 API 트래픽과 `pinned` 불변 write는 호환되지만, 구 API의 CMS
+  `/admin/lounge/save`·`/admin/lounge/best` 고정 상태 전이는 `pinned_at`을 갱신하지 못해 DB constraint가
+  해당 요청만 fail-closed한다. 전체 API를 중지하지 않고 migration 적용부터 새 API 재시작까지 두 CMS
+  operation의 고정 상태 변경만 하지 않는다. 새 API + 구 DB는 호환되지 않으므로 배포는 migration 적용 후
+  API 순서로 진행하고, 재시작 뒤
+  `pinned = 'Y' AND pinned_at IS NULL` 또는 `pinned = 'N' AND pinned_at IS NOT NULL`인 행이 0건인지 확인한다.
 - 물리 컬럼 rename은 구·신 API 바이너리의 rolling coexistence를 지원하지 않는 maintenance cutover다. 운영
   적용 순서는 `API traffic drain/전체 instance stop → migration 적용 → 새 API 배포 → 구 Mobile 계약 smoke →
   traffic 재개`로 고정한다. smoke는 위 세 조회 operation의 `best` 필수 응답,
