@@ -41,10 +41,12 @@
 - 릴리스 태그와 제출 마커 태그는 모두 **annotated tag**로 생성한다.
 - 릴리스 태그는 **해당 scope의 운영 반영 또는 출시와 검증이 완료된 기준점**에만 생성한다.
 - 표준 흐름의 `docs` 태그는 최종 릴리스 기록의 병합이 끝난 뒤 병합 커밋에 생성한다.
+- tag 전 preview에서 생성기/readiness 결함이 발견되면 릴리스 프로세스의 Docs Tag Preparation Fix만 병합할 수
+  있다. 이때 릴리스 기록 blob·허용 changed path·terminal metadata를 태그 전용 validator로 확인한 최신
+  `origin/main` Fix commit을 docs tag 대상으로 사용한다.
 - `planned`, `pending`, `in_progress` 상태에서는 docs 태그를 선행 생성하지 않는다. 열린 PR과 릴리스 기록을 제어판으로 사용한다.
 - nonterminal 릴리스 기록이 `main`에 잘못 병합돼도 docs 태그를 만들지 않는다. 릴리스 프로세스의 통제된
-  terminalization 복구가 병합된 경우 그 복구 커밋을 최종 기록 병합 커밋으로 사용하고, 태그 전용 validator가
-  전체 상태·docs scope·version mapping tag의 terminal/exact 일치를 확인해야 한다.
+  terminalization 복구가 병합된 뒤에도 바로 위 Docs Tag Preparation Fix 규칙을 동일하게 적용한다.
 - `docs` 태그가 서비스 레포 태그를 대체하지 않는다. 서비스 레포 태그는 각 레포의 실제 운영 반영/검증 완료 커밋에 별도로 생성한다.
 - 릴리스 기록에서 Mobile Store 승인/운영 출시를 통합 릴리스 완료 조건으로 잡은 경우, 해당 조건에 묶인 서비스 레포의 `vX.Y.Z` 태그는 gate 완료 후 생성한다.
 - Mobile Store gate와 독립적으로 완료되는 범위는 운영 반영/검증 완료 후 별도 태그를 생성할 수 있다.
@@ -112,7 +114,8 @@
 - [ ] 릴리스 태그가 `vMAJOR.MINOR.PATCH` 형식인가?
 - [ ] 태그가 annotated tag인가?
 - [ ] 릴리스 태그가 운영 반영과 검증이 완료된 커밋을 가리키는가?
-- [ ] docs 태그 후보가 terminal 기록 또는 통제된 nonterminal 복구의 최종 병합 커밋이며 태그 전용 validator를 통과했는가?
+- [ ] docs 태그 후보가 terminal 기록 병합 커밋 또는 통제된 Tag Preparation Fix의 최신 `origin/main`이며,
+      릴리스 기록 blob·허용 changed path·terminal metadata를 태그 전용 validator가 확인했는가?
 - [ ] 서비스 태그가 운영 postcheck의 바로 다음 Gate에서 생성됐고, 생성 직전 fresh
       `origin/main == DEPLOY_COMMIT`과 원격 peeled commit을 확인했는가?
 - [ ] Mobile Store 포함 시 제출한 각 platform에 `submitted/android-*` 또는 `submitted/ios-*` 마커와 해당

@@ -132,7 +132,10 @@ test "${REMOTE_COMMIT}" = "${DEPLOY_COMMIT}"
 
 ## Docs 릴리스 마감
 
-Final Record Gate에서 릴리스 기록 PR을 병합한 뒤 exact docs merge commit을 태깅한다.
+Final Record Gate에서 릴리스 기록 PR을 병합한 뒤 exact docs merge commit을 태깅한다. tag 전 preview에서
+생성기/readiness 결함을 발견해 정책상 허용된 Tag Preparation Fix를 병합했다면, 릴리스 기록을 바꾸지 않은
+최신 `origin/main` Fix commit을 `DOCS_COMMIT`으로 사용한다. 두 경우 모두 tag 전용 validator가 provenance와
+terminal metadata를 함께 확인한다.
 
 ```bash
 set -euo pipefail
@@ -142,6 +145,7 @@ set -euo pipefail
 [[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 
 cd docs
+REPO=coupler-developer/docs
 
 WORKTREE_STATUS="$(git status --porcelain)"
 test -z "${WORKTREE_STATUS}"
@@ -151,6 +155,9 @@ git rev-parse --verify "${DOCS_COMMIT}^{commit}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 LOCAL_TAG="$(git tag --list "${TAG}")"
 test -z "${LOCAL_TAG}"
+REMOTE_RELEASE_MATCH="$(gh api --paginate "repos/${REPO}/releases?per_page=100" \
+  --jq '.[] | select(.tag_name == "'"${TAG}"'") | [.id, .draft, .html_url] | @tsv')"
+test -z "${REMOTE_RELEASE_MATCH}"
 node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
 
 git checkout main
@@ -178,6 +185,7 @@ set -euo pipefail
 [[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 
 cd docs
+REPO=coupler-developer/docs
 WORKTREE_STATUS="$(git status --porcelain)"
 test -z "${WORKTREE_STATUS}"
 git fetch --no-tags origin main:refs/remotes/origin/main
@@ -185,6 +193,11 @@ git fetch --tags origin
 test "$(git rev-parse --verify "${DOCS_COMMIT}^{commit}")" = "${DOCS_COMMIT}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
+LOCAL_TAG="$(git tag --list "${TAG}")"
+test -z "${LOCAL_TAG}"
+REMOTE_RELEASE_MATCH="$(gh api --paginate "repos/${REPO}/releases?per_page=100" \
+  --jq '.[] | select(.tag_name == "'"${TAG}"'") | [.id, .draft, .html_url] | @tsv')"
+test -z "${REMOTE_RELEASE_MATCH}"
 node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
 
 yarn verify
