@@ -131,7 +131,17 @@ test("commit preview renders release-record links and the exact target commit", 
       "",
       "## 검증 근거",
       "",
-      "- verified",
+      "- verified against [tracked debt](../technical-debt/technical-debt.md#tracked)",
+      "",
+      "### Mobile 개발계 QA 빌드 기록",
+      "",
+      "개발계 QA 빌드가 있을 때만 기록한다. 운영 Store·NextPush·서비스 태그 증빙으로 사용하지 않는다.",
+      "",
+      "- 기록일:",
+      "- API 대상:",
+      "- iOS TestFlight QA 빌드:",
+      "- Android QA APK:",
+      "- 운영 릴리스 전 확인:",
       "",
       "## 롤백 기준",
       "",
@@ -153,6 +163,12 @@ test("commit preview renders release-record links and the exact target commit", 
   assert.match(preview.stdout, /- preview release\n  with a continued purpose line/);
   assert.match(preview.stdout, /- completed\n  with a continued status line/);
   assert.match(preview.stdout, /1\. deploy\n   with a continued deployment line/);
+  assert.match(
+    preview.stdout,
+    /https:\/\/github\.com\/coupler-developer\/docs\/blob\/v1\.1\.0\/content\/technical-debt\/technical-debt\.md#tracked/,
+  );
+  assert.doesNotMatch(preview.stdout, /\.\.\/technical-debt/);
+  assert.doesNotMatch(preview.stdout, /Mobile 개발계 QA 빌드 기록/);
 
   const missingTag = execute(
     "git",
@@ -160,4 +176,63 @@ test("commit preview renders release-record links and the exact target commit", 
     repository,
   );
   assert.equal(missingTag.status, 1);
+});
+
+test("release preview keeps nested optional mobile QA evidence", (context) => {
+  const repository = createRepository(context);
+  const releaseRecord = path.join(
+    repository,
+    "content",
+    "releases",
+    "v1.1.0.md",
+  );
+  fs.mkdirSync(path.dirname(releaseRecord), { recursive: true });
+  fs.writeFileSync(
+    releaseRecord,
+    [
+      "## 목적",
+      "",
+      "- preview release",
+      "",
+      "## 릴리스 상태",
+      "",
+      "- completed",
+      "",
+      "## 릴리스 결과",
+      "",
+      "- released",
+      "",
+      "## 메인 흐름",
+      "",
+      "1. deploy",
+      "",
+      "## 검증 근거",
+      "",
+      "- verified",
+      "",
+      "### Mobile 개발계 QA 빌드 기록",
+      "",
+      "개발계 QA 빌드가 있을 때만 기록한다. 운영 Store·NextPush·서비스 태그 증빙으로 사용하지 않는다.",
+      "",
+      "- 기록일:",
+      "- API 대상:",
+      "- iOS TestFlight QA 빌드:",
+      "- Android QA APK:",
+      "- 운영 릴리스 전 확인:",
+      "  - notification path verified",
+      "",
+      "## 롤백 기준",
+      "",
+      "- rollback target",
+      "",
+    ].join("\n"),
+  );
+  git(repository, "add", releaseRecord);
+  git(repository, "commit", "-m", "docs: add populated QA evidence");
+  const targetCommit = git(repository, "rev-parse", "HEAD");
+
+  const preview = generate(repository, "v1.1.0", targetCommit);
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.match(preview.stdout, /### Mobile 개발계 QA 빌드 기록/);
+  assert.match(preview.stdout, /  - notification path verified/);
 });
