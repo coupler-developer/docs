@@ -79,6 +79,69 @@ extract_markdown_section() {
   ' "${file_path}"
 }
 
+strip_empty_mobile_qa_section() {
+  awk '
+    function reset_qa() {
+      qa_buffer = ""
+      qa_placeholders = 0
+      qa_has_evidence = 0
+    }
+
+    function flush_qa() {
+      if (qa_placeholders != 5 || qa_has_evidence) {
+        printf "%s", qa_buffer
+      }
+      reset_qa()
+    }
+
+    $0 == "### Mobile 개발계 QA 빌드 기록" {
+      in_qa = 1
+      reset_qa()
+      qa_buffer = $0 ORS
+      next
+    }
+
+    in_qa && /^### / {
+      flush_qa()
+      in_qa = 0
+    }
+
+    in_qa {
+      qa_buffer = qa_buffer $0 ORS
+      if ($0 ~ /^- (기록일|API 대상|iOS TestFlight QA 빌드|Android QA APK|운영 릴리스 전 확인):[[:space:]]*$/) {
+        qa_placeholders += 1
+      } else if ($0 != "개발계 QA 빌드가 있을 때만 기록한다. 운영 Store·NextPush·서비스 태그 증빙으로 사용하지 않는다.") {
+        qa_has_evidence = 1
+      }
+      next
+    }
+
+    { print }
+
+    END {
+      if (in_qa) {
+        flush_qa()
+      }
+    }
+  '
+}
+
+rewrite_repository_relative_links() {
+  if [[ -z "${REPO_SLUG}" ]]; then
+    cat
+    return
+  fi
+
+  sed -E \
+    -e "s#\\]\\(\\.\\./\\.\\./#](https://github.com/${REPO_SLUG}/blob/${CURRENT_TAG}/#g" \
+    -e "s#\\]\\(\\.\\./#](https://github.com/${REPO_SLUG}/blob/${CURRENT_TAG}/content/#g" \
+    -e "s#\\]\\(\\./#](https://github.com/${REPO_SLUG}/blob/${CURRENT_TAG}/content/releases/#g"
+}
+
+render_release_record_markdown() {
+  strip_empty_mobile_qa_section | rewrite_repository_relative_links
+}
+
 print_release_record_items() {
   local section_title="$1"
   local max_items="$2"
@@ -92,7 +155,11 @@ print_release_record_items() {
     return
   fi
 
-  raw_section="$(extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" | sed '/^[[:space:]]*$/d')"
+  raw_section="$(
+    extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" \
+      | sed '/^[[:space:]]*$/d' \
+      | render_release_record_markdown
+  )"
   if [[ -z "${raw_section}" ]]; then
     echo "Release record section is missing or empty: ${section_title}" >&2
     exit 1
@@ -154,7 +221,11 @@ print_release_record_section() {
   fi
 
   local raw_section=""
-  raw_section="$(extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" | sed '/^[[:space:]]*$/d')"
+  raw_section="$(
+    extract_markdown_section "${RELEASE_RECORD_PATH}" "${section_title}" \
+      | sed '/^[[:space:]]*$/d' \
+      | render_release_record_markdown
+  )"
 
   if [[ -z "${raw_section}" ]]; then
     if [[ "${required}" == "required" ]]; then
