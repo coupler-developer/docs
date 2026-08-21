@@ -223,8 +223,25 @@
 - validator는 위 허용 집합 밖의 수정·삭제·개명·재복구를 fail-closed로 거부하고, 복구 후보 전체를 현행 schema와
   terminal evidence Gate로 다시 검증한다. 복구 PR은 terminal 후보이므로 Draft 강제 대상이 아니며 병합 뒤
   해당 파일은 일반 terminal 불변 규칙으로 돌아간다.
-- 복구 병합 커밋이 최종 docs tag 대상이다. 태그 전용 validator가 전체 상태·docs scope·version mapping tag의
-  `released`/exact 일치를 확인한 뒤에만 Release Note preview와 annotated tag 단계로 진행한다.
+- 복구 병합 커밋은 Final Record Gate commit이며, tag 전 준비 결함이 있으면 아래 Docs Tag Preparation Fix
+  규칙을 동일하게 적용한다.
+
+### Docs Tag Preparation Fix
+
+- Final Record Gate 뒤 tag 전 preview에서 Release Note 생성기 또는 tag-readiness 자체의 결함이 발견되면,
+  tag와 GitHub Release가 모두 없는 동안에만 **Tag Preparation Fix**를 후속 PR로 병합할 수 있다. 릴리스 기록
+  blob은 Final Record Gate commit과 byte-equivalent여야 하며, 변경 경로는 Release Note 생성기·그 테스트·
+  tag-readiness validator·그 테스트와 이 절차를 소유한 Release Process·Release Tag Policy·Docs 릴리스
+  마감 런북으로 닫는다.
+- Tag Preparation Fix가 없으면 Final Record Gate commit, 있으면 마지막 Fix가 병합된 최신 `origin/main`이 최종
+  docs tag 대상이다. 태그 전용 validator는 main의 first-parent 이력에서 최초 `released` Final Record Gate
+  commit을 고정하고, 그 뒤 모든 commit이 건드린 path의 합집합이 위 허용 집합과 정확히 일치하는지, 릴리스
+  기록이 다시 수정되지 않았는지와 전체 상태·docs scope·version mapping tag의 `released`/exact 일치를 함께
+  확인한다. 후보 preview 독립 리뷰와 전체 검증을 다시 통과하기 전에는 annotated tag 단계로 진행하지 않는다.
+- 이 Gate는 릴리스 사실·scope·일반 문서 내용을 다시 여는 수단이 아니다. 허용 경로 밖의 변경, 릴리스 기록
+  수정, tag 또는 Release 생성 뒤의 보정은 fail-closed로 거부하고 별도 후속 버전에서 처리한다.
+- Tag Preparation Fix 진입과 tag 생성 직전에는 원격 tag fetch뿐 아니라 GitHub Releases 목록 API로 같은 tag의
+  published·draft Release가 모두 0건인지 확인한다. 하나라도 있으면 Fix 병합이나 tag 생성을 진행하지 않는다.
 
 ## 태그 규칙
 
