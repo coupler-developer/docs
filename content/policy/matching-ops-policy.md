@@ -159,10 +159,12 @@
 
 - 일정 제안/역제안은 서버 검증을 단일 기준으로 사용한다.
 - 일정 제안은 최대 4회까지 가능하다.
-- 각 제안은 `4~7개` 날짜만 허용한다.
-- 모든 날짜는 중복 없이 미래 날짜여야 한다.
+- 각 제안은 `4~7개` 일정 후보만 허용한다.
+- 모든 일정 후보는 미래 날짜여야 하며, 같은 일시를 중복해서 제안할 수 없다.
 - 일정 후보 입력 형식은 `YYYY-MM-DD` 또는 `YYYY-MM-DD HH:mm:ss`만 허용한다.
-- 허용 범위 안의 `YYYY-MM-DD` 기준 같은 날짜가 2개 이상 들어오면 서버는 중복 날짜로 보고 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답을 반환한다.
+- 허용 범위 안의 일정 후보는 `YYYY-MM-DD HH:mm:ss` 기준으로 비교한다. 같은 날짜라도 시간이 다르면 서로
+  다른 후보로 허용하고, 정규화한 일시가 같으면 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답을 반환한다.
+  시간 없는 `YYYY-MM-DD` 입력은 해당 날짜의 `00:00:00`으로 비교한다.
 - 채팅방 내 일정 변경도 같은 날짜 입력 형식 검증을 사용하며, 허용 범위 밖 또는 계약 밖 형식은 `MATCHING_SCHEDULE_CHAT_INVALID_DATE` 실패 응답을 반환한다.
 - 제안 횟수별 허용 범위는 아래를 기준으로 사용한다.
 
@@ -173,7 +175,7 @@
 | 3차 | 내일 ~ 1차 제안일 + 14일 |
 | 4차 | 1차 제안일 + 15일 ~ 1차 제안일 + 25일 |
 
-- 허용 횟수, 날짜 개수, 중복, 범위 조건을 하나라도 위반하면 즉시 실패시킨다.
+- 허용 횟수, 일정 후보 개수, 동일 일시 중복, 범위 조건을 하나라도 위반하면 즉시 실패시킨다.
 - 4차 제안까지 합의되지 않으면 상태를 `SCHEDULE_NOT_SELECTED`로 종료하고 양측에 50% 환불을 적용한다.
 - 각 제안 이후 다음날 자정까지 응답이 없으면 `SCHEDULE_NO_REPLY` 또는 `SCHEDULE_ACCEPT_NO_REPLY`로 종료한다.
 - 예시 범위와 시퀀스 설명은 [매칭 일정 제안 알고리즘](../architecture/matching-schedule-algorithm.md)에 두되, 충돌 시 이 문서가 우선한다.
@@ -227,7 +229,10 @@
 
 - 전환 목표: 상세 문서는 예시, 시퀀스, 구조 설명만 유지하고 상태 값, 환불 규칙, 일정 판정의 원문 SoT는 이 문서에만 둔다.
 - 클럽매니저 매칭·예약 범위 전환 완료 조건: 서버가 표의 경로별 시작 회원·상대 후보 범위와 생성 계정별 예약 운영 범위를 적용하고, 공통 예약 설정·cron 발송을 유지하며, Admin의 전담매니저 컬럼·지역×등급 필터와 대상 범위 회귀 테스트가 함께 반영된 상태다.
-- 일정 검증 drift 제거 조건: `coupler-api/lib/matching-schedule-parser.ts`가 허용 범위와 계약 형식을 벗어난 날짜 후보, 허용 범위 안의 `YYYY-MM-DD` 기준 중복 날짜를 감지하고, `coupler-api/controller/app/v1/match.ts`의 `addSchedule`이 저장 전에 `MATCHING_SCHEDULE_INVALID_DATE` 또는 `MATCHING_SCHEDULE_DUPLICATE_DATE`로 실패시키며, parser/controller 테스트가 같은 결론을 검증한다.
+- 일정 검증 drift 제거 조건: `coupler-api/lib/matching-schedule-parser.ts`가 허용 범위와 계약 형식을 벗어난 일정
+  후보, 허용 범위 안의 동일 일시 중복을 감지하되 같은 날짜의 다른 시간은 허용하고,
+  `coupler-api/controller/app/v1/match.ts`의 `addSchedule`이 저장 전에 `MATCHING_SCHEDULE_INVALID_DATE` 또는
+  `MATCHING_SCHEDULE_DUPLICATE_DATE`로 실패시키며, parser/controller 테스트가 같은 결론을 검증한다.
 - 인연찾기 경로 완료 조건: 서버가 두 발송 방향의 상태·Key·출처·환불·노출 규칙을 적용하고, Mobile이
   방향별 알림을 해당 매칭 탭으로 연결하며, Admin이 최초 로그 상태로 방향을 표시하고 관련 회귀 테스트가
   함께 반영된 상태다.

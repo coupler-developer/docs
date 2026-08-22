@@ -9,12 +9,13 @@
 
 일정 제안/역제안 검증의 구조와 대표 흐름을 정리한 문서이다.
 
-정확한 허용 횟수, 날짜 개수, 범위 규칙의 원문 SoT는 [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
+정확한 허용 횟수, 일정 후보 개수, 범위 규칙의 원문 SoT는
+[매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 
 ## 검증 구조 요약
 
 - 서버는 제안 횟수에 따라 허용 날짜 창을 다르게 적용한다.
-- 각 제안은 날짜 범위와 날짜 개수를 함께 검증한다.
+- 각 제안은 날짜 범위와 일정 후보 개수를 함께 검증한다.
 - 이 문서는 분기 구조와 시퀀스를 설명하고, 실제 제한 값은 정책 문서를 기준으로 본다.
 
 ## 범위 검증 구조
@@ -26,17 +27,18 @@
 | `getMatchingScheduleSelectableDateRange` | 제안 횟수별 허용 날짜 범위 산출 |
 | `getMatchingScheduleCandidateValidation` | 입력 날짜 후보를 허용 범위 기준으로 유효/무효 분리 |
 | `parseMatchingScheduleCandidates` | 입력된 날짜 후보 중 유효 후보만 반환 |
-| `getMatchingScheduleDuplicateDates` | 허용 범위 안 후보에서 `YYYY-MM-DD` 기준 중복 날짜 산출 |
-| `getMatchingScheduleDayCountErrorCode` | 필터링된 후보가 허용 개수인지 판정 |
+| `getMatchingScheduleDuplicateDateTimes` | 허용 범위 안 후보에서 전체 일시 기준 중복 산출 |
+| `getMatchingScheduleCandidateCountErrorCode` | 필터링된 일정 후보가 허용 개수인지 판정 |
 
 ## 입력 검증 경계
 
 컨트롤러 경계는 `coupler-api/controller/app/v1/match.ts`의 `addSchedule` 흐름이다.
 실패 응답 계약은 [API 에러 계약 정책](../policy/api-error-contract-policy.md)을 따른다.
 
-- `addSchedule`은 parser 결과를 기준으로 중복 날짜와 허용 날짜 개수를 판정한다.
+- `addSchedule`은 parser 결과를 기준으로 동일 일시 중복과 허용 일정 후보 개수를 판정한다.
 - 범위 밖 날짜나 계약 밖 날짜 형식(`YYYY-MM-DD`, `YYYY-MM-DD HH:mm:ss` 외)이 하나라도 있으면 `MATCHING_SCHEDULE_INVALID_DATE` 실패 응답으로 거부한다.
-- 허용 범위 안의 중복 날짜는 제거하지 않고 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답으로 거부한다.
+- 허용 범위 안의 일정 후보는 전체 일시로 비교한다. 같은 날짜의 다른 시간은 허용하고 동일 일시는 제거하지
+  않은 채 `MATCHING_SCHEDULE_DUPLICATE_DATE` 실패 응답으로 거부한다.
 - 실제 최소/최대 허용 개수와 상태 전이 결과는 정책 문서를 따른다.
 
 ## 역제안 흐름
@@ -46,14 +48,14 @@ sequenceDiagram
     participant M as 남성
     participant F as 여성
 
-    M->>F: 1차 제안 (정책 기준 날짜 후보)
+    M->>F: 1차 제안 (정책 기준 일정 후보)
     Note over M,F: 범위: 정책 기준 1차 허용 범위
 
     alt 수락
         F->>M: 날짜 선택
         Note over M,F: OK_SCHEDULE (6)
     else 역제안
-        F->>M: 2차 제안 (정책 기준 날짜 후보)
+        F->>M: 2차 제안 (정책 기준 일정 후보)
         Note over M,F: 범위: 정책 기준 2차 허용 범위
 
         alt 수락
