@@ -32,11 +32,13 @@
 - 모집 마감에는 승인 인원 조건이 없다. 신청 수는 신청 접수가 가능한 동안 제한하지 않고 Admin 승인 시에만 성별 정원을
   검사한다.
 - 신청 자체에는 Key를 차감하지 않는다. 외부 입금 확인은 Admin의 참여 승인으로 표현한다.
-- 현재 그룹미팅 채팅의 공개 프로필 조회는 무료다. 현재 호스트와 승인 참가자는 본인을 포함한 현재 구성원의
-  익명 별칭과 현재 미니프로필 우선(미등록 시 관리자 지정 대표 프로필) 채팅 아바타를 볼 수 있다. 공개 프로필
-  카드는 관리자 지정 대표 프로필과 행사 사진 공개 범위의 승인 프로필 이미지를 사용하며, Key를 차감하거나
-  유료 열람 이력을 새로 만들지 않는다. 소개글은 소개글 심사가 승인된 회원에게만 포함하며, 승인 전에는
-  `null`을 반환한다.
+- 채팅 구성원 요약의 익명 별칭과 현재 미니프로필 우선(미등록 시 관리자 지정 대표 프로필) 아바타는 종료·취소
+  읽기 전용 이력에서도 대화 문맥으로 유지한다. 별도 전체 참가자 프로필 조회는 채팅이 초기화된 실효
+  `OPEN`·`CONFIRMED` 행사에서만 무료이며, `FINISHED`·`CANCELED`와 행사 시작 +24시간 경계를 지난 방에서는
+  허용하지 않는다. 신규 drawer의 매칭 ProfilePreview와 카드 동작은 실제 채팅 개방 경계 이후이면서
+  `photo_public=2`인 경우로 더 좁다. 공개 프로필 카드는 관리자 지정 대표 프로필과 행사 사진 공개 범위의 승인
+  프로필 이미지를 사용하며, Key를 차감하거나 유료 열람 이력을 새로 만들지 않는다. 소개글은 소개글 심사가
+  승인된 회원에게만 포함하며, 승인 전에는 `null`을 반환한다.
 - 서버 설정 16/18과 기존 프로필 열람 원장은 과거 유료 이력과 향후 정책 검토를 위해 보존한다. 향후 과금은
   설정값만 바꿔 현재 조회에 숨겨 적용하지 않고 가격·사용자 확인·멱등성이 있는 별도 동작 명령과 계약으로
   도입한다.
@@ -253,6 +255,11 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
 - 현재 무료 공개 프로필 조회는 read-only이며 회원 Key·Key 원장·프로필 유료 열람 이력을 쓰지 않는다.
   향후 유료 열람을 도입하면 회원 Key, 기존 Key 원장, 그룹미팅 연결을 별도 명시적 명령의 한 transaction에서
   반영하고 설정 누락이나 잘못된 부호를 fallback하지 않는다.
+- N:N 그룹미팅 출처 매칭카드는 사전 검사와 별도로 실제 생성 transaction에서 행사, 발송자·대상 신청과 채팅
+  principal, 요청한 대상 식별자를 잠그고 채팅 개방·실효 활성·현재 자격을 다시 확인한다. 실패하면 Key·매칭·
+  최초 로그를 모두 쓰지 않고, 수신 푸시는 transaction commit 뒤에만 시도한다. `free_send=true`의 0원 전달도
+  Mobile의 명시적 확인 뒤 호출하며 Key 잔액·원장은 변경하지 않는다. 상태·Key 규범은
+  [매칭 운영 정책](../policy/matching-ops-policy.md)을 따른다.
 - 후기 보상은 회원 Key, 기존 Key 원장, 그룹미팅 연결을 한 transaction에서 반영하며 설정 누락이나 잘못된
   부호는 fallback하지 않고 전체 transaction을 실패시킨다.
 - 알림은 원천 transaction commit 뒤 기존 `sendFCMPush()` 한 경로에서만 발송·저장한다. 그룹미팅 코드가
@@ -263,6 +270,10 @@ FINISHED 행사에서 현재 APPROVED 참가자가 최초 후기를 완료해도
   principal·구성원·메시지를 변경하지 않는다. 송신 가능 여부는 유효 행사 상태와 KST 기준 최신 행사 일시의
   전날 오후 1시 개방 경계, 참가자 자격은 신청 상태에서 매 요청 판정한다. FINISHED·CANCELED 채팅 이력은
   읽기 전용으로 유지한다.
+- 읽기 전용 채팅은 메시지와 미작성 후기 문맥만 보존한다. 구성원 요약 아바타는 과거 메시지 식별을 위해
+  남기지만 다른 구성원의 전체 프로필 열람과 그룹미팅 출처 매칭카드 사전 검사·전달은 허용하지 않는다.
+  기존 앱의 참가자 프로필 호환 경로는 채팅 초기화 뒤 실제 개방 전 조회 동작을 유지하되 실효
+  `OPEN`·`CONFIRMED`가 아니면 차단한다.
 - 채팅 메시지는 `USER`와 `SYSTEM`의 tagged union이다. `USER`만 채팅 구성원과 client idempotency key를
   가지며 Mobile 전송 API로 생성한다. `SYSTEM`은 sender 없이 서버 상태 전이와 연결된 action log를 원천으로
   같은 transaction에서 한 번만 생성한다.
@@ -366,6 +377,10 @@ unread 절을 따른다.
   호환 경로에만 사용한다. 실제 `member_id` 해석과 동일 행사 소속 검증은 API 내부 책임이며 Mobile DTO에
   노출하지 않는다. 과거 메시지 추가 page, 메시지 전송·읽음·신고·나가기는 증분 조회 또는 동작 명령으로
   분리한다.
+- `GET /group-meetings/{event_id}/chat/members/{chat_member_id}/profile`과 그룹미팅 출처 카드 사전 검사·전달은
+  실제 채팅 개방 중에만 허용한다. 기존 앱 호환용 참가자 프로필 operation은 채팅 초기화 뒤 개방 전 조회를
+  유지하지만 실효 `OPEN`·`CONFIRMED`에서만 허용한다. 두 프로필 operation 모두 종료·취소 이력 접근 권한을
+  전체 프로필 권한으로 확대하지 않는다.
 - 채팅방 응답의 `self.message_notification_enabled`가 현재 방 82 수신 선택을 제공한다.
   `PUT /group-meetings/{event_id}/chat/message-notification`은 strict boolean 하나로 현재 principal의 같은 값을
   교체하고 적용된 값을 반환한다. 별도 조회 API·audit table·optimistic version은 두지 않는다.
@@ -460,6 +475,7 @@ group-meeting 논리 ID는 운영 API·Admin·Mobile과 대상 DB에 반영된 �
 - [푸시알림 시스템](push-notification.md)
 - [관리자 권한 시스템](admin-permission.md)
 - [보안/접근통제 정책](../policy/security-access-control-policy.md)
+- [매칭 운영 정책](../policy/matching-ops-policy.md)
 - [결제 운영 정책](../policy/payment-ops-policy.md)
 - [푸시알림 운영 정책](../policy/push-notification-policy.md)
 - [데이터 거버넌스 정책](../policy/data-governance-policy.md)
