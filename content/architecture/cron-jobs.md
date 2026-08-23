@@ -180,19 +180,27 @@ GET /admin/cron/cleanupOldProfileVersions
 - `coupler-api/ops/cron/development.crontab`은 1분마다 단일 dispatcher를 실행하고, dispatcher가 `Asia/Seoul` 기준 due job을 manifest 순서대로 실행한다. 서로 다른 job도 같은 매칭·미팅 행을 변경할 수 있으므로 병렬 실행하지 않는다.
 - dispatcher는 loopback URL만 허용하고 `x-dev-cron-token` 비밀 헤더로 API에 인증한다. 토큰은 repository나 crontab에 넣지 않고 mode `600`의 `/etc/coupler-api/dev-cron.env`에서 API와 dispatcher가 함께 읽는다.
 - `flock`으로 이전 run이 끝나지 않은 동안 다음 dispatcher의 중복 실행을 막는다.
-- API는 handler가 반환한 작업이 끝날 때까지 job별 Run Registry lease를 유지한다. 같은 job의 중복 호출은 idempotent success와 `x-dev-cron-result: already-running`으로 건너뛰고, feeder는 active cron lease가 하나라도 있으면 apply claim을 시작하지 않는다.
-- cron fence 확인·lease 생성과 feeder claim·`applying`·`resetting` 전환은 같은 짧은 registry mutex 안에서 수행해 확인 직후 상대 작업이 진입하는 경쟁 조건을 차단한다.
+- API는 handler가 반환한 작업이 끝날 때까지 dev-data CLI와 같은 전역 MySQL advisory lock을 유지한다. lock을
+  획득하지 못하면 handler를 실행하지 않고 `x-dev-cron-result: maintenance`로 건너뛴다.
 - installer는 repository `.runtime`을 mode `700`, log·lock을 mode `600`으로 준비한다. dispatcher log는 10 MiB에서 최근 파일 하나로 회전한다.
 - 개발 cron 문맥에서는 `DEV_CRON_EXTERNAL_DELIVERY_ENABLED=false`를 기본값으로 사용해 FCM 외부 전송만 차단한다. 화면 검증에 필요한 `t_alarm`과 도메인 상태 변경은 유지한다.
 - `autoDeleteMember`, `cleanupOldProfileVersions`는 `DEV_CRON_DESTRUCTIVE_ENABLED=false`에서 scheduler 대상과 API handler 양쪽이 fail-closed한다.
 - `DEV_CRON_*` 설정은 production startup에서 거부한다. 운영 cron의 실행 방식과 환경은 이 개발계 설정으로 변경하지 않는다.
-- 개발 cron은 active namespace 소유권에서 합성 회원과 연결 meeting을 읽고 14개 job에 `REAL_ONLY` target policy를 적용한다. 정상 개발 데이터는 처리하고 합성 member·match·meeting·reservation·profile은 변경하지 않는다.
-- 합성 데이터가 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 idempotent success와 `x-dev-cron-result: maintenance`를 반환하고 dispatcher는 `SKIP`으로 기록한다. `applied`, `failed`, `cleanup_failed`에서는 cron을 멈추지 않고 합성 target만 제외한다.
-- registry 소유권이 없는 합성 root나 읽을 수 없는 registry는 handler 전에 fail-closed한다. 데이터 주입을 위해 crontab 전체를 직접 끄거나 소유권 실패를 `ALL_TARGETS`로 우회하지 않는다.
+- 합성 member root가 한 건이라도 존재하면 모든 개발 cron handler를 실행하지 않고 maintenance `SKIP`한다.
+  합성 target 소유권 graph나 job별 lease를 cron에 복제하지 않는다.
+- 합성 root가 없을 때만 정상 개발 데이터를 대상으로 handler를 실행한다. DB 연결·root 확인·lock 해제에 실패하면
+  성공이나 maintenance로 완화하지 않고 `CRON_DEV_DATA_FENCE_UNAVAILABLE`로 실패한다.
+- 공통 exact parser는 lock 결과를 number `0|1`, 합성 root count를 단일 row의 0 이상 number safe integer로만
+  허용한다. 문자열·boolean·null·array를 강제 변환하지 않는다. handler가 작성한 HTTP 응답은 메모리에 지연하고
+  advisory lock 해제가 number `1`로 성공한 뒤에만 실제 response로 내보낸다.
+- `GET_LOCK` query 실패나 malformed 결과로 소유 여부가 불명확한 connection은 pool에 반환하지 않고 파기한다.
+  정확한 `GET_LOCK=0`만 미소유 connection으로 반환한다.
+- advisory lock 해제 실패와 정확한 해제 뒤 pool 반환 실패는 모두 connection을 파기하고 fence 오류로 처리한다.
+  handler가 `undefined` 같은 non-Error로 reject해도 지연된 성공 응답은 재생하지 않는다.
 
 설치·검증·삭제성 작업의 일회성 실행과 rollback은 [개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다.
 
 ## 관련 문서
 
-- 공유 개발계 합성 데이터 유지 기간의 목표 cron fence 기준: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
+- 공유 개발계 합성 데이터 유지 기간의 cron 안전 기준: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
 - 개발계 cron 설치·검증·rollback: [개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)

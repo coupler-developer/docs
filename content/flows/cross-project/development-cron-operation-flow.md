@@ -22,10 +22,10 @@
 | `DEV_CRON_BASE_URL` | `http://127.0.0.1:3002` | 같은 EC2의 API만 호출 |
 | `DEV_CRON_EXTERNAL_DELIVERY_ENABLED` | `false` | cron 문맥의 실제 FCM 전송 차단 |
 | `DEV_CRON_DESTRUCTIVE_ENABLED` | `false` | 회원 자동삭제·오래된 프로필 삭제 차단 |
-| `DEV_DATA_CRON_FENCE_ENABLED` | `true` | 합성 target 제외와 변경 구간 maintenance `SKIP` 강제 |
-| `DEV_DATA_REGISTRY_DIR` | private 절대 경로 | feeder 소유권 index와 cron lease 공유 |
 
 개발 cron이 변경하는 DB 상태, 키 환불, 예약 매칭, 내부 알람 row는 실제 QA 대상이다. 외부 FCM만 차단된다고 해서 DB write가 dry-run이 되는 것은 아니다.
+API는 기존 DB configuration으로 dev-data CLI와 같은 전역 advisory lock을 사용하고, 합성 member root가 존재하는
+동안 모든 handler를 maintenance `SKIP`한다.
 
 ## 설치 전 확인
 
@@ -40,9 +40,7 @@
 ```sh
 PNPM_BIN="$(command -v pnpm)"
 DEV_CRON_TOKEN="$(openssl rand -hex 32)"
-DEV_DATA_REGISTRY_DIR=/home/projects/ritzy/.dev-data-registry
 sudo install -d -m 755 /etc/coupler-api
-install -d -m 700 "$DEV_DATA_REGISTRY_DIR"
 sudo install -m 600 -o "$USER" -g "$(id -gn)" /dev/null /etc/coupler-api/dev-cron.env
 printf '%s\n' \
   'NODE_ENV=development' \
@@ -51,8 +49,6 @@ printf '%s\n' \
   'DEV_CRON_BASE_URL=http://127.0.0.1:3002' \
   'DEV_CRON_EXTERNAL_DELIVERY_ENABLED=false' \
   'DEV_CRON_DESTRUCTIVE_ENABLED=false' \
-  'DEV_DATA_CRON_FENCE_ENABLED=true' \
-  "DEV_DATA_REGISTRY_DIR=$DEV_DATA_REGISTRY_DIR" \
   "PNPM_BIN=$PNPM_BIN" > /etc/coupler-api/dev-cron.env
 chmod 600 /etc/coupler-api/dev-cron.env
 ```
@@ -68,7 +64,6 @@ pnpm install --frozen-lockfile
 set -a
 . /etc/coupler-api/dev-cron.env
 set +a
-pnpm data-feed init-registry
 pm2 restart coupler-api --update-env
 pm2 save
 
@@ -77,7 +72,6 @@ crontab -l
 ```
 
 - installer는 기존 crontab을 보존하고 `BEGIN/END COUPLER DEVELOPMENT CRON` marker 구간만 원자적으로 교체한다.
-- `init-registry`는 DB를 열거나 변경하지 않고 private registry의 최초 directory와 빈 fence만 만든다. fence가 없는데 active record가 있으면 자동 복구하지 않고 중단한다.
 - `ops/cron/development.crontab`의 단일 1분 dispatcher와 `flock`만 설치한다.
 - endpoint별 cron 표현식은 `lib/development-cron-schedule.ts`가 소유한다.
 - installer는 `.runtime` directory를 mode `700`, log와 `flock` file을 mode `600`으로 만들고 symlink·비정규 파일이면 중단한다. log는 runner가 10 MiB에서 `.1` 하나로 회전한다.
@@ -99,11 +93,21 @@ pm2 logs coupler-api --lines 100 --nostream
 - cron 대상 내부 알람과 상태 전이는 생성되지만 Firebase 전송 성공 로그는 없다.
 - `DEV_CRON_DESTRUCTIVE_ENABLED=false`에서 두 삭제성 endpoint가 `CRON_DEVELOPMENT_DESTRUCTIVE_DISABLED`로 거부된다.
 - 같은 minute run이 겹치면 두 번째 dispatcher가 `flock`으로 실행되지 않는다.
-- 같은 job의 이전 handler가 아직 끝나지 않았으면 다음 호출은 idempotent success와 `x-dev-cron-result: already-running`을 반환하고 dispatcher는 `SKIP`으로 기록하며 DB query를 다시 시작하지 않는다.
-- active run이 `applied`이면 합성 target은 0건 변경되고 같은 조건의 정상 개발 target은 기존 도메인 규칙대로 변경된다.
-- active run이 `planning`, `applying`, `resetting`이거나 fenced `cleaned` finalization 대기 상태이면 `x-dev-cron-result: maintenance`를 반환하고 dispatcher는 실패가 아닌 `SKIP`으로 기록한다.
-- Run Registry 소유권이 없는 합성 member root를 발견하면 handler와 DB write를 시작하지 않고 `CRON_DEV_DATA_FENCE_UNAVAILABLE`로 실패한다.
-- dispatcher 요청은 최대 45초에 중단되지만, 서버 handler가 계속 실행 중이면 job lease는 실제 promise가 끝날 때까지 남아 다음 중복 호출과 feeder claim을 차단한다.
+- 다른 cron handler나 dev-data CLI가 전역 DB lock을 보유하면 `x-dev-cron-result: maintenance`를 반환하고
+  dispatcher는 `SKIP`으로 기록한다.
+- 합성 member root가 존재하면 정상 개발 target을 포함한 handler 전체를 시작하지 않고 maintenance `SKIP`한다.
+- 합성 root가 없으면 정상 개발 데이터를 기존 도메인 규칙대로 처리하고 handler promise가 끝날 때까지 lock을
+  유지한다.
+- handler의 status/header/body/end 호출은 lock 해제 성공 전까지 지연한다. 공통 exact parser가 lock의 number
+  `0|1`, root count의 0 이상 number safe integer 외 값을 거부한다. 결과가 malformed이거나 `RELEASE_LOCK`이
+  number `1`이 아니면 이미 성공 응답을 보낸 것으로 처리하지 않고 fence 오류로 실패한다.
+- `GET_LOCK` query 실패·malformed 결과는 lock 소유 여부 불명으로 보고 connection을 파기한다. 정확한 `0`일 때만
+  미소유 connection을 pool에 반환한다. 정확한 해제 뒤 pool 반환이 실패해도 connection을 파기하고 실패한다.
+- handler가 `undefined`를 포함한 어떤 값으로 reject해도 실패로 기록하며 지연한 성공 응답은 재생하지 않는다.
+- DB 연결, 합성 root 확인 또는 lock 해제가 실패하면 handler를 시작하지 않거나 성공으로 기록하지 않고
+  `CRON_DEV_DATA_FENCE_UNAVAILABLE`로 실패한다.
+- dispatcher 요청은 최대 45초에 중단되지만 서버 handler가 계속 실행 중이면 advisory lock은 실제 promise가
+  끝날 때까지 유지되어 다른 cron과 dev-data CLI의 DB 작업을 차단한다.
 
 ## 삭제성 작업 일회성 검증
 
@@ -130,18 +134,21 @@ crontab -l
 ## 공유 개발 데이터와의 관계
 
 - 평상시에는 개발 cron을 실행한다.
-- 합성 데이터 `apply` claim과 `applying`·`resetting` 전환은 shared registry mutex 안에서 active cron lease가 0건일 때만 시작한다. 실행 중인 cron이 있으면 DB write 전에 실패하므로 cron을 수동으로 끄고 주입하지 않는다.
-- `planning`, `applying`, `resetting`과 fenced `cleaned` finalization 대기 동안 cron은 maintenance `SKIP`이다. 상태가 `applied`, `failed`, `cleanup_failed`로 안정되면 다음 dispatcher부터 정상 개발 target 처리를 재개하고 합성 target만 제외한다.
-- 화면 검증과 유지 기간에는 cron을 전체 중지하지 않는다. 14개 job 각각에서 정상 개발 row의 기존 동작과 합성 row 0건 변경을 함께 검증한다.
-- reset과 registry finalization이 끝나 active 소유권이 제거되면 다음 dispatcher는 별도 target 제외 없이 정상 개발 데이터를 처리한다.
-- fence를 개발 cron 미설치 사유나 장기 중지 수단으로 사용하지 않는다.
+- cron handler와 dev-data `plan`/`verify`/`apply`/`reset`은 전역 DB advisory lock 하나로 직렬화한다.
+- 합성 member root가 존재하는 생성 완료·화면 검증·유지 기간에는 개발 cron 전체가 maintenance `SKIP`이다.
+- reset transaction과 asset cleanup이 끝나 합성 root가 0건이면 다음 dispatcher부터 정상 개발 데이터를 처리한다.
+- 화면 검증 중 정상 개발 row의 cron 처리도 필요하면 합성 dataset을 먼저 reset한다. 합성 target만 선택적으로
+  제외하는 ownership graph를 추가하지 않는다.
 
-## stale lease 복구
+## lock 실패 복구
 
-- `_cron_leases` file은 API process가 비정상 종료되면 남을 수 있으며 자동 만료하지 않는다. 임의 만료는 아직 실행 중인 DB 작업과 feeder를 겹치게 할 수 있기 때문이다.
-- 같은 job의 `SKIP` 또는 feeder claim 차단이 계속되면 scheduler를 먼저 remove하고 API를 재시작해 이전 handler가 종료됐음을 확정한다.
-- `fence.json`과 `active` record를 read-only로 확인해 합성 데이터 run이 없을 때만 해당 stale lease file 하나를 제거한다. 실행 여부나 소유권을 확인할 수 없으면 제거하지 않는다.
-- 복구 뒤 `plan` 또는 수동 cron job 하나로 registry 정합성을 확인한 다음 scheduler를 다시 install한다.
+- maintenance `SKIP`이 지속되면 실행 중인 dev-data CLI와 cron process가 있는지 확인한다.
+- DB 연결 또는 lock 해제 실패 응답이면 API DB pool과 DB session 상태를 확인하고, 해제 실패 connection이
+  파기됐는지 로그로 확인한다.
+- fence 실패 때 cron handler의 성공 body가 관측되었다고 간주하지 않는다. 응답 write는 lock 해제 뒤에만 발생한다.
+- lock table, lease file, registry mutex를 별도로 만들거나 advisory lock을 수동 해제하지 않는다.
+- 원인을 해소한 뒤 합성 root 유무에 따라 `pnpm data-feed verify --namespace <namespace>` 또는 수동 cron job
+  하나를 실행하고 scheduler를 재검증한다.
 
 ## 관련 문서
 
