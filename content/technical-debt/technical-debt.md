@@ -320,6 +320,24 @@
   endpoint·request/response 필드·adapter·projection이 0건인 상태로 계약·소비자·운영 smoke와 rollback 검증을
   통과한다. 역사적 사실을 보존하는 불변 release 기록과 migration 이력은 제거 대상에서 제외한다.
 
+## 36) App 매니저 관리 쓰기 API 회원 인가 미분리 `P1` `M`
+
+- 현상: `coupler-api`의 `POST /app/manager/save`와 `DELETE /app/manager/:id`는 Mobile 회원 JWT를 검증하는
+  `auth.private`와 회원 상태 차단만 적용한다. Controller는 로그인 회원과 요청의 매니저 ID 사이 권한 관계를
+  확인하지 않고 매니저 계정 생성·변경·삭제를 수행하며, 저장 범위에는 로그인 자격증명·필수 인증 설정과 상세
+  프로필 이미지 버전·외부 URL이 포함된다.
+- 영향: 일반 회원이 직접 API를 호출하면 Super Admin 전용 매니저 관리 범위를 우회해 비-Super 매니저 계정과
+  공개 프로필을 생성·변경하거나 삭제할 수 있고, 임의 외부 URL이 앱의 공개 상세 프로필로 노출될 수 있다.
+- 조치: [보안/접근통제 정책](../policy/security-access-control-policy.md)에 따라 Mobile 회원의 두 쓰기 operation을
+  서버에서 결정론적으로 거부하고 매니저 관리는 Super Admin 인가를 적용한 `/admin/manager` 경로로만 수렴한다.
+  지원 소비자 요청이 남아 있으면 [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
+  차단·제거 순서와 client rollback을 고정한 뒤 App route·Swagger·계약·소비 코드를 제거하며, 계정 변경·삭제의
+  actor·target·reason 감사 기록을 함께 적용한다.
+- 완료: 회원 JWT를 사용한 App 매니저 생성·변경·삭제의 DB mutation이 0건이고, Super Admin의 Admin 경로만
+  허용되며 일반 클럽매니저·일반 회원·미인증 요청이 모두 거부되는 회귀 테스트가 통과한다. App의 매니저 쓰기
+  route·Swagger·계약·소비 코드가 0건이고 공개 목록·상세 조회 계약은 유지되며, 감사 기록과 API·Admin·Mobile
+  적용 품질 게이트를 통과한 상태.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
