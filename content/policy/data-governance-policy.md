@@ -48,7 +48,8 @@
 - 단, backfill·cutover·contract의 데이터 보존 검증 때문에 운영 원문 `dump` 반입이 불가피할 때만 본 문서의
   `운영 원문 dump 로컬 반입 예외`를 따른다.
 - 로컬·개발계 화면 검증용 데이터는 운영 원문을 변형하지 않은 합성 데이터만 사용하며, 생성·식별·초기화 기준은 [테스트용 개발 데이터 정책](development-test-data-policy.md)을 따른다.
-- 개발 데이터 run registry history는 비민감 운영 메타데이터로 분류하고 owner는 내부 계정 ID만 저장한다. history는 생성 후 90일 보관한 뒤 자동 삭제하며 이름·이메일·접속정보를 저장하지 않는다.
+- 개발 데이터의 suite·catalog·reference time은 합성 DB actor의 embedded manifest 하나만 소유한다. owner와 유지
+  종료일은 DB·filesystem에 별도 registry/history로 저장하지 않고 접근 통제된 QA 작업 기록에서 관리한다.
 - 알림 발송 이력은 활성 회원의 알림함 제공 기간 동안 보관한다. 탈퇴(`LEAVE`)·차단(`BLOCK`) 회원은
   `status_date` 기준 30일 경과와 `auto_delete=NORMAL` 조건의 개인정보 자동 정리에서 수신자 연결과 표시 문구를
   함께 삭제하며, 알림 이력을 별도 예외로 더 오래 보관하지 않는다.

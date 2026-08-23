@@ -7,104 +7,57 @@
 - 충돌 시 우선 문서: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
 - 기준 성격: `to-be`
 
-이 문서는 생성 엔진·DB verifier, 관리자 route coverage와 browser smoke를 route별 audience·filter·API 기대
-결과까지 연결하는 목표 구조를 설명한다. 구현·공유 개발계 live 검증과 고도화의 현재 진행 현황은
-[기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료`
-항목에서만 추적한다.
+이 문서는 공유 개발계 관리자 화면과 Mobile QA용 합성 데이터를 만드는 시스템의 기술 구조를 정의한다.
+정책 기준은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md), 실행 순서는
+[테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)을 따른다.
 
-## 목적
+현재 구조는 외부 Run Registry나 HTTP 관리 API를 두지 않는다. API repository 안의 CLI가 DB schema·상태 상수와
+같은 변경 단위에서 합성 데이터의 생성, 검증, reset을 소유한다.
+공유 개발계 적용과 실제 browser/reset 증빙의 완료 조건은
+[기술 부채 정리](../technical-debt/technical-debt.md)의 `테스트용 개발 데이터 운영 검증·고도화 미완료`에서 추적한다.
 
-- 관리자 시스템(CMS) 전체 탭과 Mobile QA에서 재현 가능한 합성 데이터를 만드는 목표 구조를 설명한다.
-- 별도 repository 없이 API가 DB write를 소유하고 Admin이 탭 coverage를 소유하는 책임 경계를 고정한다.
+## 설계 목표
 
-## 범위
+- 결정론적 scenario catalog로 개발 데이터를 반복 생성한다.
+- 잘못된 DB, 다른 namespace, 실제 사용자 데이터에 대한 write를 코드 경계에서 차단한다.
+- reset과 전체 seed가 분리된 중간 상태를 노출하지 않는다.
+- DB 안에는 현재 dataset을 설명하는 최소 metadata 하나만 둔다.
+- filesystem은 현재 DB row가 가리키는 asset만 제공하며 실행 이력 저장소가 되지 않는다.
+- 합성 데이터가 존재하는 동안 개발 cron이 DB나 외부 채널을 변경하지 않게 한다.
+- 상태·권한·filter·시간 경계와 Admin route coverage를 exact-set 검증한다.
 
-- `coupler-api`의 개발 데이터 CLI, catalog, domain builder, verifier, 합성 asset
-- `coupler-admin-web`의 탭 coverage descriptor와 정적 검증
-- 회원, 매칭, 기존 2:2 그룹미팅, N:N 그룹미팅, 라운지, 결제·매출, 통계, 설정, 매니저 데이터
+## 비포함
 
-운영 데이터 생성, unit test fixture, DB migration, 실제 결제·알림 호출은 포함하지 않는다.
+- 운영 API route 또는 Admin 버튼에서 apply/reset 제공
+- 외부 registry, active/history pointer, owner/expiry record, ETag, cutover journal
+- scenario별 row ID 목록이나 삭제 manifest
+- 합성 관리자 로그인 계정
+- 실결제, 실제 SMS·메일·push, 운영 bucket write
+- 운영 DB에서의 실행
 
-## 상위 규범 문서
-
-- 생성·식별·검증·reset의 규범은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을 따른다.
-- 상태·키·결제·개인정보 세부 규범은 해당 도메인 정책을 따르며 이 문서에서 새 값을 정의하지 않는다.
-
-## cron 환경 분리와 마이그레이션 적용 경계
-
-이 구조에서 별도로 운영해야 하는 핵심 대상은 DB 마이그레이션이 아니라 **cron 실행 환경과 안전
-정책**이다.
-
-- 운영 cron은 기존 운영 scheduler와 실행 정책을 그대로 사용한다. 개발 데이터 Run Registry,
-  `DEV_CRON_*` 설정, 개발 cron fence에 의존하지 않는다.
-- 개발 cron은 개발 전용 dispatcher·인증·설정을 사용한다. 외부 FCM 발송과 삭제성 작업을 기본
-  차단하고, 합성 데이터 `apply`·`reset` 변경 구간에는 개발 전용 fence와 lease로 동시 변경을 막는다.
-  `applied` 유지·화면 검증 구간에는 정상 개발 데이터만 실행 대상으로 삼고 합성 데이터 root와 연결
-  객체는 제외한다.
-- cron job의 핵심 도메인 로직은 공유할 수 있지만, 운영과 개발의 등록 경로·설정·외부 부작용 정책은
-  섞지 않는다. 운영 프로세스에서 `DEV_CRON_*` 또는 개발 데이터 fence 설정이 감지되면 시작 단계에서
-  실패해야 한다.
-
-세부 설치·검증 기준은 [Cron 작업](cron-jobs.md)과
-[개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다. 개발
-cron fence는 운영 cron을 바꾸는 기능이 아니라 합성 데이터 작업과 개발 cron의 충돌만 막는 개발 전용
-안전장치다.
-
-서비스 DB 마이그레이션 흐름은 기존과 같다. 회원, 매칭, 그룹미팅, 결제 같은 서비스 기능의
-테이블·컬럼·인덱스·제약조건·뷰 또는 필수 기준정보를 바꾸는 동일한 승인 SQL을 개발계에 한 번 적용하고,
-검증이 끝나면 같은 마이그레이션 소스 커밋을 운영계에 적용한다. 환경별 기존 적용 이력으로 pending을 판정하며
-[DB Migration Gate 정책](../policy/db-migration-gate-policy.md)을 그대로 따른다.
-
-합성 데이터 `apply`, `verify`, `reset`은 서비스 DB 마이그레이션이 아니며 migration source에 포함하지
-않는다. 개발 데이터 관리 때문에 서비스 DB 마이그레이션 적용 환경이나 횟수가 늘어나지 않는다. DB
-마이그레이션이 feeder 관련 table·column·view·FK를 바꿀 때만 DB contract, schema fingerprint,
-ownership query, scenario version과 verifier를 함께 갱신한다. 관련 없는 마이그레이션은 기존 namespace를
-일괄 reset하지 않는다.
-
-## 배치 원칙
-
-생성 엔진을 별도 repository로 분리하지 않는다. DB schema, model, 상태 상수와 같은 변경 단위로 검증할 수 있도록 `coupler-api`에 둔다.
+## 배치
 
 ```text
 coupler-api/
   tools/dev-data/
-    cli.ts
-    runner.ts
-    generation-runner.ts
-    generation-transition.ts
-    registry.ts
-    core/
-      environment-guard.ts
-      namespace.ts
-      namespace-lock.ts
-      cron-fence.ts
-      ownership.ts
-    contracts/
-      db-contract.ts
-      schema-fingerprint.ts
-      branch-obligations.ts
-    catalog/
-      scenarios.ts
-      suites.ts
-    domains/
-      member.ts
-      matching.ts
-      meeting.ts
-      lounge.ts
-      revenue.ts
-      statistics.ts
-      settings.ts
-      manager.ts
-    assets/
-      base/
-        portrait-*.webp
-        profile-video-*.mp4
-    assets.ts
-    base-asset-manifest.ts
-    verify/
-      database.ts
-      api.ts
-      coverage.ts
+    cli.ts                  # list/contract/coverage/plan/apply/verify/reset
+    runner.ts               # 전역 lock과 원자 transaction orchestration
+    catalog.ts              # suite별 결정론적 scenario
+    verifier.ts             # DB 불변식과 read model 검증
+    metadata.ts             # 단일 manifest actor codec
+    namespace.ts            # namespace와 결정적 marker
+    environment.ts          # DB allowlist·write switch
+    db.ts                   # 전용 bounded pool·전역 advisory lock·mutation count
+    assets.ts               # run-scoped media stage·검증·정리
+    ownership.ts            # 합성 member에서 파생한 legacy child graph reset
+    group-meeting-reset.ts  # N:N graph marker traversal reset
+    schema-contract.ts      # table·column·view·FK fingerprint
+    coverage.ts             # Admin route descriptor 계약 검증
+  lib/
+    dev-data-lock.ts                    # CLI와 cron이 공유하는 lock 이름
+    deferred-cron-response.ts           # lock 해제 전 HTTP 응답 write 지연
+    development-cron-data-guard.ts      # 합성 root 감지와 maintenance SKIP
+    development-cron-safety.ts          # 개발 cron 인증·파괴 작업 차단
 
 coupler-admin-web/
   src/config/dev-data-coverage.ts
@@ -112,399 +65,236 @@ coupler-admin-web/
   e2e/dev-data-cms.smoke.spec.ts
 ```
 
-- API는 scenario ID, DB write, namespace ownership, suite 실행, DB/API 검증을 소유한다.
-- Admin의 `page-route.tsx`는 component route의 stable `routeId`를 소유한다. `src/config/dev-data-coverage.ts`는 전체 route의 `ScreenAudit` exact map과 각 데이터 화면의 `CoverageEntry` exact map을 소유한다.
-- workspace coverage 검증은 Admin route descriptor와 API scenario catalog의 교집합을 확인한다.
-- Admin browser smoke는 실제 개발 API를 사용해 route·권한·filter별 table·card·상세 화면 렌더링을 확인한다.
-- Mobile에는 생성 기능을 추가하지 않고 개발 API 결과를 소비하는 QA만 수행한다.
+생성 엔진은 `coupler-api`에만 둔다. Admin은 route coverage와 실제 브라우저 검증만 소유하며 DB write 코드를
+가지지 않는다.
 
-## 구성요소
+## 단일 현재 dataset 계약
 
-| 구성요소 | 책임 |
-| --- | --- |
-| CLI | `list`, `active`, `plan`, `apply`, `upgrade`, `verify`, `coverage`, `reset` 명령 제공 |
-| Environment Guard | 설정과 실제 DB identity를 비교하고 운영·미지원 schema 차단 |
-| Namespace Validator | 형식·길이·SQL parameter 사용·asset 경로 containment 검증 |
-| Namespace Lock | 동일 namespace 동시 실행 차단 |
-| Run Registry | active generation, 불변 generation snapshot, cutover journal, owner·유지 기한과 ETag 영속화 |
-| Cron Target Fence | 합성 데이터 변경 구간은 cron을 일시 중지하고 안정 상태에서는 합성 target만 제외 |
-| DB Contract Verifier | 관련 table·column·view·FK·필수 insert column 계약과 fingerprint 검증 |
-| Branch Obligation Map | 상태·전이·권한·filter·시간 경계의 missing·stale 분기 검출 |
-| Scenario Catalog | scenario ID, version, 의존성, 생성기, verifier 연결 |
-| Generation Runner | 같은 namespace·suite의 source 전체를 candidate 전체로 한 DB transaction에서 교체하고 commit 결과 복구 |
-| Suite Catalog | 도메인별 scenario 묶음과 실행 순서 관리 |
-| Domain Builder | 합성 root·child를 트랜잭션으로 생성 |
-| Ownership Resolver | namespace root에서 생성 child와 asset을 역추적 |
-| CMS Coverage Verifier | component route, scenario, API 검증의 missing·stale 항목 확인 |
-| Admin Browser Smoke | suite 소유 API의 non-empty 응답, table·chart·metric 표면과 렌더 오류 부재 확인 |
-| Asset Sync | checksum이 고정된 기준 미디어에서 actor별 프로필을 불변 generation directory에 stage하고 승격 뒤 inactive generation 정리 |
+namespace의 합성 `t_member` root 중 정확히 하나가 manifest actor다. 그 actor의 `memo` 형식은 다음과 같다.
 
-## 데이터 흐름
-
-```mermaid
-flowchart LR
-    A[Admin route descriptor] --> C[Coverage verifier]
-    B[API scenario catalog] --> C
-    J[DB contract and branch obligations] --> C
-    B --> D[Suite and generation runner]
-    E[Environment and namespace guard] --> D
-    K[Run registry and cron fence] --> D
-    D --> F[Domain builders]
-    K --> M[Cutover journal]
-    M --> D
-    F --> G[(개발 DB)]
-    F --> H[합성 media namespace]
-    G --> I[Admin API 조회 검증]
-    H --> I
-    I --> L[Admin browser smoke]
-    L --> C
+```text
+dev-data|{namespace}|{suite}|{catalogVersion}|{referenceTime ISO UTC}|{role}
 ```
 
-coverage는 단순 row 존재 여부가 아니라 `branch obligation -> route -> audience -> filter -> scenario -> API result -> rendered UI` 연결이 모두 유효할 때 통과한다.
-
-## Scenario 계약
-
-각 scenario는 다음 정보를 빈값 없이 가진다.
-
-| 필드 | 의미 |
-| --- | --- |
-| `id` | 변경되지 않는 kebab-case 식별자 |
-| `version` | 생성 shape 또는 기대 결과 변경 버전 |
-| `suite` | 소속 실행 단위 |
-| `kind` | 정상 또는 의도적 위반 시나리오 분류 |
-| `requires` | 선행 기준정보와 scenario ID |
-| `roots` | namespace 소유권을 표시하는 root entity |
-| `obligations` | 충족하는 상태·전이·권한·filter·시간 경계 ID |
-| `apply` | 트랜잭션 생성기 |
-| `verify` | DB 불변식과 API 기대 결과 |
-| `reset` | root에서 역추적한 정리 순서 |
-
-scenario ID 예시는 `matching-chat-open`, `lounge-comment-report-pending`, `revenue-monthly-ranking`처럼 도메인·상태·변형 순서로 작성한다.
-
-## Run 계약과 저장 위치
-
-유지 종료일은 scenario 정의가 아니라 namespace generation의 값이다. 새 active generation record는 다음 필드를 빈값 없이 가진다.
-
-| 필드 | 의미 |
-| --- | --- |
-| `runId` | namespace와 생성 시각에 연결된 불변 식별자 |
-| `generation` | namespace 안에서 1부터 단조 증가하는 세대 번호 |
-| `assetKey` | 해당 세대의 불변 asset directory를 지정하며 항상 `runId`와 같음 |
-| `namespace` | 검증을 통과한 소문자 식별자 |
-| `owner` | 정리 책임자 식별자 |
-| `suite` | 적용 suite |
-| `catalogVersion` | 해당 세대 DB와 일치하는 scenario catalog version |
-| `assetRoot` | apply·upgrade·reset이 함께 사용하는 API 서버 미디어 저장소의 정규화된 절대 경로 |
-| `schemaFingerprint` | 관련 DB 계약 fingerprint |
-| `referenceTime` | 통계·시간 경계 기준 시각 |
-| `expiresAt` | 공유 개발계 유지 종료일 |
-| `status` | `planning`, `applying`, `applied`, `resetting`, `cleanup_failed`, `cleaned`, `failed` |
-| `scenarios` | 적용 scenario ID와 version 목록 |
-| `counts` | 생성·유지·삭제·잔존 건수 |
-
-- 공유 개발계 registry는 API와 feeder가 함께 읽는 비공개 공유 filesystem의 절대 경로 `DEV_DATA_REGISTRY_DIR`에 둔다.
-    - global cron fence: `{registryRoot}/fence.json`
-    - active run: `{registryRoot}/active/{namespace}.json`
-    - immutable generation snapshot: `{registryRoot}/generations/{namespace}/{runId}.json`
-    - in-flight cutover journal: `{registryRoot}/transitions/{namespace}.json`
-    - history: `{registryRoot}/history/{namespace}/{runId}.json`
-    - active cron lease: `{registryRoot}/_cron_leases/{jobId}.{leaseId}.json`
-    - shared registry mutex: `{registryRoot}/_locks/registry.lock`
-- local·CI도 같은 filesystem adapter와 directory 구조를 사용하며 `.dev-data` 경로는 Git에서 제외한다.
-- backend는 read-after-write consistency와 ETag 조건부 write를 보장해야 하며 충돌·불가용 시 전체 작업을 중단한다.
-- feeder와 개발 cron은 별도 해석기를 두지 않고 동일한 Run Registry contract parser를 사용한다. fence version·namespace·중복·UTC ISO 8601 표준 형식의 시각과 active record의 generation·run/asset key·namespace key·suite·상태·owner·catalog/schema fingerprint·asset root·시각·scenario·row reference·count를 같은 기준으로 검증한다.
-- init 재진입, readiness, inventory, claim, 상태 update, finalization과 개발 cron lease 생성은 registry mutex 안에서 fence와 active directory 전체 snapshot의 형식·양방향 소유권·active scope 충돌을 먼저 검증한다. 한 record만 유효하다는 이유로 손상된 나머지 snapshot을 무시하고 진행하지 않는다.
-- apply는 global fence에 namespace를 먼저 추가한 뒤 active record를 만들고, 중간 실패로 fence만 남으면 DB write 없이 reconciliation 대상으로 남긴다.
-- generation upgrade는 source snapshot과 candidate record를 journal에 먼저 기록하고 active record를 `applying`으로 전환한다. candidate 전체가 검증된 뒤 journal을 `prepared`로 기록하고 DB를 commit하며, active pointer 승격 뒤 journal을 제거한다.
-- generation row ownership은 scenario별 보조 row reference와 generation-level 합성 `t_member` root ID exact set의 합이다. active 검증과 reset은 현재 DB의 namespace 합성 회원 ID와 이 exact set이 같은지 확인한다.
-- 프로세스가 어느 단계에서 종료돼도 source와 candidate의 정확한 row reference 소유권으로 DB 결과를 판정한다. source 전체만 있으면 candidate asset을 지우고 abort하고, candidate 전체만 있으면 검증 후 promote한다. 부분·양쪽 존재는 자동 추정하지 않는다.
-- reset은 DB·asset cleanup과 history 저장을 확인한 뒤 global fence에서 namespace를 제거하고 마지막으로 cleaned active record를 제거한다.
-- history write나 fence update가 실패하면 active record와 fence를 유지한다. 마지막 active 제거만 실패하면 합성 데이터와 fence는 이미 제거된 cleaned record를 남기고, 같은 reset은 DB·asset cleanup을 반복하지 않고 ETag와 현재 record가 일치할 때 finalization만 재시도한다.
-- apply 시작 시 history에서 생성 후 90일이 지난 기록을 제거한다. cleanup도 동일한 run record parser와 `{runId}.json` 파일 소유권을 검증하고 손상된 history를 임의 삭제하지 않으며, 삭제 결과는 비민감 운영 증빙으로 남긴다. local·CI는 test teardown에서 임시 registry 전체를 제거한다.
-- registry active/history/generation/transition prefix는 namespace asset인 `uploads/dev-data/{namespace}/generations/{runId}/`와 분리해 asset reset이 실행 기록을 삭제하지 않게 한다.
-- registry가 불가용하거나 active record와 DB root가 불일치하면 apply·upgrade·verify·reset을 중단하고 reconciliation 결과를 출력한다.
-- 최초 `init-registry`는 DB에 연결하지 않고 빈 registry만 만든다. fence가 유실됐는데 active record가 남은 상태는 빈 fence로 덮지 않고 복구 대상으로 중단한다.
-- `active` inventory는 registry mutex 안에서 active directory 전체를 읽고 namespace, suite, owner, 상태, 유지 종료일과 count를 출력한다. 예상하지 못한 파일, 중복 fence namespace, 유효하지 않은 fence 시각·active metadata 또는 active record 상호 간 scope 충돌이 있으면 일부 목록을 반환하지 않고 전체를 실패시킨다.
-- fence-only namespace와 unfenced active record는 부분 claim·registry 손상 상태로 분류해 inventory와 신규 claim을 차단한다. 단, DB·asset 정리가 끝나고 마지막 active unlink만 재시도하는 `cleaned` record는 fence 없이 남을 수 있다.
-- registry root의 active scope는 다음 두 모드 중 하나로 결정되며 별도 설정값을 두지 않는다.
-    - 통합 모드: `cms-all` 하나만 active
-    - 분할 모드: 서로 다른 도메인 suite를 각각 하나씩 active
-- `cms-all`은 모든 도메인 scope를 포함하고, 도메인 suite는 동일 suite끼리 scope가 겹친다. claim은 같은 mutex 안에서 active inventory와 cron lease를 확인한 뒤에만 fence와 record를 생성한다.
-- 한 generation 안에서는 run ID, generation, asset key, namespace/key, owner, suite, catalog/schema fingerprint, asset root, reference/expiry/created time을 바꾸지 않는다. catalog/schema/reference 갱신은 generation을 1 증가시킨 새 record를 만들어 active pointer를 승격하는 방식으로만 수행한다. update는 `updatedAt` 단조 증가와 apply·upgrade·실패 후 재시도·reset에 필요한 허용 상태 전이만 사용하며 `cleaned`는 finalization만 허용한다.
-- 유지 기한은 정리 알림 기준이지 삭제 권한이 아니다. 만료·실패·cleanup/finalization 대기 record도 reset이 완료되기 전까지 overlapping claim을 차단한다.
-- 동일 도메인의 화면 상태가 부족하면 두 번째 namespace로 복제하지 않고 정상 시나리오 catalog와 verifier를 확장한 뒤 같은 namespace·active suite의 전체 generation을 교체한다.
-
-## 데이터 계층
-
-### 1) 기준정보
-
-- 앱 설정, 약관, 별칭, 공지, 가입 메시지, 장소처럼 여러 시나리오가 공유하는 데이터다.
-- 누락 여부와 계약을 검증하며 기존 값을 자동 수정하지 않는다.
-- 필요한 기준정보가 없거나 계약과 다르면 해당 suite를 중단하고 migration 또는 data repair 필요성을 보고한다.
-- N:N 그룹미팅은 namespace owner와 분리된 기존 QA 발행 CMS 관리자를
-  `GROUP_MEETING_HOST_MANAGER_USER_ID` 계약으로 식별한다. 해당 관리자의 호스트 연결, private 구현 계약이
-  식별하는 기존 QA 기준 회원 4명과 각 회원의 `CHARGE` 또는 `SHARE` 배정을 외부 기준정보로 사용한다.
-  plan·apply claim 전·verify·upgrade 전환 전에는 read-only로 검사하고 생성 transaction에서는 다시 검사해 잠근다.
-
-### 2) Actor pool
-
-- 기존 개발계 회원을 재사용하지 않고 합성 회원과 비로그인 매니저 표시 행을 만든다.
-- 시나리오 간 상태 오염을 막기 위해 상태 전이·신고·결제 시나리오는 전용 actor를 기본으로 사용한다.
-- 여러 상세 팝업을 한 번에 확인하는 목적에만 명시적 anchor actor를 사용한다.
-- 합성 회원 식별자는 `devdata+{namespaceKey}+{actorKey}@example.invalid` 형식을 사용한다. `namespaceKey`는 검증된 원본 namespace의 SHA-256 앞 10자리, `actorKey`는 catalog role의 SHA-256 앞 12자리다. 전체 길이는 47자로 `t_member.email varchar(50)` 계약 안에 두고, 원본 namespace·run과의 대응은 Run Registry가 보존한다.
-- 각 actor는 결정적 hash로 성별별 기준 인물과 표시 색상을 선택하고 `main`, `alternate`, `lifestyle` 프로필 3장을 가진다. 각 이미지에는 `TEST {actorKey}` 표식을 넣어 Admin 목록에서 합성 데이터와 actor를 구분한다.
-- 일부 actor는 결정적 hash로 영상을 배정받는다. DB에는 actor별 고유 영상 경로를 저장하고 실제 파일은 성별·인물별 기준 영상에서 선택해 동기화한다.
-
-### 3) Scenario 데이터
-
-- root actor와 도메인 root를 먼저 만들고 관계 child, 원장, 로그, 신고, 미디어 순서로 생성한다.
-- 각 child는 namespace root에서 쿼리로 역추적할 수 있어야 한다.
-
-### 4) 파생 조회
-
-- dashboard, 매출, 가입·로그인·매칭 통계는 별도 결과 row를 만들지 않는다.
-- 여러 시간 bucket에 배치한 원천 사건으로 기존 집계 query 결과를 만든다.
-
-### 5) 소유권 추적
-
-- 개발 전용 metadata table을 운영 schema에 추가하지 않는다.
-- owner·유지 종료일·run 상태는 Run Registry를, 회원·매니저 root의 namespace·scenario version은 결정적 합성 식별자를 기준으로 찾는다.
-- 매칭, 그룹미팅, 라운지, 결제, 통계 root는 합성 회원·매니저 외래키와 catalog의 ownership query로 찾는다.
-- generation media는 프로필 `uploads/dev-data/{namespace}/generations/{runId}/profiles/{actorKey}-{variant}.webp`, 영상 `uploads/dev-data/{namespace}/generations/{runId}/videos/{actorKey}.mp4` 경로로 찾는다.
-- 소유권 query로 유일하게 증명되지 않는 행은 자동 reset 대상에서 제외하는 대신 reset 전체를 실패시킨다.
-
-## 분기 coverage 모델
-
-scenario 수를 무작정 Cartesian product로 늘리지 않고 정책 분기를 먼저 기계 판정 가능한 obligation으로 만든다.
-
-| 축 | 필수 obligation |
-| --- | --- |
-| 상태 | 서버 상태 상수의 모든 값과 stale 값 0개 |
-| 전이 | 정책의 모든 허용·금지 전이와 시작·종료 경계 |
-| 권한 | super admin, 일반 매니저, 회원 성별·등급 차이 |
-| filter | route가 노출하는 주요 filter의 non-empty·empty 결과 |
-| 데이터 형태 | 필수값, 허용 nullable, child 0·1·다건, 삭제 tombstone |
-| 시간 | 경계 직전·정각·직후와 일·주·월·timezone bucket |
-| 부작용 | 알림·결제·cron 호출 0건과 로컬 negative 차단 결과 |
-| dependency failure | DB·registry·lock·transaction·asset adapter 실패와 복구 결과 |
-
-- API 상태 상수에서 union type을 도출하고 domain obligation map을 `satisfies Record<State, ScenarioId[]>`로 선언한다.
-- enum 추가는 missing property, enum 삭제는 excess property 또는 stale catalog test로 실패한다.
-- 모든 단일 축은 100%, 상호작용하는 두 축은 pairwise 100%를 요구한다.
-- 3개 이상 축의 결합 결과가 정책에 명시된 경우 pairwise로 대체하지 않고 전용 scenario를 둔다.
-- 상태 값·허용 전이·화면 분기는 공유 개발계 정상 시나리오 obligation으로, 금지 전이·잘못된 FK·원장 불일치는 local·CI 의도적 위반 obligation으로 분리한다. 전체 구현 완료는 두 catalog가 각자 100%여야 하지만 `cms-all`은 정상 시나리오만 적용한다.
-- 안전 모듈은 domain scenario 수와 별개로 Jest branch coverage 100%와 fault-injection matrix를 적용한다. code coverage 숫자만 맞추지 않고 각 실패에서 write 0건, rollback, fence 유지, 재시도 상태를 assertion한다.
-
-## DB 계약과 변경 감지
-
-TypeScript 문법이나 model import만으로 실제 DB 변경을 증명하지 않는다. `db-contract.ts`는 feeder가 읽고 쓰는 table·column·view·FK를 domain별로 선언하고 Environment Guard가 `information_schema`와 비교한다.
-
-- 필수 column의 존재, type family, nullability, default·generated 여부를 검증한다.
-- write 대상 table에 새 `NOT NULL`·default 없음 column이 생기면 builder 입력 계약이 추가될 때까지 실패한다.
-- FK 추가·삭제·방향 변경은 ownership query와 reset 순서를 갱신할 때까지 fingerprint mismatch로 실패한다.
-- verifier가 사용하는 view의 column shape가 바뀌면 DB/API verifier를 갱신할 때까지 실패한다.
-- 관련 없는 table·column 변경은 fingerprint에 포함하지 않아 불필요한 결합을 만들지 않는다.
-- migration이 feeder 관련 계약을 바꾸면 migration PR에서 scenario version, DB contract, verifier를 함께 갱신하고 local·CI schema에서 contract gate를 실행한다.
-- compile error는 typed 상태·route 계약의 누락을 잡는 수단이고, raw SQL·실제 schema 차이는 DB contract gate가 잡는다.
-
-## Suite 구성
-
-### 회원 `member-all`
-
-- 기본정보·필수인증·소개글의 미제출, 대기, 반려, 재심사, 승인
-- 신청회원, 일반회원, 준회원, 정회원, 특별회원 표시
-- 정상, 홀딩, 차단, 탈퇴, 심사 거절 생애주기
-- 초대, 추천인, 컨시어지, 담당 매니저, 키·결제·매칭 상세 연결
-- 원천 저장 후 `v_member_review_status`와 관리자 큐 filter로 검증
-
-### 매칭 `matching-all`
-
-- [매칭 운영 정책](../policy/matching-ops-policy.md)의 모든 진행·취소 `match_status`
-- 일반 카드, 큐레이터 제안·수락·거절, 예약 생성·발송·취소
-- 프로필 열람, 천천히 결정, 3일 채팅, 선호정보, 일정 1~4차, 장소, 채팅
-- 후기 양측 미작성·한쪽 작성·완료, 연락처 요청·수락, 직진만남 요청·수락
-- 회원 신고 취소, 신고 처리, 환불 전·남성 환불·여성 환불
-- `t_match`, 일정·채팅·로그·후기·키 원장이 같은 결론인지 검증
-
-### 기존 그룹미팅 `meeting-all`
-
-- 모집, 참여 신청, 수락, 탈퇴, 채팅 개설, 완료
-- 채팅, 프로필 조회, 후기, 별점, 결제·키 로그
-- 게시글 신고, 채팅 회원 신고, 회원 신고의 대기·처리 상태
-- 그룹미팅 패널티의 활성·누적·만료 상태
-- 주최자를 포함한 `t_meeting_member` 관계, 승인된 성별별 실제 인원과 `male_cnt`·`female_cnt` 일치
-- 모든 채팅 작성자의 미팅 멤버십 존재와 원본 채팅 건수·Admin 멤버십 join 노출 건수 일치
-
-이 suite는 기존 2:2 그룹미팅 테이블만 대상으로 한다. N:N 구현과 같은 suite·scenario를 공유하지 않는다.
-
-### N:N 그룹미팅 `group-meeting-all`
-
-- 초안, 삭제, 공개 활성, 신청 접수 기한 경과 OPEN, 모집 마감, 종료, 취소 저장 상태와 저장 `CONFIRMED`·실효 `FINISHED` 시간 분기, 공개 활성·확정 취소 진입 상태
-- 신청, 승인, 승인 취소, 채팅방 탈퇴와 참여 가능한 모든 행사의 기본 기준 여성 참여자 2명, 신청 접수 기한 경과
-  OPEN 3인 분기의 추가 기준 참여자 1명, OPEN·CONFIRMED 왕복·종료 4인 분기의 추가 기준 참여자 2명
-- 모집 마감·행사 종료·취소와 참여자 입장·승인 취소·탈퇴 시스템 메시지
-- `persisted_status`·`effective_status`·`chat_initialized` 축과 최초 모집 마감 뒤 재개 OPEN·CONFIRMED 재진입,
-  OPEN 신청 접수 재개, FINISHED, 초기화 후 CANCELED 조합의 상태별 채팅 멤버십
-- 전날 오후 1시 개방 경계와 시작 +24시간 종료 경계 사이에 배치한 활성 초기화 방과 종료·취소 읽기 전용 방에서
-  두 기준 참여자의 일반 채팅, 호스트 채팅, 관리자 삭제 채팅, 비어 있음·설정됨 읽음 위치, 채팅 초기화·개방 알림
-  marker와 파생 개방 여부
-- 개방·종료 1초 전·정각·1초 후 파생 상태, 신청·승인 마감 전 시각, 행사 생성·ready 상세 이미지·상태 action·
-  신청/승인·상태별 취소/퇴장·채팅 멤버/메시지·후기/신고 action의 인과 순서와 기준 시각 이후 row 0건
-- 모집 마감 뒤 승인된 참여자의 입장 안내 메시지를 과거 이력 공개 경계로 저장하고, 그보다 앞선 메시지가 실제로 존재하는지 검증
-- 프로필 열람 공개·비공개, 후기 성공·실패와 후기 뒤에도 `APPROVED`가 유지되는지, 명시적 퇴장 `LEFT`의 후기 제외,
-  두 기준 참여자가 신고자인 대기·처리·기각 신고와 미처리 filter
-- 신고 대상 namespace 합성 참가자의 1일·7일·30일 패널티와 기존 QA 기준 회원 패널티 변경 0건
-- 채팅이 초기화된 실효 활성 채팅방의 호스트·승인 참여자·본인 무료 프로필 조회 조건과 사진 공개 분기를
-  검증한다. 종료·취소 방은 메시지·후기 이력 coverage에는 유지하되 전체 프로필·카드 동작 fixture에서는
-  제외하고, N:N 프로필 열람 행과 Key 차감 원장이 생성되지 않는지 확인한다.
-- 상세 이미지의 `pending`, `processing`, `ready`, `failed`, `discarded` 상태와 event 연결·미연결 reset 소유권
-- `GROUP_MEETING_HOST_MANAGER_USER_ID`가 가리키는 발행 CMS 관리자·호스트와 네 QA 회원의
-  `CHARGE`/`SHARE` 배정, 각 회원에게 공개 상태 행사 exact set이 Mobile 전체 목록 범위로 노출되는지,
-  namespace idempotency key와 registry row ref가 모두 일치하는지 검증
-
-이 suite는 `t_group_meeting_*`와 신고 대상 namespace 합성 참가자의 `t_penalty_log`·`meet_block_date`만 대상으로 하며 `meeting-all`의 기존 2:2 데이터와 기존 QA 기준 회원의 회원 상태·패널티·매니저 배정을 만들거나 reset하지 않는다.
-
-### 라운지 `lounge-all`
-
-- 전체 카테고리와 성별·등급 접근 제한
-- 정상, 고정, 삭제 게시글과 공개·비공개 프로필
-- 정상 댓글, 대댓글, 삭제된 최상위 댓글 tombstone, 삭제된 대댓글 tombstone
-- 글·댓글 좋아요, 사용자 숨김, 회원 차단
-- 게시글 신고, 댓글 신고, 회원 신고의 대기·처리 완료
-- 라운지 패널티의 활성·누적·만료 상태
-- 보이는 댓글 수와 실제 목록 수, 신고 누적 수, alias 유지 관계 검증
-
-라운지 상태와 댓글 표시 기준은 [라운지 시스템](lounge-system.md)을 재정의하지 않고 그대로 사용한다.
-
-### 결제·매출 `revenue-all`
-
-- 합성 결제 성공, 환불 대기·복원, 무료 키 지급, 매칭·후기 환불
-- 오늘·어제·최근 7일·최근 30일·지난달의 서로 다른 금액과 성별
-- 단일·복수 결제 회원, 상품별 분포, 결제 횟수·금액 랭킹
-- `t_iap`, `t_member.key`, `t_member_key_log` 합계와 관리자 집계 결과 일치
-- 실제 provider 호출과 실제 영수증 없이 원천 transaction만 생성
-
-### 통계 `statistics-all`
-
-- 시간대별 로그인과 0건·다건 bucket
-- 일·주·월별 가입과 성별 분포
-- 심사 단계와 회원 등급 분포
-- 매칭 생성, 진행, 성공, 취소 상태 분포
-- dashboard card와 상세 통계 endpoint가 같은 원천을 집계하는지 확인
-
-### 설정 `settings-all`
-
-- 관리자 화면이 요구하는 설정 row 존재와 값 형식 확인
-- 별칭, 공지, 약관, 가입 메시지의 목록·상세 조회
-- 활성 설정과 공용 기준정보는 자동으로 덮어쓰거나 일반 reset에서 삭제하지 않음
-
-### 매니저 `manager-all`
-
-- 기존 QA 관리자 권한은 수정하지 않음
-- 매니저 목록 표시용 합성 행은 원문을 폐기한 무작위 비밀값의 hash와 namespace로 식별
-- super admin·일반 매니저별 목록과 담당 회원 연결 결과 검증
-
-## 관리자 탭 coverage 모델
-
-coverage entry는 다음 축을 가진다.
-
-| 축 | 내용 |
-| --- | --- |
-| `routeId` | path와 분리된 안정적인 literal 식별자 |
-| route | 실제 path와 filter 값 |
-| screen kind | `data-surface` 또는 `non-data` |
-| audience | super admin, 일반 매니저 또는 공통 |
-| classification | `scenario-backed`, `reference-backed`, `live-only` |
-| scenarios | 화면에 필요한 scenario ID 목록 |
-| verifier | 호출할 Admin API와 기대 row·상태 |
-| reason | `live-only`의 합성 불가 이유·대체 검증 또는 `non-data`의 제외 이유·권한 검증 |
-
-실제 화면 모집단과 누락·stale 판정은 typed route descriptor와 exact-set coverage test에서 생성한다. 이 문서에는
-시점에 따라 바뀌는 commit, route 수, 탭 목록을 고정하지 않는다. 분류·데이터·UI render의 필수 판정과 완료
-기준은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)의 `관리자 시스템 전체 coverage`를
-따른다.
-
-## UI·상태·DB 변경 감지 연결
-
-typed SoT는 같은 repository의 typecheck·exact-set test와 연결하고, repository·DB 경계는 runtime contract
-gate로 연결한다. 필수 Gate와 완료 판정은 [테스트/CI 전략](../policy/testing-strategy.md)과
-[테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을 따른다.
-
-| 변경 | 감지 신호 | 연결 계약 |
-| --- | --- | --- |
-| component route 추가 | `DataRouteId` exact map missing entry | route kind, coverage entry, scenario, browser smoke |
-| route 삭제 | coverage excess/stale entry | coverage entry, browser smoke, scenario catalog |
-| path·filter·권한 변경 | route descriptor snapshot·API/UI smoke 실패 | verifier, audience, filter expectation |
-| 상태 상수 추가 | exhaustive branch map typecheck 실패 | obligation과 정상 시나리오 |
-| 상태 상수 삭제 | stale obligation·scenario test 실패 | scenario catalog와 연결 route |
-| table·column·view 변경 | schema fingerprint·DB contract 실패 | builder, ownership query, verifier, scenario version |
-| FK 변경 | reset-plan contract 실패 | FK-safe 삭제 순서와 orphan verifier |
-
-- typecheck 실패는 같은 repository의 `AdminRouteId -> ScreenAudit`, `DataRouteId -> CoverageEntry`, 서버 상태 type -> obligation 결합에 사용한다.
-- API catalog와 Admin은 source import로 강결합하지 않는다. workspace gate가 API의 read-only catalog JSON과 Admin coverage JSON을 생성해 exact-set으로 비교한다.
-- DB 전체 schema hash를 사용하지 않고 feeder 관련 contract만 비교해 무관한 migration 때문에 실패하지 않게 한다.
-- missing과 stale을 함께 감지해 삭제된 UI나 상태를 feeder가 계속 생성하는 drift를 막는다.
-
-## Repository 검증 연결
-
-API 생성 엔진과 Admin descriptor·browser smoke는 각 repository의 표준 정적 검증·테스트 범위에 연결하고,
-workspace contract gate가 두 catalog를 비교한다. 필수 명령, skip 판정과 완료 증빙은
-[테스트/CI 전략](../policy/testing-strategy.md)과 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)을
-따른다.
-
-## 공유 개발계 cron fence
-
-- Admin cron 공통 경계는 feeder와 같은 Run Registry parser를 사용해 fence·active generation·소유권을 읽는다.
-- 합성 데이터 변경 구간에는 handler 대신 maintenance 결과를 반환하고, 안정 구간에는 정상 개발 target만 기존
-  도메인 로직으로 처리한다.
-- registry mutex와 job lease가 cron 실행과 합성 데이터 변경을 직렬화한다. 상태별 허용 동작, 운영 환경 차단,
-  복구와 검증 기준은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과
-  [개발계 cron 운영 흐름](../flows/cross-project/development-cron-operation-flow.md)을 따른다.
-
-## Admin browser smoke 구현
-
-- Admin repository에 Playwright를 개발 의존성으로 두고 `e2e/dev-data-cms.smoke.spec.ts`에서 실제 router와 개발 API를 함께 검증한다.
-- super admin과 일반 매니저의 기존 QA session storage state를 CI·개발 비밀 저장소에서 주입하며 repository나 결과 로그에 token을 남기지 않는다.
-- `data-surface` route는 주요 filter별 table row 또는 card 값과 detail navigation을 확인한다.
-- `/login`은 signed-out rendering, `/manager/change_pwd`는 권한·render만 확인하고 비밀번호 변경 action은 실행하지 않는다.
-- page error, console error, 실패한 API response, 잘못된 redirect가 하나라도 있으면 해당 route를 실패로 기록한다.
-- 실패 시 routeId·audience·filter와 민감정보를 가린 screenshot·trace만 증빙으로 보존한다.
-
-## 시간과 통계 데이터
-
-- `reference_time`은 실행 시작 시 한 번 정하고 모든 builder와 verifier에 전달한다.
-- 공유 개발계 RDS의 global·session timezone은 `Asia/Seoul`이어야 하며 `plan`은 `CURRENT_DATE()`와 `reference_time`의 서울 날짜가 같은지 확인한다.
-- feeder의 SQL `DATE`·`DATETIME` 문자열은 실행 프로세스의 OS timezone과 무관하게 `Asia/Seoul`로 변환한다. registry의 ISO timestamp는 절대 시각 보존을 위해 UTC ISO 형식을 유지한다.
-- 진행 상태는 reference time 이후 충분한 만료 시각을 사용한다.
-- terminal 상태는 이미 종료된 상태와 고정된 종료 사유를 저장한다.
-- 통계 suite는 오늘, 어제, 주간, 월간 경계를 모두 포함하고 timezone은 `Asia/Seoul`로 고정한다.
-- CI에서는 고정 reference time, 공유 개발계에서는 기록된 현재 reference time을 사용한다.
-
-## Apply, generation upgrade와 reset 모델
-
-- 최초 apply는 namespace가 소유하는 generation을 만들고 active pointer에 연결한다.
-- upgrade는 source가 계속 조회되는 동안 candidate DB·asset을 준비하고, 검증된 candidate를 원자적으로 active
-  generation으로 교체한다. Run Registry와 cutover journal의 row reference가 장애 후 source·candidate 판정을
-  연결한다.
-- reset은 active generation이 소유한 DB·asset만 정리하고 history finalization으로 끝난다.
-- 명령별 preflight, 허용 상태 전이, 실패 복구와 완료 조건은
-  [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)과
-  [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)을 따른다.
-
-## 비포함 / 금지
-
-- 규범은 [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)에만 둔다.
-- 이 문서의 suite 목록을 운영 상태·금액·권한의 새 SoT로 사용하지 않는다.
-- 운영 원문 복제, 실제 연락처·영수증, 운영 DB write, 브라우저 DB write 기능은 금지된다.
+나머지 actor는 역할 식별용 `dev-data:{namespace}:{role}` memo를 유지한다. 모든 actor는 다음 조건을 만족해야 한다.
+
+- namespace는 최대 17자이며 email은 `devdata+{namespace}+{roleDigest8}@example.invalid`와 정확히 일치한다.
+- namespace는 축약하거나 hash로 바꾸지 않는다. `roleDigest8`은 고정 catalog role의 SHA-256 앞 8자리다.
+- role은 중복되지 않는다.
+- `mini_profile`이 모두 같은 run-scoped asset key를 가리킨다.
+- manifest actor는 정확히 하나다.
+
+manifest는 suite, catalog version, reference time을 읽는 현재 상태의 SoT지만 삭제 권한은 아니다. memo가 누락되거나
+여러 개여도 임의로 소유권을 확대하지 않는다. 기존 외부 registry 방식 데이터는 이전 CLI로 reset한 뒤 새 구조를
+배포해야 한다.
+
+## 삭제 소유권 marker
+
+reset은 별도 row ID 기록 대신 각 도메인의 생성 시점부터 고정된 marker를 다시 계산한다.
+
+| root/standalone 데이터 | 소유권 marker |
+|---|---|
+| 합성 회원과 회원 FK graph | reserved email exact namespace |
+| N:N 행사 | 발행 관리자 + `dd-{namespaceKey}-%` idempotency key |
+| N:N loose image | `uploads/dev-data/{namespace}/%` source path |
+| N:N 패널티 | 합성 회원 email + `합성 N:N 그룹미팅 패널티:{namespace}:%` reason |
+| 공지 | `합성 공지:{namespace}` exact title |
+| 표시 매니저 | `dd_{namespaceKey}` exact `t_admin.user_id` |
+| 로그인 통계 | 통계 owner 합성 회원 ID의 음수인 `t_sta_login.id` |
+
+음수 `t_sta_login.id` 범위와 위 문자열 prefix는 dev-data 전용이다. 일반 기능은 이 marker를 만들지 않는다.
+reset은 marker로 찾은 root를 `FOR UPDATE`로 잠근다. 그 root에서 profile/auth·review, match·reservation,
+meeting·chat, lounge·comment, concierge, IAP·key ledger, invite, assignment, support·report까지 직접 FK와 legacy
+no-FK child ID를 파생해 child-first로 삭제한다. N:N graph, notice, display manager, 통계도 같은 transaction에서
+정리한다. 생성 대상 table별 사후 count가 모두 0이 아니거나 다른 namespace 합성 root count가 바뀌면 rollback한다.
+
+## 전역 직렬화
+
+CLI와 개발 cron은 MySQL advisory lock `coupler:dev-data:global` 하나를 공유한다.
+
+- `plan`, `contract`, `verify`, `apply`, `reset`은 lock을 획득하지 못하면 실행하지 않는다.
+- 개발 cron은 lock을 획득하지 못하면 handler를 실행하지 않고 maintenance 성공으로 응답한다.
+- lock은 전용 connection에 귀속되며 release가 실패하면 connection을 pool에 반환하지 않고 파기한다.
+- 여러 namespace를 허용하되 같은 domain scope가 겹치는 dataset은 apply 전에 거부한다.
+
+전역 lock 하나는 DB 변경, 검증, cron을 같은 순서로 직렬화한다. job lease, filesystem mutex, 상태별 fence는 두지 않는다.
+
+## Apply transaction
+
+`apply`는 기존 namespace가 있든 없든 같은 전체 교체 경로만 사용한다.
+
+1. namespace, reference time과 environment를 검사하고, lock을 소유한 바로 그 DB connection의 identity를 검사한다.
+2. schema fingerprint와 suite별 외부 기준정보를 read-only로 검사한다.
+3. 모든 현재 manifest를 읽어 legacy/corrupt dataset과 scope 충돌을 거부한다.
+4. 새 random asset key를 만든다.
+5. 하나의 DB transaction에서 대상 namespace marker reset을 수행한다.
+6. 요청 suite의 current scenario 전체를 순서대로 생성한다.
+7. 첫 scenario marker actor 한 명의 memo를 current manifest로 갱신한다.
+8. DB actor가 가리키는 candidate asset을 run-scoped directory에 생성하고 checksum·형식·경로를 검사한다.
+9. DB verifier와 suite obligation을 실행하고 모든 소유 media column이 candidate asset key를 가리키는지 검사한다.
+10. 전 단계가 성공한 경우에만 commit한다.
+11. 같은 전역 lock 안의 새 DB connection에서 그 connection의 identity, manifest, asset과 DB verifier를 다시 실행한다.
+12. postcommit 검증 뒤 exact inventory를 통과한 inactive asset key directory만 정리한다.
+
+transaction 전 실패는 write 0건이다. asset preflight 또는 exclusive-create 전 실패는 기존 generation을 정리 대상으로
+간주하지 않는다. exclusive-create 뒤 population이 실패하면 stage 함수가 자신이 만든 partial candidate를 즉시 삭제하고
+원래 population 오류를 보존한다. stage 완료 뒤 transaction 안 실패는 DB rollback 후 그 candidate만 삭제한다.
+commit 응답이 불명확하고 같은 connection의 rollback은 성공했을 때만 새 connection에서 exact candidate manifest를
+읽는다. commit과 rollback이 모두 실패하면 lock·commit outcome unresolved로 즉시 중단하고 새 connection 검증이나
+어떤 asset cleanup도 수행하지 않는다. candidate exact set이면 postcommit 검증을 계속하고, 이전 set 또는 root 0건이면
+candidate asset만 삭제해 실패한다. candidate asset을 가리키지만
+metadata가 섞였으면 asset을 보존하고 중단한다. commit 후 검증 실패는 결과를 성공으로 보고하지 않으며 DB를 추측해
+되돌리지 않는다. 같은 namespace의 다음 전체 apply 또는 명시 reset으로 복구한다.
+
+## Reset
+
+`reset`은 dry-run과 실행을 같은 명령으로 제공한다.
+
+- dry-run은 embedded manifest, suite, catalog, asset key, member count와 필요한 확인 문자열을 출력한다.
+- 실행은 namespace와 같은 `--confirm` 및 `--apply`를 모두 요구한다.
+- DB marker reset 전체가 한 transaction으로 commit된 뒤 namespace asset directory를 삭제한다.
+- DB reset이 실패하면 asset을 삭제하지 않는다.
+- DB는 이미 0건이고 asset만 남은 경우 같은 reset을 재실행해 asset cleanup을 완료할 수 있다.
+
+legacy dataset은 새 manifest가 없으므로 새 CLI가 reset하지 않는다. 과거 양수 통계 ID처럼 새 marker만으로 소유권을
+완전히 증명할 수 없는 row가 있기 때문이다.
+
+## Asset 모델
+
+asset 경로는 다음과 같다.
+
+```text
+uploads/dev-data/{namespace}/generations/{assetKey}/profiles/{actorKey}-{variant}.webp
+uploads/dev-data/{namespace}/generations/{assetKey}/videos/{actorKey}.mp4
+```
+
+`assetKey`는 `yyyyMMddHHmmssSSS-UUIDv4` 형식이다. 이것은 DB 실행 record가 아니라 transaction 중 기존 asset과
+candidate asset을 분리하는 경로 key다. 생성·actor media path·검증 함수에는 이 key가 필수이며
+`uploads/dev-data/{namespace}/profiles|videos` 형태의 mutable legacy 경로를 만들거나 읽지 않는다.
+
+- profile은 actor별 main/alternate/lifestyle WebP 3장이다.
+- 선택 actor 영상은 기준 MP4 checksum과 같아야 한다.
+- 모든 경로는 canonical absolute `DEV_DATA_ASSET_ROOT` 안에 containment되어야 한다.
+- configured root부터 namespace·generation까지 기존 경로 segment는 모두 `lstat`으로 확인하고 symlink와 비-directory를
+  거부한다. 없는 segment만 real ancestor 아래에 한 단계씩 만든다.
+- namespace에는 `generations`만, generation에는 `profiles`와 `videos`만, 하위에는 허용된 이름의 regular file만
+  존재해야 한다.
+- member, profile set/image, display manager, meeting, lounge, N:N event/detail image의 모든 합성 media 참조는
+  commit 전·후 candidate actor와 `manager-display`에서 계산한 실제 생성 asset path exact set에 포함되어야 한다.
+  prefix만 같은 traversal, 잘못된 directory, inventory에 없는 filename은 거부한다.
+- candidate directory는 exclusive-create한다. 같은 key가 이미 있으면 어떤 파일도 쓰거나 지우지 않고 실패한다.
+- stage 함수만 exclusive-create 이후의 partial candidate를 소유한다. population 실패 때 strict completed-inventory
+  cleanup을 호출하지 않고 그 partial directory만 제거하며, 제거까지 실패하면 population·cleanup 오류를 함께 보고한다.
+- standalone·precommit asset verify는 namespace → generations → candidate → profiles/videos의 exact inventory와
+  real-directory 경계를 먼저 모두 검사한 뒤 파일을 읽는다.
+- postcommit 검증 전에는 이전 asset directory를 지우지 않는다.
+- inactive cleanup은 active key 존재와 모든 generation inventory를 첫 pass에서 검증하고 두 번째 pass에서만 삭제한다.
+
+## 환경 경계
+
+read 명령도 다음 값과 실제 연결 identity가 정확히 같아야 한다. 검사는 advisory lock을 소유한 connection에서
+수행하고 commit 결과 판정·postcommit 검증용 새 connection에서도 각각 다시 수행한다.
+
+identity query는 정확히 한 row만 허용한다. database와 server hostname은 non-empty string, `@@read_only`는 MySQL
+driver가 반환한 number `0` 또는 `1`만 허용하며 문자열·boolean·null 강제 변환을 하지 않는다.
+
+- `NODE_ENV=development` 또는 local test의 `test`
+- `server.is_dev=true`
+- `DEV_DATA_ALLOWED_DB_HOST` = configured DB host
+- `DEV_DATA_ALLOWED_DB_NAME` = `DATABASE()`
+- `DEV_DATA_ALLOWED_DB_SERVER_HOST` = `@@hostname`
+
+write에는 다음 조건이 추가된다.
+
+- `NODE_ENV=development`
+- `DEV_DATA_APPLY_ENABLED=true`
+- `DEV_DATA_ASSET_ROOT` absolute path
+- `@@read_only=0`
+- namespace exact `--confirm`과 `--apply`
+
+production process는 dev-data enable/allowlist/asset 설정이 하나라도 있으면 startup 단계에서 실패한다.
+
+## 개발 cron 경계
+
+개발 cron route는 인증·파괴 작업 guard 뒤 handler wrapper에서 같은 전역 DB lock을 잡는다.
+
+- 합성 member root가 한 건이라도 있으면 모든 개발 cron handler를 maintenance `SKIP`한다.
+- 합성 root가 없을 때만 handler를 실행한다.
+- handler promise가 끝날 때까지 lock을 유지한다.
+- handler가 만든 status/header/body/end 호출은 메모리에 지연하고 `RELEASE_LOCK`이 정확히 `1`로 성공한 뒤에만
+  실제 response에 재생한다. 해제 실패를 이미 전송한 200 응답으로 숨기지 않는다.
+- CLI와 cron은 같은 exact MySQL scalar parser를 쓴다. `GET_LOCK`은 number `0`만 maintenance, number `1`만 획득으로
+  인정하고 나머지는 오류다. root count는 단일 row의 0 이상 number safe integer, `RELEASE_LOCK`은 number `1`만
+  성공이며 문자열·boolean·null·array를 강제 변환하지 않는다.
+- `GET_LOCK` query가 실패하거나 결과가 malformed여서 소유 여부가 불명확한 connection은 pool에 반환하지 않고
+  파기한다. 정확한 `0`만 lock 미소유 connection으로 반환하며, 정확한 해제 뒤 pool 반환이 실패해도 파기하고 실패한다.
+- handler promise는 어떤 값으로 reject하더라도 실패다. `undefined` 같은 non-Error rejection도 정규화하고 지연된 성공
+  응답을 재생하지 않는다.
+- `DEV_CRON_EXTERNAL_DELIVERY_ENABLED=true`가 아니면 현재 개발 cron handler의 FCM push 전송을 억제한다. 이 설정을
+  SMS·메일 전체의 공통 억제 계약으로 간주하지 않는다.
+- production cron은 이 개발 경계를 사용하지 않고 기존 전체 대상 동작을 유지한다.
+
+합성 target만 골라내는 N:N ownership graph를 cron에 복제하지 않는다. QA data가 존재하는 짧은 기간에는 cron 전체를
+멈추는 것이 더 단순하고 안전하다.
+
+## Scenario와 suite
+
+scenario는 `id`, `version`, `suite`, `description`, `markerRole`, `actorRolePrefix`, `apply`를 가진다. 동일한 입력
+namespace와 reference time은 동일한 business state를 만들고 DB PK와 asset key만 실행마다 달라질 수 있다.
+
+| suite | 필수 범위 |
+|---|---|
+| `member-all` | 회원 상태, 가입/프로필 심사, 인증, 초대, 컨시어지 |
+| `matching-all` | 매칭·큐레이터 전체 상태, 선호·일정·장소·채팅·신고 |
+| `meeting-all` | 기존 1:1/2:2 상태, member count·gender·chat history 경계 |
+| `group-meeting-all` | N:N lifecycle, 신청, 채팅, 신고, 후기, 패널티, 이미지 상태 |
+| `lounge-all` | 공개/삭제, pin, 좋아요, 신고, 댓글, 패널티 |
+| `revenue-all` | IAP 상태와 key ledger 불변식 |
+| `statistics-all` | 일·월·시간대 통계와 reserved negative row |
+| `settings-all` | 공지·문의와 기존 설정 기준정보 |
+| `manager-all` | 로그인 불가능 표시 매니저와 회원 배정 |
+| `cms-all` | 위 모든 domain suite의 합집합 |
+
+N:N scenario는 persisted/effective status, application close/reopen, chat initialization/open, system/user message,
+report/review, profile visibility, detail image 상태를 독립 축으로 검증한다. 발행 관리자와 QA 기준 회원은 생성하지 않고
+`GROUP_MEETING_HOST_MANAGER_USER_ID`와 `CHARGE`/`SHARE` 기준정보를 preflight와 transaction 안에서 다시 확인한다.
+
+## Coverage와 verifier
+
+- 상태 상수는 exhaustive obligation map과 연결한다.
+- 단일 축 값은 100%, 상호작용하는 두 축은 pairwise 100%를 요구한다.
+- schema contract는 사용 table·column·view·FK의 fingerprint를 고정한다.
+- schema preflight는 사용 base table의 exact set과 `InnoDB` engine을 함께 확인한다.
+- verifier는 marker 존재뿐 아니라 API read model이 의존하는 join, count, 시간 경계와 원장 불변식을 검사한다.
+- Admin `routeId` 전체는 `scenario-backed`, `reference-backed`, `live-only`, `non-data` 중 하나로 exact 분류한다.
+- 실제 화면 노출 성공 판정은 개발 API에 연결한 Playwright browser smoke가 통과한 경우에만 한다.
+
+안전 모듈(namespace, environment, metadata, lock, transaction, asset, cron guard, deferred response, coverage,
+ownership reset)은 dependency failure를 포함해 Jest branch coverage 100%를 유지한다.
+
+## 변경 감지
+
+| 변경 | 실패해야 하는 gate | 함께 갱신할 항목 |
+|---|---|---|
+| table·column·view·FK | schema fingerprint | builder, marker query, reset 순서, verifier |
+| 상태 상수·전이 | exhaustive obligation | scenario와 verifier |
+| Admin route·filter·권한 | route exact map | coverage entry와 browser smoke |
+| media schema·storage | asset verifier | DB path와 cleanup |
+| cron handler | route boundary test | maintenance·외부 write 검증 |
+
+## Cutover
+
+외부 registry/generation 구조에서 이 구조로 전환할 때는 다음 순서를 고정한다.
+
+1. 이전 CLI와 registry로 모든 active namespace를 verify한다.
+2. 이전 CLI reset으로 DB와 asset을 모두 제거하고 orphan 0건을 확인한다.
+3. registry file을 먼저 지우지 않는다.
+4. 새 코드를 배포하고 `plan`부터 실행한다.
+5. 새 구조에서 생성된 데이터가 있는 상태로 이전 코드로 rollback하지 않는다. 먼저 새 CLI reset을 완료한다.
 
 ## 관련 문서
 
 - [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md)
 - [테스트용 개발 데이터 운영 흐름](../flows/cross-project/development-test-data-flow.md)
-- [회원 심사 단일 정책](../policy/member-review-policy.md)
-- [매칭 운영 정책](../policy/matching-ops-policy.md)
-- [라운지 시스템](lounge-system.md)
-- [결제 시스템](payment-system.md)
-- [Cron 작업](cron-jobs.md)
-- [DB Migration Gate 정책](../policy/db-migration-gate-policy.md)
-- [테스트/CI 전략](../policy/testing-strategy.md)
+- [테스트 전략](../policy/testing-strategy.md)
+- [데이터 거버넌스 정책](../policy/data-governance-policy.md)
