@@ -178,18 +178,20 @@
 ## 23) 테스트용 개발 데이터 운영 검증·고도화 미완료 `P1` `M`
 
 - 현상: API catalog v13과 N:N scenario v10 계약은 독립 lifecycle·채팅 이력 경계, 3인·4인 참여 분기와
-  `GROUP_MEETING_HOST_MANAGER_USER_ID` 발행 관리자 기준정보 검증을 포함하지만 공유 개발계
-  `qa-cms-20260716`은 generation 4·catalog v11
-  `cms-all`이다. 기존 generation은 verifier, 단일 active namespace,
-  transition·cron lease 0건, dispatcher와 API smoke를 통과했다([API #160](https://github.com/coupler-developer/coupler-api/pull/160)).
-  실제 DB 서버 식별값은 비어 있지 않은지만 확인해 allowlist와 결합되지 않고, Admin route coverage는 audience·
-  권한별 session이 없으며 browser smoke가 표준 CI Gate에 포함되지 않는다. 다음 원자 generation cutover와 권한별
-  인증 화면, 유지 기간 cron·외부 호출 0건 관측, 종료 시 최종 reset 증빙이 남아 있다.
-- 영향: 이후 공유 개발계 write가 예상하지 않은 실제 DB 서버를 코드에서 차단하지 못하고, 권한별 화면·필터와 유지 기간 동작, 종료 시 orphan·asset 0건을 실제 운영 증빙으로 확정하지 못했다.
-- 조치: catalog v13 전체 `cms-all` 다음 generation 원자 cutover → 실제 DB 서버 식별값 allowlist 결합 → route
-  audience·권한별 session과 browser smoke 표준 CI Gate 반영 → 유지 기간 cron·외부 호출 관측 → 유지 종료 시
-  reset·orphan·asset 검증을 수행한다.
-- 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) Gate, 전체 catalog generation 장애 복구·rollback, 공유 개발계 current generation, 권한별 route 검증과 최종 reset 증빙 통과.
+  `GROUP_MEETING_HOST_MANAGER_USER_ID` 기준정보 검증을 포함한다. 생성 구조는 외부 registry/generation 플랫폼 대신
+  embedded manifest actor, 전역 DB advisory lock, member root에서 파생한 전체 ownership reset과 전체 seed·DB
+  verify 단일 transaction, symlink-safe run-scoped asset과 전체 media reference 검증, 합성 root 존재 중 개발 cron
+  maintenance·lock 해제 후 응답 구조로 축소했고 connection-local DB identity allowlist와 안전 모듈 branch 100%
+  gate를 결합했다. 다만 공유 개발계에는 과거 registry 방식 catalog v11 데이터가 남아 있을 수
+  있고, 새 구조의 실제 apply, 권한별 Admin API/browser smoke, 유지 기간 cron·외부 호출 0건 관측과 최종 reset 증빙은
+  아직 확정되지 않았다.
+- 영향: legacy 데이터가 남은 채 새 CLI를 사용하면 과거 양수 통계 row 같은 소유권을 새 marker로 완전히 증명할 수
+  없다. 실제 화면·권한·filter와 종료 시 orphan/asset 0건도 code-level verifier만으로 확정할 수 없다.
+- 조치: 이전 CLI로 모든 legacy namespace reset·orphan 0건 확인 → 새 코드 배포 → catalog v13 `cms-all` plan/apply와
+  postcommit verify → route audience·권한별 session·browser smoke → 유지 기간 cron maintenance·외부 호출 0건 관측
+  → 종료 reset·orphan·asset 검증을 수행한다.
+- 완료: [테스트용 개발 데이터 정책](../policy/development-test-data-policy.md) gate, legacy cutover, 새 구조 rollback
+  fault-injection, 공유 개발계 current catalog, 권한별 route/browser 검증과 최종 reset 증빙 통과.
 
 ## 24) Admin compiled theme 제거 미완료 `P2` `L`
 

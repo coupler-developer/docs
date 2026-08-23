@@ -187,7 +187,13 @@
 - 외부 연동(Firebase/SMS/메일): mock 처리로 실서비스 호출 차단.
 - DB 전략: 테스트용 데이터셋/트랜잭션 롤백/테이블 정리 중 하나를 고정하여 일관성 유지.
 - 공유 개발계 관리자 화면과 Mobile QA를 위한 합성 데이터는 단위·통합 테스트 fixture와 분리하며 [테스트용 개발 데이터 정책](development-test-data-policy.md)을 따른다.
-- `tools/dev-data`는 API 표준 lint·typecheck·format·Jest에 포함하고, namespace·environment·registry·generation cutover·DB transaction·asset·cron fence 안전 모듈은 `test:dev-data-safety`의 branch 100% gate로 검증한다.
+- `tools/dev-data`는 API 표준 lint·typecheck·format·Jest에 포함하고, exact namespace marker·connection-local DB
+  identity·embedded manifest·전역 DB lock·원자 DB transaction·symlink-safe asset inventory와 전체 media reference·
+  member 파생 ownership reset·개발 cron data guard와 deferred response 안전 모듈은 `test:dev-data-safety`와
+  `test:dev-cron-safety`의 branch 100% gate로 검증한다.
+- MySQL scalar fault test는 null·빈/공백 문자열·boolean·array·object·fraction·safe integer overflow를 lock
+  획득/root count/lock 해제/DB identity에 주입한다. Asset fault test는 ancestor symlink, unknown inventory,
+  same-key exclusive-create, 검증 전 삭제 0건을 확인한다.
 
 ### coupler-mobile-app (React Native)
 
