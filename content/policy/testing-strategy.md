@@ -256,9 +256,10 @@
   신뢰 경계가 다르므로 단계별 검증이며, 같은 deploy job 안에서 lifecycle을 별도 선행 실행하지 않는다.
 - docs 레포: release tag workflow의 `yarn verify`는 tag ref에서 패키징할 site artifact를 다시 생성·검증하는
   release Gate이며 PR·main 배포 검증과 산출물이 다르다.
-- docs 레포: 변경 파일이 신규 릴리스 기록뿐이고 현재 상태가 `planned`, `pending`, `in_progress`이면
-  `docs-structure`에서 민감 인프라 식별자, 신규 metadata와 과거 기록 불변성을 경량 검증한다. `released`/terminal 기록,
-  일반 문서, policy, script, workflow 변경은 기존 전체 검증을 실행한다.
+- docs 레포: 변경 파일이 신규 nonterminal 릴리스 기록과 initializer가 결정적으로 만든 lifecycle registry,
+  `content/AGENTS.md`, `mkdocs.yml`의 정확한 네 파일 집합이면 `docs-structure`에서 민감 인프라 식별자, 신규
+  metadata와 lifecycle 전환을 경량 검증한다. companion 파일이 initializer 결과와 다르거나 `released`/terminal
+  기록, 일반 문서, policy, script, workflow가 함께 바뀌면 기존 전체 검증을 실행한다.
 - docs 레포: nonterminal 릴리스 기록을 포함한 PR은 Draft일 때만 검증을 통과한다. `ready_for_review`와
   `converted_to_draft`에서도 검증을 다시 실행해 terminal 전 Ready/병합을 차단한다.
 - docs 레포: 게시된 pending 기록 복구는 다른 scope metadata/evidence와 비허용 본문 변경을 거부하는

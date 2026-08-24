@@ -24,32 +24,24 @@ afterEach(() => {
 });
 
 describe("release preflight for unpublished PR records", () => {
-  it("requires a version and an unpublished PR ref", () => {
+  it("accepts only one positional version and derives the current HEAD", () => {
     const docsRoot = createRepository("docs");
 
     const missingVersion = runPreflight([], docsRoot);
     assert.notEqual(missingVersion.status, 0);
-    assert.match(missingVersion.stdout, /--version is required/);
+    assert.match(missingVersion.stdout, /accepts exactly one version/);
 
-    const missingRef = runPreflight(["--version", "v9.9.0"], docsRoot);
-    assert.notEqual(missingRef.status, 0);
-    assert.match(
-      missingRef.stdout,
-      /--pending-ref is required; release preflight only reads an unpublished PR record/,
-    );
+    const redundantOptions = runPreflight(["--version", "v9.9.0"], docsRoot);
+    assert.notEqual(redundantOptions.status, 0);
+    assert.match(redundantOptions.stdout, /accepts exactly one version/);
   });
 
   it("does not parse or revalidate a record already published on origin/main", () => {
     const docsRoot = createRepository("docs");
     writeOpaqueRelease(docsRoot, "v1.0.0");
-    const publishedRef = commitAndPush(docsRoot, "publish opaque history");
+    commitAndPush(docsRoot, "publish opaque history");
 
-    const result = runPreflight([
-      "--version",
-      "v1.0.0",
-      "--pending-ref",
-      publishedRef,
-    ], docsRoot);
+    const result = runPreflight(["v1.0.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(
@@ -63,19 +55,14 @@ describe("release preflight for unpublished PR records", () => {
     const docsRoot = createRepository("docs");
     git(docsRoot, ["checkout", "-b", "docs/stale-origin"]);
     writeOpaqueRelease(docsRoot, "v9.9.0");
-    const pendingRef = commit(docsRoot, "opaque pending ref");
+    commit(docsRoot, "opaque pending ref");
     git(docsRoot, ["push", "-u", "origin", "docs/stale-origin"]);
 
     const publisherRoot = cloneMain(docsRoot, "docs-publisher");
     writeOpaqueRelease(publisherRoot, "v9.9.0");
     commitAndPush(publisherRoot, "publish same version on main");
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(
@@ -87,16 +74,11 @@ describe("release preflight for unpublished PR records", () => {
 
   it("fails closed before reading a record when origin/main cannot be refreshed", () => {
     const docsRoot = createRepository("docs");
-    const pendingRef = createPendingReleaseBranch(docsRoot);
+    createPendingReleaseBranch(docsRoot);
     const remoteRoot = git(docsRoot, ["remote", "get-url", "origin"]);
     fs.renameSync(remoteRoot, `${remoteRoot}.offline`);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(
@@ -107,14 +89,9 @@ describe("release preflight for unpublished PR records", () => {
 
   it("passes a clean pushed pending PR ref", () => {
     const docsRoot = createRepository("docs");
-    const pendingRef = createPendingReleaseBranch(docsRoot);
+    createPendingReleaseBranch(docsRoot);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /preflight repos: docs/);
@@ -125,30 +102,20 @@ describe("release preflight for unpublished PR records", () => {
     const docsRoot = createRepository("docs");
     git(docsRoot, ["checkout", "-b", "docs/release"]);
     writePendingRelease(docsRoot);
-    const unpushedRef = commit(docsRoot, "unpublished release");
+    commit(docsRoot, "unpublished release");
 
-    const unpushed = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      unpushedRef,
-    ], docsRoot);
+    const unpushed = runPreflight(["v9.9.0"], docsRoot);
     assert.notEqual(unpushed.status, 0);
     assert.match(unpushed.stdout, /pending release branch must be pushed to an origin upstream/);
 
     git(docsRoot, ["push", "-u", "origin", "docs/release"]);
-    const pushedRef = git(docsRoot, ["rev-parse", "HEAD"]);
+    git(docsRoot, ["rev-parse", "HEAD"]);
     git(docsRoot, ["checkout", "main"]);
     fs.writeFileSync(path.join(docsRoot, "MAIN_ADVANCE.md"), "# Advance\n");
     commitAndPush(docsRoot, "advance main");
     git(docsRoot, ["checkout", "docs/release"]);
 
-    const stale = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pushedRef,
-    ], docsRoot);
+    const stale = runPreflight(["v9.9.0"], docsRoot);
     assert.notEqual(stale.status, 0);
     assert.match(
       stale.stdout,
@@ -156,25 +123,19 @@ describe("release preflight for unpublished PR records", () => {
     );
   });
 
-  it("accepts a pending DB scope without a plan artifact", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    git(workspace.docsRoot, ["checkout", "-b", "docs/db-release"]);
-    writePendingRelease(workspace.docsRoot, {
+  it("accepts a DB-only service layout without unrelated repositories", () => {
+    const docsRoot = createRepository("docs");
+    const apiRoot = createRepository("coupler-api");
+    const apiRef = git(apiRoot, ["rev-parse", "HEAD"]);
+    git(docsRoot, ["checkout", "-b", "docs/db-release"]);
+    writePendingRelease(docsRoot, {
       dbMigration: true,
       apiRef,
     });
-    const pendingRef = commit(workspace.docsRoot, "pending DB release");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/db-release"]);
+    commit(docsRoot, "pending DB release");
+    git(docsRoot, ["push", "-u", "origin", "docs/db-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -193,15 +154,10 @@ describe("release preflight for unpublished PR records", () => {
       apiRef: unmergedApiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "reference local-only API source");
+    commit(workspace.docsRoot, "reference local-only API source");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/unmerged-db-source"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /버전 매핑 ref가 origin\/main 계보에 없습니다/);
@@ -216,7 +172,7 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "in-progress DB release");
+    commit(workspace.docsRoot, "in-progress DB release");
     git(workspace.docsRoot, [
       "push",
       "-u",
@@ -224,14 +180,7 @@ describe("release preflight for unpublished PR records", () => {
       "docs/db-release-in-progress",
     ]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /preflight repos: docs, coupler-api/);
@@ -249,7 +198,7 @@ describe("release preflight for unpublished PR records", () => {
       apiRef: releaseApiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "bind DB migration release API source");
+    commit(workspace.docsRoot, "bind DB migration release API source");
     git(workspace.docsRoot, [
       "push",
       "-u",
@@ -257,14 +206,7 @@ describe("release preflight for unpublished PR records", () => {
       "docs/db-release-after-api-advance",
     ]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -288,15 +230,10 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(docsWorktree, "nested worktree DB release");
+    commit(docsWorktree, "nested worktree DB release");
     git(docsWorktree, ["push", "-u", "origin", "docs/nested-db-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsWorktree);
+    const result = runPreflight(["v9.9.0"], docsWorktree);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(
@@ -324,15 +261,10 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(externalRoot, "external worktree DB release");
+    commit(externalRoot, "external worktree DB release");
     git(externalRoot, ["push", "-u", "origin", "docs/external-db-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], externalRoot);
+    const result = runPreflight(["v9.9.0"], externalRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(
@@ -342,31 +274,21 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /Result: PASS/);
   });
 
-  it("rejects an explicit workspace root without the canonical service layout", () => {
-    const workspace = createWorkspace();
-    const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
-    git(workspace.docsRoot, ["checkout", "-b", "docs/invalid-workspace-root"]);
-    writePendingRelease(workspace.docsRoot, {
+  it("fails closed when a required service repo cannot be discovered", () => {
+    const docsRoot = createRepository("docs");
+    git(docsRoot, ["checkout", "-b", "docs/missing-workspace"]);
+    writePendingRelease(docsRoot, {
       dbMigration: true,
-      apiRef,
+      apiRef: "a".repeat(40),
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "invalid explicit workspace root");
-    git(workspace.docsRoot, ["push", "-u", "origin", "docs/invalid-workspace-root"]);
-    const invalidRoot = path.join(tempRoot, "_worktrees");
-    fs.mkdirSync(invalidRoot, { recursive: true });
+    commit(docsRoot, "missing service workspace");
+    git(docsRoot, ["push", "-u", "origin", "docs/missing-workspace"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      invalidRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /Workspace root must contain coupler-api, coupler-admin-web, and coupler-mobile-app/);
+    assert.match(result.stdout, /Workspace root not found from the docs repository or linked worktree/);
   });
 
   it("allows later non-DB preflight after the DB scope is terminal", () => {
@@ -379,22 +301,20 @@ describe("release preflight for unpublished PR records", () => {
       status: "in_progress",
       dbMigrationStatus: "released",
     });
-    const pendingRef = commit(workspace.docsRoot, "DB complete with remaining release work");
+    commit(workspace.docsRoot, "DB complete with remaining release work");
     git(workspace.docsRoot, [
       "push",
       "-u",
       "origin",
       "docs/db-complete-release-in-progress",
     ]);
+    git(workspace.apiRoot, ["checkout", "-b", "local/unrelated-api-work"]);
+    fs.writeFileSync(
+      path.join(workspace.apiRoot, "LOCAL_ONLY.md"),
+      "# Unrelated local work\n",
+    );
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -415,15 +335,10 @@ describe("release preflight for unpublished PR records", () => {
     );
     fs.mkdirSync(path.dirname(unownedArtifact), { recursive: true });
     fs.writeFileSync(unownedArtifact, "new artifact is forbidden\n");
-    const pendingRef = commit(docsRoot, "omit DB scope with artifacts");
+    commit(docsRoot, "omit DB scope with artifacts");
     git(docsRoot, ["push", "-u", "origin", "docs/unowned-db-artifacts"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /new DB migration evidence artifacts are not allowed/);
@@ -439,15 +354,10 @@ describe("release preflight for unpublished PR records", () => {
       path.join(docsRoot, "content", "releases", "v1.0.0.md"),
       "rewritten historical bytes\n",
     );
-    const pendingRef = commit(docsRoot, "rewrite published release");
+    commit(docsRoot, "rewrite published release");
     git(docsRoot, ["push", "-u", "origin", "docs/rewrite-history"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /release record already present in the base ref is final and immutable/);
@@ -457,20 +367,15 @@ describe("release preflight for unpublished PR records", () => {
     const docsRoot = createRepository("docs");
     git(docsRoot, ["checkout", "-b", "docs/planned-release"]);
     writePendingRelease(docsRoot, { status: "planned" });
-    const plannedRef = commit(docsRoot, "planned release");
+    commit(docsRoot, "planned release");
     git(docsRoot, ["push", "-u", "origin", "docs/planned-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      plannedRef,
-    ], docsRoot);
+    const result = runPreflight(["v9.9.0"], docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(
       result.stdout,
-      /--pending-ref requires release-metadata status pending or in_progress, got planned/,
+      /release preflight requires release-metadata status pending or in_progress, got planned/,
     );
   });
 
@@ -489,17 +394,10 @@ describe("release preflight for unpublished PR records", () => {
       apiTag: "v9.9.0",
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "record immutable tagged release");
+    commit(workspace.docsRoot, "record immutable tagged release");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/tagged-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -535,17 +433,10 @@ describe("release preflight for unpublished PR records", () => {
         },
       },
     });
-    const pendingRef = commit(workspace.docsRoot, "record split Store source refs");
+    commit(workspace.docsRoot, "record split Store source refs");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/platform-store-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -568,17 +459,10 @@ describe("release preflight for unpublished PR records", () => {
         ios: null,
       },
     });
-    const pendingRef = commit(workspace.docsRoot, "record pre-tag Store source");
+    commit(workspace.docsRoot, "record pre-tag Store source");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/pretag-store-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);
@@ -606,17 +490,10 @@ describe("release preflight for unpublished PR records", () => {
         ios: null,
       },
     });
-    const pendingRef = commit(workspace.docsRoot, "record mismatched Store source refs");
+    commit(workspace.docsRoot, "record mismatched Store source refs");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/mismatched-store-source"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /store\.android tag와 commit이 같은 기준점을 가리켜야 합니다/);
@@ -634,17 +511,10 @@ describe("release preflight for unpublished PR records", () => {
       apiRef,
       status: "in_progress",
     });
-    const pendingRef = commit(workspace.docsRoot, "record stale untagged release");
+    commit(workspace.docsRoot, "record stale untagged release");
     git(workspace.docsRoot, ["push", "-u", "origin", "docs/untagged-release"]);
 
-    const result = runPreflight([
-      "--version",
-      "v9.9.0",
-      "--pending-ref",
-      pendingRef,
-      "--workspace-root",
-      tempRoot,
-    ], workspace.docsRoot);
+    const result = runPreflight(["v9.9.0"], workspace.docsRoot);
 
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.match(result.stdout, /Result: PASS/);

@@ -411,7 +411,7 @@ function removeIfExists(filePath) {
 }
 
 function printUsage() {
-  console.log("Usage: yarn release:record:init vMAJOR.MINOR.PATCH");
+  console.log("Usage: node scripts/init-release-record.mjs vMAJOR.MINOR.PATCH");
 }
 
 const isMainModule =
@@ -433,7 +433,7 @@ if (isMainModule) {
         console.log(`- ${changedPath}`);
       }
       console.log(
-        "다음 단계: planned 기록을 작성하고 검증한 뒤 현재 PR head의 필수 CI를 확인하세요.",
+        "다음 단계: planned 로컬 초안을 작성해 pending으로 전환한 첫 후보만 Draft PR에 push하세요.",
       );
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));

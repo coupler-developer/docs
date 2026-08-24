@@ -12,8 +12,7 @@
     "markdownlint-cli2": "0.17.2"
   },
   "scripts": {
-    "release:record:init": "node scripts/init-release-record.mjs",
-    "release:preflight": "node scripts/release-preflight.mjs",
+    "release:continue": "node scripts/release-continue.mjs",
     "test:release-preflight": "node scripts/docs-validation-runner.mjs task test:release-preflight",
     "test:docs-structure": "node scripts/docs-validation-runner.mjs task test:docs-structure",
     "test:document-lifecycle": "node scripts/docs-validation-runner.mjs task test:document-lifecycle",

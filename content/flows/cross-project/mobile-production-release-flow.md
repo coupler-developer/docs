@@ -20,8 +20,8 @@
 
 ## Mobile NextPush
 
-릴리스 기록의 Mobile commit, 대상 플랫폼과 실제 target Store binary를 고정한 뒤 워크스페이스 루트의 새
-shell에서 실행한다.
+릴리스 기록의 Mobile commit, 대상 플랫폼과 실제 target Store binary를 고정한다. 해당 commit을 checkout한
+clean worktree를 `coupler-mobile-app`으로 둔 워크스페이스 루트의 새 shell에서 실행한다.
 
 ```bash
 set -euo pipefail
@@ -33,11 +33,9 @@ set -euo pipefail
 
 case "${PLATFORM}" in
   android)
-    SCRIPT=codepush-and-prod
     APP_ID=bluedotstudio.official-gmail.com/coupler
     ;;
   ios)
-    SCRIPT=codepush-ios-prod
     APP_ID=bluedotstudio.official-gmail.com/coupler-ios
     ;;
   *)
@@ -46,24 +44,18 @@ case "${PLATFORM}" in
     ;;
 esac
 
-WORKTREE_STATUS="$(git -C coupler-mobile-app status --porcelain)"
-test -z "${WORKTREE_STATUS}"
+test -z "$(git -C coupler-mobile-app status --porcelain)"
 git -C coupler-mobile-app fetch --no-tags origin main:refs/remotes/origin/main
-test "$(git -C coupler-mobile-app rev-parse --verify "${MOBILE_COMMIT}^{commit}")" = "${MOBILE_COMMIT}"
-git -C coupler-mobile-app merge-base --is-ancestor "${MOBILE_COMMIT}" origin/main
-git -C coupler-mobile-app checkout --detach "${MOBILE_COMMIT}"
 test "$(git -C coupler-mobile-app rev-parse HEAD)" = "${MOBILE_COMMIT}"
+git -C coupler-mobile-app merge-base --is-ancestor "${MOBILE_COMMIT}" origin/main
 
-SCRIPT_COMMAND="$(node -p "require('./coupler-mobile-app/package.json').scripts['${SCRIPT}']")"
-EXPECTED_SCRIPT_COMMAND="yarn check:nextpush-contracts && nextpush release-react ${APP_ID} ${PLATFORM} -d Production -m -t ${TARGET_BINARY}"
-test "${SCRIPT_COMMAND}" = "${EXPECTED_SCRIPT_COMMAND}"
-
-nextpush whoami
-nextpush deployment history "${APP_ID}" Production --format json
 cd coupler-mobile-app
 yarn install --frozen-lockfile
-yarn "${SCRIPT}"
-nextpush deployment history "${APP_ID}" Production --format json
+yarn nextpush whoami
+yarn nextpush deployment history "${APP_ID}" Production --format json
+yarn check:nextpush-contracts
+yarn nextpush release-react "${APP_ID}" "${PLATFORM}" -d Production -m -t "${TARGET_BINARY}"
+yarn nextpush deployment history "${APP_ID}" Production --format json
 ```
 
 배포 전·후 history에서 새 release, target binary와 bundle hash를 확인하고 rollback target을 릴리스 기록에
@@ -72,21 +64,44 @@ NextPush terminal 판정의 필수 조건으로 사용하지 않는다.
 
 ## Mobile Store
 
-Store build/upload는 저장소에 확정된 단일 명령이 없으므로 추측해 정의하지 않는다. 실제 제출이 끝난 뒤 로컬
-artifact와 exact source를 검증하고 제출 마커를 만든다.
+### 제출 후보 준비
+
+1. 포함 기능을 `main`에 모두 병합하고 Store에서 다음 사용 가능한 build 번호를 확인한다.
+2. `release/{이름}/{버전}({build})-준비` PR에서는 Android `versionName/versionCode`, iOS
+   `MARKETING_VERSION/CURRENT_PROJECT_VERSION`와 그 정합성 테스트만 변경한다. NextPush가 scope에 없으면
+   Production target은 바꾸지 않는다.
+3. 필수 CI 통과 뒤 저장소 책임자가 rebase merge한다. PR head SHA는 병합 과정에서 바뀔 수 있으므로 artifact
+   기준으로 사용하지 않는다.
+4. 아래 확인으로 clean `main == origin/main`의 최종 SHA를 고정한 뒤 같은 checkout을 유지한 채 Android
+   `./gradlew bundleRelease`와 Xcode Archive를 순차 또는 병렬 실행한다.
+
+```bash
+set -euo pipefail
+MOBILE_REPO=coupler-mobile-app
+
+git -C "${MOBILE_REPO}" fetch --no-tags origin main:refs/remotes/origin/main
+test -z "$(git -C "${MOBILE_REPO}" status --porcelain)"
+test "$(git -C "${MOBILE_REPO}" branch --show-current)" = main
+test "$(git -C "${MOBILE_REPO}" rev-parse HEAD)" = \
+  "$(git -C "${MOBILE_REPO}" rev-parse origin/main)"
+MOBILE_COMMIT="$(git -C "${MOBILE_REPO}" rev-parse HEAD)"
+printf 'MOBILE_COMMIT=%s\n' "${MOBILE_COMMIT}"
+```
+
+두 platform의 version/build, 운영 API 대상과 Store 업로드 결과를 같은 `MOBILE_COMMIT`에 연결한다. build 또는
+version을 다시 바꾸면 새 release PR을 rebase merge하고 새 최종 SHA에서 양 platform artifact를 다시 만든다.
+
+### 심사 제출 마커
+
+실제 platform 제출이 끝나면 Store의 platform/version/build를 source commit에 고정한다. 로컬 artifact 경로와
+파일 전체 hash는 제출 마커의 필수 입력으로 사용하지 않는다.
 
 ```bash
 set -euo pipefail
 : "${MARKER_SCOPE:?set MARKER_SCOPE to android or ios}"
 : "${MOBILE_VERSION:?set MOBILE_VERSION}"
 : "${BUILD:?set BUILD}"
-: "${SUBMITTED_COMMIT:?set SUBMITTED_COMMIT}"
-: "${ARTIFACT_FILE:?set ARTIFACT_FILE}"
-: "${ARTIFACT_REF:?set ARTIFACT_REF}"
-: "${ARTIFACT_SHA256:?set ARTIFACT_SHA256}"
-: "${BUNDLE_HASH:?set BUNDLE_HASH}"
-: "${SUBMITTED_AT:?set SUBMITTED_AT}"
-: "${SOURCE_EVIDENCE:?set SOURCE_EVIDENCE}"
+: "${MOBILE_COMMIT:?set MOBILE_COMMIT}"
 
 case "${MARKER_SCOPE}" in
   android | ios) ;;
@@ -97,46 +112,23 @@ case "${MARKER_SCOPE}" in
 esac
 [[ "${MOBILE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 [[ "${BUILD}" =~ ^[0-9]+$ ]]
-[[ "${ARTIFACT_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
-[[ "${SUBMITTED_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
-test -f "${ARTIFACT_FILE}"
-case "${ARTIFACT_REF}" in
-  /* | *..*)
-    printf 'ARTIFACT_REF must be a stable relative ref: %s\n' "${ARTIFACT_REF}" >&2
-    exit 1
-    ;;
-esac
-test -n "${BUNDLE_HASH}"
-test -n "${SUBMITTED_AT}"
-test -n "${SOURCE_EVIDENCE}"
-
-ACTUAL_SHA256="$(shasum -a 256 "${ARTIFACT_FILE}" | awk '{print $1}')"
-test "$(printf '%s' "${ACTUAL_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
-  "$(printf '%s' "${ARTIFACT_SHA256}" | tr '[:upper:]' '[:lower:]')"
+[[ "${MOBILE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+SUBMITTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 REPO=coupler-mobile-app
 TAG="submitted/${MARKER_SCOPE}-${MOBILE_VERSION}-${BUILD}"
-WORKTREE_STATUS="$(git -C "${REPO}" status --porcelain)"
-test -z "${WORKTREE_STATUS}"
 git -C "${REPO}" fetch --no-tags origin main:refs/remotes/origin/main
 git -C "${REPO}" fetch --tags origin
-test "$(git -C "${REPO}" rev-parse --verify "${SUBMITTED_COMMIT}^{commit}")" = "${SUBMITTED_COMMIT}"
-git -C "${REPO}" merge-base --is-ancestor "${SUBMITTED_COMMIT}" origin/main
-git -C "${REPO}" checkout --detach "${SUBMITTED_COMMIT}"
-test "$(git -C "${REPO}" rev-parse HEAD)" = "${SUBMITTED_COMMIT}"
+git -C "${REPO}" merge-base --is-ancestor "${MOBILE_COMMIT}" origin/main
 
-git -C "${REPO}" tag -a "${TAG}" "${SUBMITTED_COMMIT}" \
+git -C "${REPO}" tag -a "${TAG}" "${MOBILE_COMMIT}" \
   -m "Submitted Mobile Store ${MOBILE_VERSION} (${BUILD})" \
-  -m "Artifact: ${ARTIFACT_REF}" \
-  -m "Artifact SHA-256: ${ARTIFACT_SHA256}" \
-  -m "Bundle/hash: ${BUNDLE_HASH}" \
-  -m "Uploaded/submitted at: ${SUBMITTED_AT}" \
-  -m "Source evidence: ${SOURCE_EVIDENCE}"
+  -m "Platform: ${MARKER_SCOPE}" \
+  -m "Submitted at: ${SUBMITTED_AT}"
 
-test "$(git -C "${REPO}" rev-list -n 1 "${TAG}")" = "${SUBMITTED_COMMIT}"
 git -C "${REPO}" push origin "${TAG}"
 REMOTE_COMMIT="$(git -C "${REPO}" ls-remote --tags origin "refs/tags/${TAG}^{}" | cut -f1)"
-test "${REMOTE_COMMIT}" = "${SUBMITTED_COMMIT}"
+test "${REMOTE_COMMIT}" = "${MOBILE_COMMIT}"
 ```
 
 승인·출시·smoke 뒤 서비스 릴리스 태그는 상위 런북에서 만든다. 제출 증빙 이관이 끝난 마커 삭제는 별도 명시
@@ -162,10 +154,11 @@ case "${PLATFORM}" in
     ;;
 esac
 
-nextpush whoami
-nextpush deployment history "${APP_ID}" Production --format json
-nextpush rollback "${APP_ID}" Production --targetRelease "${TARGET_RELEASE}"
-nextpush deployment history "${APP_ID}" Production --format json
+cd coupler-mobile-app
+yarn nextpush whoami
+yarn nextpush deployment history "${APP_ID}" Production --format json
+yarn nextpush rollback "${APP_ID}" Production --targetRelease "${TARGET_RELEASE}"
+yarn nextpush deployment history "${APP_ID}" Production --format json
 ```
 
 - tag 생성·push 또는 postcheck가 중단되면 local/remote ref를 확인하고 누락된 작업만 재개한다. 이미 push한

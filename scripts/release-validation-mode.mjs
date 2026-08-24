@@ -1,10 +1,26 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { initializeReleaseRecord } from "./init-release-record.mjs";
 import {
   parseReleaseMetadataBlock,
 } from "./release-record-metadata.mjs";
 import { activeReleaseStatuses } from "./release-schema.mjs";
 
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
+const initializerCompanionPaths = [
+  "document-lifecycle-registry.json",
+  "content/AGENTS.md",
+  "mkdocs.yml",
+];
+const initializerInputPaths = [
+  "content/templates/release-record-template.md",
+  "document-lifecycle-registry.json",
+  "document-retirement-ledger.json",
+  "content/AGENTS.md",
+  "mkdocs.yml",
+];
 
 let args;
 try {
@@ -96,37 +112,77 @@ function resolveValidationMode(baseRef, headRef, prDraft) {
 
   validateActiveReleasePrState(changedPaths, headRef, prDraft);
 
+  const releasePaths = changedPaths.filter((changedPath) =>
+    releaseRecordPattern.test(changedPath),
+  );
+  if (changedPaths.length === 0 || releasePaths.length !== 1) {
+    return "full";
+  }
+
+  const [releasePath] = releasePaths;
+  if (gitObjectExists(`${baseRef}:${releasePath}`)) {
+    return "full";
+  }
+  const expectedPaths = new Set([releasePath, ...initializerCompanionPaths]);
   if (
-    changedPaths.length === 0 ||
-    changedPaths.some((changedPath) => !releaseRecordPattern.test(changedPath))
+    changedPaths.length !== expectedPaths.size ||
+    changedPaths.some((changedPath) => !expectedPaths.has(changedPath)) ||
+    !initializerCompanionsMatch({ baseRef, headRef, releasePath })
   ) {
     return "full";
   }
 
-  for (const releasePath of changedPaths) {
-    if (gitObjectExists(`${baseRef}:${releasePath}`)) {
-      return "full";
-    }
+  let source;
+  try {
+    source = git(["show", `${headRef}:${releasePath}`]);
+  } catch {
+    return "full";
+  }
 
-    let source;
-    try {
-      source = git(["show", `${headRef}:${releasePath}`]);
-    } catch {
-      return "full";
-    }
+  const errors = [];
+  const metadata = parseReleaseMetadataBlock(source, releasePath, errors);
+  if (errors.length > 0) {
+    throw new Error(errors.join("\n"));
+  }
 
-    const errors = [];
-    const metadata = parseReleaseMetadataBlock(source, releasePath, errors);
-    if (errors.length > 0) {
-      throw new Error(errors.join("\n"));
-    }
-
-    if (!activeReleaseStatuses.has(metadata?.status)) {
-      return "full";
-    }
+  if (!activeReleaseStatuses.has(metadata?.status)) {
+    return "full";
   }
 
   return "lightweight";
+}
+
+function initializerCompanionsMatch({ baseRef, headRef, releasePath }) {
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "release-validation-mode-expected-"),
+  );
+  try {
+    for (const relativePath of initializerInputPaths) {
+      const source = git(["show", `${baseRef}:${relativePath}`]);
+      const targetPath = path.join(temporaryRoot, relativePath);
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, source.endsWith("\n") ? source : `${source}\n`);
+    }
+    const version = path.basename(releasePath, ".md");
+    initializeReleaseRecord({ docsRoot: temporaryRoot, version });
+
+    return initializerCompanionPaths.every((relativePath) => {
+      let actualSource;
+      try {
+        actualSource = git(["show", `${headRef}:${relativePath}`]);
+      } catch {
+        return false;
+      }
+      const expectedSource = fs
+        .readFileSync(path.join(temporaryRoot, relativePath), "utf8")
+        .trimEnd();
+      return actualSource === expectedSource;
+    });
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
 }
 
 function validateActiveReleasePrState(changedPaths, headRef, prDraft) {

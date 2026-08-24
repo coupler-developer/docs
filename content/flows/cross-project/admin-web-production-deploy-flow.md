@@ -39,21 +39,19 @@
 
 ## 1) Artifact 생성
 
-워크스페이스 루트의 새 shell에서 실행한다. `EXPECTED_API_ORIGIN`은 릴리스 기록에 확정한 운영 API origin이다.
+`ADMIN_COMMIT`을 checkout한 clean `coupler-admin-web` worktree가 있는 워크스페이스 루트의 새 shell에서
+실행한다. 운영 API origin은 이 블록의 `EXPECTED_API_ORIGIN`으로 고정한다.
 
 ```bash
 set -euo pipefail
 : "${ADMIN_COMMIT:?set ADMIN_COMMIT}"
-: "${EXPECTED_API_ORIGIN:?set EXPECTED_API_ORIGIN}"
 [[ "${ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+EXPECTED_API_ORIGIN=https://api.ritzy.fourhundred.co.kr
 
-WORKTREE_STATUS="$(git -C coupler-admin-web status --porcelain)"
-test -z "${WORKTREE_STATUS}"
+test -z "$(git -C coupler-admin-web status --porcelain)"
 git -C coupler-admin-web fetch --no-tags origin main:refs/remotes/origin/main
-test "$(git -C coupler-admin-web rev-parse --verify "${ADMIN_COMMIT}^{commit}")" = "${ADMIN_COMMIT}"
-git -C coupler-admin-web merge-base --is-ancestor "${ADMIN_COMMIT}" origin/main
-git -C coupler-admin-web checkout --detach "${ADMIN_COMMIT}"
 test "$(git -C coupler-admin-web rev-parse HEAD)" = "${ADMIN_COMMIT}"
+git -C coupler-admin-web merge-base --is-ancestor "${ADMIN_COMMIT}" origin/main
 
 cd coupler-admin-web
 yarn install --frozen-lockfile
@@ -62,17 +60,14 @@ test -f build/index.html
 grep -R --include='*.js' -F "${EXPECTED_API_ORIGIN}" build/static/js >/dev/null
 
 ARTIFACT_PATH="${TMPDIR:-/tmp}/coupler-admin-web-${ADMIN_COMMIT}.tar.gz"
-ARTIFACT_NAME="$(basename "${ARTIFACT_PATH}")"
-INDEX_SHA256="$(shasum -a 256 build/index.html | awk '{print $1}')"
 tar -C build -czf "${ARTIFACT_PATH}" .
 ARTIFACT_SHA256="$(shasum -a 256 "${ARTIFACT_PATH}" | awk '{print $1}')"
-[[ "${INDEX_SHA256}" =~ ^[0-9a-f]{64}$ ]]
 [[ "${ARTIFACT_SHA256}" =~ ^[0-9a-f]{64}$ ]]
-printf 'ARTIFACT_PATH=%s\nARTIFACT_NAME=%s\nARTIFACT_SHA256=%s\nINDEX_SHA256=%s\n' \
-  "${ARTIFACT_PATH}" "${ARTIFACT_NAME}" "${ARTIFACT_SHA256}" "${INDEX_SHA256}"
+printf 'ARTIFACT_PATH=%s\nARTIFACT_SHA256=%s\n' \
+  "${ARTIFACT_PATH}" "${ARTIFACT_SHA256}"
 ```
 
-출력한 artifact name, artifact/index SHA-256과 `ADMIN_COMMIT`을 릴리스 기록에 고정한다. 임시 local path는
+출력한 artifact SHA-256과 `ADMIN_COMMIT`을 릴리스 기록에 고정한다. 임시 local path는
 기록하지 않는다.
 
 ## 2) Artifact 업로드
@@ -83,14 +78,13 @@ printf 'ARTIFACT_PATH=%s\nARTIFACT_NAME=%s\nARTIFACT_SHA256=%s\nINDEX_SHA256=%s\
 set -euo pipefail
 : "${ADMIN_COMMIT:?set ADMIN_COMMIT}"
 : "${ARTIFACT_PATH:?set ARTIFACT_PATH}"
-: "${ADMIN_SERVER:?set ADMIN_SERVER}"
-: "${DEPLOY_USER:?set DEPLOY_USER}"
+: "${ADMIN_TARGET:?set ADMIN_TARGET to user@host}"
 [[ "${ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 test -f "${ARTIFACT_PATH}"
 test "$(basename "${ARTIFACT_PATH}")" = "coupler-admin-web-${ADMIN_COMMIT}.tar.gz"
 
 UPLOAD_PATH="/var/tmp/coupler-admin-web-${ADMIN_COMMIT}.tar.gz"
-scp "${ARTIFACT_PATH}" "${DEPLOY_USER}@${ADMIN_SERVER}:${UPLOAD_PATH}"
+scp "${ARTIFACT_PATH}" "${ADMIN_TARGET}:${UPLOAD_PATH}"
 ```
 
 ## 3) 운영 반영·postcheck
@@ -104,12 +98,10 @@ rollback을 위해 삭제하지 않는다.
 set -euo pipefail
 : "${ADMIN_COMMIT:?set ADMIN_COMMIT}"
 : "${ARTIFACT_SHA256:?set ARTIFACT_SHA256}"
-: "${INDEX_SHA256:?set INDEX_SHA256}"
 : "${PREVIOUS_ADMIN_COMMIT:?set PREVIOUS_ADMIN_COMMIT}"
 : "${PREVIOUS_INDEX_SHA256:?set PREVIOUS_INDEX_SHA256}"
 [[ "${ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 [[ "${ARTIFACT_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
-[[ "${INDEX_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
 [[ "${PREVIOUS_ADMIN_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 [[ "${PREVIOUS_INDEX_SHA256}" =~ ^[0-9A-Fa-f]{64}$ ]]
 
@@ -128,13 +120,9 @@ sudo test ! -e "${BACKUP_DIR}"
 ACTUAL_SHA256="$(sha256sum "${UPLOAD_PATH}" | awk '{print $1}')"
 test "$(printf '%s' "${ACTUAL_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
   "$(printf '%s' "${ARTIFACT_SHA256}" | tr '[:upper:]' '[:lower:]')"
-ARCHIVE_INDEX_SHA256="$(tar -xOf "${UPLOAD_PATH}" ./index.html | sha256sum | awk '{print $1}')"
-test "$(printf '%s' "${ARCHIVE_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
-  "$(printf '%s' "${INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
 LIVE_INDEX_SHA256="$(sudo sha256sum "${LIVE_ROOT}/index.html" | awk '{print $1}')"
 test "$(printf '%s' "${LIVE_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
   "$(printf '%s' "${PREVIOUS_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
-sudo nginx -t
 sudo nginx -T 2>&1 | grep -F 'root /var/www/coupler-admin-web;' >/dev/null
 sudo mkdir "${BACKUP_DIR}"
 sudo rsync -a "${LIVE_ROOT}/" "${BACKUP_DIR}/"
@@ -148,6 +136,7 @@ tar -xOf "${UPLOAD_PATH}" ./index.html | sudo tee "${NEXT_INDEX}" >/dev/null
 sudo chmod 0644 "${NEXT_INDEX}"
 sudo mv -f "${NEXT_INDEX}" "${LIVE_ROOT}/index.html"
 tar -xOf "${UPLOAD_PATH}" ./index.html | sudo cmp -s - "${LIVE_ROOT}/index.html"
+INDEX_SHA256="$(sudo sha256sum "${LIVE_ROOT}/index.html" | awk '{print $1}')"
 
 curl --fail-with-body --show-error -I http://127.0.0.1:8000/
 curl --fail-with-body --show-error -I https://cms.ritzy.fourhundred.co.kr/
@@ -194,8 +183,6 @@ sudo test ! -e "${ROLLBACK_INDEX}"
 BACKUP_INDEX_SHA256="$(sudo sha256sum "${BACKUP_DIR}/index.html" | awk '{print $1}')"
 test "$(printf '%s' "${BACKUP_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')" = \
   "$(printf '%s' "${ROLLBACK_INDEX_SHA256}" | tr '[:upper:]' '[:lower:]')"
-sudo nginx -t
-
 sudo rsync -a --exclude='index.html' --exclude='.coupler-admin-backup' \
   "${BACKUP_DIR}/" "${LIVE_ROOT}/"
 sudo install -m 0644 "${BACKUP_DIR}/index.html" "${ROLLBACK_INDEX}"

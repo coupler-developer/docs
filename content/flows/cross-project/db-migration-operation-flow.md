@@ -57,11 +57,12 @@ ssh -i "<승인된 개발 SSH 키 경로>" "ubuntu@<개발 EC2 주소>"
 set -e
 cd /home/ubuntu/coupler-api
 
-git fetch --no-tags origin main
+test -z "$(git status --porcelain)"
+git fetch --no-tags origin main:refs/remotes/origin/main
 MIGRATION_SOURCE_COMMIT='<개발계에 검증·적용할 40자 SHA>'
 [[ "${MIGRATION_SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+git merge-base --is-ancestor "${MIGRATION_SOURCE_COMMIT}" origin/main
 git switch --detach "${MIGRATION_SOURCE_COMMIT}"
-test "$(git rev-parse HEAD)" = "${MIGRATION_SOURCE_COMMIT}"
 
 pnpm install --frozen-lockfile
 pnpm db:migration status dev
@@ -104,11 +105,12 @@ set -e
 test "$(id -u)" -eq 0
 cd /home/projects/coupler-api
 
-git fetch --no-tags origin main
+test -z "$(git status --porcelain)"
+git fetch --no-tags origin main:refs/remotes/origin/main
 MIGRATION_SOURCE_COMMIT='<개발계에 적용한 같은 40자 SHA>'
 [[ "${MIGRATION_SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+git merge-base --is-ancestor "${MIGRATION_SOURCE_COMMIT}" origin/main
 git switch --detach "${MIGRATION_SOURCE_COMMIT}"
-test "$(git rev-parse HEAD)" = "${MIGRATION_SOURCE_COMMIT}"
 
 pnpm install --frozen-lockfile
 pnpm db:migration status prod

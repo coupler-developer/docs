@@ -32,6 +32,14 @@ const releaseRecordInitializer = fs.readFileSync(
     path.join(docsRoot, "scripts", "init-release-record.mjs"),
     "utf8",
 );
+const releaseContinue = fs.readFileSync(
+    path.join(docsRoot, "scripts", "release-continue.mjs"),
+    "utf8",
+);
+const releasePreflight = fs.readFileSync(
+    path.join(docsRoot, "scripts", "release-preflight.mjs"),
+    "utf8",
+);
 const mkdocsBuildRunner = fs.readFileSync(
     path.join(docsRoot, "scripts", "run-mkdocs-build.mjs"),
     "utf8",
@@ -42,6 +50,7 @@ const workflow = fs.readFileSync(
 );
 const operationalRunbookPaths = [
     "db-migration-operation-flow.md",
+    "api-production-deploy-flow.md",
     "admin-web-production-deploy-flow.md",
     "mobile-production-release-flow.md",
     "production-deploy-command-runbook.md",
@@ -189,26 +198,32 @@ test("verification aliases cannot drift from CI", () => {
     );
 });
 
-test("release record initialization stays wired to one public command", () => {
+test("release initialization and resume stay wired to one public command", () => {
     assert.equal(
-        packageJson.scripts["release:record:init"],
-        "node scripts/init-release-record.mjs",
+        packageJson.scripts["release:continue"],
+        "node scripts/release-continue.mjs",
     );
+    assert.equal(packageJson.scripts["release:record:init"], undefined);
+    assert.equal(packageJson.scripts["release:preflight"], undefined);
     assert.ok(
         VALIDATION_TASKS["test:release-preflight"].args.some((arg) =>
             arg.endsWith("init-release-record.test.mjs"),
         ),
     );
-    assert.match(contentReadme, /yarn release:record:init vX\.Y\.Z/);
-    assert.match(contentReadme, /생성된 기록은 `planned` 상태/);
-    assert.match(contentReadme, /현재 PR head의 필수 CI 성공 후에만 preflight/);
-    assert.match(releaseRecordTemplate, /yarn release:record:init vX\.Y\.Z/);
+    assert.ok(
+        VALIDATION_TASKS["test:release-preflight"].args.some((arg) =>
+            arg.endsWith("release-continue.test.mjs"),
+        ),
+    );
+    assert.match(contentReadme, /yarn release:continue vX\.Y\.Z/);
+    assert.match(contentReadme, /생성된 `planned`는 로컬 초안이며 push하지 않는다/);
+    assert.match(releaseRecordTemplate, /yarn release:continue vX\.Y\.Z/);
     assert.equal(
         (releaseRecordTemplate.match(/"status": "planned"/g) ?? []).length,
         2,
     );
     assert.match(releaseRecordTemplate, /전체 상태: `planned`/);
-    assert.match(releaseRecordTemplate, /현재 PR head에 적용된 필수 CI/);
+    assert.match(releaseRecordTemplate, /현재 PR head의\s+필수 CI/);
     assert.match(
         releaseRecordTemplate,
         /`content\/templates\/api-contract-cutover-gate-template\.md`/,
@@ -217,7 +232,13 @@ test("release record initialization stays wired to one public command", () => {
         releaseProcess,
         /원격 PR head 및 해당 head에 적용된 필수 CI를 확인해/,
     );
-    assert.match(releaseRecordInitializer, /현재 PR head의 필수 CI를 확인하세요/);
+    assert.match(releaseRecordInitializer, /planned 로컬 초안/);
+    assert.match(releaseContinue, /pr", "checks", "--required"/);
+    assert.match(releaseContinue, /release-preflight\.mjs/);
+    assert.doesNotMatch(
+        releasePreflight,
+        /--include|--workspace-root|--pending-ref/,
+    );
     for (const source of [
         contentReadme,
         releaseRecordTemplate,
@@ -229,11 +250,11 @@ test("release record initialization stays wired to one public command", () => {
     }
     assert.match(
         operationalRunbooks.get("production-deploy-command-runbook.md"),
-        /yarn release:record:init "\$\{VERSION\}"/,
+        /yarn release:continue vX\.Y\.Z/,
     );
-    assert.match(
+    assert.doesNotMatch(
         operationalRunbooks.get("production-deploy-command-runbook.md"),
-        /전환된 현재 PR head의 필수 CI가 성공한 것을 확인한 뒤에만/,
+        /PR_NUMBER|PENDING_REF|--workspace-root/,
     );
     assert.match(mkdocsBuildRunner, /initializeReleaseRecord\(\{/);
     assert.match(mkdocsBuildRunner, /generated release record smoke/);
@@ -445,20 +466,41 @@ test("operator runbook bash blocks are syntactically executable", () => {
 test("release runbooks bind rollback, NextPush, marker, and docs postcheck evidence", () => {
     const admin = operationalRunbooks.get("admin-web-production-deploy-flow.md");
     const mobile = operationalRunbooks.get("mobile-production-release-flow.md");
+    const api = operationalRunbooks.get("api-production-deploy-flow.md");
+    const db = operationalRunbooks.get("db-migration-operation-flow.md");
     const release = operationalRunbooks.get("production-deploy-command-runbook.md");
 
     assert.match(admin, /BACKUP_METADATA=.*\.coupler-admin-backup/);
     assert.match(admin, /ROLLBACK_COMMIT=.*awk[\s\S]*BACKUP_INDEX_SHA256/);
     assert.doesNotMatch(admin, /: "\$\{ROLLBACK_COMMIT:\?/);
+    assert.doesNotMatch(admin, /: "\$\{INDEX_SHA256:\?/);
+    assert.doesNotMatch(admin, /EXPECTED_API_ORIGIN:\?|ADMIN_SERVER:\?|DEPLOY_USER:\?/);
+    assert.match(admin, /ADMIN_TARGET:\?set ADMIN_TARGET to user@host/);
     assert.match(
         mobile,
-        /EXPECTED_SCRIPT_COMMAND=.*\$\{APP_ID\} \$\{PLATFORM\} -d Production -m -t \$\{TARGET_BINARY\}/,
+        /nextpush release-react "\$\{APP_ID\}" "\$\{PLATFORM\}" -d Production -m -t "\$\{TARGET_BINARY\}"/,
     );
+    assert.doesNotMatch(mobile, /SCRIPT_COMMAND|checkout --detach/);
     assert.match(mobile, /set MARKER_SCOPE to android or ios/);
+    assert.doesNotMatch(mobile, /SUBMITTED_COMMIT/);
     assert.doesNotMatch(mobile, /mobile \| android \| ios/);
+    assert.doesNotMatch(
+        mobile,
+        /ARTIFACT_FILE|ARTIFACT_REF|ARTIFACT_SHA256|BUNDLE_HASH|SOURCE_EVIDENCE/,
+    );
+    assert.match(mobile, /PR head SHA는 병합 과정에서 바뀔 수 있으므로 artifact\s+기준으로 사용하지 않는다/);
+    assert.match(api, /test "\$\(id -u\)" -eq 0/);
+    assert.match(api, /curl --retry 10 --retry-all-errors/);
+    assert.doesNotMatch(api, /API_ACTION/);
+    assert.doesNotMatch(api, /pm2 status|pm2 describe|crontab -l|git grep/);
+    assert.equal(
+        [...db.matchAll(/test -z "\$\(git status --porcelain\)"/g)].length,
+        2,
+    );
 
     const docsClose = release.slice(release.indexOf("## Docs 릴리스 마감"));
-    assert(docsClose.indexOf("열린 Finding 0건·검증 대기") < docsClose.indexOf("yarn verify"));
+    assert.doesNotMatch(docsClose, /^yarn verify$/mu);
+    assert.match(docsClose, /deploy-docs\.yml[\s\S]*git tag -a/);
     assert.match(docsClose, /gh run watch[\s\S]*gh release download[\s\S]*repos\/\$\{REPO\}\/pages/);
 });
 

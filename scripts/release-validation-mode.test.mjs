@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 
+import { initializeReleaseRecord } from "./init-release-record.mjs";
+
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const classifier = path.join(scriptsRoot, "release-validation-mode.mjs");
 let repoRoot;
@@ -17,6 +19,7 @@ beforeEach(() => {
   git(["config", "user.email", "release-mode@example.invalid"]);
   git(["config", "user.name", "Release Mode Test"]);
   fs.writeFileSync(path.join(repoRoot, "README.md"), "# Test\n");
+  writeInitializerFixture();
   commitAll("base");
 });
 
@@ -26,7 +29,7 @@ afterEach(() => {
 
 describe("release validation mode", () => {
   for (const status of ["planned", "pending", "in_progress"]) {
-    it(`uses lightweight validation for a ${status}-only release record change`, () => {
+    it(`uses lightweight validation for an exact ${status} initializer change set`, () => {
       const base = git(["rev-parse", "HEAD"]);
       writeRecord(status);
       commitAll(`${status} release`);
@@ -100,6 +103,30 @@ describe("release validation mode", () => {
     assert.equal(result.stdout.trim(), "full");
   });
 
+  it("uses full validation when an initializer companion file is altered", () => {
+    const base = git(["rev-parse", "HEAD"]);
+    writeRecord("pending");
+    fs.appendFileSync(path.join(repoRoot, "mkdocs.yml"), "  - Unexpected: README.md\n");
+    commitAll("alter generated companion");
+
+    const result = runClassifier(base);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), "full");
+  });
+
+  it("uses full validation when an initializer companion file is missing", () => {
+    const base = git(["rev-parse", "HEAD"]);
+    writeRecord("pending");
+    git(["checkout", "--", "mkdocs.yml"]);
+    commitAll("omit generated companion");
+
+    const result = runClassifier(base);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), "full");
+  });
+
   it("uses full validation for ordinary docs changes", () => {
     const base = git(["rev-parse", "HEAD"]);
     fs.writeFileSync(path.join(repoRoot, "README.md"), "# Changed\n");
@@ -129,19 +156,83 @@ describe("release validation mode", () => {
 });
 
 function writeRecord(status) {
-  const releaseDir = path.join(repoRoot, "content", "releases");
-  fs.mkdirSync(releaseDir, { recursive: true });
+  initializeReleaseRecord({ docsRoot: repoRoot, version: "v9.9.0" });
+  const releasePath = path.join(repoRoot, "content", "releases", "v9.9.0.md");
+  const source = fs.readFileSync(releasePath, "utf8");
   fs.writeFileSync(
-    path.join(releaseDir, "v9.9.0.md"),
+    releasePath,
+    source.replaceAll('"status": "planned"', `"status": "${status}"`),
+  );
+}
+
+function writeInitializerFixture() {
+  write(
+    "content/templates/release-record-template.md",
     [
-      "# Release",
+      "# X.Y.Z 릴리스 실행 기록",
       "",
       "```release-metadata",
-      JSON.stringify({ schema: "release-metadata/v2", version: "v9.9.0", status }),
+      JSON.stringify({
+        schema: "release-metadata/v3",
+        version: "vX.Y.Z",
+        status: "planned",
+        releaseScopes: ["docs"],
+        extraRepoRefs: [],
+        versionMapping: {
+          docs: { tag: null, commit: null },
+          "coupler-api": { tag: null, commit: null },
+          "coupler-admin-web": { tag: null, commit: null },
+          "coupler-mobile-app": {
+            store: { android: null, ios: null },
+            nextPush: null,
+            commit: null,
+          },
+        },
+        scopeResults: {
+          docs: {
+            status: "planned",
+            summary: "릴리스 기록 준비",
+            evidence: {},
+          },
+        },
+        apiContractCutover: null,
+      }, null, 2),
       "```",
       "",
     ].join("\n"),
   );
+  write(
+    "document-lifecycle-registry.json",
+    `${JSON.stringify({
+      schemaVersion: 2,
+      documents: [
+        {
+          id: "releases.v9.8.0",
+          path: "releases/v9.8.0.md",
+          routing: "historical",
+        },
+      ],
+      routes: [],
+    }, null, 4)}\n`,
+  );
+  write(
+    "document-retirement-ledger.json",
+    `${JSON.stringify({ schemaVersion: 1, retirements: [] }, null, 4)}\n`,
+  );
+  write(
+    "content/AGENTS.md",
+    "# AGENTS\n\n### Releases\n\n- [9.8.0 릴리스 실행 기록](releases/v9.8.0.md)\n",
+  );
+  write(
+    "mkdocs.yml",
+    "nav:\n  - Releases:\n      - 9.8.0 릴리스 실행 기록: releases/v9.8.0.md\n",
+  );
+}
+
+function write(relativePath, source) {
+  const filePath = path.join(repoRoot, relativePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, source);
 }
 
 function runClassifier(base, { prDraft = null } = {}) {
