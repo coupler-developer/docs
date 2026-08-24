@@ -9,7 +9,7 @@
 
 ## 목적
 
-- `coupler-api`의 확정된 `main` commit을 운영 PM2 production 설정으로 배포·검증한다.
+- `coupler-api`의 `main` 계보에서 릴리스 기록에 고정한 commit을 운영 PM2 production 설정으로 배포·검증한다.
 
 ## 범위
 
@@ -35,23 +35,20 @@ test "$(pwd -P)" = "${DEPLOY_ROOT}"
 
 WORKTREE_STATUS="$(git status --porcelain)"
 test -z "${WORKTREE_STATUS}"
-git fetch --no-tags origin
+git fetch --no-tags origin main:refs/remotes/origin/main
 test "$(git rev-parse --verify "${TARGET_COMMIT}^{commit}")" = "${TARGET_COMMIT}"
 
 case "${API_ACTION}" in
   deploy)
-    test "$(git rev-parse origin/main)" = "${TARGET_COMMIT}"
-    git checkout main
-    git merge --ff-only "${TARGET_COMMIT}"
+    git merge-base --is-ancestor "${TARGET_COMMIT}" origin/main
     ;;
-  rollback)
-    git checkout --detach "${TARGET_COMMIT}"
-    ;;
+  rollback) ;;
   *)
     printf 'invalid API_ACTION: %s\n' "${API_ACTION}" >&2
     exit 1
     ;;
 esac
+git checkout --detach "${TARGET_COMMIT}"
 test "$(git rev-parse HEAD)" = "${TARGET_COMMIT}"
 
 pnpm install --frozen-lockfile

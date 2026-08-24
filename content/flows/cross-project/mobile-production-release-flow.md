@@ -50,7 +50,8 @@ WORKTREE_STATUS="$(git -C coupler-mobile-app status --porcelain)"
 test -z "${WORKTREE_STATUS}"
 git -C coupler-mobile-app fetch --no-tags origin main:refs/remotes/origin/main
 test "$(git -C coupler-mobile-app rev-parse --verify "${MOBILE_COMMIT}^{commit}")" = "${MOBILE_COMMIT}"
-test "$(git -C coupler-mobile-app rev-parse origin/main)" = "${MOBILE_COMMIT}"
+git -C coupler-mobile-app merge-base --is-ancestor "${MOBILE_COMMIT}" origin/main
+git -C coupler-mobile-app checkout --detach "${MOBILE_COMMIT}"
 test "$(git -C coupler-mobile-app rev-parse HEAD)" = "${MOBILE_COMMIT}"
 
 SCRIPT_COMMAND="$(node -p "require('./coupler-mobile-app/package.json').scripts['${SCRIPT}']")"
@@ -120,7 +121,8 @@ test -z "${WORKTREE_STATUS}"
 git -C "${REPO}" fetch --no-tags origin main:refs/remotes/origin/main
 git -C "${REPO}" fetch --tags origin
 test "$(git -C "${REPO}" rev-parse --verify "${SUBMITTED_COMMIT}^{commit}")" = "${SUBMITTED_COMMIT}"
-test "$(git -C "${REPO}" rev-parse origin/main)" = "${SUBMITTED_COMMIT}"
+git -C "${REPO}" merge-base --is-ancestor "${SUBMITTED_COMMIT}" origin/main
+git -C "${REPO}" checkout --detach "${SUBMITTED_COMMIT}"
 test "$(git -C "${REPO}" rev-parse HEAD)" = "${SUBMITTED_COMMIT}"
 
 git -C "${REPO}" tag -a "${TAG}" "${SUBMITTED_COMMIT}" \

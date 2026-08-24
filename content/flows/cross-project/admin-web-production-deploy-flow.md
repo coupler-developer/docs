@@ -51,7 +51,8 @@ WORKTREE_STATUS="$(git -C coupler-admin-web status --porcelain)"
 test -z "${WORKTREE_STATUS}"
 git -C coupler-admin-web fetch --no-tags origin main:refs/remotes/origin/main
 test "$(git -C coupler-admin-web rev-parse --verify "${ADMIN_COMMIT}^{commit}")" = "${ADMIN_COMMIT}"
-test "$(git -C coupler-admin-web rev-parse origin/main)" = "${ADMIN_COMMIT}"
+git -C coupler-admin-web merge-base --is-ancestor "${ADMIN_COMMIT}" origin/main
+git -C coupler-admin-web checkout --detach "${ADMIN_COMMIT}"
 test "$(git -C coupler-admin-web rev-parse HEAD)" = "${ADMIN_COMMIT}"
 
 cd coupler-admin-web

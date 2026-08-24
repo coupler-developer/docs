@@ -205,6 +205,7 @@
   `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
   head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
   metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
+  서비스 배포는 릴리스 기록에 고정한 SHA만 사용하며, 해당 SHA는 `main`에 포함된 commit이어야 한다.
   `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration
   실행 범위는 Docs artifact가 아니라 `coupler-api`의 마이그레이션 소스 커밋으로 고정한다.
 - 서비스 버전 매핑의 태그 전 기준점과 태그 확정은 [릴리스 태그 정책](release-tag-policy.md)의

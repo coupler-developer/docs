@@ -169,26 +169,23 @@ export function getMetadataMappingBasis(metadata, repoName) {
     ? platformMappings.map((mapping) => ({
         value: mapping.releaseTag,
         group: `store.${mapping.platform}`,
-        frozenArtifact: false,
       }))
     : [
-        { value: repoMapping.tag, group: "default", frozenArtifact: false },
-        { value: repoMapping.releaseTag, group: "default", frozenArtifact: false },
+        { value: repoMapping.tag, group: "default" },
+        { value: repoMapping.releaseTag, group: "default" },
       ];
   const commitValues = usesPlatformMapping
     ? [
         ...platformMappings.map((mapping) => ({
           value: mapping.commit,
           group: `store.${mapping.platform}`,
-          frozenArtifact: false,
         })),
         {
           value: repoMapping.nextPush ? repoMapping.commit : null,
           group: "nextPush",
-          frozenArtifact: false,
         },
       ]
-    : [{ value: repoMapping.commit, group: "default", frozenArtifact: false }];
+    : [{ value: repoMapping.commit, group: "default" }];
 
   for (const tagRef of tagValues) {
     const tagValue = tagRef.value;
@@ -201,7 +198,6 @@ export function getMetadataMappingBasis(metadata, repoName) {
         type: "tag",
         value: tagValue,
         group: tagRef.group,
-        frozenArtifact: tagRef.frozenArtifact,
       });
     }
   }
@@ -213,7 +209,6 @@ export function getMetadataMappingBasis(metadata, repoName) {
         type: "commit",
         value: commitValue.toLowerCase(),
         group: commitRef.group,
-        frozenArtifact: commitRef.frozenArtifact,
       });
     }
   }
