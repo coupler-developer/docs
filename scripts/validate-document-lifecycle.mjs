@@ -33,6 +33,9 @@ const retirementKeys = new Set([
     "retiredAt",
 ]);
 const ignoredContentPaths = new Set(["AGENTS.md", "CLAUDE.md", "README.md"]);
+const lowercaseKebabSegmentPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const lowercaseKebabMarkdownPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
+const releaseMarkdownPattern = /^v\d+\.\d+\.\d+\.md$/;
 
 export function validateDocumentLifecycle({
     documents,
@@ -178,6 +181,7 @@ function validateRegistryDocuments(entries, errors) {
         validateIdentifier(entry.id, `${context}.id`, errors);
         validateUnique(ids, entry.id, "중복 current document ID", errors);
         validateDocumentPath(entry.path, `${context}.path`, errors);
+        validateCurrentDocumentPathName(entry.path, `${context}.path`, errors);
         validateUnique(paths, entry.path, "중복 current document path", errors);
 
         if (!allowedRoutingModes.has(entry.routing)) {
@@ -904,6 +908,26 @@ function validateDocumentPath(value, context, errors) {
         value.split("/").includes("..")
     ) {
         errors.push(`${context}는 content 기준 상대 Markdown 경로여야 합니다.`);
+    }
+}
+
+function validateCurrentDocumentPathName(value, context, errors) {
+    if (typeof value !== "string") {
+        return;
+    }
+    const segments = value.split("/");
+    const filename = segments.pop();
+    const hasValidDirectories = segments.every((segment) =>
+        lowercaseKebabSegmentPattern.test(segment),
+    );
+    const hasValidFilename = value.startsWith("releases/")
+        ? releaseMarkdownPattern.test(filename)
+        : lowercaseKebabMarkdownPattern.test(filename);
+
+    if (!hasValidDirectories || !hasValidFilename) {
+        errors.push(
+            `${context}: 디렉터리·일반 파일명은 lowercase kebab-case, releases 파일명은 vMAJOR.MINOR.PATCH.md여야 합니다.`,
+        );
     }
 }
 
