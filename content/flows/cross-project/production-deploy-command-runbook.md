@@ -25,20 +25,16 @@
 
 ## 신규 릴리스 기록 준비
 
-아직 릴리스 기록이 없으면 열린 docs worktree의 docs 레포 루트에서 한 번만 초기화한다.
+열린 docs worktree의 docs 레포 루트에서는 신규·재개 모두 같은 명령만 사용한다.
 
 ```bash
-: "${VERSION:?set VERSION}"
-yarn release:record:init "${VERSION}"
+yarn release:continue vX.Y.Z
 ```
 
-명령은 `planned` 상태의 `content/releases/${VERSION}.md`, lifecycle registry, `content/AGENTS.md` 인덱스와
-`mkdocs.yml` nav를 함께 준비하며 commit, push, PR 또는 운영 변경을 수행하지 않는다. 생성된 기록에 scope,
-exact commit, 검증 시나리오와 rollback 기준을 작성하고 `yarn verify`를 통과시킨 뒤 PR에 push한다. 현재 PR
-head에 적용된 필수 CI가 성공하면 전체 상태와 nonterminal `scopeResults`를 `pending`으로 전환해 다시 push하고,
-**전환된 현재 PR head의 필수 CI가 성공한 것을 확인한 뒤에만** 아래 공통 preflight와 실행 범위로 진입한다.
-`planned` 상태에서는 preflight가 실패한다. 같은 버전이 이미 있으면 명령을 다시 실행하지 않고 기존 기록을
-사용한다.
+기록이 없으면 명령이 `planned` 로컬 초안을 초기화한다. scope, exact commit, 검증과 rollback 기준을 작성하고
+`pending`으로 전환한 뒤 `yarn verify`를 한 번 실행해 첫 커밋·Draft PR을 만든다. `planned` 후보는 push하지
+않으므로 planned CI 뒤 pending CI를 다시 기다리는 왕복이 없다. 기록이 이미 있으면 현재 상태를 읽고 다음 Gate만
+안내한다.
 
 ## 실행 범위 라우팅
 
@@ -68,31 +64,18 @@ API 계약 변경과 `mobile-store` 또는 `mobile-nextpush`가 함께 포함되
 
 ## 공통 사전 확인
 
-워크스페이스 상대경로를 사용하는 각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. 공통 preflight
-블록만 열린 docs PR worktree에서 실행한다. preflight는 worktree의 Git common directory에서 canonical
-workspace를 찾으므로 worktree 위치를 별도로 계산하지 않는다.
+워크스페이스 상대경로를 사용하는 각 명령 블록은 새 shell의 워크스페이스 루트에서 시작한다. 공통 확인만 열린
+docs PR worktree에서 실행한다. 명령이 현재 PR head·Draft·CI, pushed upstream과 포함 서비스 기준점을 읽고
+preflight를 실행하므로 PR 번호, pending ref와 workspace 경로를 별도로 입력하지 않는다.
 
 ```bash
 set -euo pipefail
-: "${VERSION:?set VERSION}"
-: "${PR_NUMBER:?set PR_NUMBER}"
-
-WORKTREE_STATUS="$(git status --porcelain)"
-test -z "${WORKTREE_STATUS}"
-PENDING_REF="$(git rev-parse HEAD)"
-
-[[ "${PENDING_REF}" =~ ^[0-9a-f]{40}$ ]]
-test "$(git rev-parse @{upstream})" = "${PENDING_REF}"
-test "$(gh pr view "${PR_NUMBER}" --json headRefOid --jq .headRefOid)" = "${PENDING_REF}"
-
-yarn release:preflight \
-  --version "${VERSION}" \
-  --pending-ref "${PENDING_REF}"
+yarn release:continue vX.Y.Z
 ```
 
 `PASS`가 아니면 운영 실행을 시작하지 않는다. preflight 뒤 docs PR head 또는 포함된 서비스 레포의 `origin/main`이 바뀌면
-다음 운영 명령 전에 preflight를 다시 실행한다. 표준 workspace가 아닌 경우에만 실제 `coupler-*` 서비스
-레포를 포함하는 경로를 `--workspace-root <absolute-path>`로 명시한다.
+다음 운영 명령 전에 같은 명령을 다시 실행한다. 동기식 DB/API/Admin 작업 중에는 릴리스 기록을 매번 수정하지
+않고 결과를 모아 외부 handoff 또는 terminal 전환에서 한 번에 반영한다.
 
 ## 서비스 태그
 
@@ -116,11 +99,9 @@ esac
 
 git -C "${REPO}" fetch --no-tags origin main:refs/remotes/origin/main
 git -C "${REPO}" fetch --tags origin
-git -C "${REPO}" rev-parse --verify "${DEPLOY_COMMIT}^{commit}"
 git -C "${REPO}" merge-base --is-ancestor "${DEPLOY_COMMIT}" origin/main
 
 git -C "${REPO}" tag -a "${TAG}" "${DEPLOY_COMMIT}" -m "Release ${TAG}"
-test "$(git -C "${REPO}" rev-list -n 1 "${TAG}")" = "${DEPLOY_COMMIT}"
 
 git -C "${REPO}" push origin "${TAG}"
 REMOTE_COMMIT="$(git -C "${REPO}" ls-remote --tags origin "refs/tags/${TAG}^{}" | cut -f1)"
@@ -140,42 +121,28 @@ terminal metadata를 함께 확인한다.
 ```bash
 set -euo pipefail
 : "${TAG:?set TAG}"
-: "${DOCS_COMMIT:?set DOCS_COMMIT}"
 [[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-[[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 
 cd docs
-REPO=coupler-developer/docs
-
-WORKTREE_STATUS="$(git status --porcelain)"
-test -z "${WORKTREE_STATUS}"
-git fetch --no-tags origin main:refs/remotes/origin/main
-git fetch --tags origin
-git rev-parse --verify "${DOCS_COMMIT}^{commit}"
-test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
-LOCAL_TAG="$(git tag --list "${TAG}")"
-test -z "${LOCAL_TAG}"
-REMOTE_RELEASE_MATCH="$(gh api --paginate "repos/${REPO}/releases?per_page=100" \
-  --jq '.[] | select(.tag_name == "'"${TAG}"'") | [.id, .draft, .html_url] | @tsv')"
-test -z "${REMOTE_RELEASE_MATCH}"
+test -z "$(git status --porcelain)"
+test "$(git branch --show-current)" = main
+git pull --ff-only origin main
+DOCS_COMMIT="$(git rev-parse HEAD)"
 node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
-
-git checkout main
-git merge --ff-only "${DOCS_COMMIT}"
-test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
 
 PREVIEW_PATH="$(mktemp "${TMPDIR:-/tmp}/release-notes-${TAG}.XXXXXX")"
 GITHUB_REPOSITORY=coupler-developer/docs \
   bash .github/scripts/generate-release-notes.sh "${TAG}" "${DOCS_COMMIT}" \
   > "${PREVIEW_PATH}"
 
-test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
-printf 'review release note: %s\n' "${PREVIEW_PATH}"
+printf 'DOCS_COMMIT=%s\nreview release note: %s\n' \
+  "${DOCS_COMMIT}" "${PREVIEW_PATH}"
 ```
 
-출력된 preview와 `DOCS_COMMIT`을 read-only 독립 리뷰하고 열린 Finding이 0건이면
-`열린 Finding 0건·검증 대기`를 기록한다. 그 체크포인트와 파일이 바뀌지 않았을 때만 다음 블록에서
-`yarn verify`를 실행하고 annotated tag를 한 번 생성해 push한다.
+출력된 preview와 `DOCS_COMMIT`을 read-only 독립 리뷰한다. terminal PR 또는 Tag Preparation Fix의
+필수 CI가 통과했고 preview Finding이 0건이면, 다음 블록에서 exact `DOCS_COMMIT`의 Pages workflow를
+확인한 뒤 annotated tag를 한 번 생성해 push한다. 같은 ref의 로컬 `yarn verify`는 반복하지 않고 tag
+workflow가 자신의 artifact를 검증한다.
 
 ```bash
 set -euo pipefail
@@ -186,54 +153,45 @@ set -euo pipefail
 
 cd docs
 REPO=coupler-developer/docs
-WORKTREE_STATUS="$(git status --porcelain)"
-test -z "${WORKTREE_STATUS}"
+test -z "$(git status --porcelain)"
 git fetch --no-tags origin main:refs/remotes/origin/main
 git fetch --tags origin
-test "$(git rev-parse --verify "${DOCS_COMMIT}^{commit}")" = "${DOCS_COMMIT}"
 test "$(git rev-parse origin/main)" = "${DOCS_COMMIT}"
 test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
-LOCAL_TAG="$(git tag --list "${TAG}")"
-test -z "${LOCAL_TAG}"
 REMOTE_RELEASE_MATCH="$(gh api --paginate "repos/${REPO}/releases?per_page=100" \
   --jq '.[] | select(.tag_name == "'"${TAG}"'") | [.id, .draft, .html_url] | @tsv')"
 test -z "${REMOTE_RELEASE_MATCH}"
 node scripts/validate-docs-release-tag-ready.mjs --tag "${TAG}" --ref "${DOCS_COMMIT}"
-
-yarn verify
-test "$(git rev-parse HEAD)" = "${DOCS_COMMIT}"
+PAGES_RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy-docs.yml --event push \
+  --branch main --commit "${DOCS_COMMIT}" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+test -n "${PAGES_RUN_ID}"
+gh run watch "${PAGES_RUN_ID}" --repo "${REPO}" --compact --exit-status
 
 git tag -a "${TAG}" "${DOCS_COMMIT}" -m "Release ${TAG}"
-test "$(git rev-list -n 1 "${TAG}")" = "${DOCS_COMMIT}"
 git push origin "refs/tags/${TAG}"
 REMOTE_COMMIT="$(git ls-remote --tags origin "refs/tags/${TAG}^{}" | cut -f1)"
 test "${REMOTE_COMMIT}" = "${DOCS_COMMIT}"
 ```
 
-tag push 뒤 새 shell에서 exact commit의 `Release Docs`, GitHub Release, site artifact와 Pages 배포를
+tag push 뒤 새 shell에서 exact commit의 `Release Docs`, GitHub Release, site artifact와 Pages 응답을
 아래 한 블록으로 postcheck한다. workflow가 아직 조회되지 않으면 운영 변경을 반복하지 않고 이 블록만 다시
 실행한다.
 
 ```bash
 set -euo pipefail
 : "${TAG:?set TAG}"
-: "${DOCS_COMMIT:?set DOCS_COMMIT}"
 [[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-[[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 
 REPO=coupler-developer/docs
 ASSET_NAME="docs-site-${TAG}.tar.gz"
+DOCS_COMMIT="$(git -C docs ls-remote --tags origin "refs/tags/${TAG}^{}" | cut -f1)"
+[[ "${DOCS_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
 RELEASE_RUN_ID="$(gh run list --repo "${REPO}" --workflow release.yml --event push \
   --branch "${TAG}" --commit "${DOCS_COMMIT}" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
-PAGES_RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy-docs.yml --event push \
-  --branch main --commit "${DOCS_COMMIT}" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
 test -n "${RELEASE_RUN_ID}"
-test -n "${PAGES_RUN_ID}"
 
 gh run watch "${RELEASE_RUN_ID}" --repo "${REPO}" --compact --exit-status
-gh run watch "${PAGES_RUN_ID}" --repo "${REPO}" --compact --exit-status
 
-test "$(gh release view "${TAG}" --repo "${REPO}" --json tagName --jq .tagName)" = "${TAG}"
 test "$(gh release view "${TAG}" --repo "${REPO}" --json assets \
   --jq '.assets[] | select(.name == "'"${ASSET_NAME}"'") | .name')" = "${ASSET_NAME}"
 
@@ -246,9 +204,8 @@ PAGES_URL="$(gh api "repos/${REPO}/pages" --jq .html_url)"
 test "${PAGES_URL%/}" = "https://coupler-developer.github.io/docs"
 curl --fail-with-body --show-error -I "${PAGES_URL}"
 
-printf 'RELEASE_RUN=%s\nPAGES_RUN=%s\nRELEASE_URL=%s\nPAGES_URL=%s\nASSET=%s\n' \
+printf 'RELEASE_RUN=%s\nRELEASE_URL=%s\nPAGES_URL=%s\nASSET=%s\n' \
   "$(gh run view "${RELEASE_RUN_ID}" --repo "${REPO}" --json url --jq .url)" \
-  "$(gh run view "${PAGES_RUN_ID}" --repo "${REPO}" --json url --jq .url)" \
   "$(gh release view "${TAG}" --repo "${REPO}" --json url --jq .url)" \
   "${PAGES_URL}" "${POSTCHECK_DIR}/${ASSET_NAME}"
 ```

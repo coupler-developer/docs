@@ -81,9 +81,10 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 ### 1) Release Record Gate
 
-1. `content/templates/release-record-template.md`로 해당 버전 기록을 만든다.
-2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채운다.
-3. 릴리스 실행 기준점은 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
+1. `yarn release:continue vX.Y.Z`로 해당 버전의 로컬 `planned` 기록을 만든다.
+2. 정책이 요구하는 상태·scope·기준점·검증·rollback 계약을 실제 값으로 채우고 `pending`으로 전환한 첫
+   후보만 Draft PR에 push한다.
+3. 릴리스 실행 기준점은 그 원격 PR에 고정하고, 장기 대기나 최종화는 같은 기록의 허용된 상태 전이로
    반영한다.
 4. DB migration은 개발계 `apply dev`에서 확인한 마이그레이션 소스 커밋을 고정한다. 이후 merge된 migration을
    이번 운영 적용에 포함하지 않는다.
@@ -91,8 +92,8 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 ### 2) Static Preflight Gate
 
-1. [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 공통 사전 확인에서 local preflight를
-   실행한다.
+1. [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 `yarn release:continue vX.Y.Z`로 현재
+   Draft PR head·CI와 local preflight를 한 번에 확인한다.
 2. preflight는 정책과 공통 schema/derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
 3. 미병합 `pending | in_progress` 기록만 입력으로 사용하고 `PASS` 결과와 실행 로그를 릴리스 기록에 남긴다.
    실패하면 원인을 수정하고 다시 실행한다.
@@ -166,7 +167,9 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 ## 자동화 범위
 
-- `release-preflight`는 `origin/main` fetch, local git 상태, 릴리스 기록 기본 구조, scope descriptor 기반 repo/evidence 요구사항을 한 명령으로 판정한다.
+- `release:continue`는 기록 초기화·현재 PR head/CI 확인·`release-preflight` 실행·다음 미완료 scope 안내를 상태에
+  따라 한 진입점으로 연결한다. `release-preflight`는 내부에서 `origin/main` fetch, local git 상태, 릴리스 기록
+  기본 구조와 scope descriptor 기반 repo/evidence 요구사항을 판정한다.
 - docs validation workflow는 릴리스 기록 구조, release metadata, release preflight 테스트, markdownlint, `mkdocs build --strict`를 검증한다.
 - 서비스 레포 CI 결과, docs Release Note preview, 운영 배포 실행, 태그 push는 자동 실행하지 않고 릴리스 기록의 검증 근거로 남긴다.
 - 배포 secret, 승인 UI, runner 격리가 필요해지면 별도 release operations repo를 만들기 전에 이 문서와 [릴리스 프로세스](../../policy/release-process.md)의 책임 경계를 먼저 갱신한다.

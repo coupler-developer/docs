@@ -187,11 +187,11 @@
   이 예외는 rollback 기준이나 다음 릴리스의 source 증빙으로 재사용하지 않는다. 하나의 terminal
   `mobile-store` scope에는 최소 하나의 `verified` platform source가 있어야 한다.
 - `release-metadata/v3`의 `scopeResults.mobile-store.evidence.submittedMarkers.android|ios`는 platform별
-  submission provenance를 소유한다. 해당 platform의 submission-time marker와 artifact SHA-256이 있으면 `verified`로
-  tag·commit·artifact digest·이관/삭제 증빙을 닫는다. 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy
+  submission provenance를 소유한다. 해당 platform의 submission-time marker가 있으면 `verified`로
+  tag·commit·Store version/build·이관/삭제 증빙을 닫는다. 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy
   포함)의 공통 `submitted/mobile-*`는 그 기록에만 보존하며 v3 완료 증빙으로 승격하지 않는다. 과거 제출에서
-  원래 platform marker나 artifact hash가 없으면
-  `unavailable-historical`로 두고 tag·commit·artifact/evidence를 `null`로 유지한 채 한계만 기록한다. 출시 뒤
+  원래 platform marker가 없으면
+  `unavailable-historical`로 두고 tag·commit·evidence를 `null`로 유지한 채 한계만 기록한다. 출시 뒤
   사후 생성한 marker는 `verified` 완료 증빙으로 계산하지 않는다.
 - terminal evidence hard gate는 terminal 상태의 거짓 완료를 막는 조건에만 추가한다.
   `planned`/`pending`/`in_progress`의 아직 도달하지 않은 후속 artifact와 준비 중 placeholder,
@@ -201,17 +201,21 @@
 - 태그 push, GitHub Release 생성, Store 심사/승인처럼 운영 액션 이후에만 생기는 산출물을 해당 액션의 사전 hard gate로 요구하지 않는다. 사전 조건은 preview/품질 검증/기준점 고정으로 막고, 사후 조건은 postcheck한다. 실패나 사실 오류는 기존 기록을 바꾸지 않고 이슈·장애 기록에서 추적한다. 실제 새 운영 반영이 없으면 정정용 릴리스 기록을 만들지 않는다.
 - 새 hard gate를 추가하려면 `releaseScopeDescriptors` 또는 기존 descriptor에만 연결하고, 누락 실패 테스트, 정상 통과 테스트, 제외 scope 미차단 테스트, policy/flow/template 동기화를 같은 변경에 포함한다.
 - 즉, 문서 릴리스는 "문서만의 버전"이 아니라 "해당 시점 서비스 구성 버전"의 인덱스 역할을 하며, 서비스 레포가 항상 같은 버전 번호를 가져야 한다는 뜻은 아니다.
-- 운영 릴리스 실행 전 local preflight는 `releaseScopes`와 `extraRepoRefs`에서 derived `preflightRepoNames`와
-  `requiresServiceWorkspace`를 계산한다. 표준 단일 PR 흐름은 `--pending-ref <40자 SHA>`로 원격에 push된 docs PR
-  head를 읽고 docs clean non-main branch의 `HEAD == origin upstream == pending-ref`, 최신 `origin/main` 포함,
-  metadata `pending | in_progress`, 서비스 레포 clean `main == origin/main`, 버전 매핑 기준점을 확인한다.
+- 운영 릴리스 실행 전 `yarn release:continue vX.Y.Z`는 `releaseScopes`와 `extraRepoRefs`에서 derived
+  `preflightRepoNames`와 `requiresServiceWorkspace`를 계산한다. 현재 Draft PR head·CI와 내부 preflight가 원격에
+  push된 docs clean non-main branch의 `HEAD == origin upstream`, 최신 `origin/main` 포함, metadata
+  `pending | in_progress`, 아직 nonterminal인 scope의 서비스 레포 clean `main == origin/main`, 전체 버전 매핑
+  기준점을 확인한다. 이미 terminal인 scope의 repo는 원격 ref를 다시 확인하되 로컬 branch·dirty 상태로 재개를
+  막지 않는다.
   서비스 배포는 릴리스 기록에 고정한 SHA만 사용하며, 해당 SHA는 `main`에 포함된 commit이어야 한다.
-  `--pending-ref`가 없거나 해당 경로가 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration
-  실행 범위는 Docs artifact가 아니라 `coupler-api`의 마이그레이션 소스 커밋으로 고정한다.
+  docs 기록이 이미 `origin/main`에 있으면 과거 기록을 읽지 않고 실패한다. DB migration 실행 범위는 Docs
+  artifact가 아니라 `coupler-api`의 마이그레이션 소스 커밋으로 고정한다.
 - 서비스 버전 매핑의 태그 전 기준점과 태그 확정은 [릴리스 태그 정책](release-tag-policy.md)의
   `서비스 배포-태그 연속 실행`을 따른다. 확인된 원격 annotated tag와 commit을 불변 릴리스 기준으로 기록하며,
   이후 `main` 전진으로 바꾸지 않는다.
-- 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. 선택적인 `planned` 커밋을 포함해 모든 상태 변경은 같은 PR에 누적하고, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
+- 장기·메이저 릴리스도 열린 docs PR과 릴리스 기록을 공유 제어판으로 사용한다. `planned`는 로컬 초안으로만
+  사용하고 scope와 기준점이 고정된 첫 원격 후보를 `pending`으로 만든다. 이후 외부 handoff와 terminal 전환만
+  같은 PR에 checkpoint로 누적하며, 최종 `released` 검증 전에는 PR을 병합하거나 docs 태그를 만들지 않는다.
 
 ### 게시된 nonterminal 기록 복구
 
@@ -238,7 +242,10 @@
   docs tag 대상이다. 태그 전용 validator는 main의 first-parent 이력에서 최초 `released` Final Record Gate
   commit을 고정하고, 그 뒤 모든 commit이 건드린 path의 합집합이 위 허용 집합과 정확히 일치하는지, 릴리스
   기록이 다시 수정되지 않았는지와 전체 상태·docs scope·version mapping tag의 `released`/exact 일치를 함께
-  확인한다. 후보 preview 독립 리뷰와 전체 검증을 다시 통과하기 전에는 annotated tag 단계로 진행하지 않는다.
+  확인한다. 후보 preview 독립 리뷰와 같은 `origin/main` commit의 Pages workflow 검증을 통과하기
+  전에는 annotated tag 단계로 진행하지 않는다. terminal PR·Tag Preparation Fix의 검증을 병합
+  commit에서 로컬로 반복하지 않고, Pages workflow가 실제 `origin/main` commit을, tag workflow가 tag
+  artifact를 각각 검증한다.
 - 이 Gate는 릴리스 사실·scope·일반 문서 내용을 다시 여는 수단이 아니다. 허용 경로 밖의 변경, 릴리스 기록
   수정, tag 또는 Release 생성 뒤의 보정은 fail-closed로 거부하고 별도 후속 버전에서 처리한다.
 - Tag Preparation Fix 진입과 tag 생성 직전에는 원격 tag fetch뿐 아니라 GitHub Releases 목록 API로 같은 tag의
@@ -299,8 +306,9 @@
 - 신규 릴리스 기록은 `content/templates/release-record-template.md`를 사용한다. 태그 시점에 해당
   기록이 포함돼 있으면 Release Note의 1차 원본으로 사용하고, 이전 기준점 대비 git log는 보조 이력으로만
   사용한다.
-- docs tag push 전에는 Release Note preview, `yarn verify`,
-  [문서 안정성 평가](document-governance-policy.md)를 완료한다. Release와 site artifact는 tag push 뒤
+- docs tag push 전에는 Release Note preview, 태그 후보와 같은 `origin/main` commit의 Pages workflow,
+  [문서 안정성 평가](document-governance-policy.md)를 완료한다. terminal PR·Tag Preparation Fix의 `yarn verify`를
+  병합 commit에서 로컬로 반복하지 않는다. Release와 site artifact는 tag push 뒤
   postcheck하며 사전 metadata hard gate로 사용하지 않는다.
 - `main`에 병합된 terminal 릴리스 기록과 이미 발행한 Release Note는 해당 버전의 최종본이다. 기존 릴리스
   기록 파일은 수정·삭제·이름 변경·대체하지 않는다. 게시된 nonterminal 기록은 태그/Release 생성 전의

@@ -1,4 +1,5 @@
 import {
+  activeReleaseStatuses,
   getRequiredRepoRefsForReleaseScopes,
   recordRepoName,
   releaseScopeDescriptors,
@@ -24,6 +25,15 @@ export function createReleaseRecordModel(metadata) {
     ...requiredRepoRefs,
     ...extraRepoRefs,
   ]);
+  const activeReleaseScopes = new Set(
+    [...scopeResults.entries()]
+      .filter(([, result]) => activeReleaseStatuses.has(result?.status))
+      .map(([scopeName]) => scopeName),
+  );
+  const activePreflightRepoNames = sortRepoNames([
+    ...getRequiredRepoRefsForReleaseScopes(activeReleaseScopes),
+    ...extraRepoRefs,
+  ]);
   const serviceRepoRefs = new Set(
     [...preflightRepoNames].filter((repoName) => serviceRepoNames.includes(repoName)),
   );
@@ -37,12 +47,14 @@ export function createReleaseRecordModel(metadata) {
   return {
     recordRepoName,
     releaseScopes,
+    activeReleaseScopes,
     scopeResults,
     extraRepoRefs,
     requiredRepoRefs,
     releasedTagRepoNames,
     serviceRepoRefs,
     preflightRepoNames,
+    activePreflightRepoNames,
     requiresServiceWorkspace: serviceRepoRefs.size > 0,
   };
 }

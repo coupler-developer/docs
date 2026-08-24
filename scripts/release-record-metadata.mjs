@@ -2096,7 +2096,7 @@ function validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors
       errors.push(`${context}: release-metadata ${markerPath} must be an object or null`);
       continue;
     }
-    validateExactObjectKeys({
+    validateAllowedObjectKeys({
       value: marker,
       allowedKeys: [
         "status",
@@ -2111,6 +2111,18 @@ function validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors
       fieldPath: markerPath,
       errors,
     });
+    for (const key of [
+      "status",
+      "tag",
+      "commit",
+      "evidence",
+      "deletedEvidence",
+      "limitation",
+    ]) {
+      if (!Object.hasOwn(marker, key)) {
+        errors.push(`${context}: release-metadata ${markerPath} is missing ${key}`);
+      }
+    }
   }
 }
 
@@ -2198,8 +2210,12 @@ function validatePlatformSubmittedMarkers(value, metadata, context, fieldPath, e
       if (!isFullCommitSha(marker.commit) || marker.commit !== mapping.commit) {
         errors.push(`${context}: verified ${markerPath}.commit must match the platform source commit`);
       }
-      if (typeof marker.artifactSha256 !== "string" || !/^[0-9a-f]{64}$/i.test(marker.artifactSha256)) {
-        errors.push(`${context}: verified ${markerPath}.artifactSha256 must be a SHA-256 digest`);
+      if (
+        marker.artifactSha256 != null &&
+        (typeof marker.artifactSha256 !== "string" ||
+          !/^[0-9a-f]{64}$/i.test(marker.artifactSha256))
+      ) {
+        errors.push(`${context}: verified ${markerPath}.artifactSha256 must be a SHA-256 digest when recorded`);
       }
       for (const key of ["evidence", "deletedEvidence"]) {
         validateConcreteEvidenceValue({
@@ -2220,7 +2236,7 @@ function validatePlatformSubmittedMarkers(value, metadata, context, fieldPath, e
     }
 
     for (const key of ["tag", "commit", "artifactSha256", "evidence", "deletedEvidence"]) {
-      if (marker[key] !== null) {
+      if (Object.hasOwn(marker, key) && marker[key] !== null) {
         errors.push(`${context}: unavailable-historical ${markerPath}.${key} must be null`);
       }
     }

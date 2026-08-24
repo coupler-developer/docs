@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   getMetadataMappingBasis,
-  knownRepoNames,
   parseReleaseMetadataBlock,
   validateReleaseMetadata,
 } from "./release-record-metadata.mjs";
@@ -12,7 +11,6 @@ import { createReleaseRecordModel } from "./release-record-model.mjs";
 import {
   allowedReleaseStatuses,
   repoRefPolicyDescriptors,
-  repoNameAliases,
   terminalReleaseStatuses,
 } from "./release-schema.mjs";
 import {
@@ -40,44 +38,43 @@ try {
 }
 const version = args.version ?? null;
 if (!version) {
-  errors.push("--version is required for release preflight");
+  errors.push("release version is required");
 }
-if (version && !args.pendingRef) {
-  errors.push(
-    "--pending-ref is required; release preflight only reads an unpublished PR record, never a record already merged to main",
-  );
-}
-const releaseRecord = version && args.pendingRef
-  ? readReleaseRecord(version, errors, args.pendingRef)
+const pendingRef = version ? resolveLocalCommit(docsRoot, "HEAD") : null;
+const releaseRecord = version && pendingRef
+  ? readReleaseRecord(version, errors, pendingRef)
   : null;
 if (
-  args.pendingRef &&
+  pendingRef &&
   releaseRecord &&
   !preflightReleaseStatuses.has(releaseRecord.status)
 ) {
   errors.push(
-    `--pending-ref requires release-metadata status pending or in_progress, got ${releaseRecord.status ?? "unknown"}`,
+    `release preflight requires release-metadata status pending or in_progress, got ${releaseRecord.status ?? "unknown"}`,
   );
 }
 const preflightRepoNames = releaseRecord
-  ? resolvePreflightRepoNames(args.include, releaseRecord, errors)
+  ? resolvePreflightRepoNames(releaseRecord, errors)
   : new Set();
 const workspaceRoot = releaseRecord
-  ? resolveWorkspaceRoot(args.workspaceRoot, releaseRecord.model, errors)
+  ? resolveWorkspaceRoot(releaseRecord.model, errors)
   : null;
 const repoStates = releaseRecord
   ? buildRepos(docsRoot, workspaceRoot)
     .filter((repo) => preflightRepoNames.has(repo.name))
     .map((repo) => inspectRepo(repo, errors, {
-      pendingRef: repo.name === "docs" ? args.pendingRef : null,
+      pendingRef: repo.name === "docs" ? pendingRef : null,
       originMainAlreadyFetched: repo.name === "docs",
+      requireCleanMain:
+        repo.name === "docs" ||
+        releaseRecord.model.activePreflightRepoNames.has(repo.name),
     }))
   : [];
 
 if (releaseRecord) {
   validateReleaseRecordMetadata(releaseRecord, errors);
   inspectReleaseRecord(releaseRecord, repoStates, errors);
-  validatePendingReleaseTransition(args.pendingRef, repoStates, errors);
+  validatePendingReleaseTransition(pendingRef, repoStates, errors);
 }
 
 printReport({
@@ -86,7 +83,7 @@ printReport({
   version,
   repoStates,
   errors,
-  pendingRef: args.pendingRef,
+  pendingRef,
 });
 
 if (errors.length > 0) {
@@ -94,100 +91,21 @@ if (errors.length > 0) {
 }
 
 function parseArgs(argv) {
-  const result = {};
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-
-    if (arg === "--version") {
-      result.version = requireValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith("--version=")) {
-      result.version = arg.slice("--version=".length);
-      continue;
-    }
-
-    if (arg === "--workspace-root") {
-      result.workspaceRoot = requireValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith("--workspace-root=")) {
-      result.workspaceRoot = arg.slice("--workspace-root=".length);
-      continue;
-    }
-
-    if (arg === "--include") {
-      result.include = requireValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-
-    if (arg === "--pending-ref") {
-      result.pendingRef = requireValue(argv, index, arg).toLowerCase();
-      index += 1;
-      continue;
-    }
-
-    if (arg.startsWith("--pending-ref=")) {
-      result.pendingRef = arg.slice("--pending-ref=".length).toLowerCase();
-      continue;
-    }
-
-    if (arg.startsWith("--include=")) {
-      result.include = arg.slice("--include=".length);
-      continue;
-    }
-
-    if (arg === "--help" || arg === "-h") {
-      printUsage();
-      process.exit(0);
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
+  if (argv.length === 1 && ["--help", "-h"].includes(argv[0])) {
+    printUsage();
+    process.exit(0);
   }
-
-  if (result.version && !/^v\d+\.\d+\.\d+$/.test(result.version)) {
-    throw new Error(`--version must use vMAJOR.MINOR.PATCH format: ${result.version}`);
+  if (argv.length !== 1) {
+    throw new Error("release preflight accepts exactly one version");
   }
-
-  if (result.pendingRef && !/^[0-9a-f]{40}$/.test(result.pendingRef)) {
-    throw new Error(`--pending-ref must be a full 40-character commit SHA: ${result.pendingRef}`);
+  const version = argv[0];
+  if (!/^v\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(`version must use vMAJOR.MINOR.PATCH format: ${version}`);
   }
-
-  return result;
+  return { version };
 }
 
-function resolvePreflightRepoNames(rawInclude, releaseRecord, errors) {
-  if (rawInclude) {
-    let requestedRepoNames;
-    try {
-      requestedRepoNames = parseRepoRefNames(rawInclude);
-    } catch (error) {
-      errors.push(error.message);
-      return new Set();
-    }
-
-    if (releaseRecord?.model.preflightRepoNames.size > 0) {
-      validatePreflightRepoNamesAgainstRecord(
-        releaseRecord.version,
-        requestedRepoNames,
-        releaseRecord.model.preflightRepoNames,
-        errors,
-      );
-    } else if (releaseRecord) {
-      errors.push(
-        `${releaseRecord.version}: release-metadata releaseScopes를 확인할 수 없어 --include를 신뢰할 수 없습니다`,
-      );
-    }
-
-    return requestedRepoNames;
-  }
-
+function resolvePreflightRepoNames(releaseRecord, errors) {
   if (releaseRecord?.model.preflightRepoNames.size > 0) {
     return releaseRecord.model.preflightRepoNames;
   }
@@ -199,97 +117,27 @@ function resolvePreflightRepoNames(rawInclude, releaseRecord, errors) {
     return new Set();
   }
 
-  return new Set(knownRepoNames);
+  return new Set();
 }
 
-function validatePreflightRepoNamesAgainstRecord(
-  version,
-  requestedRepoNames,
-  expectedRepoNames,
-  errors,
-) {
-  const missing = [...expectedRepoNames].filter(
-    (repoName) => !requestedRepoNames.has(repoName),
-  );
-  const extra = [...requestedRepoNames].filter(
-    (repoName) => !expectedRepoNames.has(repoName),
-  );
-
-  if (missing.length === 0 && extra.length === 0) {
-    return;
-  }
-
-  errors.push(
-    `${version}: --include must match release-metadata derived preflightRepoNames (missing: ${formatRepoList(missing)}, extra: ${formatRepoList(extra)})`,
-  );
+function hasServiceWorkspaceLayout(candidateRoot, repoNames) {
+  return [...repoNames]
+    .filter((repoName) => repoName !== "docs")
+    .every((repoName) => fs.existsSync(path.join(candidateRoot, repoName)));
 }
 
-function formatRepoList(repoNames) {
-  if (repoNames.length === 0) {
-    return "none";
-  }
-
-  return repoNames.join(", ");
-}
-
-function parseRepoRefNames(rawInclude) {
-  const values = rawInclude
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  if (values.length === 0) {
-    throw new Error("--include requires at least one repository name");
-  }
-
-  if (values.includes("all")) {
-    return new Set(knownRepoNames);
-  }
-
-  const included = new Set();
-  for (const value of values) {
-    const repoName = repoNameAliases.get(value) ?? value;
-
-    if (!knownRepoNames.includes(repoName)) {
-      throw new Error(`Unknown --include repository: ${value}`);
-    }
-
-    included.add(repoName);
-  }
-
-  return included;
-}
-
-function requireValue(argv, index, flagName) {
-  const value = argv[index + 1];
-
-  if (!value || value.startsWith("--")) {
-    throw new Error(`${flagName} requires a value`);
-  }
-
-  return value;
-}
-
-function hasServiceWorkspaceLayout(candidateRoot) {
-  return [
-    "coupler-api",
-    "coupler-admin-web",
-    "coupler-mobile-app",
-  ].every((repoName) => fs.existsSync(path.join(candidateRoot, repoName)));
-}
-
-function findWorkspaceRoot(startDir) {
+function findWorkspaceRoot(startDir, repoNames) {
   let current = path.resolve(startDir);
 
   while (true) {
-    if (hasServiceWorkspaceLayout(current)) {
+    if (hasServiceWorkspaceLayout(current, repoNames)) {
       return current;
     }
 
     const parent = path.dirname(current);
     if (parent === current) {
       throw new Error(
-        "Workspace root not found. Pass --workspace-root <path>.",
+        "Workspace root not found from the docs repository or linked worktree.",
       );
     }
 
@@ -311,31 +159,23 @@ function findCanonicalDocsRoot() {
   }
 }
 
-function resolveWorkspaceRoot(rawWorkspaceRoot, releaseModel, errors) {
+function resolveWorkspaceRoot(releaseModel, errors) {
   if (!releaseModel.requiresServiceWorkspace) {
     return null;
   }
 
-  if (rawWorkspaceRoot) {
-    const resolved = path.resolve(rawWorkspaceRoot);
-    if (!hasServiceWorkspaceLayout(resolved)) {
-      errors.push(
-        `Workspace root must contain coupler-api, coupler-admin-web, and coupler-mobile-app: ${resolved}`,
-      );
-      return null;
-    }
-    return resolved;
-  }
-
   try {
-    return findWorkspaceRoot(docsRoot);
+    return findWorkspaceRoot(docsRoot, releaseModel.preflightRepoNames);
   } catch (directError) {
     const canonicalDocsRoot = findCanonicalDocsRoot();
     if (canonicalDocsRoot && canonicalDocsRoot !== docsRoot) {
       try {
-        return findWorkspaceRoot(canonicalDocsRoot);
+        return findWorkspaceRoot(
+          canonicalDocsRoot,
+          releaseModel.preflightRepoNames,
+        );
       } catch {
-        // Report the direct discovery error below; the explicit override remains available.
+        // Report the direct discovery error below.
       }
     }
     errors.push(directError.message);
@@ -411,11 +251,11 @@ function inspectRepo(repo, errors, options = {}) {
   state.clean = status.length === 0;
   state.onMain = state.branch === "main";
 
-  if (!state.clean) {
+  if (options.requireCleanMain && !state.clean) {
     errors.push(`${repo.name}: working tree is not clean`);
   }
 
-  if (!options.pendingRef && !state.onMain) {
+  if (!options.pendingRef && options.requireCleanMain && !state.onMain) {
     errors.push(`${repo.name}: branch must be main for release preflight, got ${state.branch || "(detached)"}`);
   }
 
@@ -434,7 +274,11 @@ function inspectRepo(repo, errors, options = {}) {
     state.originMainFull = originMainFull;
     state.syncedWithOriginMain = headFull === originMainFull;
 
-    if (!options.pendingRef && !state.syncedWithOriginMain) {
+    if (
+      !options.pendingRef &&
+      options.requireCleanMain &&
+      !state.syncedWithOriginMain
+    ) {
       errors.push(`${repo.name}: HEAD is not exactly origin/main`);
     }
   } catch {
@@ -452,12 +296,12 @@ function validatePendingDocsRepo(state, pendingRef, errors) {
   const headFull = resolveLocalCommit(state.root, "HEAD");
   if (headFull !== pendingRef) {
     errors.push(
-      `docs: --pending-ref must equal the checked-out docs HEAD (${pendingRef} != ${headFull ?? "unresolved"})`,
+      `docs: current HEAD changed during preflight (${pendingRef} != ${headFull ?? "unresolved"})`,
     );
   }
 
   if (state.branch === "main") {
-    errors.push("docs: --pending-ref requires a non-main release PR branch");
+    errors.push("docs: release preflight requires a non-main release PR branch");
   }
 
   let upstream;
@@ -488,7 +332,7 @@ function validatePendingDocsRepo(state, pendingRef, errors) {
   const upstreamHead = resolveLocalCommit(state.root, upstream);
   if (upstreamHead !== pendingRef) {
     errors.push(
-      `docs: pending release branch HEAD must equal pushed upstream and --pending-ref (${upstreamHead ?? "unresolved"} != ${pendingRef})`,
+      `docs: pending release branch HEAD must equal its pushed upstream (${upstreamHead ?? "unresolved"} != ${pendingRef})`,
     );
   }
 
@@ -554,7 +398,7 @@ function readReleaseRecord(version, errors, pendingRef) {
     source = git(docsRoot, ["show", `${pendingRef}:${relativeReleaseRecordPath}`]);
   } catch {
     errors.push(
-      `release record is missing from --pending-ref ${pendingRef}: content/releases/${version}.md`,
+      `release record is missing from current HEAD ${pendingRef}: content/releases/${version}.md`,
     );
     return null;
   }
@@ -973,14 +817,5 @@ function formatPreflightRepoNames(preflightRepoNames) {
 }
 
 function printUsage() {
-  console.log(`Usage:
-  yarn release:preflight --version vX.Y.Z --pending-ref <40-character-SHA>
-
-Options:
-  --version <vX.Y.Z>       Required. Release record version to inspect.
-  --workspace-root <path>  Optional override for the workspace root containing service repositories.
-  --include <repos>        Comma-separated repo refs to check. Values: docs, coupler-api, coupler-admin-web, coupler-mobile-app, api, admin, mobile, all.
-  --pending-ref <SHA>      Full pushed docs PR head SHA. Requires pending or in_progress metadata and a clean non-main branch synced with origin upstream.
-  --help                  Show this help.
-`);
+  console.log("Usage: node scripts/release-preflight.mjs vMAJOR.MINOR.PATCH");
 }

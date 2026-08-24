@@ -1181,6 +1181,68 @@ describe("release metadata scope results", () => {
     assert.deepEqual([...model.preflightRepoNames], ["docs", "coupler-api"]);
   });
 
+  it("derives preflight repositories from each optional release scope", () => {
+    const scenarios = [
+      { scopes: ["docs"], repos: ["docs"] },
+      {
+        scopes: ["docs", "coupler-api"],
+        repos: ["docs", "coupler-api"],
+      },
+      {
+        scopes: ["docs", "coupler-admin-web"],
+        repos: ["docs", "coupler-admin-web"],
+      },
+      {
+        scopes: ["docs", "db-migration"],
+        repos: ["docs", "coupler-api"],
+      },
+      {
+        scopes: ["docs", "coupler-api", "coupler-admin-web"],
+        repos: ["docs", "coupler-api", "coupler-admin-web"],
+      },
+      {
+        scopes: ["docs", "mobile-store"],
+        repos: ["docs", "coupler-mobile-app"],
+      },
+      {
+        scopes: ["docs", "mobile-nextpush"],
+        repos: ["docs", "coupler-mobile-app"],
+      },
+    ];
+
+    for (const { scopes, repos } of scenarios) {
+      const metadata = buildMetadata({
+        scopes,
+        statuses: Object.fromEntries(scopes.map((scopeName) => [scopeName, "pending"])),
+        status: "pending",
+      });
+      const model = createReleaseRecordModel(metadata);
+      assert.deepEqual([...model.preflightRepoNames], repos);
+    }
+  });
+
+  it("separates active checkout gates from already completed scope refs", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "coupler-api", "coupler-admin-web"],
+      statuses: {
+        docs: "in_progress",
+        "coupler-api": "released",
+        "coupler-admin-web": "pending",
+      },
+      status: "in_progress",
+    });
+
+    const model = createReleaseRecordModel(metadata);
+    assert.deepEqual(
+      [...model.preflightRepoNames],
+      ["docs", "coupler-api", "coupler-admin-web"],
+    );
+    assert.deepEqual(
+      [...model.activePreflightRepoNames],
+      ["docs", "coupler-admin-web"],
+    );
+  });
+
   it("requires released Mobile Store submitted marker evidence and deletion evidence", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "mobile-store"],
@@ -1250,6 +1312,40 @@ describe("release metadata scope results", () => {
     metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.tag =
       "submitted/android-9.9.0-900";
     assert.deepEqual(validate(metadata), []);
+  });
+
+  it("does not require an artifact file digest for a verified Store marker", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    delete metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android
+      .artifactSha256;
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("validates an optional Store marker digest when one is recorded", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "released",
+        "mobile-store": "released",
+      },
+    });
+    usePlatformStoreMapping(metadata);
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android
+      .artifactSha256 = "not-a-digest";
+
+    assert(
+      validate(metadata).some((error) =>
+        /artifactSha256 must be a SHA-256 digest when recorded/.test(error),
+      ),
+    );
   });
 
   it("requires v3 for a newly authored release while retaining v2 parser compatibility", () => {
