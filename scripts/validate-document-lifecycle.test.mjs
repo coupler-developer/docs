@@ -42,6 +42,45 @@ test("현재 문서와 current registry가 일치하면 허용한다", () => {
     assert.deepEqual(validate(), []);
 });
 
+test("current document path의 디렉터리와 파일명은 lowercase kebab-case여야 한다", () => {
+    for (const invalidPath of [
+        "policy/example_name.md",
+        "policy/sub_dir/example.md",
+    ]) {
+        const registry = clone(baseRegistry);
+        registry.documents.at(-1).path = invalidPath;
+        const documents = baseDocuments.map((document) =>
+            document.path === exampleDocument.path
+                ? { ...document, path: invalidPath }
+                : document,
+        );
+
+        assert.match(
+            validate({ documents, registry }).join("\n"),
+            /디렉터리·일반 파일명은 lowercase kebab-case/,
+            invalidPath,
+        );
+    }
+});
+
+test("current 명명 규칙을 previousPaths에 소급하지 않는다", () => {
+    const registry = clone(baseRegistry);
+    registry.documents.at(-1).previousPaths = ["policy/legacy_name.md"];
+
+    assert.deepEqual(validate({ registry }), []);
+});
+
+test("release document path는 vMAJOR.MINOR.PATCH 파일명을 허용한다", () => {
+    assert.deepEqual(validate(releaseFixture("v9.8.7.md")), []);
+});
+
+test("release document path는 일반 kebab-case 파일명을 거부한다", () => {
+    assert.match(
+        validate(releaseFixture("release-9-8-7.md")).join("\n"),
+        /releases 파일명은 vMAJOR.MINOR.PATCH\.md/,
+    );
+});
+
 test("새 문서가 current registry에 없으면 거부한다", () => {
     const documents = [
         ...baseDocuments,
@@ -538,6 +577,23 @@ function validate({
 
 function clone(value) {
     return structuredClone(value);
+}
+
+function releaseFixture(filename) {
+    const releaseDocument = {
+        kind: "flow",
+        path: `releases/${filename}`,
+        role: "시나리오",
+        source: "# Release\n",
+        status: "as-is",
+    };
+    const registry = clone(baseRegistry);
+    registry.documents.push({
+        id: `releases.${filename.slice(0, -3)}`,
+        path: releaseDocument.path,
+        routing: "historical",
+    });
+    return { documents: [...baseDocuments, releaseDocument], registry };
 }
 
 function ledger(...retirements) {

@@ -228,7 +228,7 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
 | 필드 | 규칙 |
 | --- | --- |
 | `id` | 경로가 바뀌어도 유지하는 lowercase stable ID |
-| `path` | `content/` 기준 현재 Markdown 경로 |
+| `path` | `content/` 기준 현재 Markdown 경로. 디렉터리·일반 파일명은 lowercase kebab-case, `releases/` 파일명은 `vMAJOR.MINOR.PATCH.md` |
 | `routing` | `core`, `direct`, `closure`, `historical` 중 하나 |
 | `coreOrder` | `core` 기반 문서 4개의 stable 순서를 고정 |
 | `requiredHeadings` | 자동 검증할 실제 Markdown Gate heading과 level |
@@ -243,7 +243,9 @@ PR/작업 보고 또는 안정성 리뷰 기록에 아래를 남긴다.
   heading으로 존재해야 한다.
 - 새 문서는 문서·nav·AGENTS 인덱스와 같은 변경 단위에서 current 항목을 추가한다. routing 책임을 판정하지
   않은 새 문서는 완료로 간주하지 않는다.
-- 개명·이동은 `id`를 바꾸지 않고 새 `path`를 기록하며, 기존 경로와 과거 `previousPaths`를 보존한다.
+- 표시명·접미사·분류 정리를 위해 개명·이동하지 않는다. 책임 경계 변경 등으로 필요하면 `id`를 유지하고
+  기존 경로를 `previousPaths`에 누적하며, 같은 변경에서 `previousPaths`로만 redirect를 만들고 기존 URL
+  도달을 검증한다.
 
 ### 삭제와 책임 승계
 

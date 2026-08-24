@@ -71,7 +71,7 @@
 | `transition`/`임시`/`호환`/`fallback` 제거 조건 또는 미적용 근거 있음 |  |  |
 | 시간 의존 사실 최신 근거 있음 |  |  |
 | To-Be/임시 구조 부채 또는 추적 문서 연결 있음 |  |  |
-| 문서 추가·이동·삭제 시 current registry stable ID·routing·previousPaths와 retirement ledger ID·경로 예약 증빙 있음 |  |  |
+| 문서 추가·이동·개명·삭제 시 lifecycle registry/ledger 동기화, 이동·개명 시 `previousPaths` 기반 redirect·기존 URL 도달 검증 증빙 있음 |  |  |
 | taxonomy/메타데이터/검증 hard gate 변경에 기존 문서 baseline, 단계적 활성화, 적용 범위의 전환 완료 조건 있음 |  |  |
 | policy 추가·수정·삭제에 대한 전체 정책·역방향 규범 참조, 책임/우선순위, 상태·단계별 Exit Gate, 전역 절 정합성, 삭제 시 책임 승계 증빙 있음 |  |  |
 | 개인 사용자명·개인 개발 장비 절대경로 없음, 공유 환경 경로는 운영 flow/runbook 예외 충족 |  |  |
