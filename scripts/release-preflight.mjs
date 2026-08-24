@@ -788,26 +788,6 @@ function validateMappingBasis(state, basis, releaseRecord, errors) {
   }
 
   validateResolvedBasisConsistency(state.name, resolvedRefs, errors);
-  if (policy.refMustEqualCurrentOriginMain) {
-    const frozenGroups = policy.annotatedOriginTagFreezesHistoricalRef
-      ? new Set(
-          resolvedRefs
-            .filter((ref) => ref.type === "tag")
-            .map((ref) => ref.group ?? "default"),
-        )
-      : new Set();
-    const refsRequiringCurrentOrigin = resolvedRefs.filter(
-      (ref) =>
-        !ref.frozenArtifact &&
-        !frozenGroups.has(ref.group ?? "default"),
-    );
-    validateResolvedBasisMatchesOriginMain(
-      state.name,
-      state.originMainFull,
-      refsRequiringCurrentOrigin,
-      errors,
-    );
-  }
 }
 
 function requiresOriginTag(policy, releaseStatus) {
@@ -825,21 +805,6 @@ function formatMissingOriginTagError(repoName, policy, releaseStatus, tagValue) 
   }
 
   return `${repoName}: 버전 매핑 tag를 origin에서 확인하지 못했습니다: ${tagValue}`;
-}
-
-function validateResolvedBasisMatchesOriginMain(
-  repoName,
-  originMainFull,
-  resolvedRefs,
-  errors,
-) {
-  for (const ref of resolvedRefs) {
-    if (ref.commit !== originMainFull) {
-      errors.push(
-        `${repoName}: 버전 매핑 ref는 현재 origin/main 기준점과 같아야 합니다: ${ref.type} ${ref.value} -> ${ref.commit.slice(0, 12)}, origin/main -> ${originMainFull.slice(0, 12)}`,
-      );
-    }
-  }
 }
 
 function resolveRemoteAnnotatedTagCommit(repoRoot, tagName) {

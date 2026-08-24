@@ -45,8 +45,6 @@ const serviceRepoRefPolicy = {
   tagMustBeAnnotated: true,
   tagMustBeAncestorOfOriginMain: true,
   commitMustBeAncestorOfOriginMain: true,
-  refMustEqualCurrentOriginMain: true,
-  annotatedOriginTagFreezesHistoricalRef: true,
 };
 
 export const repoRefPolicyDescriptors = {
@@ -60,8 +58,6 @@ export const repoRefPolicyDescriptors = {
     tagMustBeAnnotated: true,
     tagMustBeAncestorOfOriginMain: true,
     commitMustBeAncestorOfOriginMain: false,
-    refMustEqualCurrentOriginMain: false,
-    annotatedOriginTagFreezesHistoricalRef: false,
   },
   "coupler-api": serviceRepoRefPolicy,
   "coupler-admin-web": serviceRepoRefPolicy,

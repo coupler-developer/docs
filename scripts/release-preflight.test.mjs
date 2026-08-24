@@ -622,7 +622,7 @@ describe("release preflight for unpublished PR records", () => {
     assert.match(result.stdout, /store\.android tag와 commit이 같은 기준점을 가리켜야 합니다/);
   });
 
-  it("still rejects an untagged historical service ref after main advances", () => {
+  it("accepts an explicitly pinned service main ancestor after main advances", () => {
     const workspace = createWorkspace();
     const apiRef = git(workspace.apiRoot, ["rev-parse", "HEAD"]);
     fs.writeFileSync(path.join(workspace.apiRoot, "AFTER_BASIS.md"), "# Advance\n");
@@ -646,8 +646,8 @@ describe("release preflight for unpublished PR records", () => {
       tempRoot,
     ], workspace.docsRoot);
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stdout, /버전 매핑 ref는 현재 origin\/main 기준점과 같아야 합니다/);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Result: PASS/);
   });
 });
 

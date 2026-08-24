@@ -62,7 +62,7 @@ API 계약 변경과 `mobile-store` 또는 `mobile-nextpush`가 함께 포함되
 
 - 릴리스 기록에서 범위와 입력값을 확정하고, 각 블록이 요구하는 변수를 실행 shell에 먼저 설정한다.
 - 각 코드 블록은 독립 실행 단위다. 블록 전체를 한 shell에서 실행하며, 실패하면 이후 명령을 실행하지 않는다.
-- 값이 없거나 각 블록에 명시된 exact commit·`origin/main`·checkout 검사가 실패하면 중단한다.
+- 값이 없거나 각 블록에 명시된 exact commit·`origin/main` 계보·checkout 검사가 실패하면 중단한다.
 - 운영 변경 명령은 preflight가 `PASS`한 뒤 포함 범위의 블록 하나만 실행한다. DB의 운영 전 준비와 별도
   admission 순서는 DB Migration 실행 런북을 따른다.
 
@@ -117,7 +117,7 @@ esac
 git -C "${REPO}" fetch --no-tags origin main:refs/remotes/origin/main
 git -C "${REPO}" fetch --tags origin
 git -C "${REPO}" rev-parse --verify "${DEPLOY_COMMIT}^{commit}"
-test "$(git -C "${REPO}" rev-parse origin/main)" = "${DEPLOY_COMMIT}"
+git -C "${REPO}" merge-base --is-ancestor "${DEPLOY_COMMIT}" origin/main
 
 git -C "${REPO}" tag -a "${TAG}" "${DEPLOY_COMMIT}" -m "Release ${TAG}"
 test "$(git -C "${REPO}" rev-list -n 1 "${TAG}")" = "${DEPLOY_COMMIT}"
