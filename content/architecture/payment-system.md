@@ -23,8 +23,10 @@ flowchart LR
     entity_key_dash_wallet_dot_entry["Key 변동 원장 · 다른 영역<br/>key-wallet.entry"]
     entity_member_dot_member["회원 계정 · 다른 영역<br/>member.member"]
     entity_payment_dot_purchase["인앱결제 거래<br/>payment.purchase"]
+    entity_payment_dot_store_dash_notification["스토어 결제 알림<br/>payment.store-notification"]
     entity_payment_dot_purchase -->|"참고"| entity_member_dot_member
     entity_payment_dot_purchase -->|"참고"| entity_key_dash_wallet_dot_entry
+    entity_payment_dot_store_dash_notification -->|"참고"| entity_payment_dot_purchase
 ```
 
 꼭 지킬 규칙:
@@ -33,6 +35,7 @@ flowchart LR
 - 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다
 - 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다
 - 활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다
+- Store 서버 알림은 검증 후 디코드한 알림 내용을 보존하고 동일 플랫폼·알림 타입·거래 식별 조합은 한 번만 저장한다
 
 <!-- markdownlint-disable MD046 -->
 
@@ -43,6 +46,7 @@ flowchart LR
     | 논리 ID | 표시명 | 생명주기 역할 | 엔티티 형태 | 기록 역할 | 책임 | 최고 데이터 분류 | 생명주기 |
     | --- | --- | --- | --- | --- | --- | --- | --- |
     | `payment.purchase` | 인앱결제 거래 | root | entity | state | 플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과 | 민감 | 정산·환불·분쟁 대응 기간 동안 거래를 보존하고 환불 처리 시 상태 갱신 |
+    | `payment.store-notification` | 스토어 결제 알림 | root | entity | history | Apple ASSN·Google RTDN 검증 후 디코드한 알림 내용과 추출 식별자, 수신 처리 상태 | 민감 | 정산·환불·분쟁 대응 기간 동안 검증 후 디코드한 알림 내용을 보존한다 |
 
     ### 관계
 
@@ -50,6 +54,7 @@ flowchart LR
     | --- | --- | --- | --- | --- | --- |
     | `payment.purchase` | `buyer` | references | `member.member` | N:1 | 회원 개인정보 정리 뒤에도 비식별 정산 이력은 보존 |
     | `payment.purchase` | `key-entries` | references | `key-wallet.entry` | 1:N | 성공·환불 결과에 해당하는 Key 변동 원장을 연결 |
+    | `payment.store-notification` | `purchase` | references | `payment.purchase` | N:1 | 거래 식별자로 연결 가능할 때만 참고하며 알림 단독 보관도 허용 |
 
     ### 불변조건
 
@@ -59,6 +64,7 @@ flowchart LR
     | `PAYMENT-INV-002` | `payment.purchase` | 결제 상태와 Key 지급·회수 원장은 같은 transaction 결론을 가져야 한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
     | `PAYMENT-INV-003` | `payment.purchase` | 영수증·서명·접속정보 원문은 최소 권한으로만 조회한다 | [데이터 거버넌스 정책](../policy/data-governance-policy.md) |
     | `PAYMENT-INV-004` | `payment.purchase` | 활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
+    | `PAYMENT-INV-005` | `payment.store-notification` | Store 서버 알림은 검증 후 디코드한 알림 내용을 보존하고 동일 플랫폼·알림 타입·거래 식별 조합은 한 번만 저장한다 | [결제 운영 정책](../policy/payment-ops-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
 

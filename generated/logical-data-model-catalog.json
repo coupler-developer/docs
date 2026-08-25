@@ -151,6 +151,7 @@
         "member-review.overview-projection",
         "member-review.profile-image",
         "member-review.profile-version",
+        "member-review.profile-video-deletion",
         "member-review.required-auth-policy",
         "member-review.review-request",
         "member-review.stage-snapshot",
@@ -186,11 +187,12 @@
     {
       "id": "payment",
       "name": "결제",
-      "responsibility": "인앱결제 거래와 지급 결과",
+      "responsibility": "인앱결제 거래, Store 서버 알림과 지급 결과",
       "ownerDocument": "content/architecture/payment-system.md",
       "stage": "as-is",
       "entityIds": [
-        "payment.purchase"
+        "payment.purchase",
+        "payment.store-notification"
       ]
     },
     {
@@ -767,6 +769,19 @@
       "lifecycle": "활성 버전은 유지하고 이전 버전은 정책에 따라 정리"
     },
     {
+      "id": "member-review.profile-video-deletion",
+      "name": "프로필 영상 삭제 이력",
+      "domainId": "member-review",
+      "ownerDocument": "content/architecture/member-review-system.md",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
+      "recordRole": "history",
+      "responsibility": "회원·관리자의 명시적 영상 참조 삭제와 감사 근거",
+      "classification": "내부",
+      "lifecycle": "영상 경로 없이 행위자·대상·사유·시각과 삭제 참조 수를 감사 정책에 따라 보존"
+    },
+    {
       "id": "member-review.required-auth-policy",
       "name": "필수 인증 정책",
       "domainId": "member-review",
@@ -1025,6 +1040,19 @@
       "responsibility": "플랫폼 거래 식별자, 검증 결과, 결제 금액과 지급 결과",
       "classification": "민감",
       "lifecycle": "정산·환불·분쟁 대응 기간 동안 거래를 보존하고 환불 처리 시 상태 갱신"
+    },
+    {
+      "id": "payment.store-notification",
+      "name": "스토어 결제 알림",
+      "domainId": "payment",
+      "ownerDocument": "content/architecture/payment-system.md",
+      "stage": "as-is",
+      "lifecycleRole": "root",
+      "entityShape": "entity",
+      "recordRole": "history",
+      "responsibility": "Apple ASSN·Google RTDN 검증 후 디코드한 알림 내용과 추출 식별자, 수신 처리 상태",
+      "classification": "민감",
+      "lifecycle": "정산·환불·분쟁 대응 기간 동안 검증 후 디코드한 알림 내용을 보존한다"
     },
     {
       "id": "platform-config.alias",
@@ -1723,6 +1751,15 @@
       "ownerDocument": "content/architecture/member-review-system.md"
     },
     {
+      "sourceEntityId": "member-review.profile-video-deletion",
+      "role": "target-member",
+      "kind": "references",
+      "targetEntityId": "member.member",
+      "cardinality": "N:1",
+      "lifecycleRule": "회원 계정 정리 뒤에도 삭제 감사 식별자와 당시 대상 ID를 보존",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
       "sourceEntityId": "member-review.review-request",
       "role": "member",
       "kind": "references",
@@ -2074,6 +2111,15 @@
       "ownerDocument": "content/architecture/payment-system.md"
     },
     {
+      "sourceEntityId": "payment.store-notification",
+      "role": "purchase",
+      "kind": "references",
+      "targetEntityId": "payment.purchase",
+      "cardinality": "N:1",
+      "lifecycleRule": "거래 식별자로 연결 가능할 때만 참고하며 알림 단독 보관도 허용",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
       "sourceEntityId": "platform-config.signup-message",
       "role": "manager",
       "kind": "references",
@@ -2416,6 +2462,13 @@
       "ownerDocument": "content/architecture/member-review-system.md"
     },
     {
+      "id": "MEMBER-REVIEW-INV-004",
+      "relatedEntityId": "member-review.profile-video-deletion",
+      "statement": "명시적 영상 삭제는 모든 DB 영상 참조와 감사 이력을 한 원자적 변경으로 처리하고 사진 및 사진 심사 상태는 보존한다",
+      "basis": "[회원 심사 단일 정책](../policy/member-review-policy.md)",
+      "ownerDocument": "content/architecture/member-review-system.md"
+    },
+    {
       "id": "MODERATION-INV-001",
       "relatedEntityId": "moderation.member-report",
       "statement": "신고자와 대상 회원은 같을 수 없다",
@@ -2503,6 +2556,13 @@
       "id": "PAYMENT-INV-004",
       "relatedEntityId": "payment.purchase",
       "statement": "활성 생애주기의 일반회원 이상만 인앱결제를 요청할 수 있다",
+      "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
+      "ownerDocument": "content/architecture/payment-system.md"
+    },
+    {
+      "id": "PAYMENT-INV-005",
+      "relatedEntityId": "payment.store-notification",
+      "statement": "Store 서버 알림은 검증 후 디코드한 알림 내용을 보존하고 동일 플랫폼·알림 타입·거래 식별 조합은 한 번만 저장한다",
       "basis": "[결제 운영 정책](../policy/payment-ops-policy.md)",
       "ownerDocument": "content/architecture/payment-system.md"
     },

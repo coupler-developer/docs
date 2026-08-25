@@ -34,6 +34,7 @@ flowchart LR
     entity_member_dash_review_dot_overview_dash_projection["심사 운영 조회 모델<br/>member-review.overview-projection"]
     entity_member_dash_review_dot_profile_dash_image["프로필 이미지<br/>member-review.profile-image"]
     entity_member_dash_review_dot_profile_dash_version["프로필 버전<br/>member-review.profile-version"]
+    entity_member_dash_review_dot_profile_dash_video_dash_deletion["프로필 영상 삭제 이력<br/>member-review.profile-video-deletion"]
     entity_member_dash_review_dot_required_dash_auth_dash_policy["필수 인증 정책<br/>member-review.required-auth-policy"]
     entity_member_dash_review_dot_review_dash_request["회원 심사 요청<br/>member-review.review-request"]
     entity_member_dash_review_dot_stage_dash_snapshot["심사 단계 스냅샷<br/>member-review.stage-snapshot"]
@@ -46,6 +47,7 @@ flowchart LR
     entity_member_dash_review_dot_auth_dash_request_dash_item -->|"같이 관리"| entity_member_dash_review_dot_auth_dash_evidence
     entity_member_dash_review_dot_profile_dash_version -->|"참고"| entity_member_dot_member
     entity_member_dash_review_dot_profile_dash_version -->|"같이 관리"| entity_member_dash_review_dot_profile_dash_image
+    entity_member_dash_review_dot_profile_dash_video_dash_deletion -->|"참고"| entity_member_dot_member
     entity_member_dot_member -->|"같이 관리"| entity_member_dash_review_dot_required_dash_auth_dash_policy
     entity_member_dot_member -->|"같이 관리"| entity_member_dash_review_dot_stage_dash_snapshot
     entity_member_dash_review_dot_status_dash_projection -->|"계산해 만듦"| entity_member_dash_review_dot_review_dash_request
@@ -57,6 +59,7 @@ flowchart LR
 - 회원과 요청 종류별 활성 인증 요청은 동시에 하나만 존재한다
 - 회원이 참조하는 현재 프로필 버전은 승인·활성 상태여야 한다
 - 조회 모델은 판정 원천이 아니며 요청 상태 원천과 회원 생애주기에서만 파생한다
+- 명시적 영상 삭제는 모든 DB 영상 참조와 감사 이력을 한 원자적 변경으로 처리하고 사진 및 사진 심사 상태는 보존한다
 
 <!-- markdownlint-disable MD046 -->
 
@@ -73,6 +76,7 @@ flowchart LR
     | `member-review.auth-evidence` | 인증 증거 | child | entity | snapshot | 심사 시점의 인증 이미지와 개별 판정 | 민감 | 보관 기한 후 삭제 또는 비식별화 |
     | `member-review.profile-version` | 프로필 버전 | root | entity | snapshot | 제출 시점의 프로필 이미지·영상 세트 | 민감 | 활성 버전은 유지하고 이전 버전은 정책에 따라 정리 |
     | `member-review.profile-image` | 프로필 이미지 | child | entity | snapshot | 프로필 버전의 이미지와 이미지별 판정 | 민감 | 상위 버전의 보관 정책을 따름 |
+    | `member-review.profile-video-deletion` | 프로필 영상 삭제 이력 | root | entity | history | 회원·관리자의 명시적 영상 참조 삭제와 감사 근거 | 내부 | 영상 경로 없이 행위자·대상·사유·시각과 삭제 참조 수를 감사 정책에 따라 보존 |
     | `member-review.required-auth-policy` | 필수 인증 정책 | child | entity | reference | 회원에게 적용되는 필수 인증 종류 | 내부 | 최초 생성 뒤 명시적 정책 정정 전까지 유지 |
     | `member-review.stage-snapshot` | 심사 단계 스냅샷 | child | entity | snapshot | 화면·호환을 위한 단계별 현재 상태 복사본 | 내부 | 재계산 가능한 보조 데이터로 유지 |
     | `member-review.status-projection` | 심사 상태 조회 모델 | root | entity | projection | API와 Mobile의 회원별 심사 상태 요약 | 내부 | 원천 데이터 변경 시 재계산 |
@@ -89,6 +93,7 @@ flowchart LR
     | `member-review.auth-request-item` | `evidence` | owns | `member-review.auth-evidence` | 1:N | 증거만 보관 기한에 따라 정리 가능 |
     | `member-review.profile-version` | `member` | references | `member.member` | N:1 | 회원이 참조하는 현재 버전은 승인·활성 상태여야 함 |
     | `member-review.profile-version` | `images` | owns | `member-review.profile-image` | 1:N | 현재 활성 버전은 삭제하지 않음 |
+    | `member-review.profile-video-deletion` | `target-member` | references | `member.member` | N:1 | 회원 계정 정리 뒤에도 삭제 감사 식별자와 당시 대상 ID를 보존 |
     | `member.member` | `required-auth-policy` | owns | `member-review.required-auth-policy` | 1:1 | 회원에게 적용되는 한 세트의 필수 인증 정책을 유지 |
     | `member.member` | `review-stage-snapshots` | owns | `member-review.stage-snapshot` | 1:N | 원천 심사 상태와 불일치하면 재계산 |
     | `member-review.status-projection` | `review-requests` | derives-from | `member-review.review-request` | 1:N | 원천 요청과 현재 회원 상태에서 계산 |
@@ -101,6 +106,7 @@ flowchart LR
     | `MEMBER-REVIEW-INV-001` | `member-review.auth-request` | 회원과 요청 종류별 활성 인증 요청은 동시에 하나만 존재한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
     | `MEMBER-REVIEW-INV-002` | `member-review.profile-version` | 회원이 참조하는 현재 프로필 버전은 승인·활성 상태여야 한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
     | `MEMBER-REVIEW-INV-003` | `member-review.status-projection` | 조회 모델은 판정 원천이 아니며 요청 상태 원천과 회원 생애주기에서만 파생한다 | [회원 심사 FSM](member-review-fsm.md) |
+    | `MEMBER-REVIEW-INV-004` | `member-review.profile-video-deletion` | 명시적 영상 삭제는 모든 DB 영상 참조와 감사 이력을 한 원자적 변경으로 처리하고 사진 및 사진 심사 상태는 보존한다 | [회원 심사 단일 정책](../policy/member-review-policy.md) |
 
 <!-- markdownlint-enable MD046 -->
 
@@ -114,6 +120,8 @@ flowchart LR
 4. Admin이 요청 또는 항목 단위로 승인·반려한다.
 5. 판정 결과가 회원 생애주기와 단계 스냅샷에 동기화된다.
 6. API와 Admin은 조회 모델을 통해 현재 상태를 읽는다.
+7. 회원 또는 권한 있는 관리자가 프로필 영상을 명시적으로 삭제하면 모든 프로필 버전의 영상 참조를
+   원자적으로 제거하고 사진 심사는 유지한 채 삭제 감사 이력을 추가한다.
 
 현재 전담 클럽매니저 설정과 회원별 필수 인증 정책은 서로 다른 데이터다. 심사 도중 전담 클럽매니저나
 설정이 바뀌면 두 값이 달라질 수 있으며, `PENDING`을 포함해 `NORMAL`이 아닌 회원의 실제 인증 데이터까지
