@@ -95,6 +95,10 @@ flowchart LR
 
 구체적인 환불 금액과 상태 조건은 [매칭 운영 정책](../policy/matching-ops-policy.md)을 기준으로 본다.
 
+여성의 남성 공개사진 최초 열람은 기존 차감 흐름을 그대로 사용하면서 `FEMALE_VIEW_MALE_PROFILE(1015)`
+매칭 로그를 함께 남긴다. 이미 열린 플래그의 재요청은 추가 과금·로그를 만들지 않으며, 이 변경 전 누락
+이력은 복원하지 않는다.
+
 ## 키 로그 기록 기준
 
 키 로그는 `coupler-api/model/member_key_log.ts`의 `insertLog`를 통해 `t_member_key_log`에 기록한다.

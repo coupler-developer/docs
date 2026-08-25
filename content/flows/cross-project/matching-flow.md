@@ -28,6 +28,7 @@ sequenceDiagram
     participant M as 남성 앱
 
     Admin->>API: 카드 전달
+    API->>API: 여성 login_cnt 발송 스냅샷 저장
     API->>F: 푸시 알림
 
     rect rgb(240, 248, 255)
@@ -69,6 +70,10 @@ sequenceDiagram
 ```
 
 ## 단계별 상세
+
+CMS가 여성에게 전달한 신규 카드는 발송 시점 `login_cnt`를 저장한다. 응답 없이 3일이 만료될 때 증가가
+0회이면 `CANCELED`, `is_wasted=1`로 분류하고, 한 번이라도 증가했으면 일반 무응답 취소로 처리한다.
+낭비 카드는 Admin의 기존 `전체삭제`로 물리 삭제하며 배포 전 카드와 과거 알람·열람 이력은 복원하지 않는다.
 
 ### 1단계: 카드 응답
 
