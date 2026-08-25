@@ -176,6 +176,17 @@ test("the runner owns the exact static and full task sets", () => {
         assert.equal(packageJson.scripts[taskId], taskScript(taskId));
     }
 
+    assert.deepEqual(
+        VALIDATION_TASKS["test:docs-structure"].args.map((arg) =>
+            arg === "--test" ? arg : path.basename(arg),
+        ),
+        [
+            "--test",
+            "validate-docs-structure.test.mjs",
+            "lounge-pinned-contract-docs.test.mjs",
+        ],
+    );
+
     assert.match(
         testingStrategy,
         /단일 `docs-validation-runner`가 폐쇄형 leaf 목록과 최대 2개 병렬\s+실행을 소유한다/,
