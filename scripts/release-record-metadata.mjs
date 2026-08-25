@@ -16,25 +16,21 @@ import {
   isNonApplicableEvidenceValue,
   isNonEmptyString,
   isSemverTag,
-  isSubmittedMarkerTag,
   knownRepoNames,
   mobileStorePlatforms,
   mobileStoreSourceStatuses,
   recordRepoName,
   releaseScopeDescriptors,
-  releaseMetadataSchema,
   releaseMetadataRequiredTopLevelKeys,
   releaseMetadataTopLevelKeys,
   semverTagPattern,
   sha256Pattern,
-  supportedReleaseMetadataSchemas,
   valueHasReleasePlaceholderSignal,
   versionMappingFieldDescriptors,
 } from "./release-schema.mjs";
 export {
   findReleasePlaceholderSignals,
   knownRepoNames,
-  releaseMetadataSchema,
 };
 
 const isFullCommitSha = (value) =>
@@ -72,17 +68,10 @@ export function validateReleaseMetadata(
   context,
   expectedVersion,
   errors,
-  { requireCurrentSchema = false } = {},
 ) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     errors.push(`${context}: release-metadata must be a JSON object`);
     return;
-  }
-
-  if (!supportedReleaseMetadataSchemas.has(metadata.schema)) {
-    errors.push(`${context}: release-metadata schema must be ${releaseMetadataSchema}`);
-  } else if (requireCurrentSchema && metadata.schema !== releaseMetadataSchema) {
-    errors.push(`${context}: new release-metadata schema must be ${releaseMetadataSchema}`);
   }
 
   validateTopLevelKeys(metadata, context, errors);
@@ -103,7 +92,7 @@ export function validateReleaseMetadata(
   validateReleaseScopes(metadata, context, errors);
   validateExtraRepoRefs(metadata, context, errors);
   validateScopeResults(metadata, context, errors);
-  validateVersionMapping(metadata.versionMapping, metadata.schema, context, errors);
+  validateVersionMapping(metadata.versionMapping, context, errors);
   validateDocsVersionMapping(metadata, context, errors);
   validateApiContractCutoverMetadata(metadata, context, errors);
   validateReleaseCompletionState(metadata, context, errors);
@@ -157,14 +146,12 @@ export function getMetadataMappingBasis(metadata, repoName) {
     };
   }
 
-  const platformMappings =
-    metadata?.schema === releaseMetadataSchema && repoName === "coupler-mobile-app"
-      ? mobileStorePlatforms
-        .map((platform) => ({ platform, ...repoMapping.store?.[platform] }))
-        .filter((mapping) => mapping?.sourceStatus === "verified")
-      : [];
-  const usesPlatformMapping =
-    metadata?.schema === releaseMetadataSchema && repoName === "coupler-mobile-app";
+  const usesPlatformMapping = repoName === "coupler-mobile-app";
+  const platformMappings = usesPlatformMapping
+    ? mobileStorePlatforms
+      .map((platform) => ({ platform, ...repoMapping.store?.[platform] }))
+      .filter((mapping) => mapping?.sourceStatus === "verified")
+    : [];
   const tagValues = usesPlatformMapping
     ? platformMappings.map((mapping) => ({
         value: mapping.releaseTag,
@@ -322,8 +309,8 @@ function validateScopeResult(
       );
     }
   } else {
-    validateScopeEvidenceKeys(metadata, scopeName, result.evidence, context, errors);
-    validateScopeEvidenceShape(metadata, scopeName, result.evidence, context, errors);
+    validateScopeEvidenceKeys(scopeName, result.evidence, context, errors);
+    validateScopeEvidenceShape(scopeName, result.evidence, context, errors);
     validateEvidenceValueShape(result.evidence, ["scopeResults", scopeName, "evidence"], context, errors);
     if (scopeName === "coupler-api") {
       const terminal = result.status === "released" || result.status === "rolled_back";
@@ -407,7 +394,7 @@ function validateScopeResultKeys(scopeName, result, context, errors) {
   }
 }
 
-function validateScopeEvidenceKeys(metadata, scopeName, evidence, context, errors) {
+function validateScopeEvidenceKeys(scopeName, evidence, context, errors) {
   const expectedKeys = getExpectedScopeEvidenceKeys(scopeName);
   for (const key of expectedKeys) {
     if (!Object.hasOwn(evidence, key)) {
@@ -422,15 +409,7 @@ function validateScopeEvidenceKeys(metadata, scopeName, evidence, context, error
   }
 }
 
-function validateScopeEvidenceShape(metadata, scopeName, evidence, context, errors) {
-  if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
-    validatePlatformSubmittedMarkersShape(
-      evidence.submittedMarkers,
-      context,
-      "scopeResults.mobile-store.evidence.submittedMarkers",
-      errors,
-    );
-  }
+function validateScopeEvidenceShape(scopeName, evidence, context, errors) {
   const seenPaths = new Set();
   for (const descriptor of [
     ...(releaseScopeDescriptors[scopeName]?.releasedEvidence ?? []),
@@ -442,13 +421,6 @@ function validateScopeEvidenceShape(metadata, scopeName, evidence, context, erro
     }
 
     const relativePath = descriptor.metadataPath.slice(evidenceIndex + 1);
-    if (
-      metadata.schema === releaseMetadataSchema &&
-      scopeName === "mobile-store" &&
-      relativePath[0] === "submittedMarkers"
-    ) {
-      continue;
-    }
     const fieldPath = `scopeResults.${scopeName}.evidence.${relativePath.join(".")}`;
     if (seenPaths.has(fieldPath)) {
       continue;
@@ -476,7 +448,6 @@ function validateEvidenceShapeValue({
   if (
     valueType === "concreteEvidence" ||
     valueType === "contractsPackageVersion" ||
-    valueType === "mobileStore" ||
     valueType === "sha256"
   ) {
     if (value !== null && typeof value !== "string") {
@@ -491,7 +462,7 @@ function validateEvidenceShapeValue({
   }
 
   if (valueType === "submittedMarkers") {
-    validateSubmittedMarkersShape(value, context, fieldPath, errors);
+    validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors);
     return;
   }
 
@@ -590,7 +561,7 @@ function allowedValuesHas(allowedValues, value) {
   return allowedValues.includes(value);
 }
 
-function validateVersionMapping(versionMapping, schema, context, errors) {
+function validateVersionMapping(versionMapping, context, errors) {
   if (!versionMapping || typeof versionMapping !== "object" || Array.isArray(versionMapping)) {
     errors.push(`${context}: release-metadata versionMapping must be a JSON object`);
     return;
@@ -612,12 +583,12 @@ function validateVersionMapping(versionMapping, schema, context, errors) {
       continue;
     }
 
-    validateRepoMapping(repoName, repoMapping, schema, context, errors);
+    validateRepoMapping(repoName, repoMapping, context, errors);
   }
 }
 
-function validateRepoMapping(repoName, repoMapping, schema, context, errors) {
-  if (schema === releaseMetadataSchema && repoName === "coupler-mobile-app") {
+function validateRepoMapping(repoName, repoMapping, context, errors) {
+  if (repoName === "coupler-mobile-app") {
     validatePlatformMobileMapping(repoMapping, context, errors);
     return;
   }
@@ -755,14 +726,6 @@ function validateRepoMappingValue(repoName, repoMapping, descriptor, context, er
 
   if (descriptor.valueType === "commitShaOrEmpty" && !isCommitSha(value)) {
     errors.push(`${context}: ${repoName} metadata ${descriptor.key} must be a SHA or null`);
-    return;
-  }
-
-  if (
-    descriptor.valueType === "mobileStoreOrEmpty" &&
-    (typeof value !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(value))
-  ) {
-    errors.push(`${context}: ${repoName} metadata ${descriptor.key} must be "X.Y.Z (build)" or null`);
     return;
   }
 
@@ -952,15 +915,6 @@ function validateCurrentMobileStoreConsumerMapping(
   errors,
 ) {
   const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
-  if (metadata.schema !== releaseMetadataSchema) {
-    if (typeof store !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(store)) {
-      errors.push(`${context}: terminal current mobile-store consumer requires versionMapping.coupler-mobile-app.store`);
-    } else if (artifact.mappingRef !== store) {
-      errors.push(`${context}: release-metadata ${consumerPath}.artifact.mappingRef must match versionMapping.coupler-mobile-app.store`);
-    }
-    return;
-  }
-
   const androidVersionBuild = store?.android?.versionBuild;
   const iosVersionBuild = store?.ios?.versionBuild;
   if (!androidVersionBuild || !iosVersionBuild) {
@@ -1325,19 +1279,6 @@ function validateApiPublicContractEvidence(
     ) {
       errors.push(`${context}: release-metadata ${fieldPath}.consumers current mobile-nextpush presence must match versionMapping.coupler-mobile-app.nextPush`);
     }
-    if (
-      metadata.apiContractCutover != null &&
-      !publicContract.cases.some(
-        (contractCase) =>
-          contractCase &&
-          consumerById.get(contractCase.consumerId)?.generation === "previous" &&
-          contractCase.apiGeneration === "current" &&
-          contractCase.exposure === "activation" &&
-          contractCase.expected === "deterministic-rejection",
-      )
-    ) {
-      errors.push(`${context}: release-metadata ${fieldPath}.cases API cutover requires a deterministic previous-consumer rejection case`);
-    }
   }
 
 }
@@ -1646,7 +1587,7 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     allowedKeys: [
       "caseIds",
       "appliedAt",
-      "barrierEvidence",
+      "sequenceEvidence",
       "bootstrapUpgradeEvidence",
     ],
     context,
@@ -1655,7 +1596,7 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
   });
   validateNestedObjectKeys({
     value: cutover.rollback,
-    allowedKeys: ["caseIds", "barrierEvidence", "cautions"],
+    allowedKeys: ["caseIds", "sequenceEvidence", "cautions"],
     context,
     fieldPath: "apiContractCutover.rollback",
     errors,
@@ -1666,9 +1607,9 @@ function validateApiContractCutoverKeys(cutover, context, errors) {
     ["apiContractCutover.contractArtifactSync.result", cutover.contractArtifactSync?.result],
     ["apiContractCutover.contractArtifactSync.consumerPath", cutover.contractArtifactSync?.consumerPath],
     ["apiContractCutover.activation.appliedAt", cutover.activation?.appliedAt],
-    ["apiContractCutover.activation.barrierEvidence", cutover.activation?.barrierEvidence],
+    ["apiContractCutover.activation.sequenceEvidence", cutover.activation?.sequenceEvidence],
     ["apiContractCutover.activation.bootstrapUpgradeEvidence", cutover.activation?.bootstrapUpgradeEvidence],
-    ["apiContractCutover.rollback.barrierEvidence", cutover.rollback?.barrierEvidence],
+    ["apiContractCutover.rollback.sequenceEvidence", cutover.rollback?.sequenceEvidence],
     ["apiContractCutover.rollback.cautions", cutover.rollback?.cautions],
   ]) {
     if (!isNonEmptyString(value)) {
@@ -1834,9 +1775,8 @@ function validateReleasedScopeEvidence(metadata, context, scopeName, errors) {
   const descriptor = releaseScopeDescriptors[scopeName];
   for (const evidence of descriptor?.releasedEvidence ?? []) {
     if (
-      metadata.schema === releaseMetadataSchema &&
       scopeName === "mobile-store" &&
-      evidence.valueType === "mobileStore"
+      evidence.valueType === "platformMobileStore"
     ) {
       validateTerminalPlatformMobileStoreMapping(metadata, context, errors);
       continue;
@@ -1868,7 +1808,7 @@ function validateReleasedScopeTagEvidence(metadata, context, scopeName, errors) 
     return;
   }
 
-  if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
+  if (scopeName === "mobile-store") {
     const store = metadata.versionMapping?.["coupler-mobile-app"]?.store;
     for (const platform of mobileStorePlatforms) {
       const mapping = store?.[platform];
@@ -1882,9 +1822,7 @@ function validateReleasedScopeTagEvidence(metadata, context, scopeName, errors) 
   }
 
   const repoMapping = metadata.versionMapping?.[repoName];
-  const tagValue = repoName === "coupler-mobile-app"
-    ? repoMapping?.releaseTag
-    : repoMapping?.tag;
+  const tagValue = repoMapping?.tag;
 
   if (repoName === recordRepoName) {
     if (tagValue !== metadata.version) {
@@ -1935,25 +1873,14 @@ function validateScopeEvidenceValue(metadata, context, scopeName, evidence, erro
     return;
   }
 
-  if (evidence.valueType === "mobileStore") {
-    if (typeof value !== "string" || !/^\d+\.\d+\.\d+\s+\(\d+\)$/.test(value)) {
-      errors.push(
-        `${context}: terminal ${scopeName} evidence ${fieldPath} must be "X.Y.Z (build)"`,
-      );
-      return;
-    }
-  } else if (evidence.valueType === "submittedMarkers") {
-    if (metadata.schema === releaseMetadataSchema && scopeName === "mobile-store") {
-      validatePlatformSubmittedMarkers(
-        value,
-        metadata,
-        context,
-        fieldPath,
-        errors,
-      );
-    } else {
-      validateSubmittedMarkers(value, context, scopeName, fieldPath, errors);
-    }
+  if (evidence.valueType === "submittedMarkers") {
+    validateTerminalPlatformSubmittedMarkers(
+      value,
+      metadata,
+      context,
+      fieldPath,
+      errors,
+    );
     return;
   } else if (evidence.valueType === "concreteEvidence") {
     validateConcreteEvidenceValue({ value, context, scopeName, fieldPath, errors });
@@ -2051,29 +1978,6 @@ function validateConcreteEvidenceValue({
   }
 }
 
-function validateSubmittedMarkersShape(value, context, fieldPath, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${context}: release-metadata ${fieldPath} must be an array`);
-    return;
-  }
-
-  for (const [index, marker] of value.entries()) {
-    const markerPath = `${fieldPath}.${index}`;
-    if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
-      errors.push(`${context}: release-metadata ${markerPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: marker,
-      allowedKeys: ["tag", "commit", "evidence", "deletedEvidence"],
-      context,
-      fieldPath: markerPath,
-      errors,
-    });
-  }
-}
-
 function validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     errors.push(`${context}: release-metadata ${fieldPath} must be an object`);
@@ -2126,55 +2030,7 @@ function validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors
   }
 }
 
-function validateSubmittedMarkers(value, context, scopeName, fieldPath, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${context}: ${scopeName} evidence ${fieldPath} must be an array`);
-    return;
-  }
-
-  for (const [index, marker] of value.entries()) {
-    const markerPath = `${fieldPath}.${index}`;
-    if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
-      errors.push(`${context}: ${scopeName} evidence ${markerPath} must be an object`);
-      continue;
-    }
-
-    validateExactObjectKeys({
-      value: marker,
-      allowedKeys: ["tag", "commit", "evidence", "deletedEvidence"],
-      context,
-      fieldPath: markerPath,
-      errors,
-    });
-
-    if (!isSubmittedMarkerTag(marker.tag)) {
-      errors.push(`${context}: ${scopeName} evidence ${markerPath}.tag must be a submitted marker tag`);
-    }
-
-    if (!isCommitSha(marker.commit)) {
-      errors.push(`${context}: ${scopeName} evidence ${markerPath}.commit must be a SHA`);
-    }
-
-    validateConcreteEvidenceValue({
-      value: marker.evidence,
-      context,
-      scopeName,
-      fieldPath: `${markerPath}.evidence`,
-      errors,
-    });
-
-    validateConcreteEvidenceValue({
-      value: marker.deletedEvidence,
-      context,
-      scopeName,
-      fieldPath: `${markerPath}.deletedEvidence`,
-      errors,
-    });
-  }
-}
-
-function validatePlatformSubmittedMarkers(value, metadata, context, fieldPath, errors) {
-  validatePlatformSubmittedMarkersShape(value, context, fieldPath, errors);
+function validateTerminalPlatformSubmittedMarkers(value, metadata, context, fieldPath, errors) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return;
   }
@@ -2390,6 +2246,11 @@ function validateTerminalApiContractCutoverFields(metadata, context, errors) {
   const activationCases = activationCaseIds
     .map((caseId) => contractCases.find((candidate) => candidate?.id === caseId))
     .filter(Boolean);
+  const isPreviousProductCurrentApiCase = (contractCase) =>
+    contractCase?.apiGeneration === "current" &&
+    consumerById.get(contractCase.consumerId)?.generation === "previous" &&
+    contractCase.interface !== "bootstrap" &&
+    contractCase.interface !== "version";
   if (
     activationCases.some(
       (contractCase) => contractCase.apiGeneration !== "current",
@@ -2398,13 +2259,10 @@ function validateTerminalApiContractCutoverFields(metadata, context, errors) {
     errors.push(`${context}: release-metadata apiContractCutover.activation.caseIds must exercise the current API`);
   }
   if (
-    !activationCases.some(
-      (contractCase) =>
-        contractCase.expected === "deterministic-rejection" &&
-        consumerById.get(contractCase.consumerId)?.generation === "previous",
-    )
+    contractCases.some(isPreviousProductCurrentApiCase) &&
+    !activationCases.some(isPreviousProductCurrentApiCase)
   ) {
-    errors.push(`${context}: release-metadata apiContractCutover.activation.caseIds must include a deterministic previous-consumer rejection`);
+    errors.push(`${context}: release-metadata apiContractCutover.activation.caseIds must include a previous-consumer product case`);
   }
   const rollbackCases = (
     Array.isArray(cutover.rollback?.caseIds)

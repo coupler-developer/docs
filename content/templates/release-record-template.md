@@ -2,7 +2,6 @@
 
 ```release-metadata
 {
-  "schema": "release-metadata/v3",
   "version": "vX.Y.Z",
   "status": "planned",
   "releaseScopes": [

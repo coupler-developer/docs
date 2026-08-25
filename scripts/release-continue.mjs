@@ -161,9 +161,7 @@ function readReleaseMetadata(releasePath, version) {
   const errors = [];
   const metadata = parseReleaseMetadataBlock(source, releasePath, errors);
   if (metadata) {
-    validateReleaseMetadata(metadata, releasePath, version, errors, {
-      requireCurrentSchema: true,
-    });
+    validateReleaseMetadata(metadata, releasePath, version, errors);
   }
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));

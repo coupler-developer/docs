@@ -63,8 +63,8 @@
 | 실행 문서 선택·공통 명령·rollback 진입점 | [운영 릴리스 실행 런북](production-deploy-command-runbook.md) | 각 Gate의 실행 단계에서 사용한다. |
 
 - 이 flow는 Gate 순서와 단계 간 전달값만 소유한다. metadata의 폐쇄형 field, 상태 파생식, placeholder와
-  terminal 완료 조건은 위 정책·schema에서 읽으며 이 문서에 복제하지 않는다.
-- preflight와 validator의 판정이 정책과 다르면 flow 설명을 보강하지 않고 정책·공통 schema·derived model을
+  terminal 완료 조건은 위 정책·descriptor에서 읽으며 이 문서에 복제하지 않는다.
+- preflight와 validator의 판정이 정책과 다르면 flow 설명을 보강하지 않고 정책·descriptor·derived model을
   먼저 정렬한다.
 
 ## 메인 흐름
@@ -88,13 +88,13 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
    반영한다.
 4. DB migration은 개발계 `apply dev`에서 확인한 마이그레이션 소스 커밋을 고정한다. 이후 merge된 migration을
    이번 운영 적용에 포함하지 않는다.
-5. metadata와 사람이 읽는 mirror가 공통 schema/derived model 검증에서 일치해야 다음 Gate로 진행한다.
+5. metadata와 사람이 읽는 mirror가 descriptor·derived model 검증에서 일치해야 다음 Gate로 진행한다.
 
 ### 2) Static Preflight Gate
 
 1. [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 `yarn release:continue vX.Y.Z`로 현재
    Draft PR head·CI와 local preflight를 한 번에 확인한다.
-2. preflight는 정책과 공통 schema/derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
+2. preflight는 정책과 descriptor·derived model에서 계산한 대상·기준점·증빙을 fail-closed로 검증한다.
 3. 미병합 `pending | in_progress` 기록만 입력으로 사용하고 `PASS` 결과와 실행 로그를 릴리스 기록에 남긴다.
    실패하면 원인을 수정하고 다시 실행한다.
 4. DB migration은 운영 서버에서 개발계와 같은 마이그레이션 소스 커밋을 checkout한 뒤 전용 런북의
@@ -176,11 +176,11 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 
 ## 평가 기준
 
-- `release-preflight`가 공통 schema/derived model의 모든 적용 검사를 통과해 종료 코드 0을 반환하면 `PASS`,
+- `release-preflight`가 descriptor·derived model의 모든 적용 검사를 통과해 종료 코드 0을 반환하면 `PASS`,
   하나라도 실패하면 `FAIL`이다.
 - `FAIL`은 warning으로 우회하지 않고 원인이나 증빙을 수정한 뒤 재실행한다. 자동화 밖 운영 확인은 릴리스
   정책이 요구하는 검증 근거로 남긴다.
-- 세부 차단 조건은 [릴리스 프로세스](../../policy/release-process.md)와 공통 schema/derived model이
+- 세부 차단 조건은 [릴리스 프로세스](../../policy/release-process.md)와 descriptor·derived model이
   소유하며 이 flow에는 별도 목록을 두지 않는다.
 
 ## 예외 흐름
@@ -203,8 +203,7 @@ DB migration을 포함하면 [DB Migration 실행 런북](db-migration-operation
 - Store 출시 activation, 강제 업데이트, NextPush mandatory 또는 현재 source 정렬을 API/DB 호환
   증빙으로 사용하지 않는다.
 - API `No`에 임시 adapter·dual-write를 남기거나 DB migration 검토에서 실제 runtime/schema 조합을 누락하지 않는다.
-- API `Yes`인데 API/Admin과 Mobile 전환 전 요청을 서버 측에서 결정론적으로 차단할 수
-  없으면 운영 실행을 시작하지 않는다.
+- API `Yes`인데 activation에 선택한 이전 소비자의 제품 요청 current-API case가 없으면 운영 실행을 시작하지 않는다.
 
 ## 관련 문서
 
