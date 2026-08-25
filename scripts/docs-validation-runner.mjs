@@ -30,6 +30,7 @@ export const VALIDATION_TASKS = Object.freeze({
   "test:docs-structure": task(
     "--test",
     script("validate-docs-structure.test.mjs"),
+    script("lounge-pinned-contract-docs.test.mjs"),
   ),
   "test:document-lifecycle": task(
     "--test",

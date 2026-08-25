@@ -279,37 +279,26 @@ type CommentParentRef =
 
 ## CMS 응답 계약
 
-### 고정글 명명 경계
+### 고정글 공개 계약
 
-- 제품·도메인·화면에서 사용하는 canonical 용어는 `고정글`, 코드 식별자는 `pinned`다.
-- 지원 중인 `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`,
-  Admin·Mobile 조회 응답의 `best`는 공개 wire 계약이다. 실제 저장 컬럼과 내부 canonical 식별자는
-  `t_lounge.pinned`다. `API cutover: No`인 동안 `best ↔ pinned` 변환은 임시 adapter가 아니라 공개 계약과
-  내부 모델을 잇는 정상 경계다.
-- Admin은 `src/pages/lounge/lounge-pinned-boundary.ts`에서 목록·상세 generated DTO의 `best`를 화면
-  `pinned` 상태로 한 번만 변환한다. 상세 draft와 DOM도 `pinned`만 사용하며, 저장 request를 만드는 같은
-  경계에서만 `pinned`를 wire `best`로 직렬화한다. API는 controller 진입점에서 두 저장 요청의 `best`를 내부
-  `pinned` 명령으로 변환해 `t_lounge.pinned`에 저장하고, 조회 projection에서만 `pinned AS best`로 호환
-  응답을 만든다.
-- 현행 Admin은 고정글 설정·해제를 목록과 상세에 노출한다. 상세의 고정글 라디오 선택은 화면 `pinned`
-  draft에만 반영하며, 상단 저장 확인 시 기존 `/admin/lounge/save` 요청 한 번에 다른 상세 편집 값과 wire
-  `best`를 함께 전송한다. 상세 저장은 `/admin/lounge/best`를 추가 호출하거나 저장 뒤 상세를 재조회하지
-  않으며 type 40 알림을 만들지 않는다. 목록의 설정·해제는 기존 `/admin/lounge/best` 전용 명령과 알림
-  동작을 유지한다.
-- 같은 의미의 `/admin/lounge/pinned` endpoint나 `pinned` wire alias를 병행하지 않는다. 공개 계약 교체의
-  목표 시점과 완료 조건은 [라운지 `best` wire 호환 제거 대기](../technical-debt/technical-debt.md#35-best-wire-p1-l)에서 추적하고, 구현·검증은
-  [엔지니어링 가드레일](../policy/engineering-guardrails.md)과
-  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 따른다.
-- `best` → `pinned` 물리 컬럼 rename은 기존 데이터를 보존하는 append-only migration으로 수행한다. 구 API
-  바이너리는 rename 이후 동작할 수 없으므로 실제 DB 적용과 새 API 배포는 같은 점검 창에서 조정한다.
+- 제품·도메인·화면과 공개 wire의 canonical 식별자는 `pinned`, 사용자 용어는 `고정글`이다. 저장 컬럼도
+  `t_lounge.pinned`를 사용한다.
+- API Swagger와 generated contracts package는 Admin·Mobile 목록·상세 응답,
+  `AdminLoungeSaveRequest.pinned`, `AdminLoungePinnedRequest.pinned`를 직접 노출한다. API controller와 조회
+  projection은 같은 이름을 유지하며 별도 wire mapper나 alias를 두지 않는다.
+- Admin은 generated DTO를 직접 사용한다. 상세의 고정글 선택은 `/admin/lounge/save`의 `pinned`로 다른
+  편집 값과 함께 한 번에 저장하며 type 40 알림을 만들지 않는다. 목록의 설정·해제는
+  `/admin/lounge/pinned`와 `AdminLoungePinnedRequest.pinned`를 사용한다.
+- `/admin/lounge/pinned`에서 정상 게시글이 실제 `N → Y`로 전이할 때만 type 40 알림 intent를 저장한다.
+  해제와 중복 설정은 알림을 만들지 않는다.
+- 제거한 endpoint·필드·adapter·projection을 위한 별도 차단 endpoint, 호환 alias, version 분기는 두지 않는다.
 
-### Mobile bundle 하위 호환과 DB cutover
+### 이전 Mobile bundle과 운영 반영
 
-- 이 변경의 장기 하위 호환 대상은 이미 설치된 구 Mobile bundle이다. Admin도 기존 상세 편집 동작과
-  `best` request shape를 유지하지만 별도 장기 bundle 공존 대상으로 관리하지는 않는다.
-- 공개 계약 교체 전 지원 Mobile은 기존 `/lounge/list`, `/lounge/myList`, `/lounge/detail` operation의 `best`
-  응답 필드와 FCM type 숫자 `40`을 사용하며, 화면에서는 같은 고정 상태를 `📌`로 표시한다. release별 소비자
-  상태와 향후 `pinned` 공개 계약 전환은 위 기술부채와 릴리스 기록에서 추적한다.
+- 이전 Mobile bundle도 `/lounge/list`, `/lounge/myList`, `/lounge/detail`의 성공 응답을 계속 읽을 수 있다.
+  새 `pinned` 필드를 사용하지 못하는 세대에서는 고정글 표시만 사라지는 기능 저하를 허용한다.
+- 이전 Admin은 목록·상세 조회에서 고정 상태를 표시하지 못할 수 있으며, 제거된 고정글 mutation은 일반
+  route-not-found 또는 request validation 실패로 끝난다. 별도 차단 응답 계약은 만들지 않는다.
 - `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
   메인 목록은 category `0`을 보내고, `/lounge/myList`의 category `1`은 내 활동 탭 구분값이므로 고정 필터와
   혼합하지 않는다.
@@ -318,13 +307,11 @@ type CommentParentRef =
   상단에 있고 그중 가장 최근에 작성된 글이 맨 위에 있다. 작성자 삭제·신고삭제 tombstone은 `pinned`
   값을 보존하더라도 상단 고정 대상이 아니며 일반 `id` 최신순에 위치한다. 별도 고정 시각 컬럼이나
   migration은 사용하지 않는다.
-- 물리 컬럼 rename은 구·신 API 바이너리의 rolling coexistence를 지원하지 않는 maintenance cutover다. 운영
-  적용 순서는 `API traffic drain/전체 instance stop → migration 적용 → 새 API 배포 → 구 Mobile 계약 smoke →
-  traffic 재개`로 고정한다. smoke는 위 세 조회 operation의 `best` 필수 응답,
-  `/lounge/list?category=1` 고정 필터와 type `40` navigation을 확인한다.
-- DDL 적용 전 실패하면 구 API를 재시작할 수 있다. DDL 적용 후에는 구 API binary rollback을 금지하고 새 API를
-  forward-fix한다. 불가피하게 구 API로 복귀하려면 적용된 migration을 수정하지 않고 `pinned`를 `best`로
-  되돌리는 새 append-only reverse migration을 먼저 검증·적용한다.
+- 물리 컬럼은 이미 `pinned`로 전환됐다. 과거 rename과 운영 적용 사실은 append-only migration과 불변 릴리스
+  기록에 보존하며 현행 구조에 호환 컬럼을 다시 만들지 않는다.
+- source 계약 전환 뒤 남은 운영 반영·이전 소비자 case·smoke·rollback 증빙은
+  [라운지 pinned 운영 cutover 대기](../technical-debt/technical-debt.md#35-lounge-pinned-operational-cutover)에서
+  추적한다. 이 추적은 별도 blocker나 호환 endpoint를 요구하지 않는다.
 
 CMS 라운지 목록·댓글·상세·신고 목록도 같은 contracts package의 operation DTO를 직접 사용한다.
 게시글/댓글 신고 목록 row는 `report_status`와 콘텐츠 상태를 구분하고, `reporter`, `target`,
@@ -346,7 +333,7 @@ API가 DB 전이를 명시적인 `action`과 `actor_type`으로 투영하므로 
 | `GET /admin/lounge/blame/comment_list` | - | `AdminLoungeCommentBlameListResult` |
 | `GET /admin/lounge/detail/{id}` | - | `AdminLoungeDetail` |
 | `POST /admin/lounge/save` | `AdminLoungeSaveRequest` | `AdminLoungeDetail` |
-| `POST /admin/lounge/best` | `AdminLoungeBestRequest` | `null` |
+| `POST /admin/lounge/pinned` | `AdminLoungePinnedRequest` | `null` |
 | `POST /admin/lounge/blame/lounge_done` | `AdminLoungeReportDoneRequest` | `null` |
 | `POST /admin/lounge/blame/comment_done` | `AdminLoungeReportDoneRequest` | `null` |
 | `POST /admin/lounge/{id}/{report,force}-delete` | `LoungeModerationRequest` | `LoungeModerationResult` |
@@ -434,12 +421,12 @@ API가 DB 전이를 명시적인 `action`과 `actor_type`으로 투영하므로 
 
 ## 고정글 설정
 
-- 관리자가 목록에서 수동으로 설정 (`/admin/lounge/best`; 배포된 legacy wire path)
-- 상세의 라디오 선택은 상단 저장 시 `/admin/lounge/save`의 기존 `best` 필드로 함께 반영하며 type 40 알림을
+- 관리자가 목록에서 `/admin/lounge/pinned`의 `pinned` 값으로 설정하거나 해제한다.
+- 상세의 라디오 선택은 상단 저장 시 `/admin/lounge/save`의 `pinned` 필드로 함께 반영하며 type 40 알림을
   만들지 않는다.
 - `NORMAL` 게시글만 설정/해제 가능
-- API 경계에서 두 request의 `best`를 명령 `pinned`로 변환하고 `t_lounge.pinned`에 저장
-- `/admin/lounge/best`의 실제 `N → Y` 전이와 type 40 알림 intent를 같은 transaction에 저장한다. 알림
+- API는 두 request의 `pinned`를 `t_lounge.pinned`에 직접 저장한다.
+- `/admin/lounge/pinned`의 실제 `N → Y` 전이와 type 40 알림 intent를 같은 transaction에 저장한다. 알림
   이력은 FCM 전에 한 번만 저장하고, intent 선점에 성공한 요청만 FCM을 전송한다.
 - API 요청은 intent 저장 뒤 bounded worker를 깨우고 즉시 끝난다. worker는 시작 직후와 30초마다 pending,
   1분 지난 failed, 5분 이상 멈춘 processing intent를 읽어 최초 시도를 포함해 최대 3회 처리한다. 따라서 claim

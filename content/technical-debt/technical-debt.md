@@ -300,36 +300,28 @@
   점수 계산의 criteria 공유, 후보 조회의 `unknown` 위치 인자 0건을 달성하고 nullable·유효 범위·비정상 row·인자
   오배치 회귀 테스트가 통과한다.
 
-## 35) 라운지 `best` wire 호환 제거 대기 `P1` `L`
+<a id="35-best-wire-p1-l"></a>
+<a id="35-lounge-pinned-operational-cutover"></a>
 
-- 현상: v2.5.2에서 DB·도메인·Admin 화면 상태는 `pinned`로 전환됐지만 공개 wire의
-  `/admin/lounge/best`, `AdminLoungeBestRequest.best`, `AdminLoungeSaveRequest.best`와 Admin·Mobile 조회
-  응답 `best`가 남아 있다. 현행 Admin과 Store·NextPush Mobile도 이 호환 계약을 계속 사용하므로 API의
-  `best ↔ pinned` request mapper와 조회 projection을 제거할 수 없다.
-- 영향: 지원 중인 공개 계약이라는 이유로 교체 계획을 재검토하지 않으면 legacy 이름과 경계 mapper가 기한 없이
-  남고, source 이름 정렬만 보고 제거하면 설치된 Mobile과 Admin 요청·응답이 깨진다.
-- 조치: 목표 시점은 v2.5.2 다음 `coupler-api` 운영 릴리스다. 해당 릴리스의 PLAN 단계에서
-  [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `contract cutover`와 `운영 legacy cutover`,
-  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 적용해
-  canonical `pinned` 공개 계약과 contracts package, Admin, Store·NextPush Mobile 소비자를 함께 전환한다.
-  전환 후 현행 세대 Admin의 목록 설정·해제는 `POST /admin/lounge/pinned`와
-  `AdminLoungePinnedRequest.pinned`, 상세 저장은 `AdminLoungeSaveRequest.pinned`를 사용하고, Admin
-  목록·상세와 Mobile 조회 응답은 `pinned`를 노출한다.
-  release-scoped 소비자와 REST·WebSocket·bootstrap·version consumer-interface exact set, old-readable upgrade
-  경로, present인 이전 Store·NextPush Mobile의 REST case에서 `GET /lounge/list`·`GET /lounge/myList`·
-  `GET /lounge/detail` 성공과 `best`가 없어 핀 표시가 사라지는 허용된 기능 저하, Admin 동시 전환을 검증한다.
-  이전 Admin REST case에는 `GET /admin/lounge/list`·`GET /admin/lounge/detail/{id}`의 핀 표시 없는 성공,
-  `POST /admin/lounge/best`의 일반 route-not-found, `POST /admin/lounge/save`의 `best` payload에 대한 일반
-  request validation 거부 결과를 기록한다.
-  activation/client rollback을 검증한 뒤 `API cutover: Yes`로 전환하며 `best` 전용 차단·호환 endpoint·version
-  분기는 만들지 않는다.
-- 완료: 지원 소비자가 `pinned` 단일 공개 계약을 사용하고 전환한 Admin 목록 설정·해제와 상세 저장 smoke가
-  `pinned` 계약으로 성공한다. 이전 Mobile REST case의 위 세 operation은 핀 표시 없이 성공하고 이전 Admin
-  REST case의 위 네 operation 결과는 릴리스 기록과 일치한다. 활성
-  API·contracts·Admin·Mobile과
-  현행 계약·architecture·flow 문서에서 `best` endpoint·request/response 필드·adapter·projection이 0건인
-  상태로 계약·소비자·운영 smoke와 rollback 검증을 통과한다. 역사적 사실을 보존하는 불변 release 기록과
-  migration 이력은 제거 대상에서 제외한다.
+## 35) 라운지 pinned 운영 cutover 대기 `P1` `L`
+
+- 현상: API·contracts package·Admin·Mobile의 source main은 `pinned` 단일 공개 계약으로 전환됐지만, 운영
+  반영과 이전 소비자의 current-API case, smoke, rollback 증빙은 아직 릴리스 범위에서 확인되지 않았다.
+- 영향: API와 Admin의 운영 반영 순서가 어긋나면 이전 Admin의 고정글 mutation이 실패한다. 이전 Mobile은
+  목록·상세를 계속 읽을 수 있지만 새 필드를 사용하지 못해 고정글 표시가 사라진다.
+- 조치: 다음 운영 릴리스에서 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `contract cutover`와
+  `운영 legacy cutover`,
+  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 적용한다.
+  release-scoped 소비자와 REST·WebSocket·bootstrap·version interface exact set을 고정하고, 현행 Admin의
+  목록 설정·해제와 상세 저장, Admin·Mobile의 목록·상세 `pinned` 응답을 smoke한다. 이전 Mobile의 라운지
+  목록·내 목록·상세 조회는 성공하되 핀 표시가 없는 결과를 허용하고, 이전 Admin의 목록·상세 조회와 제거된
+  mutation은 각각 핀 표시 없는 성공과 일반 route-not-found/request validation 결과가 맞는지 확인한다.
+  운영 반영과 client rollback을 검증하되 별도 blocker, 차단 endpoint, 호환 endpoint, version 분기는 만들지
+  않는다.
+- 완료: 현행 API·Admin 운영 반영과 `pinned` 계약 smoke가 성공하고 이전 Mobile·Admin current-API case와
+  rollback 결과가 릴리스 기록의 expected와 일치한다. 활성 source와 현행 계약·architecture·flow 문서에는
+  제거된 endpoint·필드·adapter·projection이 없으며, 역사적 사실을 보존하는 불변 release 기록과 migration
+  이력은 제거 대상에서 제외한다.
 
 ## 36) App 매니저 관리 쓰기 API 회원 인가 미분리 `P1` `M`
 
