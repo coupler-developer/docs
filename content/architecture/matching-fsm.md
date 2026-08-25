@@ -67,7 +67,7 @@ stateDiagram-v2
     state "취소" as CANCEL
 
     PENDING --> F_WANT : 여성 만남희망
-    PENDING --> CANCEL : 여성 패스 / 3시간 만료
+    PENDING --> CANCEL : 여성 패스 / CMS 전달 3일 만료
 
     F_WANT --> M_WANT : 남성 만남희망
     F_WANT --> CANCEL : 남성 패스 / 3일 만료
@@ -101,7 +101,7 @@ stateDiagram-v2
 
 | 상태             | 만료 시간             | 만료 시 상태                    |
 | ---------------- | --------------------- | ------------------------------- |
-| PENDING          | 3시간                 | 카드 삭제                       |
+| PENDING          | CMS 여성 수신 3일     | CANCELED (-10), 로그인 0회이면 낭비 카드 분류 |
 | FEMALE_WANT_SEE  | 3일                   | CANCELED (-10)                  |
 | MALE_WANT_SEE    | 다음날 자정           | CONFIRM_NO_REPLY (-101)         |
 | SEND_FAVOR_INFO  | 다음날 자정           | FAVOR_INFO_NO_REPLY (-102)      |
@@ -110,6 +110,10 @@ stateDiagram-v2
 | CHAT_OPEN        | 3일                   | CHAT_3_DAYS_OVER (-110)         |
 
 ## 특수 경로
+
+신규 CMS 여성 수신 `PENDING` 카드는 전달 시점 `login_cnt`와 3일 만료 시점 값을 비교한다. 증가가 없으면
+`is_wasted=1`로 분류하고, Admin의 기존 `낭비된 카드` 전체삭제에서 물리 삭제한다. 한 번이라도 증가했으면
+일반 무응답 취소로만 처리한다.
 
 ### 인연찾기 카드
 

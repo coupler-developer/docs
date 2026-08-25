@@ -25,7 +25,7 @@ route는 배포되어 있지만 운영 scheduler가 호출하지 않는 상태�
 | checkReview               | 30분 간격       | 활성          | 만남 3시간 후 후기 상태 전환  |
 | finishGroupMeetings       | 매시 00·30분    | 활성          | N:N D-1 13시 개방 알림·시작 24시간 후 종료 영속화 |
 | checkMeetMember           | 30분 간격       | 활성          | 모임 30분 전 인원 미달 체크   |
-| checkMatch                | 1분 간격        | 활성          | 만료 매칭 자동 취소           |
+| checkMatch                | 1분 간격        | 활성          | 만료 매칭 자동 취소·CMS 미로그인 카드 분류 |
 | checkMember               | 매일 0시        | 의도적 중지   | 6개월 미접속 → HOLD           |
 | checkMatchCall            | 30분 간격       | 활성          | 만남 15분 전 보이스콜 활성화  |
 | checkDirectFinishMember   | 매일 0시 5분    | 활성          | 직진만남일 10일 경과 처리     |
@@ -62,7 +62,7 @@ match_expire_date: 만남일 + 3일 23:59:59
 
 | 작업 | 설명 | 상세 기준 |
 | --- | --- | --- |
-| `checkMatch` | 만료 조건에 도달한 매칭을 스캔해 종료 처리한다. | 상태 전이/환불/예외는 [매칭 운영 정책](../policy/matching-ops-policy.md), 상태 도표는 [매칭 FSM](./matching-fsm.md) |
+| `checkMatch` | 만료 조건에 도달한 매칭을 스캔해 종료 처리하고, 신규 CMS 여성 수신 카드의 발송 후 로그인 증가가 0회이면 낭비 카드로 분류한다. | 상태 전이/환불/낭비 카드 기준은 [매칭 운영 정책](../policy/matching-ops-policy.md), 상태 도표는 [매칭 FSM](./matching-fsm.md) |
 | `remindMatchCard` | 카드 만료 전 사용자 리마인드 알림을 발송한다. | 카드 만료 상태와 알림 의미는 [매칭 운영 정책](../policy/matching-ops-policy.md), 알림 타입은 [푸시알림 운영 정책](../policy/push-notification-policy.md) |
 
 ## 미팅 자동 상태 변경
