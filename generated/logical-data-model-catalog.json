@@ -2194,7 +2194,7 @@
     {
       "id": "GROUP-MEETING-INV-003",
       "relatedEntityId": "group-meeting.event",
-      "statement": "남녀 정원은 각각 최소 2명, 합계 최대 20명이고 승인 인원은 해당 정원을 넘지 않는다",
+      "statement": "남녀 정원은 각각 2~20명, 합계 최대 40명이고 승인 인원은 해당 성별 정원을 넘지 않는다",
       "basis": "이 문서",
       "ownerDocument": "content/architecture/group-meeting-system.md"
     },

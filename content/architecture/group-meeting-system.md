@@ -27,8 +27,8 @@
   수정할 수 있으며 상태 변경은 두 주체 모두 별도 전이 명령으로만 수행한다.
 - 일반 클럽매니저는 신청이 없는 자신 소유 DRAFT만 정상 삭제할 수 있다. Super Admin은 필수 사유와 version을
   받아 `DELETED`가 아닌 행사를 `DELETED`로 강제 전이할 수 있다. 두 삭제 모두 행과 종속 이력을 보존한다.
-- 남녀 정원은 각각 최소 2명이고 합계는 최대 20명이다. 반대 성별 최소값에서 파생되는 성별별 최대는
-  18명이며 `10+10`, `18+2`, `7+5`를 허용하고 `11+10`은 거절한다.
+- 남녀 정원은 각각 2~20명이고 합계는 최대 40명이다. `10+10`, `20+20`, `7+5`를 허용하고
+  어느 한쪽이라도 21명 이상이면 거절한다.
 - 모집 마감에는 승인 인원 조건이 없다. 신청 수는 신청 접수가 가능한 동안 제한하지 않고 Admin 승인 시에만 성별 정원을
   검사한다.
 - 신청 자체에는 Key를 차감하지 않는다. 외부 입금 확인은 Admin의 참여 승인으로 표현한다.
@@ -107,7 +107,7 @@ flowchart LR
 
 - 행사와 신청·참여·메시지·후기·신고는 같은 행사 문맥에 속한다
 - 한 회원은 같은 행사에 신청을 하나만 가진다
-- 남녀 정원은 각각 최소 2명, 합계 최대 20명이고 승인 인원은 해당 정원을 넘지 않는다
+- 남녀 정원은 각각 2~20명, 합계 최대 40명이고 승인 인원은 해당 성별 정원을 넘지 않는다
 - 호스트 또는 승인 신청 중 정확히 하나의 자격으로 참여한다
 - 종료 행사에서 현재 APPROVED인 회원만 최초 후기를 작성할 수 있고 후기 작성은 신청 상태를 바꾸지 않는다
 - 상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다
@@ -162,7 +162,7 @@ flowchart LR
     | --- | --- | --- | --- |
     | `GROUP-MEETING-INV-001` | `group-meeting.event` | 행사와 신청·참여·메시지·후기·신고는 같은 행사 문맥에 속한다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
     | `GROUP-MEETING-INV-002` | `group-meeting.application` | 한 회원은 같은 행사에 신청을 하나만 가진다 | 이 문서 |
-    | `GROUP-MEETING-INV-003` | `group-meeting.event` | 남녀 정원은 각각 최소 2명, 합계 최대 20명이고 승인 인원은 해당 정원을 넘지 않는다 | 이 문서 |
+    | `GROUP-MEETING-INV-003` | `group-meeting.event` | 남녀 정원은 각각 2~20명, 합계 최대 40명이고 승인 인원은 해당 성별 정원을 넘지 않는다 | 이 문서 |
     | `GROUP-MEETING-INV-004` | `group-meeting.participant` | 호스트 또는 승인 신청 중 정확히 하나의 자격으로 참여한다 | 이 문서 |
     | `GROUP-MEETING-INV-005` | `group-meeting.review` | 종료 행사에서 현재 APPROVED인 회원만 최초 후기를 작성할 수 있고 후기 작성은 신청 상태를 바꾸지 않는다 | 이 문서 |
     | `GROUP-MEETING-INV-006` | `group-meeting.action-history` | 상태 변경과 감사 이력은 같은 요청·transaction의 결론을 가진다 | [엔지니어링 가드레일](../policy/engineering-guardrails.md) |
@@ -345,7 +345,7 @@ unread 절을 따른다.
 - Swagger/OpenAPI가 21개 Mobile operation과 27개 Admin operation의 path/query/body 요청 DTO와 성공
   `data` DTO의 단일 SoT다.
 - contracts package는 기존 operation metadata, operation input type, 성공 data map, envelope type과 named
-  request/read DTO를 공개한다. 정원 2/18/20은 행사 생성·수정 operation의 generated
+  request/read DTO를 공개한다. 정원 2/20/40은 행사 생성·수정 operation의 generated
   `requestConstraints.groupMeetingCapacity` metadata에서 제공한다.
 - 재사용 body와 read model은 `GroupMeetingCreateRequest`, `GroupMeetingVersionRequest`,
   `AdminGroupMeetingEventDetail`처럼 package public entrypoint에서 직접 export한다.
