@@ -15,7 +15,7 @@ SHA와 같거나, 두 ref의 `packages/contracts` git tree SHA가 같다는 `sou
 두고 cutover는 `violated`로 닫는다. 이 상태는 Gate 통과가 아니며 누락된 과거 case를 사후 제조하지 않는다.
 정상 Activation·rollback 구조 대신 실패 요구조건, exact 영향 소비자 ref, 발견 시점, 관측·미관측 범위,
 운영 처분과 후속 통제를 전용 `violation` 구조에 기록한다.
-Activation case IDs에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다. Client rollback case IDs는
+Activation case IDs에는 선택한 이전 소비자의 제품 요청 current-API case를 포함한다. Client rollback case IDs는
 이전 소비자가 현재 API에서 성공하는 rollback case만 참조한다. 이전 API/runtime 복구 case는
 `runtimeRecovery.previousReleaseCaseIds`가 별도로 소유한다.
 
@@ -32,11 +32,11 @@ Activation case IDs에는 선택한 이전 소비자의 결정론적 거부 case
 - Activation:
     - Activation case IDs:
     - Activation 적용 시각:
-    - 요청 장벽 증빙:
+    - Activation 순서 증빙:
     - 이전 client bootstrap/upgrade 증빙:
 - Client rollback:
     - Client rollback case IDs:
-    - Rollback 요청 장벽 증빙:
+    - Rollback 순서 증빙:
     - Client rollback 주의 사항:
 
 `violated`에서는 위 Activation과 Client rollback을 제거하고 다음 블록으로 대체한다.

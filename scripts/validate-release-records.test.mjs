@@ -403,8 +403,8 @@ describe("published release record immutability", () => {
     fs.writeFileSync(
       releasePath,
       source.replace(
-        '  "schema": "release-metadata/v3",\n  "version": "v9.9.0",',
-        '  "version": "v9.9.0",\n  "schema": "release-metadata/v3",',
+        '  "version": "v9.9.0",\n  "status": "released",',
+        '  "status": "released",\n  "version": "v9.9.0",',
       ),
     );
 
@@ -891,7 +891,6 @@ function releaseRecordSource({
       ? "`docs`, `coupler-api`"
       : "`docs`");
   const metadata = {
-    schema: "release-metadata/v3",
     version: "v9.9.0",
     status: releaseStatus,
     releaseScopes: effectiveReleaseScopes,
@@ -1038,11 +1037,11 @@ function releaseRecordSource({
           "- Activation:",
           "    - Activation case IDs: " + markdownCutoverValue,
           "    - Activation 적용 시각: " + markdownCutoverValue,
-          "    - 요청 장벽 증빙: " + markdownCutoverValue,
+          "    - Activation 순서 증빙: " + markdownCutoverValue,
           "    - 이전 client bootstrap/upgrade 증빙: " + markdownCutoverValue,
           "- Client rollback:",
           "    - Client rollback case IDs: " + markdownCutoverValue,
-          "    - Rollback 요청 장벽 증빙: " + markdownCutoverValue,
+          "    - Rollback 순서 증빙: " + markdownCutoverValue,
           "    - Client rollback 주의 사항: " + markdownCutoverValue,
           "",
         ]
@@ -1069,12 +1068,12 @@ function cutoverMetadata(status) {
     activation: {
       caseIds: ["pending"],
       appliedAt: "pending",
-      barrierEvidence: "pending",
+      sequenceEvidence: "pending",
       bootstrapUpgradeEvidence: "pending",
     },
     rollback: {
       caseIds: ["pending"],
-      barrierEvidence: "pending",
+      sequenceEvidence: "pending",
       cautions: "pending",
     },
   };
@@ -1094,8 +1093,8 @@ function releasedCutoverMetadata() {
         "previous-store-bootstrap-current-api",
       ],
       appliedAt: "2026-07-08 10:00 KST",
-      barrierEvidence:
-        "Proxy barrier rejected incompatible product requests and reopened after smoke",
+      sequenceEvidence:
+        "Activation sequence verified the previous product case before current smoke",
       bootstrapUpgradeEvidence:
         "Previous mobile bootstrap/version remained parseable and directed upgrade",
     },
@@ -1104,8 +1103,8 @@ function releasedCutoverMetadata() {
         "previous-store-version-current-api",
         "previous-nextpush-version-current-api",
       ],
-      barrierEvidence: "Client rollback case smoke passed behind the barrier",
-      cautions: "Do not reopen product requests before rollback smoke",
+      sequenceEvidence: "Client rollback case smoke passed during the activation window",
+      cautions: "Do not complete activation before rollback smoke",
     },
   };
 }
@@ -1127,7 +1126,7 @@ function violatedCutoverMetadata() {
     },
     violation: {
       failedRequirements: [
-        "pre-deploy-activation-barrier",
+        "previous-consumer-product-case",
         "old-readable-bootstrap",
       ],
       affectedConsumerRefs: [
@@ -1203,7 +1202,7 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
       smoke: concrete ? "coupler-api production smoke evidence" : "pending",
       publicContract:
         concrete && apiContractCutover?.status !== "violated"
-          ? apiPublicContractEvidence(Boolean(apiContractCutover))
+          ? apiPublicContractEvidence()
           : null,
       runtimeRecovery: concrete
         ? {
@@ -1223,7 +1222,7 @@ function defaultScopeEvidence(scopeName, apiContractCutover, releaseStatus) {
   return {};
 }
 
-function apiPublicContractEvidence(cutover) {
+function apiPublicContractEvidence() {
   const consumers = [
     {
       state: "present",
@@ -1325,7 +1324,6 @@ function apiPublicContractEvidence(cutover) {
     cases: consumers.filter(({ state }) => state === "present").flatMap((consumer) =>
       consumer.interfaces.map((interfaceName) => {
         const previous = consumer.generation === "previous";
-        const oldReadable = interfaceName === "bootstrap" || interfaceName === "version";
         let exposure = "post-activation";
         if (previous && interfaceName === "version") {
           exposure = "rollback";
@@ -1338,10 +1336,7 @@ function apiPublicContractEvidence(cutover) {
           interface: interfaceName,
           apiGeneration: "current",
           exposure,
-          expected:
-            cutover && previous && !oldReadable
-              ? "deterministic-rejection"
-              : "success",
+          expected: "success",
           evidence: `${consumer.id} ${interfaceName} evidence`,
         };
       }),

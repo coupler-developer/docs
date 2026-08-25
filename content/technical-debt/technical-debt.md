@@ -16,12 +16,12 @@
 - 완료: 항목 삭제, 근거는 PR·릴리스 기록에 보존
 - 표기: `P1` 차단 위험, `P2` 유지보수 위험, `P3` 보류 가능; `S` 단일 레포, `M` 교차 검증, `L` 다중 레포·운영 검증
 
-## 1) API URL-encoded 호환 parser 제거 대기 `P1` `S`
+## 1) API URL-encoded 호환 parser 제거 대기 `P1` `L`
 
 - 현상: Mobile/Admin은 JSON·multipart로 전환됐지만 API `bodyParser.urlencoded(...)`와 build `100` 호환이 남아 있다.
 - 영향: legacy 입력을 근거 없이 제거하면 운영 write 요청이 실패할 수 있다.
-- 조치: content-type 계측 → native build `101+` 배포 → `min_version>100` 적용 → parser 제거.
-- 완료: URL-encoded 0건, build `100` `force_update=2`, parser 제거.
+- 조치: content-type 계측 → release-scoped 소비자 inventory와 current-API case의 `expected` 고정 → JSON 소비자 배포 → parser 제거. `min_version`/`force_update`는 선택한 rollout 속성으로만 기록한다.
+- 완료: 현재 JSON 소비자는 성공하고 이전 URL-encoded 소비자 case가 `expected`와 일치하며 parser·전용 차단·호환 branch가 0건인 상태.
 
 ## 2) 레거시 클래스 컴포넌트 잔존 `P2` `L`
 
@@ -207,8 +207,8 @@
   전체 채팅 첫 화면의 API 집계 및 소비 구현은 세 source와 2.3.0 운영에 반영됐고, 나머지 화면 감사가 남아
   있다.
 - 영향: client waterfall·부분 실패 시 핵심 데이터 소실·item N+1·혼합 snapshot·중복 호출이 남아도 전체 범위와 우선순위를 판정할 수 없다.
-- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → `API cutover: Yes`, release-scoped 소비자 case와 이전 endpoint 요청의 서버 측 차단 확인 후 legacy endpoint 제거.
-- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 소비자 case·결정론적 요청 차단·client rollback 증빙 및 제거.
+- 조치: 화면·route별 요청 그래프 전수 분류 → 사용자 차단·N+1·권한 일관성·호출량 순 우선순위화 → 페이지별 조회 DTO와 서버 집계 구현 → Swagger·generated contract·소비자 전환 → `API cutover: Yes`, release-scoped 소비자 current-API case 확인 후 legacy endpoint 제거.
+- 완료: 정책 적용 대상 화면·route baseline 100%, 근거 없는 초기 조회 2회 이상·client item N+1·명령 뒤 강제 전체 재조회 0건, 허용 분리 근거와 독립 실패 UX 100%, 전환 대상 소비자 current-API case·client rollback 증빙 및 제거.
 
 ## 26) 관리자 권한 서버 인가·표시 계약 미정렬 `P1` `L`
 
@@ -311,14 +311,25 @@
 - 조치: 목표 시점은 v2.5.2 다음 `coupler-api` 운영 릴리스다. 해당 릴리스의 PLAN 단계에서
   [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `contract cutover`와 `운영 legacy cutover`,
   [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 적용해
-  versioned canonical `pinned` 공개 계약과 contracts package, Admin, Store·NextPush Mobile 소비자를 함께
-  전환한다. release-scoped 소비자와 REST·WebSocket·bootstrap·version consumer-interface exact set,
-  old-readable upgrade 경로, 기존 `best` 제품 요청의 결정론적 차단, activation/client rollback을 검증한 뒤
-  `API cutover: Yes`로 전환한다.
-- 완료: 지원 소비자가 `pinned` 단일 공개 계약을 사용하고, 이전 지원 경계 밖의 `best` 요청이 activation 뒤
-  결정론적으로 거부되며, 활성 API·contracts·Admin·Mobile과 현행 계약·architecture·flow 문서에서 `best`
-  endpoint·request/response 필드·adapter·projection이 0건인 상태로 계약·소비자·운영 smoke와 rollback 검증을
-  통과한다. 역사적 사실을 보존하는 불변 release 기록과 migration 이력은 제거 대상에서 제외한다.
+  canonical `pinned` 공개 계약과 contracts package, Admin, Store·NextPush Mobile 소비자를 함께 전환한다.
+  전환 후 현행 세대 Admin의 목록 설정·해제는 `POST /admin/lounge/pinned`와
+  `AdminLoungePinnedRequest.pinned`, 상세 저장은 `AdminLoungeSaveRequest.pinned`를 사용하고, Admin
+  목록·상세와 Mobile 조회 응답은 `pinned`를 노출한다.
+  release-scoped 소비자와 REST·WebSocket·bootstrap·version consumer-interface exact set, old-readable upgrade
+  경로, present인 이전 Store·NextPush Mobile의 REST case에서 `GET /lounge/list`·`GET /lounge/myList`·
+  `GET /lounge/detail` 성공과 `best`가 없어 핀 표시가 사라지는 허용된 기능 저하, Admin 동시 전환을 검증한다.
+  이전 Admin REST case에는 `GET /admin/lounge/list`·`GET /admin/lounge/detail/{id}`의 핀 표시 없는 성공,
+  `POST /admin/lounge/best`의 일반 route-not-found, `POST /admin/lounge/save`의 `best` payload에 대한 일반
+  request validation 거부 결과를 기록한다.
+  activation/client rollback을 검증한 뒤 `API cutover: Yes`로 전환하며 `best` 전용 차단·호환 endpoint·version
+  분기는 만들지 않는다.
+- 완료: 지원 소비자가 `pinned` 단일 공개 계약을 사용하고 전환한 Admin 목록 설정·해제와 상세 저장 smoke가
+  `pinned` 계약으로 성공한다. 이전 Mobile REST case의 위 세 operation은 핀 표시 없이 성공하고 이전 Admin
+  REST case의 위 네 operation 결과는 릴리스 기록과 일치한다. 활성
+  API·contracts·Admin·Mobile과
+  현행 계약·architecture·flow 문서에서 `best` endpoint·request/response 필드·adapter·projection이 0건인
+  상태로 계약·소비자·운영 smoke와 rollback 검증을 통과한다. 역사적 사실을 보존하는 불변 release 기록과
+  migration 이력은 제거 대상에서 제외한다.
 
 ## 36) App 매니저 관리 쓰기 API 회원 인가 미분리 `P1` `M`
 

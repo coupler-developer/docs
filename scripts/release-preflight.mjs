@@ -449,7 +449,6 @@ function validateReleaseRecordMetadata(releaseRecord, validationErrors) {
     releaseRecord.version,
     releaseRecord.version,
     validationErrors,
-    { requireCurrentSchema: true },
   );
 }
 

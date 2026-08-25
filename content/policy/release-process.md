@@ -62,9 +62,10 @@
   판정한다.
 - Mobile Store 제출은 운영 출시와 별도 상태다. API 계약 변경을 포함하면 제출 시 운영 `min_version`을 바꾸지
   않는다. `API cutover: No`이면 직전 운영 앱과 새 API/DB의 호환을 유지한 채 일반 출시 절차를 따른다.
-  `API cutover: Yes`이면 심사 승인과 출시 가능 상태를 확인한 뒤 서버 측 요청 차단이 포함된 activation
-  window에서 플랫폼별 새 build와 API를 전환한다. `force_update`는 사용자 전환 수단이지 요청 차단의 단독 증빙이
-  아니다. 릴리스 기록에서 Mobile Store 승인/운영 출시를 통합 릴리스 완료 조건으로 잡은 경우, 해당 gate에
+  `API cutover: Yes`이면 심사 승인과 출시 가능 상태를 확인한 뒤 이전 소비자의 current-API case를 포함한
+  activation window에서 플랫폼별 새 build와 API를 전환한다. `force_update`는 사용자 전환 수단이지 case의
+  단독 증빙이 아니다. 릴리스 기록에서 Mobile Store 승인/운영 출시를 통합 릴리스 완료 조건으로 잡은 경우,
+  해당 gate에
   묶인 `vX.Y.Z` 릴리스 태그는 완료 전 생성하지 않는다.
 - Mobile Store gate와 독립적으로 완료되는 범위는 운영 반영/검증 완료 후 [릴리스 태그 정책](release-tag-policy.md)에 따라 별도 태그를 생성할 수 있다.
 - API 명세 변경이 포함된 Mobile Store 출시 또는 Mobile NextPush 배포는
@@ -73,10 +74,11 @@
 - API activation window는 `API cutover: Yes`에만 적용한다. DB migration은 전용 런북에서 같은 마이그레이션
   소스 커밋을 개발계와 운영계에 순서대로 적용한다. 특정 migration의 운영 방식에 별도 조치가 필요하면 해당
   변경의 검토·런북에 명시하며, 모든 migration에 writer 중지·drain을 일괄 요구하지 않는다.
-- API cutover에서는 API/Admin 전환과 결정론적 서버 측 요청 차단, 선택한 Store 강제 업데이트 또는
-  Android·iOS mandatory, smoke가 끝나기 전에는 장벽을 해제하지 않는다. 이 장벽을 보장할 수 없으면 릴리스 실행을
-  `BLOCKED`로 둔다. 장벽 중에도 이전 client가 이해하는 bootstrap/version/upgrade 경로는 성공하고,
-  incompatible product request는 이전 client가 파싱할 수 있는 응답으로 거부돼야 한다.
+- API cutover에서는 API/Admin 전환과 이전 소비자의 current-API case·smoke가 끝나기 전에는 activation을
+  완료하지 않는다. Store `force_update`나 Android·iOS mandatory를 rollout으로 선택한 릴리스에만 그 적용
+  결과도 같은 순서에 포함한다. 이 순서를 보장할 수 없으면 릴리스 실행을 `BLOCKED`로 둔다. 이전 client가
+  이해하는 bootstrap/version/upgrade 경로는 계속 성공해야 하며, 제품 요청은 interface별 `expected` 결과와
+  일치해야 한다.
 
 ## 계약 패키지 릴리스
 
@@ -112,7 +114,8 @@
     - `coupler-api` 태그/커밋 또는 `N/A` 사유
     - `coupler-admin-web` 태그/커밋 또는 `N/A` 사유
 - 신규 릴리스 기록의 작성 계약은 `release-metadata` block 하나다. 자동화의 기계 판정 SoT는 여기서 한 번 계산한 derived model이며, `버전 매핑`과 Gate 섹션은 사람이 읽는 mirror다. 자동화가 본문 자유 문장을 포함 신호로 해석하지 않게 작성한다.
-- `release-metadata.schema`는 병합된 최신 계약과 일치해야 하며 현재 작성 계약은 `release-metadata/v3`다.
+- `release-metadata`는 개발자가 함께 쓰는 단일 현재 작성 계약이다. `schema` 필드나 호환 parser를 두지 않으며
+  계약 변경은 template·descriptor·validator·회귀 테스트를 한 번에 갱신한다.
 - `release-metadata`의 모든 하위 object는 작성 계약에 정의된 key만 허용한다. 새 nested key가 필요하면 descriptor 또는 cutover required path에 연결하고 unknown key fail-closed 테스트를 함께 갱신한다.
 - `release-metadata.releaseScopes`는 실제 릴리스 surface의 단일 SoT이며 항상 `docs`를 포함한다.
 - repo 검증 범위는 사람이 별도 입력으로 정하지 않고 `releaseScopes` descriptor에서 파생한다.
@@ -130,7 +133,7 @@
 - 신규 `db-migration` scope는 별도 plan·execution·receipt artifact를 만들지 않는다. 개발계 `apply dev`가
   출력한 마이그레이션 소스 커밋을 그대로 checkout해 운영계 `status prod`와 `apply prod`를 수행한다. 실행기는
   그 커밋에 존재하는 정렬된 migration 파일과 각 DB의 기존 `schema_migrations` 적용 이력으로 pending을 계산한다.
-- 과거 릴리스 기록과 기존 DB migration artifact는 현재 schema로 재해석하지 않고 경로·blob 불변성만 확인한다.
+- 과거 릴리스 기록과 기존 DB migration artifact는 현재 작성 계약으로 재해석하지 않고 경로·blob 불변성만 확인한다.
 - `releaseScopes`에 포함된 `released` 또는 `rolled_back` scope의 증적은 실제 증빙이어야 하며 `N/A - <사유>`는 제외 범위 또는 완료 판정에 직접 쓰이지 않는 미적용 사유로만 사용한다.
 - `rolled_back`은 사유만으로 닫지 않는다. descriptor가 전용 rollback evidence를 정의하면 그것을 사용하고,
   정의하지 않은 `contracts-package`, `mobile-store`, `mobile-nextpush`, `docs`는
@@ -145,7 +148,7 @@
   `API cutover: Yes`이면
   `content/templates/api-contract-cutover-gate-template.md`를 삽입하고, Cutover Gate의 published package
   줄은 `scopeResults.contracts-package.evidence.publishedPackage`를 mirror한다.
-- 배포 뒤에 사전 activation 장벽 또는 old-readable bootstrap 위반을 발견해 당시 case를 복구할 수 없으면
+- 배포 뒤에 사전 activation 순서 또는 old-readable bootstrap 위반을 발견해 당시 case를 복구할 수 없으면
   과거 증빙을 사후 제조하거나 해당 릴리스를 영구 `in_progress`로 두지 않는다.
   API scope의 배포 상태는 `released`로 유지하고 `apiContractCutover.status: violated`로 Gate 결과를 분리해
   terminal 기록한다. 정상 Activation·rollback 필드를 재사용하지 않고 `violation`에 허용된 실패 요구조건,
@@ -159,9 +162,9 @@
   release scope인 경우에만 current Store consumer를 current published contracts version과 일치시킨다.
   previous-release 복구는 inventory의 모든 consumer-interface에 대한 이전 API 성공 rollback case
   exact-set을 요구한다. `apiContractCutover`는 이 case ID를 참조하는 activation/client rollback만
-  소유하며 activation에는 선택한 이전 소비자의 결정론적 거부 case를 포함한다. 단, `violated`는 당시
-  public contract case를 복구할 수 없다는 처분이므로 `publicContract: null`과 위 `violation` 전용 구조를
-  함께 사용하고 Activation·rollback case ID를 만들지 않는다.
+  소유하며 activation에는 선택한 이전 소비자의 제품 요청 current-API case를 포함한다. 단, `violated`는
+  당시 public contract case를 복구할 수 없다는 처분이므로 `publicContract: null`과 위 `violation` 전용
+  구조를 함께 사용하고 Activation·rollback case ID를 만들지 않는다.
 - contracts-package `sourceRef`는 stable package를 실제 발행한 workflow source를 보존한다. 그 ref와
   `versionMapping.coupler-api.commit`이 다르면 `packages/contracts`의 양쪽 git tree SHA를
   `sourceTree.publishedSourceTree`와 `sourceTree.releaseSourceTree`에 기록하고 정확히 같아야 한다.
@@ -177,7 +180,7 @@
 - `versionMapping.coupler-mobile-app.nextPush`는 기존 단일 계약을 유지한다. app/deployment/label/target
   문자열과 exact source 40자 `commit`을 함께 기록하고 미적용 시 둘 다 `null`로 둔다. terminal 상태에서는
   `pending`, `미생성`, `대기` 같은 placeholder를 남기지 않는다.
-- `release-metadata/v3`의 Mobile Store 기준은 `versionMapping.coupler-mobile-app.store.android|ios`로
+- Mobile Store 기준은 `versionMapping.coupler-mobile-app.store.android|ios`로
   분리한다. 포함하지 않은 platform은 `null`이며, 정상 source는 `sourceStatus: verified`, 실제 platform
   version, 정확한 40자 commit, `limitation: null`을 함께 가져야 한다. nonterminal preflight에서는
   `releaseTag: null`로 현재 `origin/main` commit을 검증하고, `released`로 닫을 때 실제 platform version과 같은
@@ -186,10 +189,10 @@
   `sourceStatus: unavailable-historical`로 기록하며 tag·commit은 `null`로 두고 한계를 구체적으로 적는다.
   이 예외는 rollback 기준이나 다음 릴리스의 source 증빙으로 재사용하지 않는다. 하나의 terminal
   `mobile-store` scope에는 최소 하나의 `verified` platform source가 있어야 한다.
-- `release-metadata/v3`의 `scopeResults.mobile-store.evidence.submittedMarkers.android|ios`는 platform별
+- `scopeResults.mobile-store.evidence.submittedMarkers.android|ios`는 platform별
   submission provenance를 소유한다. 해당 platform의 submission-time marker가 있으면 `verified`로
-  tag·commit·Store version/build·이관/삭제 증빙을 닫는다. 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy
-  포함)의 공통 `submitted/mobile-*`는 그 기록에만 보존하며 v3 완료 증빙으로 승격하지 않는다. 과거 제출에서
+  tag·commit·Store version/build·이관/삭제 증빙을 닫는다. 이미 게시된 기존 기록의 공통
+  `submitted/mobile-*`는 그 기록에만 보존하며 현재 완료 증빙으로 승격하지 않는다. 과거 제출에서
   원래 platform marker가 없으면
   `unavailable-historical`로 두고 tag·commit·evidence를 `null`로 유지한 채 한계만 기록한다. 출시 뒤
   사후 생성한 marker는 `verified` 완료 증빙으로 계산하지 않는다.
@@ -225,7 +228,7 @@
 - 복구 PR은 전체 상태와 docs scope를 `released`로 한 번 전환하고 docs summary 및 사람이 읽는 `전체 상태`·
   `완료 범위`·`대기 범위`·`현재 결과`·`기록 복구`·`남은 범위` bullet만 정렬할 수 있다. 다른 scope
   metadata/evidence, 버전 매핑, API cutover와 그 밖의 본문은 base ref와 byte-equivalent여야 한다.
-- validator는 위 허용 집합 밖의 수정·삭제·개명·재복구를 fail-closed로 거부하고, 복구 후보 전체를 현행 schema와
+- validator는 위 허용 집합 밖의 수정·삭제·개명·재복구를 fail-closed로 거부하고, 복구 후보 전체를 현재 작성 계약과
   terminal evidence Gate로 다시 검증한다. 복구 PR은 terminal 후보이므로 Draft 강제 대상이 아니며 병합 뒤
   해당 파일은 일반 terminal 불변 규칙으로 돌아간다.
 - 복구 병합 커밋은 Final Record Gate commit이며, tag 전 준비 결함이 있으면 아래 Docs Tag Preparation Fix
@@ -324,7 +327,7 @@
 
 - [ ] 포함·제외 scope와 `N/A` 근거가 release metadata와 사람이 읽는 mirror에서 일치하는가?
 - [ ] 전체 상태가 scope 결과에서 파생된 상태와 일치하고, 허용되지 않은 역전이나 기준점 변경이 없는가?
-- [ ] terminal scope의 증빙이 공통 schema/descriptor 계약을 충족하며 placeholder로 완료를 대신하지 않는가?
+- [ ] terminal scope의 증빙이 작성 계약·descriptor를 충족하며 placeholder로 완료를 대신하지 않는가?
 - [ ] DB migration이 있으면 개발계에서 적용·검증한 마이그레이션 소스 커밋과 운영계 checkout이 정확히 같은가?
 - [ ] 사전 Gate와 tag/Release/Store 같은 사후 산출물이 분리돼 순환 hard gate를 만들지 않는가?
 - [ ] 태그 판정은 [릴리스 태그 정책](release-tag-policy.md), Gate 순서는 릴리스 게이트 플로우, 실행 라우팅과

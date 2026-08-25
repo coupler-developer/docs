@@ -57,8 +57,8 @@
 - 신규 제출 마커는 platform 제출 하나마다 `submitted/android-<version>-<build>` 또는
   `submitted/ios-<version>-<build>` 하나로 고정한다. 두 platform을 함께 제출해도 각각 만들며
   platform·Store version/build·source commit을 다른 platform과 공유하지 않는다.
-- 기존 `submitted/mobile-<version>-<build>`는 이미 게시된 기존 기록(v2 이하·metadata 미적용 legacy 포함)에
-  역사적 사실로만 보존한다. v3 증빙으로 이관하거나 신규 제출에 만들지 않는다.
+- 기존 `submitted/mobile-<version>-<build>`는 이미 게시된 기존 기록에 역사적 사실로만 보존한다. 현재 작성
+  증빙으로 이관하거나 신규 제출에 만들지 않는다.
 - Mobile Store 승인, 실제 출시, 기본 smoke 검증, `coupler-mobile-app` `vX.Y.Z` 릴리스 태그 push, 릴리스 기록 문서의 제출 증빙 이관이 모두 끝나면 해당 릴리스의 `submitted/*` 태그는 로컬과 원격에서 삭제한다.
 - 릴리스 기록 문서에 제출 마커 태그 이름, tag commit SHA, Store version/build, 삭제 여부를 남기기 전에는 `submitted/*` 태그를 삭제하지 않는다.
 - NextPush-only 모바일 배포는 기본적으로 모바일 git tag를 새로 만들지 않는다. 스토어 binary 출시 또는 릴리스 기록에서 모바일 레포 기준점 태그가 필요하다고 명시한 경우에만 새 태그를 만든다.
@@ -66,7 +66,7 @@
 - Android와 iOS의 실제 Store version이 다르면 하나의 모바일 태그로 통합하지 않는다. 각 platform mapping은
   실제 version과 같은 태그와 exact source commit을 사용한다.
 - 이미 출시된 platform의 원본 archive와 exact source를 복구할 수 없으면 추정 커밋에 태그를 사후 생성하지
-  않는다. `release-metadata/v3`의 `unavailable-historical`과 구체적인 한계로만 닫고, 확인 가능한 다른
+  않는다. `release-metadata`의 `unavailable-historical`과 구체적인 한계로만 닫고, 확인 가능한 다른
   platform 태그를 해당 platform의 근거로만 사용한다.
 - 출시 뒤 사후 생성한 `submitted/*` 태그는 원래 submission-time marker가 아니다. 이런 태그의 object나
   commit을 정상 제출 증빙으로 이관하지 않고 platform별 `unavailable-historical` 한계에만 기록한다.

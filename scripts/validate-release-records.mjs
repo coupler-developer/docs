@@ -155,9 +155,7 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
 function readReleaseMetadata(relativePath, source, tag, errors) {
   const metadata = parseReleaseMetadataBlock(source, relativePath, errors);
   if (metadata) {
-    validateReleaseMetadata(metadata, relativePath, tag, errors, {
-      requireCurrentSchema: Boolean(baseRef),
-    });
+    validateReleaseMetadata(metadata, relativePath, tag, errors);
   }
 
   return metadata;
@@ -341,7 +339,7 @@ function validateVersionMappingMirrorSync(relativePath, lines, metadata, errors)
       continue;
     }
 
-    for (const descriptor of getVersionMappingFieldDescriptors(metadata.schema, repoName)) {
+    for (const descriptor of getVersionMappingFieldDescriptors(repoName)) {
       const fieldPath = descriptor.path ?? [descriptor.key];
       validateVersionMappingMirrorValue({
         relativePath,

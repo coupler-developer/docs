@@ -94,8 +94,8 @@
   요청·응답 wire 계약 정렬 결과
 - 다중 레포 문서 최종 상태: 관련 PR 전체 병합 후 source main version·기능 상태, 선행 PR과 merge order,
   브랜치 한정 진행 상태를 PR 본문/pending 릴리스 기록으로 분리한 결과
-- 운영 증빙 적용 여부: legacy 경로를 실제 제거하는 변경인지, 결정론적 요청 차단·release-scoped
-  consumer case·릴리스 기록 적용/N/A 근거
+- 운영 증빙 적용 여부: legacy 경로를 실제 제거하는 변경인지, release-scoped 소비자 inventory·current-API
+  case·릴리스 기록 적용/N/A 근거
 
 ## 문서 동기화
 
@@ -149,16 +149,16 @@
   `Yes`이면 activation·old-readable bootstrap/upgrade·client rollback, DB migration이면 Docker 양 엔진
   검증과 개발·운영 exact source commit을 기록
 - [ ] API 계약 리뷰가 `하위 호환 변경`, `contract cutover`, `운영 legacy cutover`, `N/A` 중 어디인지 먼저
-  고정하고 source 정렬을 운영 구버전 차단 증빙으로 오인하지 않았는지 확인
+  고정하고 source 정렬을 운영 구버전의 current-API case 증빙으로 오인하지 않았는지 확인
 - [ ] API producer·consumer DTO 변경이면 [API 클라이언트 계약 패키지 정책](api-client-contract-package-policy.md)의 적용 절과 체크리스트를 확인
 - [ ] 다중 레포 최종 상태 문서가 관련 PR 전체 병합 후에도 사실이고, branch-local version·`main 병합 대기`를
   `as-is` 문서나 기술부채의 최종 상태로 남기지 않았으며 선행 PR과 merge order가 기록됐는지 확인
 - [ ] 릴리스 태그 또는 스토어 제출 마커 태그 변경이 있으면 [릴리스 태그 정책](release-tag-policy.md)의 태그 규칙과 증빙 기준을 충족하는지 확인
 - [ ] 릴리스 기록·자동화 변경이면 [릴리스 프로세스](release-process.md)의 적용 절과 체크리스트,
-  공통 release schema/derived model, 전환 검증 결과를 확인
+  공통 descriptor·derived model, 전환 검증 결과를 확인
 - [ ] nonterminal 릴리스 기록 PR이 Draft인지, 게시된 nonterminal 복구라면 tag/Release 부재·docs-only 상태 전이·
   비허용 metadata/evidence/body 불변·복구 뒤 재수정 차단·태그 readiness 증빙이 있는지 확인
-- [ ] 릴리스 schema·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
+- [ ] 릴리스 작성 계약·hard gate 변경이면 누락·거짓 완료·unknown field 실패와 정상·제외 범위 통과 fixture가
   같은 변경에서 검증되는지 확인
 - [ ] GitHub 원격 상태 또는 `gh` 인증을 확인했다면 아래 `GitHub 원격 상태 확인과 gh 인증 판정` 기준을 적용했는지 확인한다.
 - [ ] 코드/기능 변경 시 7개 관점 점검 결과를 최종 판정에 반영 (`N/A`는 영향 없음 근거 필수)
@@ -220,7 +220,7 @@
   확인한다. 서로 다른 신뢰 경계의 재검증과 validator 회귀 테스트는 별도 증빙으로 구분한다.
 - 릴리스 기록/자동화 변경 리뷰에서는 `release-metadata`를 기계 판정 SoT로 둔다. 본문 자유 문장 검색, validator별 중복 상수, metadata와 Markdown mirror의 불일치, cutover 없는 `N/A` 설명을 Gate 포함 신호로 처리하는 변경은 finding으로 기록한다.
 - 릴리스 자동화 hard gate 변경 리뷰에서는 “이 조건이 없으면 완료되지 않은 릴리스가 terminal 상태로 닫히는가”를 먼저 확인한다. 답이 아니면 hard gate가 아니라 작성 기준 또는 checklist로 낮춘다.
-- 릴리스 자동화 리뷰는 자유 문장의 진위 전체를 validator로 증명하라고 요구하지 않는다. 차단 finding은 descriptor, schema, ref 조회, placeholder 판정처럼 결정적으로 검증 가능한 계약 불일치나 실제로 통과하는 잘못된 fixture가 있을 때만 남긴다.
+- 릴리스 자동화 리뷰는 자유 문장의 진위 전체를 validator로 증명하라고 요구하지 않는다. 차단 finding은 descriptor, 구조화된 metadata shape, ref 조회, placeholder 판정처럼 결정적으로 검증 가능한 계약 불일치나 실제로 통과하는 잘못된 fixture가 있을 때만 남긴다.
 
 ### 검증 전 독립 최종 리뷰 체크포인트
 
@@ -305,8 +305,8 @@
 - 하위 호환 변경, contract cutover와 운영 legacy cutover는
   [엔지니어링 가드레일](engineering-guardrails.md)의 기술 이행 유형과
   [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를
-  적용한다. 현재 source 정렬이나 리뷰 범위의 `No Findings`를 운영 구버전 차단 또는 전체 cutover 완료로
-  확대 해석하지 않는다.
+  적용한다. 현재 source 정렬이나 리뷰 범위의 `No Findings`를 운영 구버전 current-API case 증빙 또는 전체
+  cutover 완료로 확대 해석하지 않는다.
 
 ### 런타임 설정 리뷰 기준
 
@@ -340,12 +340,12 @@
   적용 순서를 별도로 검증한다.
 - API `No`와 DB 전이는 각각 consumer-interface case와 DB 실행 증빙으로 증명한다.
   강제 업데이트, mandatory, 현재 source 정렬 또는 버전을 구분할 수 없는 traffic 0건으로 대신하지 않는다.
-- API `Yes`이면 혼합 계약 요청을 서버·proxy·유지보수 상태에서 결정론적으로 차단할 수 있어야
-  한다. 앱 팝업만으로 차단을 주장하면 Finding이다.
+- API `Yes`이면 변경된 이전 소비자 제품 interface의 current-API case와 `expected` 근거를 검증한다. 앱
+  팝업만으로 case 결과를 주장하면 Finding이다.
 - DB migration이면 개발계에서 확인한 같은 마이그레이션 소스 커밋을 운영계에서 사용하고 최종 pending 0을
   확인해야 한다. 특정 SQL의 별도 운영 조건은 해당 migration 리뷰에서 명시한다.
-- 운영 legacy 제거는 source 검색이 아니라 release-scoped 소비자 inventory/case와 실제 요청 차단으로
-  확인한다. 장시간 traffic 관찰은 완료 Gate로 사용하지 않는다.
+- 운영 legacy 제거는 source 검색이 아니라 release-scoped 소비자 inventory와 current-API case로 확인한다.
+  장시간 traffic 관찰은 완료 Gate로 사용하지 않는다.
 
 ## 작성자 가이드
 

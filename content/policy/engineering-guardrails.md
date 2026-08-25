@@ -85,9 +85,9 @@
 | 기술 이행 유형 | 적용 조건 | 허용 구조 | Exit Gate |
 | --- | --- | --- | --- |
 | `최종 상태` | 일반 구현과 하위 호환 API/DB 변경 | 하나의 canonical 내부 계약, additive 공개 계약, transition 계층 0건 | 계약·책임·품질 게이트, 적용 시 `API cutover: No`; DB 변경은 별도 migration 검증 |
-| `contract cutover` | 직전/다음 공개 API 계약이 동시에 성립하지 않음 | 승인된 전환 장벽과 제거 범위로 한정된 transition | `API cutover: Yes`, 전환 순서·차단 수단·rollback·제거 검증 |
+| `contract cutover` | 직전/다음 공개 API 계약이 동시에 성립하지 않음 | 승인된 전환 순서와 제거 범위로 한정된 transition | `API cutover: Yes`, 전환 순서·이전 소비자 case·rollback·제거 검증 |
 | `Shadow Cutover` | 같은 입력에서 같은 의미의 결과를 내야 하는 구·신 로직 교체 | 병렬 계산과 diff 계측 | 검증 범위가 명시된 불일치 0건 |
-| `운영 legacy cutover` | 이미 배포된 API adapter, parser, dual-write를 실제 제거 | 제거 대상으로 고정된 경로의 삭제만 허용 | `API cutover: Yes`, release-scoped 소비자 case·결정론적 차단·client rollback·적용 Gate 충족 |
+| `운영 legacy cutover` | 이미 배포된 API adapter, parser, dual-write를 실제 제거 | 제거 대상으로 고정된 경로의 삭제만 허용 | `API cutover: Yes`, release-scoped 소비자 current-API case·client rollback·적용 Gate 충족 |
 | `DB migration` | DDL, backfill, read/write 기준 변경, contract/drop | append-only multi-statement SQL과 환경별 기존 적용 이력 | Docker MySQL·MariaDB 검증, 개발·운영 exact source commit, pending 0 확인 |
 
 - `Shadow Cutover`는 구·신 결과의 의미가 같아 diff 0건을 기대할 수 있을 때만 적용한다.
@@ -109,10 +109,12 @@ DB의 기존 적용 이력으로 pending을 판정한다.
 2. `API cutover: No`이면 inventory의 모든 지원 이전 소비자가 현재 API와 최종 DB에서 성공한다. 정확성이
    Store 강제 업데이트, NextPush mandatory 또는 동시 활성화에 의존하지 않고 제거 예정
    adapter·dual-write·fallback을 만들지 않는다.
-3. `API cutover: Yes`이면 이전 소비자가 이해할 수 있는 bootstrap/version/업데이트 경로는 계속 성공하고,
-   호환 불가능한 제품 요청은 이전 소비자가 파싱할 수 있는 응답으로 결정론적으로 거부한다. 이때
-   `release-metadata.apiContractCutover`에는 inventory의 case ID를 참조하는 activation 장벽·순서와 client
-   rollback을 기록하고, activation case에는 선택한 이전 소비자의 결정론적 거부 case를 반드시 포함한다.
+3. `API cutover: Yes`이면 이전 소비자가 이해할 수 있는 bootstrap/version/업데이트 경로는 계속 성공한다.
+   변경된 이전 소비자 제품 interface마다 current-API case를 두고 `expected`를 `success` 또는
+   `deterministic-rejection`으로 기록한다. 성공 case에는 보존 동작과 허용한 기능 저하를, 거부 case에는 거부
+   이유와 소비자가 관측하는 결과를 근거로 남긴다. 전환만을 이유로 별도 요청 차단을 요구하지 않는다.
+   `release-metadata.apiContractCutover`에는 inventory의 case ID를 참조하는 activation 순서와 client rollback을
+   기록하고, activation case에는 선택한 이전 소비자의 제품 요청 current-API case를 포함한다.
    이미 운영 반영된 뒤 이 사전 조건의 위반을 발견했고 당시 case를 복구할 수 없다면 정상 case ID를 사후
    제조하지 않는다. API scope의 배포 결과와 분리된 `apiContractCutover.status: violated` 및 전용
    `violation` 증빙으로 실패 요구조건, 영향 소비자 ref, 관측·미관측 범위, 운영 처분과 후속 통제를 기록한다.
@@ -129,15 +131,15 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 ### 2-3) 현재 source 정렬과 운영 contract cutover 분리
 
 - API package source와 Admin/Mobile의 현재 source dependency·lockfile, 실제 runtime 공개 표면은 같은
-  canonical 계약을 가리켜야 한다. 이 정렬은 새 source의 코드 일치 증빙이지 이미 설치된 이전 Mobile 계약의
-  차단 증빙이 아니다.
+  canonical 계약을 가리켜야 한다. 이 정렬은 새 source의 코드 일치 증빙이지 이미 설치된 이전 Mobile의
+  current-API case 증빙이 아니다.
 - API 변경 리뷰는 source 정렬 뒤 `API cutover`를 판정하고, DB 변경 리뷰는 migration source와 개발·운영
-  exact source commit을 별도로 검증한다. API `Yes`이면 실제 요청 장벽을 확인한다.
+  exact source commit을 별도로 검증한다. API `Yes`이면 이전 소비자의 current-API case를 확인한다.
 - 운영 legacy cutover 증빙은 API adapter, parser, dual-write처럼 기존 공개 계약 경로를 실제 제거하는
   작업에만 적용한다. DB contract/drop은 별도 migration 검증을 따른다. source 검색 결과로 설치된
   소비자의 실제 요청을 추론하지 않는다.
 - 브랜치 이름, Store 승인, 강제 업데이트 설정, NextPush 이력 또는 장시간 traffic 관찰 중 하나만으로
-  cutover 완료를 판정하지 않는다.
+  이전 소비자의 current-API case 결과나 cutover 완료를 판정하지 않는다.
 
 ### 3) 검증 기준 (No Findings 게이트)
 
@@ -229,7 +231,7 @@ DB 실행 안전은 [DB Migration 정책](db-migration-gate-policy.md)을 따른
 - `기술 이행 유형`이 명시되고 해당 유형의 Exit Gate를 충족한다.
 - API를 바꾸는 `최종 상태`는 적용 시 `API cutover: No`, 선언된 소비자 case를 충족하고 transition 계층이
   0건이다.
-- `contract cutover`는 `API cutover: Yes` 근거, 결정론적 요청 차단, 적용 순서, rollback과 Exit Gate를 충족한다.
+- `contract cutover`는 `API cutover: Yes` 근거, 이전 소비자의 current-API case, 적용 순서, rollback과 Exit Gate를 충족한다.
 - `운영 legacy cutover`는 제거 대상으로 고정한 호환 경로가 0건이고 남은 소비 범위가 단일 계약을 가리킨다.
 - `Shadow Cutover`는 같은 의미의 구·신 결과에 대해 검증 범위가 명시된 불일치 0건을 충족한다.
 - `DB migration`은 [DB Migration 정책](db-migration-gate-policy.md)의 Docker 양 엔진 검증, 기존 적용 이력의

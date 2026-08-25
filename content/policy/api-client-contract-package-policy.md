@@ -72,7 +72,7 @@
 - 소비자는 package request DTO로 payload를 구성한다. 화면 ViewModel과 로컬 draft는 API 호출 계층으로 역유입하지 않는다.
 - `main`과 Ready 상태의 모든 active consumer는 published latest stable version을 `package.json`과 lockfile에
   exact version으로 고정한다. API `main`, Admin, Mobile의 version이 하나라도 다르면 현재 source 계약 정렬은
-  완료가 아니다. 이 source 정렬은 이미 설치된 이전 Mobile 계약의 차단 증빙이 아니다.
+  완료가 아니다. 이 source 정렬은 이미 설치된 이전 Mobile의 current-API case 증빙이 아니다.
 - Admin/Mobile Draft PR은 교차 컴파일 검증에 한해 published PR preview version을 dependency와 lockfile에
   exact pin할 수 있다. PR 본문에는 API PR 번호, preview version, 검증한 API head SHA를 남긴다.
 - PR preview는 소비자 검증용 prerelease이며 stable 발행, 계약 정렬, cutover 또는 운영 배포 완료 증거가 아니다.
@@ -125,7 +125,7 @@
 - package의 public response/envelope 타입과 runtime guard는 generated error runtime의 strict `ErrorData`를 실패 계약으로 사용한다. Envelope runtime guard는 성공 DTO를 검증한 것처럼 generic 타입을 단정하지 않고 `ApiEnvelope<unknown>`을 반환하며, 성공/실패는 추가 branch helper 없이 `ok`로 분기한다.
 - `generated/apiContract.ts`는 Swagger success operation map 산출물이며, 그 안의 느슨한 실패 helper 타입을 package public response 기준으로 삼지 않는다.
 - Request DTO type 공유는 request transport runtime 공유와 분리한다. Request method/path/media type validator, request DTO runtime validator, serializer, URL encoder, operation dispatcher는 package public runtime으로 승격하지 않는다. Canonical client request는 body 없는 `GET`/`DELETE`, JSON `POST`/`PUT`, upload `multipart/form-data`로 고정하고, Mobile/Admin request boundary와 API Swagger/parser가 같은 결론을 가리켜야 한다.
-- API의 URL-encoded parser는 운영 legacy Mobile 차단 전까지만 허용하는 호환 입력 경로다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
+- API의 URL-encoded parser는 제거 전 release-scoped 소비자 current-API case를 검증해야 하는 호환 입력 경로다. `min_version`/`force_update`는 rollout 수단일 뿐 parser 제거 증빙이 아니다. 제거 조건과 목표 시점은 [기술 부채 정리](../technical-debt/technical-debt.md)의 `API URL-encoded 호환 parser 제거 대기`에서 추적한다.
 - 소비자 코드는 package public request/success DTO 또는 명시 ViewModel mapping을 사용하고, API wire shape를 local DTO, cast, alias fallback, normalize로 보정하지 않는다.
 
 ### API producer DTO와 Presenter/Mapper 경계

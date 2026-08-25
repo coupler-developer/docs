@@ -15,7 +15,6 @@ const version = "v9.9.0";
 const apiCommit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const adminCommit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const mobileCommit = "cccccccccccccccccccccccccccccccccccccccc";
-const submittedCommit = "dddddddddddddddddddddddddddddddddddddddd";
 const checksum = "f".repeat(64);
 
 describe("release metadata scope results", () => {
@@ -278,12 +277,32 @@ describe("release metadata scope results", () => {
       },
       apiContractCutover: releasedApiContractCutover(),
     });
-    metadata.apiContractCutover.activation.barrierEvidence = "N/A - no barrier evidence";
+    metadata.apiContractCutover.activation.sequenceEvidence = "N/A - no activation sequence evidence";
 
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /apiContractCutover\.activation\.barrierEvidence must be concrete evidence, not an N\/A reason/.test(error)),
+      errors.some((error) => /apiContractCutover\.activation\.sequenceEvidence must be concrete evidence, not an N\/A reason/.test(error)),
+    );
+  });
+
+  it("rejects the retired barrierEvidence key", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.apiContractCutover.activation.barrierEvidence =
+      "Legacy key must not remain as a compatibility alias";
+
+    assert(
+      validate(metadata).some((error) =>
+        /apiContractCutover\.activation has unknown key: barrierEvidence/.test(error),
+      ),
     );
   });
 
@@ -300,6 +319,52 @@ describe("release metadata scope results", () => {
     metadata.scopeResults["coupler-api"].evidence.publicContract = null;
 
     assert.deepEqual(validate(metadata), []);
+  });
+
+  it("rejects the retired activation-barrier violation value", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+    metadata.apiContractCutover.violation.failedRequirements = [
+      "pre-deploy-activation-barrier",
+    ];
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+
+    assert(
+      validate(metadata).some((error) =>
+        /apiContractCutover\.violation\.failedRequirements contains an unsupported value: pre-deploy-activation-barrier/.test(error),
+      ),
+    );
+  });
+
+  it("rejects the retired rejection-specific product-case violation value", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: violatedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract = null;
+
+    assert.deepEqual(validate(metadata), []);
+
+    metadata.apiContractCutover.violation.failedRequirements = [
+      "deterministic-product-rejection",
+    ];
+    assert(
+      validate(metadata).some((error) =>
+        /apiContractCutover\.violation\.failedRequirements contains an unsupported value: deterministic-product-rejection/.test(error),
+      ),
+    );
   });
 
   it("does not let the violation disposition weaken a normal released cutover", () => {
@@ -532,7 +597,7 @@ describe("release metadata scope results", () => {
     );
   });
 
-  it("requires API cutover to identify at least one incompatible previous-consumer request", () => {
+  it("allows API cutover when previous-consumer product requests succeed", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
@@ -546,14 +611,27 @@ describe("release metadata scope results", () => {
       contractCase.expected = "success";
     }
 
-    assert(
-      validate(metadata).some((error) =>
-        /API cutover requires a deterministic previous-consumer rejection case/.test(error),
-      ),
-    );
+    assert.deepEqual(validate(metadata), []);
   });
 
-  it("requires API cutover activation evidence to include the selected previous-consumer rejection", () => {
+  it("allows API cutover to reject a previous-consumer product request when selected", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "contracts-package", "coupler-api"],
+      statuses: {
+        docs: "released",
+        "contracts-package": "released",
+        "coupler-api": "released",
+      },
+      apiContractCutover: releasedApiContractCutover(),
+    });
+    metadata.scopeResults["coupler-api"].evidence.publicContract.cases.find(
+      ({ id }) => id === "previous-store-rest-current-api",
+    ).expected = "deterministic-rejection";
+
+    assert.deepEqual(validate(metadata), []);
+  });
+
+  it("requires API cutover activation evidence to include a previous-consumer product case", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
@@ -569,7 +647,7 @@ describe("release metadata scope results", () => {
 
     assert(
       validate(metadata).some((error) =>
-        /activation\.caseIds must include a deterministic previous-consumer rejection/.test(error),
+        /activation\.caseIds must include a previous-consumer product case/.test(error),
       ),
     );
   });
@@ -815,7 +893,7 @@ describe("release metadata scope results", () => {
 
     assert(
       errors.some((error) =>
-        /current mobile-store consumer requires versionMapping\.coupler-mobile-app\.store/.test(
+        /current mobile-store consumer requires Android and iOS platform mappings/.test(
           error,
         ),
       ),
@@ -1057,8 +1135,14 @@ describe("release metadata scope results", () => {
         statuses,
       });
       const repoMapping = metadata.versionMapping[descriptor.releaseTagRepo];
-      const fieldName = descriptor.releaseTagRepo === "coupler-mobile-app" ? "releaseTag" : "tag";
-      repoMapping[fieldName] = null;
+      const fieldName = descriptor.releaseTagRepo === "coupler-mobile-app"
+        ? "store.android.releaseTag"
+        : "tag";
+      if (descriptor.releaseTagRepo === "coupler-mobile-app") {
+        repoMapping.store.android.releaseTag = null;
+      } else {
+        repoMapping.tag = null;
+      }
 
       const errors = validate(metadata);
 
@@ -1251,12 +1335,12 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    metadata.scopeResults["mobile-store"].evidence.submittedMarkers[0].deletedEvidence = "pending";
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.deletedEvidence = "pending";
 
     const errors = validate(metadata);
 
     assert(
-      errors.some((error) => /submittedMarkers\.0\.deletedEvidence must be concrete evidence/.test(error)),
+      errors.some((error) => /submittedMarkers\.android\.deletedEvidence must be concrete evidence/.test(error)),
     );
   });
 
@@ -1268,8 +1352,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
-
     assert.deepEqual(validate(metadata), []);
   });
 
@@ -1282,7 +1364,6 @@ describe("release metadata scope results", () => {
       },
       status: "in_progress",
     });
-    usePlatformStoreMapping(metadata);
     metadata.status = "in_progress";
     metadata.scopeResults.docs.status = "in_progress";
     metadata.scopeResults["mobile-store"].status = "in_progress";
@@ -1290,6 +1371,24 @@ describe("release metadata scope results", () => {
     metadata.versionMapping["coupler-mobile-app"].store.android.releaseTag = null;
 
     assert.deepEqual(validate(metadata), []);
+  });
+
+  it("rejects malformed Mobile Store marker shape before terminal release", () => {
+    const metadata = buildMetadata({
+      scopes: ["docs", "mobile-store"],
+      statuses: {
+        docs: "in_progress",
+        "mobile-store": "in_progress",
+      },
+      status: "in_progress",
+    });
+    metadata.scopeResults["mobile-store"].evidence.submittedMarkers = [];
+
+    assert(
+      validate(metadata).some((error) =>
+        /scopeResults\.mobile-store\.evidence\.submittedMarkers must be an object/.test(error),
+      ),
+    );
   });
 
   it("requires the platform-specific marker for new submissions", () => {
@@ -1300,7 +1399,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android.tag =
       "submitted/mobile-9.9.0-900";
     assert(
@@ -1322,7 +1420,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     delete metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android
       .artifactSha256;
 
@@ -1337,7 +1434,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     metadata.scopeResults["mobile-store"].evidence.submittedMarkers.android
       .artifactSha256 = "not-a-digest";
 
@@ -1348,23 +1444,23 @@ describe("release metadata scope results", () => {
     );
   });
 
-  it("requires v3 for a newly authored release while retaining v2 parser compatibility", () => {
+  it("rejects schema versioning in the current release contract", () => {
     const metadata = buildMetadata({
       scopes: ["docs"],
       statuses: {
         docs: "released",
       },
     });
+    metadata.schema = "versioned-release-contract";
 
-    assert.deepEqual(validate(metadata), []);
     assert(
-      validate(metadata, { requireCurrentSchema: true }).some((error) =>
-        /new release-metadata schema must be release-metadata\/v3/.test(error),
+      validate(metadata).some((error) =>
+        /release-metadata has unknown top-level key: schema/.test(error),
       ),
     );
   });
 
-  it("binds a current API Store consumer to both v3 platform versions", () => {
+  it("binds a current API Store consumer to both platform versions", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "contracts-package", "coupler-api"],
       statuses: {
@@ -1373,7 +1469,6 @@ describe("release metadata scope results", () => {
         "coupler-api": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     const currentStore = metadata.scopeResults["coupler-api"].evidence.publicContract.consumers
       .find(({ id }) => id === "current-store");
     currentStore.artifact.mappingRef = "Android 9.9.0 (900); iOS 9.9.1 (900)";
@@ -1401,7 +1496,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     const currentStore = metadata.scopeResults["coupler-api"].evidence.publicContract.consumers
       .find(({ id }) => id === "current-store");
     currentStore.artifact.mappingRef = "Android 9.9.0 (900); iOS 9.9.1 (900)";
@@ -1424,7 +1518,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     metadata.versionMapping["coupler-mobile-app"].store.ios.releaseTag = "v9.9.1";
     metadata.versionMapping["coupler-mobile-app"].store.ios.commit = mobileCommit;
 
@@ -1443,7 +1536,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     const iosMarker = metadata.scopeResults["mobile-store"].evidence.submittedMarkers.ios;
     iosMarker.tag = "submitted/ios-9.9.1-900";
     iosMarker.commit = mobileCommit;
@@ -1466,7 +1558,6 @@ describe("release metadata scope results", () => {
         "mobile-store": "released",
       },
     });
-    usePlatformStoreMapping(metadata);
     metadata.versionMapping["coupler-mobile-app"].store.android = null;
 
     const errors = validate(metadata);
@@ -1476,7 +1567,7 @@ describe("release metadata scope results", () => {
     );
   });
 
-  it("allows released Mobile NextPush without a mobile release tag", () => {
+  it("allows released Mobile NextPush without a Mobile Store scope", () => {
     const metadata = buildMetadata({
       scopes: ["docs", "mobile-nextpush"],
       statuses: {
@@ -1484,8 +1575,6 @@ describe("release metadata scope results", () => {
         "mobile-nextpush": "released",
       },
     });
-    metadata.versionMapping["coupler-mobile-app"].releaseTag = null;
-
     const errors = validate(metadata);
 
     assert.deepEqual(errors, []);
@@ -1616,15 +1705,9 @@ describe("release metadata scope results", () => {
   });
 });
 
-function validate(metadata, options) {
+function validate(metadata) {
   const errors = [];
-  validateReleaseMetadata(
-    metadata,
-    "content/releases/v9.9.0.md",
-    version,
-    errors,
-    options,
-  );
+  validateReleaseMetadata(metadata, "content/releases/v9.9.0.md", version, errors);
 
   return errors;
 }
@@ -1703,7 +1786,6 @@ function buildMetadata({
   apiContractCutover = null,
 }) {
   const metadata = {
-    schema: "release-metadata/v2",
     version,
     status: status ?? deriveStatus(scopes, statuses),
     releaseScopes: scopes,
@@ -1718,7 +1800,7 @@ function buildMetadata({
   if (metadata.scopeResults["coupler-api"]?.evidence?.publicContract) {
     const apiStatus = metadata.scopeResults["coupler-api"].status;
     metadata.scopeResults["coupler-api"].evidence.publicContract =
-      apiPublicContractEvidence(Boolean(apiContractCutover), {
+      apiPublicContractEvidence({
         previousApi: apiStatus === "rolled_back",
         currentNextPush:
           metadata.versionMapping["coupler-mobile-app"].nextPush !== null,
@@ -1764,6 +1846,13 @@ function deriveStatus(scopes, statuses) {
 }
 
 function versionMappingFor(statuses) {
+  const hasStoreMapping =
+    ["released", "rolled_back"].includes(statuses["coupler-api"]) ||
+    Object.hasOwn(statuses, "mobile-store");
+  const nextPush = statuses["mobile-nextpush"] === "released"
+    ? "Production v99 target 9.9.0 (900)"
+    : null;
+
   return {
     docs: {
       tag: statuses.docs === "released" ? version : null,
@@ -1778,62 +1867,30 @@ function versionMappingFor(statuses) {
       commit: adminCommit,
     },
     "coupler-mobile-app": {
-      store:
-        ["released", "rolled_back"].includes(statuses["coupler-api"]) ||
-        statuses["mobile-store"] === "released"
-          ? "9.9.0 (900)"
+      store: {
+        android: hasStoreMapping
+          ? {
+              versionBuild: "9.9.0 (900)",
+              releaseTag: statuses["mobile-store"] === "released" ? version : null,
+              commit: mobileCommit,
+              sourceStatus: "verified",
+              limitation: null,
+            }
           : null,
-      releaseTag: statuses["mobile-store"] === "released" ? version : null,
-      commit: mobileCommit,
-      nextPush: statuses["mobile-nextpush"] === "released" ? "Production v99 target 9.9.0 (900)" : null,
+        ios: hasStoreMapping
+          ? {
+              versionBuild: "9.9.1 (900)",
+              releaseTag: null,
+              commit: null,
+              sourceStatus: "unavailable-historical",
+              limitation: "The released archive and exact source were not retained; no source tag is claimed.",
+            }
+          : null,
+      },
+      nextPush,
+      commit: nextPush === null ? null : mobileCommit,
     },
   };
-}
-
-function usePlatformStoreMapping(metadata) {
-  metadata.schema = "release-metadata/v3";
-  metadata.versionMapping["coupler-mobile-app"] = {
-    store: {
-      android: {
-        versionBuild: "9.9.0 (900)",
-        releaseTag: "v9.9.0",
-        commit: mobileCommit,
-        sourceStatus: "verified",
-        limitation: null,
-      },
-      ios: {
-        versionBuild: "9.9.1 (900)",
-        releaseTag: null,
-        commit: null,
-        sourceStatus: "unavailable-historical",
-        limitation: "The released archive and exact source were not retained; no source tag is claimed.",
-      },
-    },
-    nextPush: null,
-    commit: null,
-  };
-  if (metadata.scopeResults["mobile-store"]) {
-    metadata.scopeResults["mobile-store"].evidence.submittedMarkers = {
-      android: {
-        status: "verified",
-        tag: "submitted/android-9.9.0-900",
-        commit: mobileCommit,
-        artifactSha256: "a".repeat(64),
-        evidence: "Android submission marker and artifact digest migrated",
-        deletedEvidence: "Android submission marker deleted after evidence migration",
-        limitation: null,
-      },
-      ios: {
-        status: "unavailable-historical",
-        tag: null,
-        commit: null,
-        artifactSha256: null,
-        evidence: null,
-        deletedEvidence: null,
-        limitation: "The original iOS submission marker and artifact digest were not retained.",
-      },
-    };
-  }
 }
 
 function scopeResult(scopeName, status) {
@@ -1883,7 +1940,7 @@ function evidenceFor(scopeName, status) {
 
   if (scopeName === "coupler-api") {
     const publicContract = concrete
-      ? apiPublicContractEvidence(false, { previousApi: status === "rolled_back" })
+      ? apiPublicContractEvidence({ previousApi: status === "rolled_back" })
       : null;
     return {
       deployment: concrete ? "coupler-api production deployed at 2026-07-09 10:00 KST" : "pending",
@@ -1924,14 +1981,30 @@ function evidenceFor(scopeName, status) {
       release: concrete ? "Store phased release started 2026-07-09 11:00 KST" : "pending",
       smoke: concrete ? "Mobile production smoke passed on 9.9.0 (900)" : "pending",
       artifact: concrete ? "Android/iOS artifact SHA-256 evidence recorded" : "pending",
-      submittedMarkers: [
-        {
-          tag: "submitted/mobile-9.9.0-900",
-          commit: concrete ? submittedCommit : "pending",
-          evidence: concrete ? "submitted/mobile-9.9.0-900 evidence migrated to release record" : "pending",
-          deletedEvidence: concrete ? "submitted/mobile-9.9.0-900 deleted from origin after migration" : "pending",
-        },
-      ],
+      submittedMarkers: {
+        android: concrete
+          ? {
+              status: "verified",
+              tag: "submitted/android-9.9.0-900",
+              commit: mobileCommit,
+              artifactSha256: "a".repeat(64),
+              evidence: "Android submission marker and artifact digest migrated",
+              deletedEvidence: "Android submission marker deleted after evidence migration",
+              limitation: null,
+            }
+          : null,
+        ios: concrete
+          ? {
+              status: "unavailable-historical",
+              tag: null,
+              commit: null,
+              artifactSha256: null,
+              evidence: null,
+              deletedEvidence: null,
+              limitation: "The original iOS submission marker and artifact digest were not retained.",
+            }
+          : null,
+      },
     };
   }
 
@@ -1972,8 +2045,8 @@ function releasedApiContractCutover() {
         "previous-store-bootstrap-current-api",
       ],
       appliedAt: "2026-07-09 11:00 KST",
-      barrierEvidence:
-        "Proxy barrier rejected incompatible product requests and reopened after current smoke",
+      sequenceEvidence:
+        "Activation sequence verified the previous product case before current smoke",
       bootstrapUpgradeEvidence:
         "Previous mobile bootstrap/version responses remained parseable and directed upgrade",
     },
@@ -1982,8 +2055,8 @@ function releasedApiContractCutover() {
         "previous-store-version-current-api",
         "previous-nextpush-version-current-api",
       ],
-      barrierEvidence: "Client rollback cases passed behind the request barrier",
-      cautions: "Do not reopen incompatible product requests before rollback smoke",
+      sequenceEvidence: "Client rollback cases passed during the activation window",
+      cautions: "Do not complete activation before rollback smoke",
     },
   };
 }
@@ -2005,7 +2078,7 @@ function violatedApiContractCutover() {
     },
     violation: {
       failedRequirements: [
-        "pre-deploy-activation-barrier",
+        "previous-consumer-product-case",
         "old-readable-bootstrap",
       ],
       affectedConsumerRefs: [
@@ -2026,7 +2099,6 @@ function violatedApiContractCutover() {
 }
 
 function apiPublicContractEvidence(
-  cutover,
   { previousApi = false, currentNextPush = false } = {},
 ) {
   const consumers = [
@@ -2053,8 +2125,8 @@ function apiPublicContractEvidence(
       generation: "current",
       artifact: {
         kind: "store-builds",
-        mappingRef: "9.9.0 (900)",
-        iosVersionBuild: "9.9.0 (900)",
+        mappingRef: "Android 9.9.0 (900); iOS 9.9.1 (900)",
+        iosVersionBuild: "9.9.1 (900)",
         androidVersionBuild: "9.9.0 (900)",
       },
       contractRef: "@coupler-developer/coupler-api-contracts@9.9.0",
@@ -2153,7 +2225,6 @@ function apiPublicContractEvidence(
   const cases = consumers.filter(({ state }) => state === "present").flatMap((consumer) =>
     consumer.interfaces.map((interfaceName) => {
       const previous = consumer.generation === "previous";
-      const oldReadable = interfaceName === "bootstrap" || interfaceName === "version";
       let exposure = "post-activation";
       if (previous && interfaceName === "version") {
         exposure = "rollback";
@@ -2166,10 +2237,7 @@ function apiPublicContractEvidence(
         interface: interfaceName,
         apiGeneration: "current",
         exposure,
-        expected:
-          cutover && previous && !oldReadable
-            ? "deterministic-rejection"
-            : "success",
+        expected: "success",
         evidence: `${consumer.id} ${interfaceName} current API contract fixture passed`,
       };
     }),

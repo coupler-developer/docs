@@ -72,7 +72,7 @@ API/Admin/Mobile이 JSON API 성공/실패를 같은 envelope 기준으로 판�
 - 공통 envelope 변경의 하위 호환과 cutover 판정은
   [엔지니어링 가드레일](engineering-guardrails.md)의 `API 계약과 runtime-state 안전성의 독립 판정`을
   따른다. 제거 예정 dual parser·legacy envelope branch가 필요하면 `API cutover: Yes`이며, Store
-  강제 업데이트나 NextPush mandatory만으로 이전 계약 요청 차단을 증명하지 않는다.
+  강제 업데이트나 NextPush mandatory만으로 이전 소비자의 current-API case를 증명하지 않는다.
 
 ## 체크리스트
 

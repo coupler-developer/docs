@@ -636,7 +636,6 @@ function writePendingRelease(
   }
 
   const metadata = {
-    schema: "release-metadata/v3",
     version,
     status,
     releaseScopes,

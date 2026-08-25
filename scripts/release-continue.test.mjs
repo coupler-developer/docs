@@ -328,7 +328,6 @@ function writeInitializerFixture() {
       "",
       "```release-metadata",
       JSON.stringify({
-        schema: "release-metadata/v3",
         version: "vX.Y.Z",
         status: "planned",
         releaseScopes: ["docs"],

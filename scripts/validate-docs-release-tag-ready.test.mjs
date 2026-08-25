@@ -137,7 +137,6 @@ function recordSource({
   return [
     "```release-metadata",
     JSON.stringify({
-      schema: "release-metadata/v3",
       version: "v9.9.0",
       status,
       versionMapping: { docs: { tag: mappedTag, commit: null } },

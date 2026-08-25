@@ -57,7 +57,7 @@
 | --- | --- | --- | --- | --- |
 | 신규·직접 수정 최종 상태 | 신규 operation, 성공 DTO/endpoint 동작/소비 페이지 직접 변경 | 단일 페이지 조회, 근거 있는 증분 조회·동작 명령·전송 경계 | 페이지 데이터 목록·요청 그래프·계약·테스트·리뷰 통과 | 없음 |
 | 하위 호환 변경 | 직전/다음 Mobile 또는 Admin 계약이 같은 API/DB에서 동작 | additive 페이지 조회 또는 기존 공개 계약 유지 | 두 소비자 계약, 적용 시 직전/신규 API runtime+migrated DB, 이번 변경이 만든 후속 API 전환 0건 | [엔지니어링 가드레일](engineering-guardrails.md)의 `API cutover: No` 조건 |
-| 운영 legacy cutover | 요소별 조회·waterfall·구 DTO를 제거 | 제거 대상으로 고정된 legacy operation/adapter 삭제 | `API cutover: Yes`, release-scoped 소비자 case, 결정론적 요청 차단과 단일 페이지 조회 수렴 | 실제 운영 legacy 제거가 아니면 `N/A` |
+| 운영 legacy cutover | 요소별 조회·waterfall·구 DTO를 제거 | 제거 대상으로 고정된 legacy operation/adapter 삭제 | `API cutover: Yes`, release-scoped 소비자 current-API case와 단일 페이지 조회 수렴 | 실제 운영 legacy 제거가 아니면 `N/A` |
 | 변경 범위 밖 기존 구현 | operation과 소비 호출 경로를 수정·재사용하지 않음 | 현행 유지 가능, 준수 완료로 표기 금지 | 후속 직접 변경 시 재분류 | 영향 경로가 없다는 코드·호출 그래프 근거 필요 |
 
 - 미래 기능을 위한 미사용 endpoint, enum mode, 응답 필드는 정상/최종 상태에 미리 공개하지 않는다. 제품 정책이
@@ -71,9 +71,9 @@
 - 각 요청 그래프를 `준수`, `허용된 분리`, `전환 필요`, `정책 비적용`으로 분류한다. `허용된 분리`에는 분리 조건과 독립 실패 UX, `정책 비적용`에는 인증·동작 명령·전송·스트림·내부 작업 등 비적용 근거를 남긴다.
 - 사용자 진입 차단·부분 실패 시 핵심 데이터 소실, 종속 waterfall, visible item N+1, 권한·상태 혼합 snapshot, 높은 호출량·지연, 명령 뒤 강제 전체 재조회 순으로 우선순위를 높인다.
 - 전환은 페이지별 vertical slice로 수행한다. 페이지 조회 DTO·서버 query·Swagger/OpenAPI·generated contract·Mobile/Admin 소비·테스트를 한 변경 묶음으로 정렬하고, 모든 기존 API를 한 번에 재작성하는 big-bang 작업으로 만들지 않는다.
-- 기존 endpoint 제거는 release-scoped Store/OTA/Admin 소비자 inventory와 case, 이전 계약 요청의
-  결정론적 서버 측 차단을 함께 확인한 contract cutover로 진행한다. source audit, Store 강제 업데이트,
-  NextPush mandatory 또는 traffic 관찰을 완료 Gate로 사용하지 않는다.
+- 기존 endpoint 제거는 release-scoped Store/OTA/Admin 소비자 inventory와 current-API case를 함께 확인한
+  contract cutover로 진행한다. source audit, Store 강제 업데이트, NextPush mandatory 또는 traffic 관찰을
+  완료 Gate로 사용하지 않는다.
 - baseline에 없는 기존 API를 준수로 추정하지 않으며, 감사만 끝내고 전환 필요 항목을 완료 처리하지 않는다. 잔여 전환이 있으면 기술부채 항목 또는 연결된 작업에서 계속 추적한다.
 
 ## 필수 규칙

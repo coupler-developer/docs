@@ -1,10 +1,3 @@
-export const legacyReleaseMetadataSchema = "release-metadata/v2";
-export const releaseMetadataSchema = "release-metadata/v3";
-export const supportedReleaseMetadataSchemas = new Set([
-  legacyReleaseMetadataSchema,
-  releaseMetadataSchema,
-]);
-
 export const mobileStorePlatforms = ["android", "ios"];
 export const mobileStoreSourceStatuses = new Set([
   "verified",
@@ -12,7 +5,6 @@ export const mobileStoreSourceStatuses = new Set([
 ]);
 
 export const releaseMetadataTopLevelKeys = new Set([
-  "schema",
   "version",
   "status",
   "releaseScopes",
@@ -181,7 +173,7 @@ export const releaseScopeDescriptors = {
       {
         label: "mobile store version/build",
         metadataPath: ["versionMapping", "coupler-mobile-app", "store"],
-        valueType: "mobileStore",
+        valueType: "platformMobileStore",
       },
       {
         label: "mobile store submission",
@@ -324,8 +316,6 @@ export const commitShaPattern = /^[0-9a-f]{7,40}$/i;
 export const sha256Pattern = /^[0-9a-f]{64}$/i;
 export const contractsPackagePattern =
   /^@coupler-developer\/coupler-api-contracts@\d+\.\d+\.\d+$/;
-export const submittedMarkerTagPattern =
-  /^submitted\/(?:mobile|android|ios)-\d+\.\d+\.\d+-\d+$/;
 
 export const emptyRefValues = new Set(["", "N/A", "미생성", "pending", "기록 없음"]);
 
@@ -405,28 +395,6 @@ export const versionMappingFieldDescriptors = {
       mirrorLabelPattern: /커밋/,
     },
   ],
-  "coupler-mobile-app": [
-    {
-      key: "store",
-      valueType: "mobileStoreOrEmpty",
-      mirrorLabelPattern: /Store/,
-    },
-    {
-      key: "releaseTag",
-      valueType: "semverTagOrEmpty",
-      mirrorLabelPattern: /릴리스\s+태그/,
-    },
-    {
-      key: "commit",
-      valueType: "commitShaOrEmpty",
-      mirrorLabelPattern: /커밋/,
-    },
-    {
-      key: "nextPush",
-      valueType: "stringOrEmpty",
-      mirrorLabelPattern: /NextPush/,
-    },
-  ],
 };
 
 const mobilePlatformVersionMappingFieldDescriptors = [
@@ -461,8 +429,8 @@ const mobilePlatformVersionMappingFieldDescriptors = [
   },
 ];
 
-export function getVersionMappingFieldDescriptors(schema, repoName) {
-  if (schema === releaseMetadataSchema && repoName === "coupler-mobile-app") {
+export function getVersionMappingFieldDescriptors(repoName) {
+  if (repoName === "coupler-mobile-app") {
     return mobilePlatformVersionMappingFieldDescriptors;
   }
 
@@ -501,8 +469,8 @@ const apiContractCutoverGateValueFields = [
     metadataPath: ["apiContractCutover", "activation", "appliedAt"],
   },
   {
-    label: "요청 장벽 증빙",
-    metadataPath: ["apiContractCutover", "activation", "barrierEvidence"],
+    label: "Activation 순서 증빙",
+    metadataPath: ["apiContractCutover", "activation", "sequenceEvidence"],
   },
   {
     label: "이전 client bootstrap/upgrade 증빙",
@@ -513,8 +481,8 @@ const apiContractCutoverGateValueFields = [
     metadataPath: ["apiContractCutover", "rollback", "caseIds"],
   },
   {
-    label: "Rollback 요청 장벽 증빙",
-    metadataPath: ["apiContractCutover", "rollback", "barrierEvidence"],
+    label: "Rollback 순서 증빙",
+    metadataPath: ["apiContractCutover", "rollback", "sequenceEvidence"],
   },
   {
     label: "Client rollback 주의 사항",
@@ -568,9 +536,9 @@ export const apiContractCutoverViolationRequiredPaths =
 export const apiContractCutoverViolationFailedRequirements = new Set([
   "consumer-inventory",
   "current-consumer-smoke",
-  "pre-deploy-activation-barrier",
+  "pre-deploy-activation-sequence",
   "old-readable-bootstrap",
-  "deterministic-product-rejection",
+  "previous-consumer-product-case",
   "client-rollback",
 ]);
 
@@ -597,10 +565,6 @@ export function isCommitSha(value) {
 
 export function hasContractsPackageVersion(value) {
   return typeof value === "string" && contractsPackagePattern.test(value);
-}
-
-export function isSubmittedMarkerTag(value) {
-  return typeof value === "string" && submittedMarkerTagPattern.test(value);
 }
 
 export function getRequiredRepoRefsForReleaseScopes(scopeNames) {
