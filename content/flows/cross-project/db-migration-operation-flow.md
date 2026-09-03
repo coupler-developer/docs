@@ -123,6 +123,24 @@ pnpm db:migration status prod
 뒤 apply한다. 마지막 status는 이 source의 pending이 0이어야 한다. 그 뒤 필요한 API 배포와 smoke는
 [API 운영 배포 런북](api-production-deploy-flow.md)을 따른다.
 
+### 구 API와 호환되지 않는 contract migration
+
+기존 API가 읽거나 쓰는 컬럼을 제거하는 migration은 일반적인 `migration 적용 → API 배포` 순서로 실행하지
+않는다. 해당 migration 주석과 리뷰에서 이 조합을 명시한 경우에만 아래 cutover를 적용한다.
+
+1. 제거되는 필드에 의존하지 않는 Admin 등 선행 소비자를 해당 배포 런북으로 먼저 반영하고
+   smoke한다.
+2. 운영의 기존 API 프로세스를 모두 중지하고 중지 상태를 확인한다.
+3. 개발계에 적용한 것과 같은 exact migration source commit에서 `status prod → apply prod → status prod`를
+   실행한다.
+4. 제거된 필드를 읽거나 쓰지 않는 matching API commit을 [API 운영 배포 런북](api-production-deploy-flow.md)으로
+   시작하고 내부·외부 smoke와 로그를 확인한다.
+
+API 중지 후 migration이 실패하면 자동 재실행하거나 불일치 API를 시작하지 않는다. live DB와
+`schema_migrations`를 확인해 적용 지점을 판정한다. 파괴적 contract migration이 성공한 뒤에는 이전 API를 그대로
+시작하는 것을 rollback으로 사용하지 않고, 현재 DB contract와 호환되는 forward fix 또는 별도로 검토·승인한 schema
+복구를 사용한다.
+
 ## 개발자 시뮬레이션
 
 ### 개발 적용 뒤 새 migration이 main에 추가된 경우
@@ -188,3 +206,4 @@ Mac              승인된 운영 SSH 접속 정보       운영 서버 ubuntu �
 
 - [DB Migration 정책](../../policy/db-migration-gate-policy.md)
 - [API 운영 배포 런북](api-production-deploy-flow.md)
+- [Admin 운영 배포 런북](admin-web-production-deploy-flow.md)

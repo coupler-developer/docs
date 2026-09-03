@@ -15,7 +15,9 @@
 
 - 시작 조건: [운영 릴리스 실행 런북](production-deploy-command-runbook.md)의 공통 preflight가 같은 입력으로 `PASS`했고 운영 EC2 접근·package 인증이 준비된 상태
 - 종료 조건: exact commit이 PM2 production 설정으로 실행되고 내부·외부 smoke와 로그 확인이 끝난 상태
-- 제외 범위: DB migration, Admin 정적 artifact, Mobile, 서비스 태그
+- 제외 범위: DB migration, Admin 정적 artifact, Mobile, 서비스 태그. 단, 구 API와 호환되지 않는 contract
+  migration의 중지·적용·재시작 순서는 [DB Migration 실행 런북](db-migration-operation-flow.md)의 해당 절을 먼저
+  따른다.
 
 ## 실행 흐름
 

@@ -115,8 +115,10 @@ flowchart LR
 5. 판정 결과가 회원 생애주기와 단계 스냅샷에 동기화된다.
 6. API와 Admin은 조회 모델을 통해 현재 상태를 읽는다.
 
-정회원 본인 또는 Super Admin의 명시적 프로필 영상 삭제는 영상 참조만 원자적으로 제거하고, 사진과 사진 심사
-상태는 유지한다. 세부 행위와 권한은 [회원 심사 단일 정책](../policy/member-review-policy.md)과
+정회원 본인 또는 Super Admin의 명시적 프로필 영상 삭제는 현재·최신 심사 중 버전의 영상 참조를
+transaction에서 제거하고, 사진과 사진 심사 상태는 유지한다. 같은 transaction에서 남은 참조가 없는
+원본·썸네일 파일을 먼저 삭제한 뒤 커밋하며, 파일 삭제 실패 시 DB 변경을 rollback한다. 세부 행위와 권한은
+[회원 심사 단일 정책](../policy/member-review-policy.md)과
 [보안/접근통제 정책](../policy/security-access-control-policy.md)을 따른다.
 
 현재 전담 클럽매니저 설정과 회원별 필수 인증 정책은 서로 다른 데이터다. 심사 도중 전담 클럽매니저나

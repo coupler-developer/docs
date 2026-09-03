@@ -161,11 +161,25 @@ Mobile에서 심사 제출 전에 적용하는 미디어 선택/Crop 기준은 �
 
 ### 프로필 영상 삭제 계약
 
-- Mobile 정회원 본인 삭제와 기존 CMS 삭제 operation은 서버 내부의 같은 원자적 삭제 명령으로 수렴한다.
+- Mobile 정회원 본인 삭제와 기존 CMS 삭제 operation은 서버 내부의 같은 삭제 operation으로 수렴한다.
   `SPECIAL_MEMBER`는 기존 정책대로 `FULL_MEMBER`와 동일하게 허용한다. 프로필 수정 payload의 `video: ''`를
   삭제 신호로 해석하지 않는다.
-- 삭제 명령은 프로필 버전과 레거시 회원 정보에 남은 영상 참조를 함께 제거한다. 같은 프로필 버전의 사진,
-  사진별 심사 상태와 반려 사유는 변경하지 않는다.
+- DB 삭제 대상은 회원이 참조하는 현재 프로필 버전과 Admin·Mobile이 현재 심사 대상으로 읽는 최신
+  non-normal 버전이다. 두 버전이 가리키는 물리 영상과 같은 파일을 참조하는 해당 회원의 과거 버전도 같은
+  transaction에서 영상 URL·상태·사유를 제거하되, 다른 영상을 가리키는 과거 버전은 변경하지 않는다.
+- 영상의 저장·조회 기준은 `member-review.profile-version`이다. 레거시 회원 영상 컬럼은 contract
+  migration으로 제거하며 삭제 operation의 이중 저장·fallback으로 유지하지 않는다.
+- 같은 DB transaction에서 삭제 후보 경로에 대한 남은 프로필 참조를 다시 확인한다. 참조가 없으면 원본
+  영상과 같은 stem의 JPG 썸네일을 파일시스템에서 즉시 삭제하고, 참조가 남아 있으면 둘 다 유지한다. 파일
+  내용을 덮어쓰거나 변형·이동하지 않는다.
+- 원본과 썸네일이 모두 삭제됐거나 이미 없을 때만 DB transaction을 커밋한다. 삭제할 파일 중 하나라도
+  삭제에 실패하면 transaction을 rollback하고 `MEMBER_PROFILE_VIDEO_DELETE_FAILED`를 반환해 같은 요청을
+  다시 시도할 수 있게 한다. 이 operation을 위한 주기 scanner·worker·outbox·cron 재시도는 두지 않는다.
+- DB와 파일시스템은 단일 원자적 transaction이 아니다. 여러 후보의 원본·썸네일을 순차 삭제하므로 일부
+  파일을 삭제한 뒤 나머지 파일 삭제가 실패할 수 있고, 이때 DB를 rollback해도 이미 삭제된 파일은 복원되지
+  않는다. 파일 삭제 뒤 DB 커밋 실패 또는 프로세스 종료도 같은 잔여 위험을 만든다. 다음 요청은 이미 없는
+  파일을 삭제 성공으로 처리해 남은 파일과 DB 참조를 다시 정리한다.
+- 같은 프로필 버전의 사진, 사진별 심사 상태와 반려 사유는 변경하지 않는다.
 - 진행 중이거나 반려된 사진 심사와 사진 제출 가능 여부는 기존 영상의 삭제 진입을 막지 않는다. 영상 삭제와
   함께 제출 가능한 사진 변경이 있으면 삭제 성공 뒤 사진 변경만 별도 심사 명령으로 처리한다.
 - 삭제 전 영상 심사 상태가 집계에 영향을 주던 프로필 버전은 남은 사진 상태만으로 집계 상태를 다시 계산한다.
@@ -336,6 +350,8 @@ CMS 회원정보 저장은 닉네임처럼 필수 인증과 무관한 필드를 
 
 - `POST /app/member/request-review/auth`
 - `POST /app/member/deleteAuth`
+- `DELETE /app/member/profile/video`
+- `DELETE /admin/member/deleteVideo/{id}`
 
 응답 계약:
 
@@ -356,6 +372,7 @@ CMS 회원정보 저장은 닉네임처럼 필수 인증과 무관한 필드를 
 | --- | --- | --- | --- |
 | `MEMBER` | `MEMBER_AUTH_REVIEW_REQUIRED_AUTH_DELETE_FORBIDDEN` | `FIX_REQUEST` | `{}` |
 | `MEMBER` | `MEMBER_AUTH_REVIEW_REQUIRED_AUTH_MANAGER_PROFILE_MISSING` | `CONTACT_SUPPORT` | `{}` |
+| `MEMBER` | `MEMBER_PROFILE_VIDEO_DELETE_FAILED` | `RETRY` | `{}` |
 
 `member_id`, `manager_id`, `required_auth_types` 같은 내부 식별자와 진단값은 서버 로그에만 남기고 public `ErrorData.error_context`에는 넣지 않는다.
 
