@@ -316,6 +316,22 @@
 - 완료: 지원 소비자가 `pinned`를 사용하고 이전 소비자의 bootstrap·업데이트 경로와
   deterministic-rejection case가 검증됐으며, Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
 
+## 36) App 매니저 이미지 legacy wire 호환 제거 대기 `P1` `L`
+
+- 현상: Store 2.5.0 Mobile은 클럽 선택 목록의 `profile`과 상세의
+  `detail_profile_set.slices[].image_url`을 읽지만, 운영 API `v2.5.4`는 신규 2.5.1 계약인
+  `profile_image_path`와 `detail_profile`만 반환해 기존 앱의 썸네일·상세 이미지가 표시되지 않았다. 현재 DB 이미지
+  경로와 파일은 정상이며, 별도 forward-fix 릴리스에서 실제 구 소비 필드만 additive 호환으로 복구한다.
+- 영향: 호환 필드 없이 2.5.1 출시를 기다리면 현재 Store·Production NextPush 소비자의 클럽 선택 화면이 계속
+  깨지고, 반대로 근거 없이 호환 필드를 제거하면 업데이트를 받지 못한 이전 소비자에서 같은 문제가 재발한다.
+- 조치: additive contracts `0.1.42` forward-fix의 exact API commit·운영 배포와 2.5.0·2.5.1 목록/상세 이미지
+  case를 먼저 검증한다. 2.5.1 Store 활성화 뒤에는 라운지 `best` 제거와 같은 별도 `API cutover: Yes` 릴리스에서
+  Store·NextPush 소비자 inventory, bootstrap/update 경로와 제품 REST case를 고정하고 Swagger·generated
+  contract·App presenter의 `profile`·`detail_profile_set` 호환을 함께 제거한다.
+- 완료: 지원 소비자가 `profile_image_path`와 `detail_profile`만 사용하고 이전 소비자의 업데이트 경로와
+  deterministic-rejection 또는 비진입 case가 검증됐으며, App 매니저 공개 응답·Swagger·generated contract의
+  `profile`·`detail_profile_set` legacy 호환이 0건인 상태.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.
