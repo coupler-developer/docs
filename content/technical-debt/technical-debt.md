@@ -231,20 +231,7 @@
 - 조치: 알림 intent outbox와 멱등 key·시도 상태·재시도/격리 정책을 정의하고 기존 `t_alarm` 의미와 중복 없이 worker가 처리하도록 전환한 뒤 provider 실패·process crash·중복 실행을 검증한다.
 - 완료: 상태 commit과 알림 intent가 원자적으로 기록되고, provider 실패·process crash 뒤 재시도와 중복 억제·운영 관측·격리/재처리 smoke 통과.
 
-## 29) Apple 팀 이전 회원 `sub` 단건 이관 대기 `P1` `S`
-
-- 현상: 팀 이전 영향 대상 Apple 회원 1명은 운영에 이전 팀 `sub`를 보유하고, 신규 팀 `sub` 전용 조회 변경은
-  API `main`에 병합됐지만 미배포다.
-- 영향: 이관 없이 API를 배포하면 새 팀 `sub`로 기존 계정을 찾지 못해 가입 흐름으로 진입한다.
-- 조치: 다음 API 운영 릴리스의 최종 API 배포 직전,
-  [Apple TN3159](https://developer.apple.com/documentation/technotes/tn3159-migrating-sign-in-with-apple-users-for-an-app-transfer)에
-  따라 교환한 신규 팀 `sub`와 승인된 대상 식별자를 실행 입력으로 전달하고
-  [DB migration](../policy/db-migration-gate-policy.md)으로 해당 회원 한 행에 반영한다. 기존값 조건·사전
-  backup·transaction·영향 행 1건·중복 0건·사후 조회 중 하나라도 실패하면 rollback하고 배포를 중단한다.
-- 완료: 단건 이관과 최종 API 배포 후 기존 회원 ID 로그인·신규 Apple 가입·재실행 자동 로그인의 운영 smoke가
-  릴리스 기록에 남은 상태.
-
-## 30) 미반영 Apple 결제 복구 대기 `P1` `M`
+## 29) 미반영 Apple 결제 복구 대기 `P1` `M`
 
 - 현상: 복구 대상 Apple 거래 1건이 Store에만 있고 운영 결제·Key 원장과 지급 결과에는 반영되지 않았다.
 - 영향: 구매 상품의 Key가 미지급 상태이며, 원거래 식별자 없는 수동 지급은 거래 재전송 시 중복 지급을 만들
@@ -255,7 +242,7 @@
 - 완료: 원 거래 ID 기준 결제 원장 1건·Key 원장 1건과 상품 계약에 맞는 잔액 증가,
   `finishTransaction` 완료와 동일 거래 재전송 시 추가 지급 0건이 릴리스 기록에 남은 상태.
 
-## 31) 매칭 환불 실차감 조회와 환불 트랜잭션 경계 분리 `P1` `S`
+## 30) 매칭 환불 실차감 조회와 환불 트랜잭션 경계 분리 `P1` `S`
 
 - 현상: 남성이 여성 사진 프로필을 열람할 때의 실차감 스냅샷과 열람 여부를 환불 트랜잭션 밖에서 조회한
   뒤, 계산한 금액을 환불 트랜잭션에 전달한다.
@@ -266,7 +253,7 @@
 - 완료: 모든 남성 환불 경로가 `match -> member` 잠금 순서와 같은 환불 helper를 사용하고, 열람과 환불의 두
   실행 순서를 검증하는 실제 transaction 경쟁 테스트에서 과소·중복 환불이 0건인 상태.
 
-## 32) 환불 완료된 매칭의 유료 프로필 사진 신규 열람 서버 차단 미완료 `P1` `S`
+## 31) 환불 완료된 매칭의 유료 프로필 사진 신규 열람 서버 차단 미완료 `P1` `S`
 
 - 현상: 일반 유료 프로필 사진의 최초 열람 요청과 열람 상태 UPDATE가 환불 완료 상태를 거부하는 서버 조건을
   갖지 않는다.
@@ -277,14 +264,14 @@
 - 완료: 환불 완료 상태에서 새로운 프로필 열람 상태 전이와 Key 차감이 0건이고, 환불과 열람의 두 실행
   순서를 검증하는 실제 transaction 경쟁 테스트가 통과한 상태.
 
-## 33) match2Day 운영 scheduler 주기 드리프트 `P2` `L`
+## 32) match2Day 운영 scheduler 주기 드리프트 `P2` `L`
 
 - 현상: 운영 root crontab의 `match2Day` 표현이 `*,30 * * * *`이어서 30분 기준과 달리 매분 API를 호출한다.
 - 영향: 불필요한 호출과 DB 조회가 반복되고, 문서의 기준 주기와 운영 실행이 일치하지 않는다.
 - 조치: 운영 root crontab을 매시 00·30분 표현으로 교체하고 다음 두 예약 실행의 cron 로그와 비식별화한 처리 결과를 확인한다.
 - 완료: 운영 root crontab과 [Cron 작업](../architecture/cron-jobs.md)의 30분 기준이 일치하고 연속 두 예약 실행 사이 추가 호출이 없는 상태.
 
-## 34) 매칭 후보 조회의 DB row·조건 모델 타입 경계 미완료 `P2` `S`
+## 33) 매칭 후보 조회의 DB row·조건 모델 타입 경계 미완료 `P2` `S`
 
 - 현상: 매칭 예약 후보 조회가 DB 회원 row를 `Record<string, unknown>`으로 전달하고, 다수의 `unknown` 위치 인자와
   controller·model의 개별 변환으로 후보 범위와 선호 점수 조건을 조립한다. 이는 공개 API success DTO가 아니라
@@ -300,30 +287,7 @@
   점수 계산의 criteria 공유, 후보 조회의 `unknown` 위치 인자 0건을 달성하고 nullable·유효 범위·비정상 row·인자
   오배치 회귀 테스트가 통과한다.
 
-<a id="35-best-wire-p1-l"></a>
-<a id="35-lounge-pinned-operational-cutover"></a>
-
-## 35) 라운지 pinned 운영 cutover 대기 `P1` `L`
-
-- 현상: API·contracts package·Admin·Mobile의 source main은 `pinned` 단일 공개 계약으로 전환됐지만, 운영
-  반영과 이전 소비자의 current-API case, smoke, rollback 증빙은 아직 릴리스 범위에서 확인되지 않았다.
-- 영향: API와 Admin의 운영 반영 순서가 어긋나면 이전 Admin의 고정글 mutation이 실패한다. 이전 Mobile은
-  목록·상세를 계속 읽을 수 있지만 새 필드를 사용하지 못해 고정글 표시가 사라진다.
-- 조치: 다음 운영 릴리스에서 [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 `contract cutover`와
-  `운영 legacy cutover`,
-  [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)를 적용한다.
-  release-scoped 소비자와 REST·WebSocket·bootstrap·version interface exact set을 고정하고, 현행 Admin의
-  목록 설정·해제와 상세 저장, Admin·Mobile의 목록·상세 `pinned` 응답을 smoke한다. 이전 Mobile의 라운지
-  목록·내 목록·상세 조회는 성공하되 핀 표시가 없는 결과를 허용하고, 이전 Admin의 목록·상세 조회와 제거된
-  mutation은 각각 핀 표시 없는 성공과 일반 route-not-found/request validation 결과가 맞는지 확인한다.
-  운영 반영과 client rollback을 검증하되 별도 blocker, 차단 endpoint, 호환 endpoint, version 분기는 만들지
-  않는다.
-- 완료: 현행 API·Admin 운영 반영과 `pinned` 계약 smoke가 성공하고 이전 Mobile·Admin current-API case와
-  rollback 결과가 릴리스 기록의 expected와 일치한다. 활성 source와 현행 계약·architecture·flow 문서에는
-  제거된 endpoint·필드·adapter·projection이 없으며, 역사적 사실을 보존하는 불변 release 기록과 migration
-  이력은 제거 대상에서 제외한다.
-
-## 36) App 매니저 관리 쓰기 API 회원 인가 미분리 `P1` `M`
+## 34) App 매니저 관리 쓰기 API 회원 인가 미분리 `P1` `M`
 
 - 현상: `coupler-api`의 `POST /app/manager/save`와 `DELETE /app/manager/:id`는 Mobile 회원 JWT를 검증하는
   `auth.private`와 회원 상태 차단만 적용한다. Controller는 로그인 회원과 요청의 매니저 ID 사이 권한 관계를

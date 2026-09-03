@@ -36,6 +36,71 @@ afterEach(() => {
 });
 
 describe("validate release records metadata sync", () => {
+  it("rejects Markdown, HTML, and encoded links to mutable technical debt", () => {
+    for (const verificationNote of [
+      "[가변 기술부채](../technical-debt/technical-debt.md#pending-follow-up)에서 추적한다.",
+      "[가변 기술부채][debt]에서 추적한다.\n\n[debt]: ../technical-debt/technical-debt.md?view=current#pending-follow-up",
+      '<a href="../technical-debt/technical-debt.md#pending-follow-up">가변 기술부채</a>에서 추적한다.',
+      '<a title=">" href="../technical-debt/technical-debt.md#pending-follow-up">가변 기술부채</a>에서 추적한다.',
+      '<a href="../technical&#45;debt/technical-debt.md#pending-follow-up">가변 기술부채</a>에서 추적한다.',
+      "[가변 기술부채](..%2Ftechnical-debt%2Ftechnical-debt.md%23pending-follow-up)에서 추적한다.",
+      "[가변 기술부채](../policy%23/../technical-debt/technical-debt.md)에서 추적한다.",
+    ]) {
+      writeReleaseRecord({
+        apiContractCutover: null,
+        includeCutoverGate: false,
+        verificationNote,
+      });
+
+      const result = runValidator();
+
+      assert.notEqual(result.status, 0, verificationNote);
+      assert.match(
+        result.stderr,
+        /릴리스 기록은 가변 기술부채 문서를 새로 링크할 수 없습니다/,
+      );
+    }
+  });
+
+  it("allows a new release record to link to a stable policy", () => {
+    writeReleaseRecord({
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      verificationNote:
+        "[릴리스 프로세스](../policy/release-process.md), [외부 기술부채 참고](https://example.com/technical-debt/reference), [다른 경로](../technical-debt%3Farchive/policy.md)를 사용한다.",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("allows technical-debt paths that are not links", () => {
+    writeReleaseRecord({
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      verificationNote:
+        "링크가 아닌 경로 ../technical-debt/technical-debt.md와 코드 `../technical-debt/technical-debt.md`를 설명한다.",
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
+  it("does not treat href text inside another HTML attribute as a link", () => {
+    writeReleaseRecord({
+      apiContractCutover: null,
+      includeCutoverGate: false,
+      verificationNote:
+        '<a data-note="href=\'../technical-debt/technical-debt.md\'">설명</a>',
+    });
+
+    const result = runValidator();
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
   it("accepts a new DB migration scope without plan or execution artifacts", () => {
     writeReleaseRecord({
       releaseStatus: "pending",
@@ -383,6 +448,43 @@ describe("published release record immutability", () => {
     assert.match(result.stdout, /릴리스 기록 검증 통과/);
   });
 
+  it("rejects a new technical-debt link in an allowed published finalization field", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase();
+    finalizePublishedDocsRecord();
+    const releasePath = path.join(tempRoot, "content", "releases", "v9.9.0.md");
+    const source = fs.readFileSync(releasePath, "utf8");
+    fs.writeFileSync(
+      releasePath,
+      source.replace(
+        "- 기록 복구: published pending record terminalized",
+        "- 기록 복구: [가변 기술부채](../technical-debt/technical-debt.md#pending-follow-up)",
+      ),
+    );
+
+    const result = runValidator(baseRef);
+
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /릴리스 기록은 가변 기술부채 문서를 새로 링크할 수 없습니다/,
+    );
+    assert.doesNotMatch(result.stderr, /final and immutable/);
+  });
+
+  it("allows an allowed published finalization to retain a legacy technical-debt link", () => {
+    initGitRepository();
+    const baseRef = writePublishedPendingDocsFinalizationBase({
+      verificationNote:
+        "[기존 기술부채](../technical-debt/technical-debt.md#legacy-follow-up)를 참조한다.",
+    });
+    finalizePublishedDocsRecord();
+
+    const result = runValidator(baseRef);
+
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+
   it("rejects a published pending finalization that changes non-docs evidence", () => {
     initGitRepository();
     const baseRef = writePublishedPendingDocsFinalizationBase();
@@ -543,9 +645,12 @@ describe("published release record immutability", () => {
     assert.match(result.stderr, /new DB migration evidence artifacts are not allowed/);
   });
 
-  it("does not parse or revalidate an unchanged release record already present at base", () => {
+  it("keeps a legacy technical-debt link opaque in an unchanged published release", () => {
     initGitRepository();
-    writeOpaqueRelease("v1.0.0.md", "historical bytes are intentionally opaque\n");
+    writeOpaqueRelease(
+      "v1.0.0.md",
+      "[legacy debt](../technical-debt/technical-debt.md#retired)\n",
+    );
     commitAll("published release");
     const baseRef = git(["rev-parse", "HEAD"]);
 
@@ -744,7 +849,9 @@ function assertImmutableReleaseFailure(result) {
   );
 }
 
-function writePublishedPendingDocsFinalizationBase() {
+function writePublishedPendingDocsFinalizationBase({
+  verificationNote = "DB migration source verified",
+} = {}) {
   writeReleaseRecord({
     releaseStatus: "pending",
     apiContractCutover: null,
@@ -765,7 +872,7 @@ function writePublishedPendingDocsFinalizationBase() {
     markdownDocsCommit: "N/A",
     pendingScopeLine: "docs final record merge",
     scopeTargetLine: "`docs`, `coupler-api`",
-    verificationNote: "DB migration source verified",
+    verificationNote,
   });
   rewriteReleaseMetadata((metadata) => {
     metadata.versionMapping.docs.tag = "v9.9.0";

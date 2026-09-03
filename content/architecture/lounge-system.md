@@ -309,10 +309,6 @@ type CommentParentRef =
   migration은 사용하지 않는다.
 - 물리 컬럼은 이미 `pinned`로 전환됐다. 과거 rename과 운영 적용 사실은 append-only migration과 불변 릴리스
   기록에 보존하며 현행 구조에 호환 컬럼을 다시 만들지 않는다.
-- source 계약 전환 뒤 남은 운영 반영·이전 소비자 case·smoke·rollback 증빙은
-  [라운지 pinned 운영 cutover 대기](../technical-debt/technical-debt.md#35-lounge-pinned-operational-cutover)에서
-  추적한다. 이 추적은 별도 blocker나 호환 endpoint를 요구하지 않는다.
-
 CMS 라운지 목록·댓글·상세·신고 목록도 같은 contracts package의 operation DTO를 직접 사용한다.
 게시글/댓글 신고 목록 row는 `report_status`와 콘텐츠 상태를 구분하고, `reporter`, `target`,
 `post` 또는 `comment`로 중첩한다. DB 조회 결과의 flat alias는 API canonical mapper 밖으로

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import MarkdownIt from "markdown-it";
 import {
   findReleasePlaceholderSignals,
   knownRepoNames,
@@ -30,6 +31,7 @@ import {
 } from "./release-record-parser.mjs";
 const docsRoot = process.cwd();
 const releasesRoot = path.join(docsRoot, "content", "releases");
+const markdownParser = new MarkdownIt({ html: true });
 const releaseRecordPattern = /^content\/releases\/v\d+\.\d+\.\d+\.md$/;
 const dbMigrationEvidencePattern =
   /^content\/releases\/evidence\/db-migrations\/(v\d+\.\d+\.\d+)(?:\/|$)/;
@@ -74,15 +76,21 @@ if (fs.existsSync(releasesRoot)) {
 
     const tag = entry.name.replace(/\.md$/, "");
     const relativePath = path.posix.join("content", "releases", entry.name);
+    const publishedAtBase = Boolean(
+      baseRef && gitObjectExists(`${baseRef}:${relativePath}`),
+    );
     if (
-      baseRef &&
-      gitObjectExists(`${baseRef}:${relativePath}`) &&
+      publishedAtBase &&
       !publishedReleaseFinalizationPaths.has(relativePath)
     ) {
       continue;
     }
     const absolutePath = path.join(releasesRoot, entry.name);
     const source = fs.readFileSync(absolutePath, "utf8");
+    const baseSource = publishedAtBase
+      ? git(["show", `${baseRef}:${relativePath}`])
+      : null;
+    validateNoNewTechnicalDebtLinks(relativePath, source, baseSource, errors);
     validateReleaseRecord(relativePath, source, tag, errors);
   }
 }
@@ -150,6 +158,171 @@ function validateReleaseRecord(relativePath, source, tag, errors) {
   validateApiContractCutoverGate(relativePath, source, releaseStatus, metadata, errors);
   validateListSection(relativePath, source, "롤백 기준", /^- /, errors);
   return metadata;
+}
+
+function validateNoNewTechnicalDebtLinks(relativePath, source, baseSource, errors) {
+  const baseTargetCounts = new Map();
+  for (const { target } of extractTechnicalDebtLinks(relativePath, baseSource ?? "")) {
+    baseTargetCounts.set(target, (baseTargetCounts.get(target) ?? 0) + 1);
+  }
+
+  const invalidLinks = new Set();
+  for (const { href, target } of extractTechnicalDebtLinks(relativePath, source)) {
+    const remainingBaseCount = baseTargetCounts.get(target) ?? 0;
+    if (remainingBaseCount > 0) {
+      baseTargetCounts.set(target, remainingBaseCount - 1);
+    } else {
+      invalidLinks.add(href);
+    }
+  }
+
+  for (const href of invalidLinks) {
+    errors.push(
+      `${relativePath}: 릴리스 기록은 가변 기술부채 문서를 새로 링크할 수 없습니다: ${href}. 후속 범위와 완료 조건을 본문에 직접 기록하세요.`,
+    );
+  }
+}
+
+function extractTechnicalDebtLinks(relativePath, source) {
+  const links = [];
+  for (const token of markdownParser.parse(source, {})) {
+    for (const child of token.children ?? []) {
+      if (child.type === "link_open") {
+        appendTechnicalDebtLink(links, relativePath, child.attrGet("href"));
+      } else if (child.type === "html_inline") {
+        appendHtmlTechnicalDebtLinks(links, relativePath, child.content);
+      }
+    }
+    if (token.type === "html_block") {
+      appendHtmlTechnicalDebtLinks(links, relativePath, token.content);
+    }
+  }
+  return links;
+}
+
+function appendHtmlTechnicalDebtLinks(links, relativePath, html) {
+  const withoutComments = html.replace(/<!--[\s\S]*?-->/g, "");
+  const anchorStartPattern = /<a(?=[\s/>])/gi;
+  for (const match of withoutComments.matchAll(anchorStartPattern)) {
+    const tagEnd = findHtmlTagEnd(withoutComments, match.index + match[0].length);
+    if (tagEnd === -1) {
+      continue;
+    }
+    const tag = withoutComments.slice(match.index + match[0].length, tagEnd);
+    for (const href of readHtmlAttributeValues(tag, "href")) {
+      appendTechnicalDebtLink(links, relativePath, href);
+    }
+  }
+}
+
+function findHtmlTagEnd(html, start) {
+  let quote = null;
+  for (let index = start; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      }
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === ">") {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function readHtmlAttributeValues(tag, expectedName) {
+  const values = [];
+  let cursor = 0;
+
+  while (cursor < tag.length) {
+    while (/\s|\//.test(tag[cursor] ?? "")) {
+      cursor += 1;
+    }
+    if (cursor >= tag.length) {
+      break;
+    }
+    const nameStart = cursor;
+    while (cursor < tag.length && !/[\s=/>]/.test(tag[cursor])) {
+      cursor += 1;
+    }
+    const name = tag.slice(nameStart, cursor).toLowerCase();
+    while (/\s/.test(tag[cursor] ?? "")) {
+      cursor += 1;
+    }
+    if (tag[cursor] !== "=") {
+      continue;
+    }
+    cursor += 1;
+    while (/\s/.test(tag[cursor] ?? "")) {
+      cursor += 1;
+    }
+
+    const quote = tag[cursor] === '"' || tag[cursor] === "'"
+      ? tag[cursor]
+      : null;
+    if (quote) {
+      cursor += 1;
+    }
+    const valueStart = cursor;
+    while (
+      cursor < tag.length &&
+      (quote ? tag[cursor] !== quote : !/[\s>]/.test(tag[cursor]))
+    ) {
+      cursor += 1;
+    }
+    const value = tag.slice(valueStart, cursor);
+    if (quote && tag[cursor] === quote) {
+      cursor += 1;
+    }
+    if (name === expectedName) {
+      values.push(markdownParser.utils.unescapeAll(value));
+    }
+  }
+
+  return values;
+}
+
+function appendTechnicalDebtLink(links, relativePath, href) {
+  const target = resolveTechnicalDebtTarget(relativePath, href);
+  if (target) {
+    links.push({ href, target });
+  }
+}
+
+function resolveTechnicalDebtTarget(relativePath, href) {
+  if (!href) {
+    return null;
+  }
+
+  let baseUrl;
+  let targetUrl;
+  try {
+    baseUrl = new URL(`https://docs.invalid/${relativePath}`);
+    targetUrl = new URL(markdownParser.utils.unescapeAll(href), baseUrl);
+  } catch {
+    return null;
+  }
+  if (targetUrl.origin !== baseUrl.origin) {
+    return null;
+  }
+
+  let decodedPath = targetUrl.pathname;
+  try {
+    decodedPath = decodeURIComponent(targetUrl.pathname);
+  } catch {
+    // Invalid link encoding is handled by the documentation build.
+  }
+  const targetPath = path.posix.normalize(decodedPath);
+  const targetsTechnicalDebt = targetPath === "/content/technical-debt" ||
+    targetPath.startsWith("/content/technical-debt/") ||
+    targetPath === "/technical-debt" ||
+    targetPath.startsWith("/technical-debt/");
+
+  return targetsTechnicalDebt
+    ? `${targetPath}${targetUrl.search}${targetUrl.hash}`
+    : null;
 }
 
 function readReleaseMetadata(relativePath, source, tag, errors) {
