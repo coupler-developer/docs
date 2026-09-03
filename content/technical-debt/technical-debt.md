@@ -305,6 +305,17 @@
   route·Swagger·계약·소비 코드가 0건이고 공개 목록·상세 조회 계약은 유지되며, 감사 기록과 API·Admin·Mobile
   적용 품질 게이트를 통과한 상태.
 
+## 35) 라운지 best wire 호환 제거 대기 `P1` `L`
+
+- 현상: DB·Admin·신 Mobile의 canonical 고정글 계약은 `pinned`지만, 2.5.0 Mobile 지원을 위해
+  App 라운지 목록·상세 응답에 `best = pinned` 필드를 함께 내린다.
+- 영향: `best`를 근거 없이 제거하면 NextPush를 받지 못한 2.5.0 소비자의 고정글 표시가 사라진다.
+- 조치: 2.5.1 Store·NextPush 활성화 후 release-scoped 소비자 inventory와 이전 소비자의
+  current-API case를 고정하고, 이전 소비자에게 읽을 수 있는 업데이트 경로를 유지한 채 별도
+  `API cutover: Yes` 절차로 Swagger·generated contract·App presenter의 `best`를 함께 제거한다.
+- 완료: 지원 소비자가 `pinned`를 사용하고 이전 소비자의 bootstrap·업데이트 경로와
+  deterministic-rejection case가 검증됐으며, Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
+
 ## 분리 관리
 
 - [Firebase Apple SDK CocoaPods 마이그레이션](firebase-apple-sdk-cocoapods-migration-plan.md): CocoaPods 종료 대응, Xcode 26 release gate, Analytics 사용 여부.

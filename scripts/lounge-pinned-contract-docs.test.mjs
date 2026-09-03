@@ -28,7 +28,7 @@ const retiredContractPatterns = [
     /lounge-pinned-boundary/u,
 ];
 
-function assertPinnedOnlyCurrentDocs(architecture, policy) {
+function assertPinnedCanonicalCurrentDocs(architecture, policy) {
     const currentDocs = `${architecture}\n${policy}`;
     for (const retiredPattern of retiredContractPatterns) {
         assert.doesNotMatch(currentDocs, retiredPattern);
@@ -37,12 +37,14 @@ function assertPinnedOnlyCurrentDocs(architecture, policy) {
     assert.match(architecture, /\/admin\/lounge\/pinned/u);
     assert.match(architecture, /AdminLoungePinnedRequest\.pinned/u);
     assert.match(architecture, /AdminLoungeSaveRequest\.pinned/u);
+    assert.match(architecture, /`best = pinned`/u);
+    assert.match(architecture, /2\.5\.0 Mobile bundle/u);
     assert.match(policy, /\/admin\/lounge\/pinned/u);
     assert.match(policy, /\/admin\/lounge\/save`의 `pinned/u);
 }
 
-test("current lounge contract docs expose only the pinned contract", () => {
-    assertPinnedOnlyCurrentDocs(loungeArchitecture, pushPolicy);
+test("current lounge contract keeps pinned canonical with the Mobile best response", () => {
+    assertPinnedCanonicalCurrentDocs(loungeArchitecture, pushPolicy);
 });
 
 test("the closest retired route fixture is rejected", () => {
@@ -52,6 +54,6 @@ test("the closest retired route fixture is rejected", () => {
     );
 
     assert.throws(() =>
-        assertPinnedOnlyCurrentDocs(retiredRouteFixture, pushPolicy),
+        assertPinnedCanonicalCurrentDocs(retiredRouteFixture, pushPolicy),
     );
 });
