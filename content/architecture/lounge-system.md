@@ -283,20 +283,24 @@ type CommentParentRef =
 
 - 제품·도메인·화면과 공개 wire의 canonical 식별자는 `pinned`, 사용자 용어는 `고정글`이다. 저장 컬럼도
   `t_lounge.pinned`를 사용한다.
-- API Swagger와 generated contracts package는 Admin·Mobile 목록·상세 응답,
-  `AdminLoungeSaveRequest.pinned`, `AdminLoungePinnedRequest.pinned`를 직접 노출한다. API controller와 조회
-  projection은 같은 이름을 유지하며 별도 wire mapper나 alias를 두지 않는다.
+- API Swagger와 generated contracts package의 Mobile 목록·상세 응답은 canonical `pinned`와 2.5.0
+  Mobile 호환 필드 `best`를 필수로 노출하며 두 값은 항상 같다. DB·query source는 `pinned`
+  하나만 유지하고 App 응답 presenter에서만 `best = pinned`를 추가한다.
+- Admin 목록·상세 응답과 `AdminLoungeSaveRequest.pinned`, `AdminLoungePinnedRequest.pinned`,
+  `/admin/lounge/pinned`는 `pinned`만 사용하며 `best` 입력·route 호환을 두지 않는다.
 - Admin은 generated DTO를 직접 사용한다. 상세의 고정글 선택은 `/admin/lounge/save`의 `pinned`로 다른
   편집 값과 함께 한 번에 저장하며 type 40 알림을 만들지 않는다. 목록의 설정·해제는
   `/admin/lounge/pinned`와 `AdminLoungePinnedRequest.pinned`를 사용한다.
 - `/admin/lounge/pinned`에서 정상 게시글이 실제 `N → Y`로 전이할 때만 type 40 알림 intent를 저장한다.
   해제와 중복 설정은 알림을 만들지 않는다.
-- 제거한 endpoint·필드·adapter·projection을 위한 별도 차단 endpoint, 호환 alias, version 분기는 두지 않는다.
+- Mobile `best` 응답 호환의 제거는 [기술 부채 정리](../technical-debt/technical-debt.md)의
+  `라운지 Mobile best 응답 호환 제거 대기`에서 지원 소비자·Exit Gate와 함께 추적한다.
 
 ### 이전 Mobile bundle과 운영 반영
 
-- 이전 Mobile bundle도 `/lounge/list`, `/lounge/myList`, `/lounge/detail`의 성공 응답을 계속 읽을 수 있다.
-  새 `pinned` 필드를 사용하지 못하는 세대에서는 고정글 표시만 사라지는 기능 저하를 허용한다.
+- 2.5.0 Mobile bundle은 `/lounge/list`, `/lounge/myList`, `/lounge/detail`의 `best`를 읽고, 2.5.1
+  Mobile bundle은 같은 응답의 `pinned`를 읽는다. API는 두 필드를 같은 값으로 응답하여
+  Store·NextPush 적용 시점에 의존하지 않고 두 소비자를 동시에 지원한다.
 - 이전 Admin은 목록·상세 조회에서 고정 상태를 표시하지 못할 수 있으며, 제거된 고정글 mutation은 일반
   route-not-found 또는 request validation 실패로 끝난다. 별도 차단 응답 계약은 만들지 않는다.
 - `/lounge/list?category=1`의 legacy 의미만 고정글 필터이며 내부에서 `pinned = 'Y'`로 처리한다. 현행 신 Mobile
