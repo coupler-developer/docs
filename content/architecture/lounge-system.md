@@ -294,7 +294,7 @@ type CommentParentRef =
 - `/admin/lounge/pinned`에서 정상 게시글이 실제 `N → Y`로 전이할 때만 type 40 알림 intent를 저장한다.
   해제와 중복 설정은 알림을 만들지 않는다.
 - Mobile `best` 응답 호환의 제거는 [기술 부채 정리](../technical-debt/technical-debt.md)의
-  `라운지 Mobile best 응답 호환 제거 대기`에서 지원 소비자·Exit Gate와 함께 추적한다.
+  `라운지 best wire 호환 제거 대기`에서 지원 소비자·Exit Gate와 함께 추적한다.
 
 ### 이전 Mobile bundle과 운영 반영
 
