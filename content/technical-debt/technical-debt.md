@@ -307,30 +307,32 @@
 
 ## 35) 라운지 best wire 호환 제거 대기 `P1` `L`
 
-- 현상: DB·Admin·신 Mobile의 canonical 고정글 계약은 `pinned`지만, 2.5.0 Mobile 지원을 위해
-  App 라운지 목록·상세 응답에 `best = pinned` 필드를 함께 내린다.
-- 영향: `best`를 근거 없이 제거하면 NextPush를 받지 못한 2.5.0 소비자의 고정글 표시가 사라진다.
-- 조치: 2.5.1 Store·NextPush 활성화 후 release-scoped 소비자 inventory와 이전 소비자의
-  current-API case를 고정하고, 이전 소비자에게 읽을 수 있는 업데이트 경로를 유지한 채 별도
-  `API cutover: Yes` 절차로 Swagger·generated contract·App presenter의 `best`를 함께 제거한다.
-- 완료: 지원 소비자가 `pinned`를 사용하고 이전 소비자의 bootstrap·업데이트 경로와
-  deterministic-rejection case가 검증됐으며, Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
+- 현상: DB·Admin·신 Mobile의 canonical 고정글 계약은 `pinned`지만, 기존 2.5.0 Mobile이 소비하는
+  App 라운지 목록·상세 응답에는 `best = pinned` 필드가 함께 남아 있다.
+- 영향: 호환 필드를 제거한 응답을 기존 2.5.0이 직접 받으면 고정글 표시가 사라진다. 공통 시작·복귀 업데이트
+  검사의 NextPush 배포 대상은 2.5.1이므로 해당 수정을 기존 2.5.0에도 적용한 것으로 보지 않는다.
+- 조치: 2026-09-05 출시 책임자 결정에 따라 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
+  [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)의 후보를 재사용해 소비자 계약 pin 정렬,
+  업데이트 경로와 변경된 제품 요청의 결과를 고정하고, 매니저 이미지 호환 제거와 함께 해당 버전 출시 전에 완료한다.
+  이번 2.5.1 PR 종료와는 분리하며 기준 증빙은 [출시 기록 후보 PR #211](https://github.com/coupler-developer/docs/pull/211)에 보존한다.
+- 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 신규 소비자의
+  `pinned` 동작, 이전 소비자의 업데이트 경로와 제품 요청의 허용 결과 또는 명확한 거부 결과가 검증되고,
+  Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
+  단순 버전 상승이나 모든 구버전 요청 0건을 완료 조건으로 대신하지 않는다.
 
 ## 36) App 매니저 이미지 legacy wire 호환 제거 대기 `P1` `L`
 
-- 현상: Store 2.5.0 Mobile은 클럽 선택 목록의 `profile`과 상세의
-  `detail_profile_set.slices[].image_url`을 읽지만, 운영 API `v2.5.4`는 신규 2.5.1 계약인
-  `profile_image_path`와 `detail_profile`만 반환해 기존 앱의 썸네일·상세 이미지가 표시되지 않았다. 현재 DB 이미지
-  경로와 파일은 정상이며, 별도 forward-fix 릴리스에서 실제 구 소비 필드만 additive 호환으로 복구한다.
-- 영향: 호환 필드 없이 2.5.1 출시를 기다리면 현재 Store·Production NextPush 소비자의 클럽 선택 화면이 계속
-  깨지고, 반대로 근거 없이 호환 필드를 제거하면 업데이트를 받지 못한 이전 소비자에서 같은 문제가 재발한다.
-- 조치: additive contracts `0.1.42` forward-fix의 exact API commit·운영 배포와 2.5.0·2.5.1 목록/상세 이미지
-  case를 먼저 검증한다. 2.5.1 Store 활성화 뒤에는 라운지 `best` 제거와 같은 별도 `API cutover: Yes` 릴리스에서
-  Store·NextPush 소비자 inventory, bootstrap/update 경로와 제품 REST case를 고정하고 Swagger·generated
-  contract·App presenter의 `profile`·`detail_profile_set` 호환을 함께 제거한다.
-- 완료: 지원 소비자가 `profile_image_path`와 `detail_profile`만 사용하고 이전 소비자의 업데이트 경로와
-  deterministic-rejection 또는 비진입 case가 검증됐으며, App 매니저 공개 응답·Swagger·generated contract의
-  `profile`·`detail_profile_set` legacy 호환이 0건인 상태.
+- 현상: 현재 운영 API는 canonical `profile_image_path`·`detail_profile`과 함께 기존 2.5.0이 소비하는
+  `profile`·`detail_profile_set.slices[].image_url`을 additive 호환으로 제공한다. 남은 작업은 이 호환 필드의 제거다.
+- 영향: 호환 필드를 제거한 응답을 기존 앱이 직접 받으면 클럽 선택 목록·상세 이미지가 표시되지 않는다.
+  2.5.1 대상 NextPush의 공통 업데이트 검사를 기존 2.5.0 요청 차단 증빙으로 사용하면 같은 혼선이 반복된다.
+- 조치: 라운지 `best`와 동일한 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
+  [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)에서 API·Admin·Mobile 계약 정렬과
+  bootstrap/update 및 목록·상세 제품 case를 준비하고, 해당 버전 출시 전에 App presenter·Swagger·generated
+  contract의 두 legacy 필드를 제거한다. 기존 2.5.1 출시와 이번 PR 종료를 후속 작업 완료에 묶지 않는다.
+- 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 지원 소비자가
+  `profile_image_path`와 `detail_profile`을 사용하고 이전 소비자의 업데이트 경로·제품 요청 결과가 검증됐으며,
+  App 공개 응답·Swagger·generated contract의 `profile`·`detail_profile_set` legacy 호환이 0건인 상태.
 
 ## 분리 관리
 
