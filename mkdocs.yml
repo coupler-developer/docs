@@ -136,6 +136,7 @@ nav:
           - 테스트용 개발 데이터 운영 흐름: flows/cross-project/development-test-data-flow.md
           - 개발계 cron 운영 흐름: flows/cross-project/development-cron-operation-flow.md
   - Releases:
+      - 2.5.5 릴리스 실행 기록: releases/v2.5.5.md
       - 2.5.3 릴리스 실행 기록: releases/v2.5.3.md
       - 2.5.2 릴리스 실행 기록: releases/v2.5.2.md
       - 2.5.1 릴리스 실행 기록: releases/v2.5.1.md
