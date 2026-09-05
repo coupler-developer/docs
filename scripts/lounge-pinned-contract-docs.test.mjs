@@ -26,6 +26,7 @@ const retiredContractPatterns = [
     /AdminLoungeSaveRequest\.best/u,
     /pinned\s+AS\s+best/u,
     /lounge-pinned-boundary/u,
+    /`best = pinned`/u,
 ];
 
 function assertPinnedCanonicalCurrentDocs(architecture, policy) {
@@ -37,14 +38,25 @@ function assertPinnedCanonicalCurrentDocs(architecture, policy) {
     assert.match(architecture, /\/admin\/lounge\/pinned/u);
     assert.match(architecture, /AdminLoungePinnedRequest\.pinned/u);
     assert.match(architecture, /AdminLoungeSaveRequest\.pinned/u);
-    assert.match(architecture, /`best = pinned`/u);
+    assert.match(architecture, /Mobile 목록·상세 응답은 canonical `pinned`만 노출/u);
     assert.match(architecture, /2\.5\.0 Mobile bundle/u);
     assert.match(policy, /\/admin\/lounge\/pinned/u);
     assert.match(policy, /\/admin\/lounge\/save`의 `pinned/u);
 }
 
-test("current lounge contract keeps pinned canonical with the Mobile best response", () => {
+test("current lounge contract exposes only canonical pinned after App cutover", () => {
     assertPinnedCanonicalCurrentDocs(loungeArchitecture, pushPolicy);
+});
+
+test("the retired App response alias fixture is rejected", () => {
+    const retiredAliasFixture = loungeArchitecture.replace(
+        "Mobile 목록·상세 응답은 canonical `pinned`만 노출한다.",
+        "Mobile 목록·상세 응답은 `best = pinned`를 노출한다.",
+    );
+
+    assert.throws(() =>
+        assertPinnedCanonicalCurrentDocs(retiredAliasFixture, pushPolicy),
+    );
 });
 
 test("the closest retired route fixture is rejected", () => {

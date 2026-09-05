@@ -151,8 +151,8 @@
 
 ## 20) API 응답 공통 계약 cutover 인덱스 `P1` `M`
 
-- 현상: 현재 source 계약은 수렴했지만 Store/OTA/Admin의 실제 지원 소비자 inventory와 REST·WebSocket·
-  bootstrap·version case가 없다.
+- 현상: App 공개 응답 필드 외에 URL-encoded 등 남은 API 호환 경로에는 제거 범위별 Store/OTA/Admin
+  소비자 inventory와 REST·WebSocket·bootstrap·version case가 아직 필요하다.
 - 영향: source package 정렬이나 강제 업데이트를 하위 호환 증빙으로 오인하거나 후속 제거가 필요한 임시
   경로를 API `No`로 닫을 수 있다.
 - 조치: [API 계약 변경 모바일 릴리스 플로우](../flows/cross-project/api-contract-mobile-release-flow.md)로
@@ -304,35 +304,6 @@
   허용되며 일반 클럽매니저·일반 회원·미인증 요청이 모두 거부되는 회귀 테스트가 통과한다. App의 매니저 쓰기
   route·Swagger·계약·소비 코드가 0건이고 공개 목록·상세 조회 계약은 유지되며, 감사 기록과 API·Admin·Mobile
   적용 품질 게이트를 통과한 상태.
-
-## 35) 라운지 best wire 호환 제거 대기 `P1` `L`
-
-- 현상: DB·Admin·신 Mobile의 canonical 고정글 계약은 `pinned`지만, 기존 2.5.0 Mobile이 소비하는
-  App 라운지 목록·상세 응답에는 `best = pinned` 필드가 함께 남아 있다.
-- 영향: 호환 필드를 제거한 응답을 기존 2.5.0이 직접 받으면 고정글 표시가 사라진다. 공통 시작·복귀 업데이트
-  검사의 NextPush 배포 대상은 2.5.1이므로 해당 수정을 기존 2.5.0에도 적용한 것으로 보지 않는다.
-- 조치: 2026-09-05 출시 책임자 결정에 따라 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
-  [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)의 후보를 재사용해 소비자 계약 pin 정렬,
-  업데이트 경로와 변경된 제품 요청의 결과를 고정하고, 매니저 이미지 호환 제거와 함께 해당 버전 출시 전에 완료한다.
-  이번 2.5.1 릴리스 마감과는 분리하며 기준 증빙은 [출시 기록](../releases/v2.5.4.md)에 보존한다.
-- 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 신규 소비자의
-  `pinned` 동작, 이전 소비자의 업데이트 경로와 제품 요청의 허용 결과 또는 명확한 거부 결과가 검증되고,
-  Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
-  단순 버전 상승이나 모든 구버전 요청 0건을 완료 조건으로 대신하지 않는다.
-
-## 36) App 매니저 이미지 legacy wire 호환 제거 대기 `P1` `L`
-
-- 현상: 현재 운영 API는 canonical `profile_image_path`·`detail_profile`과 함께 기존 2.5.0이 소비하는
-  `profile`·`detail_profile_set.slices[].image_url`을 additive 호환으로 제공한다. 남은 작업은 이 호환 필드의 제거다.
-- 영향: 호환 필드를 제거한 응답을 기존 앱이 직접 받으면 클럽 선택 목록·상세 이미지가 표시되지 않는다.
-  2.5.1 대상 NextPush의 공통 업데이트 검사를 기존 2.5.0 요청 차단 증빙으로 사용하면 같은 혼선이 반복된다.
-- 조치: 라운지 `best`와 동일한 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
-  [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)에서 API·Admin·Mobile 계약 정렬과
-  bootstrap/update 및 목록·상세 제품 case를 준비하고, 해당 버전 출시 전에 App presenter·Swagger·generated
-  contract의 두 legacy 필드를 제거한다. 기존 2.5.1 출시 기록의 마감을 후속 작업 완료에 묶지 않는다.
-- 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 지원 소비자가
-  `profile_image_path`와 `detail_profile`을 사용하고 이전 소비자의 업데이트 경로·제품 요청 결과가 검증됐으며,
-  App 공개 응답·Swagger·generated contract의 `profile`·`detail_profile_set` legacy 호환이 0건인 상태.
 
 ## 분리 관리
 
