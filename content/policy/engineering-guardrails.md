@@ -26,6 +26,7 @@
 | 판정 책임 | 단일 SoT | 이 문서의 역할 |
 | --- | --- | --- |
 | 공통 Fail-closed, 책임 분리, 구조 단순화, 코드 변경 전 예방·영향 제한 통제 baseline, API 계약 하위 호환·cutover, DB append-only migration, Shadow Cutover | 이 문서 | 최종 규칙 |
+| Android R8 호환성의 적용 범위와 구현 원칙 | 이 문서의 `Android R8 호환성` | 최종 규칙 |
 | JSON API 성공/실패 envelope | [API 공통 응답 계약 정책](api-response-contract-policy.md) | 상위 실패 노출 원칙만 유지 |
 | 실패 `ErrorData`와 error taxonomy | [API 에러 계약 정책](api-error-contract-policy.md) | 상위 책임 경계만 유지 |
 | 페이지/use-case 조회 집계와 operation 분리 | [API 조회·동작 설계 정책](api-operation-design-policy.md) | 구조 단순화·책임 분리 상위 원칙만 유지 |
@@ -449,6 +450,19 @@ DB 설계 최종 리뷰에는 아래 판정을 남긴다.
 - Mobile은 구/신 API를 추측하는 fallback을 두지 않는다. 직전 Mobile 계약의 지원은 서버의 명시적 공개
   계약으로 유지하고, 제거 예정 version 경로가 필요하면 `API cutover: Yes`로 추적한다.
 - typography는 `TextStyles`, color는 `Colors`를 단일 SoT로 사용하고 inline token drift를 남기지 않는다.
+
+#### Android R8 호환성
+
+- Android 코드·SDK·네이티브 모듈 및 호출 경로의 추가·변경, AGP/R8·코드 축소·난독화 설정과
+  보존 규칙 변경에 적용한다. 이 경로·의존성·설정을 바꾸지 않는 JS 표시 변경은 제외한다.
+- 동적 조회를 새로 도입할 때는 정적 참조나 생성 코드로 표현할 수 있는지 먼저 확인한다. 리플렉션·JNI·이름
+  비교·직렬화가 필요하면 클래스·멤버뿐 아니라 런타임에 읽는 제네릭·어노테이션·중첩 클래스 정보도 보존한다.
+- SDK가 제공하는 consumer rules와 최종 합성 규칙을 먼저 확인하고, 부족한 동적 참조는 대상·범위를 좁힌
+  앱 보존 규칙으로 보완한다. 추가 규칙에는 어떤 호출 때문에 필요한지 근거를 남긴다.
+- R8 활성화 여부의 단일 기준은 프로젝트의 release 빌드 설정이며, 이 절은 활성화를 강제하지 않는다.
+  비활성화나 광범위한 보존을 선택하면 기능·용량·성능 영향을 근거로 이유를 기록한다. 장애 완화를 위한
+  임시 조치에는 복구 조건·목표 시점·추적 항목을 둔다.
+- 검증 범위와 완료 증빙은 [테스트/CI 전략의 Android R8 검증](testing-strategy.md#android-r8)을 따른다.
 
 #### Mobile 파일 구조와 네이밍
 

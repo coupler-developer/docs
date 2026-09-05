@@ -208,6 +208,19 @@
 - 상호작용 테스트는 `@testing-library/react-native` 사용을 기본으로 한다.
 - 네이티브 모듈(AsyncStorage, Reanimated 등)은 Jest mock/셋업 파일로 분리 구성.
 
+#### Android R8 검증
+
+- [엔지니어링 가드레일의 Android R8 호환성](engineering-guardrails.md#android-r8)에 해당하는 변경은
+  배포 대상과 동일한 R8 설정의 release APK/AAB로 검증한다. Debug 또는 R8을 끈 비교 빌드의 통과로
+  R8을 켠 릴리스의 검증을 대신하지 않는다.
+- 영향받는 동적 참조는 최종 산출물에서 이름·타입·메타데이터 등 실제 호출 계약의 보존 여부를 확인하고,
+  관련 사용자 흐름은 실기기 또는 에뮬레이터의 릴리스 실행 리허설로 검증한다. AGP/R8·공통 규칙 변경처럼
+  영향이 넓으면 앱 시작·로그인과 주요 SDK 사용 흐름까지 검증 범위를 넓힌다.
+- 클래스 수·이름의 변화만으로 기능 손실을 판정하지 않는다. 빌드 성공, 산출물 보존 검사, 실제 기능 실행
+  결과를 구분하고 미실행 항목은 미검증으로 남긴다. Jest mock·Storybook 통과는 기능 실행 증빙을 대체하지 않는다.
+- PR/작업 보고에는 source ref·빌드 설정·산출물 식별자와 검사 대상·실행 명령·결과를 기록한다. 보존 규칙이나
+  최적화 설정을 바꿨다면 같은 기준의 산출물 크기를 비교하고, 성능 개선은 측정한 경우에만 주장한다.
+
 ### docs (MkDocs)
 
 - 러너: 로컬과 GitHub Actions full validation은 `validate:docs-static`의 공통 정적 검증 목록을 사용한다.
