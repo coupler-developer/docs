@@ -314,7 +314,7 @@
 - 조치: 2026-09-05 출시 책임자 결정에 따라 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
   [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)의 후보를 재사용해 소비자 계약 pin 정렬,
   업데이트 경로와 변경된 제품 요청의 결과를 고정하고, 매니저 이미지 호환 제거와 함께 해당 버전 출시 전에 완료한다.
-  이번 2.5.1 PR 종료와는 분리하며 기준 증빙은 [출시 기록 후보 PR #211](https://github.com/coupler-developer/docs/pull/211)에 보존한다.
+  이번 2.5.1 릴리스 마감과는 분리하며 기준 증빙은 [출시 기록](../releases/v2.5.4.md)에 보존한다.
 - 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 신규 소비자의
   `pinned` 동작, 이전 소비자의 업데이트 경로와 제품 요청의 허용 결과 또는 명확한 거부 결과가 검증되고,
   Mobile 공개 응답·Swagger·generated contract의 `best` 호환이 0건인 상태.
@@ -329,7 +329,7 @@
 - 조치: 라운지 `best`와 동일한 **2.5.2 초과 최초 Store 버전의 필수 출시 범위**로 추적한다.
   [API PR #237](https://github.com/coupler-developer/coupler-api/pull/237)에서 API·Admin·Mobile 계약 정렬과
   bootstrap/update 및 목록·상세 제품 case를 준비하고, 해당 버전 출시 전에 App presenter·Swagger·generated
-  contract의 두 legacy 필드를 제거한다. 기존 2.5.1 출시와 이번 PR 종료를 후속 작업 완료에 묶지 않는다.
+  contract의 두 legacy 필드를 제거한다. 기존 2.5.1 출시 기록의 마감을 후속 작업 완료에 묶지 않는다.
 - 완료: [엔지니어링 가드레일](../policy/engineering-guardrails.md)의 API cutover 기준에 따라 지원 소비자가
   `profile_image_path`와 `detail_profile`을 사용하고 이전 소비자의 업데이트 경로·제품 요청 결과가 검증됐으며,
   App 공개 응답·Swagger·generated contract의 `profile`·`detail_profile_set` legacy 호환이 0건인 상태.
