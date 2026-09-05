@@ -16,6 +16,15 @@
 - 긴 상세 프로필 이미지 버전과 조각
 - 이미지 변환 방식은 [업로드/미디어 시스템](upload-media-system.md)을 참고한다.
 
+## App 공개 프로필 응답
+
+- `/app/manager/all`의 공개 썸네일은 `profile_image_path`를 사용하며 `profile` alias를 제공하지 않는다.
+- `/app/manager/detail/:id`는 `detail_profile`의 `image`·`url`·`none` variant를 제공한다.
+  이미지 조각은 `slices[].image_path`·`width`·`height`로 표현하며 `detail_profile_set`은 App 응답에 없다.
+- Admin 편집 API와 내부 이미지 버전·조각 저장 구조는 App 응답에서 분리한다. App 호환 필드 제거는 저장
+  구조 변경이나 Admin 동명 필드 제거가 아니다.
+- 공개 응답 전환의 소비자·운영 증빙은 [API cutover 릴리스 기록](../releases/v2.5.5.md)에 보존한다.
+
 ## 논리 데이터 모델
 
 - 도메인 ID: `club-manager`
